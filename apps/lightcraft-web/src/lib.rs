@@ -18,6 +18,9 @@
 //! photos in, receives what would be downloaded and hears about unsaved changes. A page can also
 //! host LightCraft in its own document, no iframe: `data-host="page"` on the canvas opts in, and
 //! the same messages travel as DOM `CustomEvent`s on the canvas.
+//!
+//! Evora: `?host=evora` makes the page the engine of Evora's Revela (the Evora host protocol with
+//! the parent page `evora-host.json` admits; see `ehp`).
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -35,6 +38,8 @@ pub mod wire;
 
 #[cfg(target_arch = "wasm32")]
 mod backend;
+#[cfg(target_arch = "wasm32")]
+mod ehp;
 #[cfg(target_arch = "wasm32")]
 mod safety;
 #[cfg(target_arch = "wasm32")]
