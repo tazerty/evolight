@@ -69,7 +69,7 @@ pub(crate) fn request_repaint() {
     });
 }
 
-/// URL options (`?bench&store=idb&workers=2&reset&host=parent`).
+/// URL options (`?bench&store=idb&workers=2&reset&host=parent&lang=fr`).
 struct Options {
     bench: bool,
     /// "opfs" (default: OPFS, falling back to IndexedDB), "idb" or "memory".
@@ -78,6 +78,8 @@ struct Options {
     reset: bool,
     /// The raw query string, for the host mode ([`crate::host::transport_for`]).
     query: String,
+    /// Evora (E3): the UI language the host imposes, as the host names it (`fr`, `zh-Hans`, `pt`…).
+    lang: Option<String>,
 }
 
 impl Options {
@@ -102,8 +104,22 @@ impl Options {
             workers: get("workers").and_then(|v| v.parse().ok()).map(|n: usize| n.min(crate::workers::MAX_WORKERS)),
             reset: get("reset").is_some(),
             query: q,
+            lang: get("lang").filter(|v| !v.is_empty() && v.len() <= 35),
         }
     }
+}
+
+/// Evora (E3): the UI language for the host's language tag. A language this build ships is used
+/// (`zh-Hans` and `zh-CN` give 简体中文, `fr` gives Français…). Bare `pt` (and any Portuguese other
+/// than an explicit `pt-BR`) is not mapped to a variant while D-23 is open; it shows English, like
+/// every language without a catalog here (ar, hi, id, it, ko, tr): the host's shell says so.
+fn host_language(tag: &str) -> lightcraft_ui_egui::i18n::Locale {
+    use lightcraft_ui_egui::i18n::Locale;
+    let tag = tag.trim().replace('_', "-").to_ascii_lowercase();
+    if tag == "pt" || (tag.starts_with("pt-") && tag != "pt-br") {
+        return Locale::En;
+    }
+    Locale::parse_tag(&tag).unwrap_or(Locale::En)
 }
 
 /// Store a picked/dropped file (bytes into browser storage, then queue its import).
@@ -607,6 +623,11 @@ impl WebApp {
             app.ui = ui;
         }
         app.ui = app.ui.sanitized();
+        // Evora (E3): the host's language wins over the one saved in this browser.
+        if let Some(tag) = opts.lang.as_deref() {
+            app.ui.language = host_language(tag);
+            log::info!("lightcraft: UI language {} imposed by the host (lang={tag})", app.ui.language.code());
+        }
         app.library_problem = problem;
         let n = opts.workers.unwrap_or_else(|| {
             let cores = window().map_or(1, |w| w.navigator().hardware_concurrency() as usize);
@@ -832,6 +853,7 @@ impl WebApp {
         let (alive, ready, remote, inline) = self.workers.as_ref().map_or((0, 0, 0, 0), Workers::stats);
         let (orig_n, orig_bytes) = self.originals.usage();
         json!({
+            "language": self.app.ui.language,
             "storage": self.backend.as_ref().map_or("memory", |b| b.kind()),
             "library": self.lib_dir,
             "dirty": self.files.is_dirty(),
