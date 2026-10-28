@@ -388,7 +388,10 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context) {
     if keyboard_owned(app, ctx) || app.recording_shortcut.is_some() || app.ui.name_edit.is_some() {
         return;
     }
-    let (mut fire, aliased, h_press) = pressed_commands(app, ctx);
+    let (mut fire, mut aliased, h_press) = pressed_commands(app, ctx);
+    // Evora (EVORA-REV-33, L5-REV-A): what a host build masks does nothing at the keyboard either
+    fire.retain(|f| !crate::menubar::host_masked(f));
+    aliased.retain(|(id, _)| !crate::menubar::host_masked(id));
     for (id, params) in aliased {
         fire_alias(app, ctx, id, params);
     }
