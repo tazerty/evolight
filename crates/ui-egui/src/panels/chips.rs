@@ -3,10 +3,10 @@
 //! how many of the source's photos match, so an empty grid never looks like an empty folder.
 
 use egui::{Rect, Sense, Stroke, StrokeKind, pos2, vec2};
-use lightcraft_engine::FilterChip;
+use evolight_engine::FilterChip;
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::theme::Tokens;
 use crate::widgets::register;
 
@@ -30,7 +30,7 @@ fn chip_width(ui: &egui::Ui, label: &str, font: egui::FontId) -> f32 {
 }
 
 /// Localise generated chip labels without rewriting search text or metadata values.
-pub(crate) fn display_label(chip: &FilterChip, filter: &lightcraft_catalog::Filter, catalog: &lightcraft_catalog::Catalog) -> String {
+pub(crate) fn display_label(chip: &FilterChip, filter: &evolight_catalog::Filter, catalog: &evolight_catalog::Catalog) -> String {
     use crate::i18n::{date_group_label, rules_label, tr};
     if crate::i18n::language() == crate::i18n::Locale::En {
         return chip.label.clone();
@@ -42,8 +42,8 @@ pub(crate) fn display_label(chip: &FilterChip, filter: &lightcraft_catalog::Filt
     }
     if chip.clear.get("label").is_some() {
         let shown = filter.labels_shown().unwrap_or_default();
-        let name = |label: &lightcraft_catalog::ColorLabel| crate::i18n::color_label(catalog, *label);
-        let or = |labels: &[lightcraft_catalog::ColorLabel]| labels.iter().map(name).collect::<Vec<_>>().join(&format!(" {} ", tr("or")));
+        let name = |label: &evolight_catalog::ColorLabel| crate::i18n::color_label(catalog, *label);
+        let or = |labels: &[evolight_catalog::ColorLabel]| labels.iter().map(name).collect::<Vec<_>>().join(&format!(" {} ", tr("or")));
         let names = if shown.is_empty() {
             let plural = if filter.labels.len() > 1 { format!("({})", or(&filter.labels)) } else { or(&filter.labels) };
             format!("{} {} {plural}", filter.label.as_ref().map(name).unwrap_or_default(), tr("and"))
@@ -82,7 +82,7 @@ pub(crate) fn display_label(chip: &FilterChip, filter: &lightcraft_catalog::Filt
 }
 
 /// Draws the strip; does nothing without chips.
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, chips: &[FilterChip]) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, chips: &[FilterChip]) {
     if chips.is_empty() {
         return;
     }

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{Dialog, LightroomImport};
 
 /// Where `file.importLightroom {into}` puts the catalog.
@@ -84,17 +84,17 @@ pub fn decide(setting: LightroomImport, on_disk: bool, photos: usize, into: Opti
 }
 
 /// The photos in the open library (not those in Recently Deleted or browsed under Local).
-fn library_photos(app: &LightcraftApp) -> usize {
+fn library_photos(app: &EvoLightApp) -> usize {
     app.session.catalog.photos().filter(|p| p.in_library()).count()
 }
 
 /// The open library's folder, when it is saved on disk.
-fn library_dir(app: &LightcraftApp) -> Option<PathBuf> {
+fn library_dir(app: &EvoLightApp) -> Option<PathBuf> {
     app.session.library.as_ref().filter(|l| l.on_disk).map(|l| l.dir.clone())
 }
 
 /// Where a new library goes by default: next to the open one (its parent folder).
-pub fn default_location(app: &LightcraftApp) -> Option<PathBuf> {
+pub fn default_location(app: &EvoLightApp) -> Option<PathBuf> {
     library_dir(app).and_then(|d| d.parent().map(Path::to_path_buf))
 }
 
@@ -111,7 +111,7 @@ pub fn default_name(catalog: &Path, location: Option<&Path>) -> String {
 
 /// Refuse while a Lightroom catalog task or another import runs (as the import itself would),
 /// before a window asks a question whose answer couldn't be carried out.
-fn busy(app: &LightcraftApp) -> Result<(), String> {
+fn busy(app: &EvoLightApp) -> Result<(), String> {
     if crate::lightroom_import::is_running(app) {
         return Err("a Lightroom catalog task is already running; wait for it to finish".into());
     }
@@ -125,7 +125,7 @@ fn busy(app: &LightcraftApp) -> Result<(), String> {
 /// ask, as [`decide`] says. Returns the import's start (`{running, kind, path}`), with
 /// `library: {path, name, photos}` when a new library was made, or `{asking: true, path, into}`
 /// while the window asks (`into`: the choice it opens with).
-pub fn import(app: &mut LightcraftApp, path: &str, req: &Request) -> Result<Value, String> {
+pub fn import(app: &mut EvoLightApp, path: &str, req: &Request) -> Result<Value, String> {
     // the browser build can't import a catalog at all: the import says so (and no library is made)
     if cfg!(target_arch = "wasm32") {
         return app.run("library.importLightroom", json!({"path": path}));
@@ -159,7 +159,7 @@ pub fn import(app: &mut LightcraftApp, path: &str, req: &Request) -> Result<Valu
 /// Make the new library (`app.newLibrary {path: location, name}`: its rules, its errors), open it
 /// and import the catalog there. The catalog is checked first, so a mistyped path doesn't leave an
 /// empty library behind.
-fn into_new_library(app: &mut LightcraftApp, path: &str, req: &Request) -> Result<Value, String> {
+fn into_new_library(app: &mut EvoLightApp, path: &str, req: &Request) -> Result<Value, String> {
     busy(app)?;
     if !Path::new(path).is_file() {
         return Err(format!("{path}: there is no Lightroom catalog file here"));
@@ -190,7 +190,7 @@ fn params(catalog: &str, new_library: bool, name: &str, location: &str) -> Value
 /// started (it only applies to merging). Another library opened while the window was up (by an
 /// agent, the control channel) makes the window stale for both choices: nothing is merged into
 /// it, and no new library is made from defaults that described the library it replaced.
-pub fn confirm(app: &mut LightcraftApp, dialog: &Dialog) -> Result<Value, String> {
+pub fn confirm(app: &mut EvoLightApp, dialog: &Dialog) -> Result<Value, String> {
     let Dialog::LightroomDestination { catalog, new_library, name, location, dont_ask, generation, .. } = dialog else {
         return Err("not the Lightroom catalog destination window".into());
     };
@@ -206,7 +206,7 @@ pub fn confirm(app: &mut LightcraftApp, dialog: &Dialog) -> Result<Value, String
 
 /// After a failed confirm the window stays open to be corrected (a folder that isn't empty, a
 /// name a folder can't have), unless the library it named has gone.
-pub fn keeps_open_on_error(app: &LightcraftApp, dialog: &Dialog) -> bool {
+pub fn keeps_open_on_error(app: &EvoLightApp, dialog: &Dialog) -> bool {
     matches!(dialog, Dialog::LightroomDestination { generation, .. } if *generation == app.session.library_generation())
 }
 
@@ -219,7 +219,7 @@ pub fn ok_label(dialog: &Dialog) -> &'static str {
 }
 
 /// The window's body: the two choices, the new library's name and location, and "Don't ask again".
-pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, dialog: &mut Dialog) {
+pub fn body(app: &mut EvoLightApp, ui: &mut egui::Ui, dialog: &mut Dialog) {
     let Dialog::LightroomDestination { catalog, library, photos, new_library, name, location, dont_ask, .. } = dialog else { return };
     let t = crate::theme::Tokens::get(ui.ctx());
     let tr = crate::i18n::tr;
@@ -292,7 +292,7 @@ pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, dialog: &mut Dialog) {
                 *location = d;
             }
         });
-        note(ui, tr("LightCraft opens the new library, then imports the catalog into it. Its folder must be new or empty."));
+        note(ui, tr("EvoLight opens the new library, then imports the catalog into it. Its folder must be new or empty."));
     });
     ui.add_space(4.0);
     // (it only speaks of merging: unticked and greyed out while a new library is chosen)

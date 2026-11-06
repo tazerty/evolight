@@ -6,9 +6,9 @@
 //! codec/viewer's resampler. Averaging before nonlinear tone mapping cannot in
 //! general equal averaging afterwards, especially on unresolved bright texture.
 
-use lightcraft_develop::DevelopSettings;
-use lightcraft_pipeline::{RenderRequest, SourceInfo, local, render};
-use lightcraft_raster::{
+use evolight_develop::DevelopSettings;
+use evolight_pipeline::{RenderRequest, SourceInfo, local, render};
+use evolight_raster::{
     Rgb32f, Rgba8,
     resample::{Filter, resize},
 };

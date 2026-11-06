@@ -8,7 +8,7 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -37,8 +37,8 @@ impl Drop for Scratch {
 fn write_png(path: &str, seed: u8) {
     let (w, h) = (24usize, 16usize);
     let data: Vec<[u8; 4]> = (0..w * h).map(|i| [(i % w * 9) as u8, (i / w * 13) as u8, seed, 255]).collect();
-    let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
-    let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: w, height: h, data };
+    let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
 }
@@ -47,8 +47,8 @@ fn write_png(path: &str, seed: u8) {
 fn app(dir: &Scratch) -> Headless {
     write_png(&dir.path("trip/a.png"), 1);
     write_png(&dir.path("trip/b.png"), 2);
-    let session = lightcraft_engine::Session::new().with_fs();
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 900.0], 1.0);
+    let session = evolight_engine::Session::new().with_fs();
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 900.0], 1.0);
     for _ in 0..4 {
         h.step();
     }
@@ -91,8 +91,8 @@ fn hovering_photos_says_they_will_be_reviewed_and_lets_go_when_they_leave() {
 fn hovering_presets_says_they_will_be_imported_as_presets() {
     let dir = Scratch::new("hover-presets");
     let mut h = app(&dir);
-    std::fs::write(dir.path("warm.lcpreset"), "{}").unwrap();
-    drop_files(&mut h, &[dir.path("warm.lcpreset")], true);
+    std::fs::write(dir.path("warm.evolightpreset"), "{}").unwrap();
+    drop_files(&mut h, &[dir.path("warm.evolightpreset")], true);
     assert!(overlay(&h));
     assert!(said(&h, "1 preset"), "{:?}", h.painted_text());
     assert!(!said(&h, "review"), "presets are not reviewed");
@@ -314,8 +314,8 @@ fn photos_dropped_with_no_library_open_wait_for_one() {
     let dir = Scratch::new("no-library");
     let mut h = app(&dir);
     h.app.library_problem = Some(crate::panels::library_problem::LibraryProblem::new(dir.path("Gone"), "not found"));
-    std::fs::write(dir.path("warm.lcpreset"), "{}").unwrap();
-    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.lcpreset")], true);
+    std::fs::write(dir.path("warm.evolightpreset"), "{}").unwrap();
+    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.evolightpreset")], true);
     assert!(said(&h, "once a library is open"), "{:?}", h.painted_text());
     assert!(said(&h, "drop the presets again") && !said(&h, "1 preset"), "{:?}", h.painted_text());
     drop_files(&mut h, &[], true);
@@ -325,7 +325,7 @@ fn photos_dropped_with_no_library_open_wait_for_one() {
     assert_eq!(photos(&h), 0);
     // a preset belongs to a library: refused, not imported into the session the library replaces
     h.app.ui.toast = None;
-    drop_files(&mut h, &[dir.path("warm.lcpreset")], false);
+    drop_files(&mut h, &[dir.path("warm.evolightpreset")], false);
     let toast = h.app.ui.toast.as_ref().map(|t| t.0.clone()).unwrap_or_default();
     assert!(toast.contains("drop the presets again"), "{toast}");
 }

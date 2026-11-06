@@ -1,6 +1,6 @@
 //! A rating, flag or label that takes the active photo out of the view (the filter bar, Picks) goes on from its place:
 //! the photo that took it, not the view's first photo (#2312).
-use lightcraft_catalog::{ColorLabel, Flag, Op, Photo, PhotoId, Source};
+use evolight_catalog::{ColorLabel, Flag, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
 use crate::{Result, Selection, Session};
@@ -11,7 +11,7 @@ fn one_star() -> Result<Session> {
     for id in 1..=100 {
         let mut photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-rated-out/{id:03}.jpg") },
+            Source::File { path: format!("/evolight-rated-out/{id:03}.jpg") },
             &format!("{id:03}.jpg"),
             "JPEG",
             40,

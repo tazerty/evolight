@@ -10,18 +10,18 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use lightcraft_catalog::Photo;
-use lightcraft_color::transfer::linear_to_srgb;
-use lightcraft_pipeline::SourceInfo;
-use lightcraft_pipeline::masks::{MatteKind, Mattes};
-use lightcraft_pipeline::tone::CameraTone;
-use lightcraft_raster::{Image, Rgb32f, Rgba8};
+use evolight_catalog::Photo;
+use evolight_color::transfer::linear_to_srgb;
+use evolight_pipeline::SourceInfo;
+use evolight_pipeline::masks::{MatteKind, Mattes};
+use evolight_pipeline::tone::CameraTone;
+use evolight_raster::{Image, Rgb32f, Rgba8};
 
 const MAGIC: &[u8] = b"LCSP1\n";
 
 /// The proxy's file name for a photo (by its content, so copies share one).
 pub fn file_name(p: &Photo) -> String {
-    let h = lightcraft_preview::Hasher128::new().str(&crate::media::content_key(p)).finish();
+    let h = evolight_preview::Hasher128::new().str(&crate::media::content_key(p)).finish();
     format!("{:032x}.lcsp", h.0)
 }
 
@@ -94,9 +94,9 @@ struct SmartFacts {
     as_shot_tint: f64,
     relative_wb: bool,
     legacy_relative_wb: bool,
-    lens: Option<lightcraft_develop::EmbeddedLens>,
-    camera_color: Option<lightcraft_pipeline::CameraColor>,
-    local_tone: Option<lightcraft_pipeline::local_tone::LocalTone>,
+    lens: Option<evolight_develop::EmbeddedLens>,
+    camera_color: Option<evolight_pipeline::CameraColor>,
+    local_tone: Option<evolight_pipeline::local_tone::LocalTone>,
     /// The semantic mattes whose bytes follow the facts, in this order.
     #[serde(default)]
     mattes: Vec<StoredMatte>,
@@ -160,10 +160,10 @@ pub fn encode(img: &Rgb32f, info: Option<&SourceInfo>) -> Result<Vec<u8>, String
         })
         .collect();
     let rgba = Rgba8 { width: img.width, height: img.height, data };
-    let jpg = lightcraft_codecs::encode_jpeg(
-        &lightcraft_codecs::EncodeImage::rgba8(&rgba),
+    let jpg = evolight_codecs::encode_jpeg(
+        &evolight_codecs::EncodeImage::rgba8(&rgba),
         JPEG_QUALITY,
-        lightcraft_codecs::ChromaSubsampling::S444,
+        evolight_codecs::ChromaSubsampling::S444,
         &Default::default(),
     )
     .map_err(|e| e.to_string())?;
@@ -231,7 +231,7 @@ pub fn decode(bytes: &[u8]) -> Result<(Rgb32f, Option<CameraTone>, Option<Source
     if end <= start {
         return Err("bad smart preview".into());
     }
-    let d = lightcraft_codecs::decode(bytes.get(start..end).ok_or("bad smart preview")?, Default::default()).map_err(|e| e.to_string())?;
+    let d = evolight_codecs::decode(bytes.get(start..end).ok_or("bad smart preview")?, Default::default()).map_err(|e| e.to_string())?;
     // the decoder undoes the sRGB encoding; the values are the source's own primaries
     let mut img = d.image;
     img.data.iter_mut().for_each(|c| *c = c.map(|v| v * scale));
@@ -267,7 +267,7 @@ pub fn check_writable(dir: &Path) -> Result<(), String> {
         }
         std::fs::create_dir(dir).map_err(|e| format!("can't create {}: {e}", dir.display()))?;
     }
-    let probe = dir.join(format!(".lightcraft-write-test-{}", std::process::id()));
+    let probe = dir.join(format!(".evolight-write-test-{}", std::process::id()));
     std::fs::write(&probe, b"x").map_err(|e| format!("{} is not writable (is the drive full or read-only?): {e}", dir.display()))?;
     let _ = std::fs::remove_file(&probe);
     Ok(())
@@ -363,7 +363,7 @@ pub fn migrate(from: &Path, to: &Path, what: Existing) -> (usize, Vec<String>) {
                         // across drives: copied atomically (never a partial proxy at the new place)
                         std::fs::rename(&src, &dst).or_else(|_| {
                             std::fs::read(&src)
-                                .and_then(|b| lightcraft_catalog::safe_file::write_atomic(&dst, &b))
+                                .and_then(|b| evolight_catalog::safe_file::write_atomic(&dst, &b))
                                 .and_then(|()| std::fs::remove_file(&src))
                         })
                     }
@@ -427,7 +427,7 @@ fn header_encode_version(head: &serde_json::Value) -> u64 {
 /// Whether the complete proxy at `path` is out of date for a photo and must be rebuilt: written by
 /// an older encoding of its own pixels ([`ENCODE_VERSION`], i.e. a lower JPEG quality) — this
 /// reaches every proxy — or, when the photo takes the per-file camera look (`look`,
-/// [`lightcraft_catalog::Photo::fitted_look`]), by an older camera-look fit than this build's (so
+/// [`evolight_catalog::Photo::fitted_look`]), by an older camera-look fit than this build's (so
 /// its stored curve, and the colour baked into its pixels, are out of date; the fit only reaches
 /// those raws, so a JPEG's or DNG's proxy is never stale for it). A proxy from a newer build is
 /// left alone (rebuilding it here would only undo that build's work), as is one that can't be
@@ -483,7 +483,7 @@ pub fn look_checked(dir: &Path) -> bool {
 pub fn mark_look_checked(dir: &Path) -> Result<(), String> {
     let path = dir.join(LOOK_MARKER);
     let text = format!("{} {}\n", crate::camera_preview::LOOK_VERSION, ENCODE_VERSION);
-    lightcraft_catalog::safe_file::write_atomic(&path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))
+    evolight_catalog::safe_file::write_atomic(&path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// Load the proxy at `path`.
@@ -570,7 +570,7 @@ mod tests {
         let (a, b) = (base.join("a"), base.join("b"));
         std::fs::create_dir_all(&a).unwrap();
         std::fs::create_dir_all(&b).unwrap();
-        let img = lightcraft_scenes::demo_library()[0].render(64, 40);
+        let img = evolight_scenes::demo_library()[0].render(64, 40);
         let good = encode(&img, None).unwrap();
         std::fs::write(a.join("1.lcsp"), &good).unwrap();
         assert!(is_valid(&a.join("1.lcsp")));
@@ -592,8 +592,8 @@ mod tests {
             [x, 0.95 * (1.0 - (-2.7 * x).exp())]
         }))
         .unwrap();
-        let img = lightcraft_scenes::demo_library()[0].render(64, 40);
-        let info = lightcraft_pipeline::SourceInfo { raw: true, camera_tone: Some(tone), ..Default::default() };
+        let img = evolight_scenes::demo_library()[0].render(64, 40);
+        let info = evolight_pipeline::SourceInfo { raw: true, camera_tone: Some(tone), ..Default::default() };
         let bytes = encode(&img, Some(&info)).unwrap();
         assert_eq!(decode(&bytes).unwrap().1, Some(tone));
         let dir = temp("tone");
@@ -603,7 +603,7 @@ mod tests {
         assert!(is_valid(&path));
         let loaded = load(&path).unwrap();
         assert_eq!(loaded.camera_tone, Some(tone));
-        let header = lightcraft_pipeline::SourceInfo { raw: true, ..Default::default() };
+        let header = evolight_pipeline::SourceInfo { raw: true, ..Default::default() };
         assert_eq!(loaded.info_or(header).camera_tone, Some(tone));
         // a hostile curve (reversing knots) is ignored, not trusted
         let nl = MAGIC.len() + bytes[MAGIC.len()..].iter().position(|b| *b == b'\n').unwrap();
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn facts_and_mattes_travel_with_the_proxy() {
-        let img = lightcraft_scenes::demo_library()[0].render(32, 20);
+        let img = evolight_scenes::demo_library()[0].render(32, 20);
         let mut mattes = Mattes::default();
         mattes.push(MatteKind::Sky, Image { width: 16, height: 10, data: vec![255; 160] });
         let info = SourceInfo {
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     fn roundtrip_keeps_the_picture() {
-        let img = lightcraft_scenes::demo_library()[0].render(160, 100);
+        let img = evolight_scenes::demo_library()[0].render(160, 100);
         let (back, tone, _) = decode(&encode(&img, None).unwrap()).unwrap();
         assert_eq!((back.width, back.height), (img.width, img.height));
         assert!(tone.is_none());
@@ -677,7 +677,7 @@ mod tests {
     /// enters what is measured. Built from a rendered demo scene so the dimensions and the flat
     /// row-major layout are the real ones.
     fn smooth_scene(w: usize, h: usize) -> Rgb32f {
-        let mut img = lightcraft_scenes::demo_library()[0].render(w, h);
+        let mut img = evolight_scenes::demo_library()[0].render(w, h);
         let (w, h) = (img.width.max(1), img.height.max(1));
         for (i, px) in img.data.iter_mut().enumerate() {
             let u = (i % w) as f32 / (w - 1).max(1) as f32;
@@ -744,10 +744,10 @@ mod tests {
             })
             .collect();
         let rgba = Rgba8 { width: img.width, height: img.height, data };
-        let jpg = lightcraft_codecs::encode_jpeg(
-            &lightcraft_codecs::EncodeImage::rgba8(&rgba),
+        let jpg = evolight_codecs::encode_jpeg(
+            &evolight_codecs::EncodeImage::rgba8(&rgba),
             92,
-            lightcraft_codecs::ChromaSubsampling::S444,
+            evolight_codecs::ChromaSubsampling::S444,
             &Default::default(),
         )
         .unwrap();
@@ -828,7 +828,7 @@ mod tests {
     #[test]
     fn a_proxy_from_an_older_encode_is_stale() {
         let dir = temp("encode-version");
-        let img = lightcraft_scenes::demo_library()[0].render(64, 40);
+        let img = evolight_scenes::demo_library()[0].render(64, 40);
         let bytes = encode(&img, None).unwrap();
         let path = dir.join("p.lcsp");
         std::fs::write(&path, &bytes).unwrap();

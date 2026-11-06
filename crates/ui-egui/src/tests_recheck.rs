@@ -3,10 +3,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use lightcraft_catalog::{Op, PhotoId};
+use evolight_catalog::{Op, PhotoId};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 struct Dir(PathBuf);
 
@@ -18,14 +18,14 @@ impl Drop for Dir {
 
 /// An app on a library at `dir/lib` with one photo whose preview-only flag an older version set.
 /// Its file (a PNG) reads fine, as a raw a newer decoder handles would.
-fn app_with_stale_photo(dir: &Path) -> (LightcraftApp, PhotoId) {
+fn app_with_stale_photo(dir: &Path) -> (EvoLightApp, PhotoId) {
     let _ = std::fs::remove_dir_all(dir);
     std::fs::create_dir_all(dir.join("files")).unwrap();
-    let img = lightcraft_raster::Rgba8::from_fn(16, 12, |x, y| [(x * 9) as u8, (y * 11) as u8, 50, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
+    let img = evolight_raster::Rgba8::from_fn(16, 12, |x, y| [(x * 9) as u8, (y * 11) as u8, 50, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
     let file = dir.join("files/one.png");
-    std::fs::write(&file, lightcraft_engine::export::encode_image(&img, &o).unwrap()).unwrap();
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    std::fs::write(&file, evolight_engine::export::encode_image(&img, &o).unwrap()).unwrap();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.join("lib"), false).unwrap();
     let r = session.execute("library.import", &json!({"paths": [file.to_string_lossy()]})).unwrap();
     let id = PhotoId(r["imported"][0].as_u64().unwrap());
@@ -42,7 +42,7 @@ fn app_with_stale_photo(dir: &Path) -> (LightcraftApp, PhotoId) {
             preview_checked: "0.5.0".into(),
         })
         .unwrap();
-    (LightcraftApp::new(session, Default::default()), id)
+    (EvoLightApp::new(session, Default::default()), id)
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn reload_of_a_selection_runs_in_the_background() {
     let dir = Dir(std::env::temp_dir().join(format!("lc-ui-reload-sel-{}", std::process::id())));
     let (mut app, id) = app_with_stale_photo(&dir.0);
     let ctx = egui::Context::default();
-    app.session.selection = lightcraft_engine::Selection { ids: vec![id], active: Some(id) };
+    app.session.selection = evolight_engine::Selection { ids: vec![id], active: Some(id) };
     let r = app.run("photo.reload", json!({})).unwrap();
     assert_eq!(r, json!({"background": true, "count": 1}));
     assert!(app.tasks.is_running(crate::reload::LABEL));
@@ -122,7 +122,7 @@ fn reload_of_a_selection_runs_in_the_background() {
     let p = app.session.catalog.photo(id).unwrap().clone();
     app.session
         .catalog
-        .apply(lightcraft_catalog::Op::SetContent {
+        .apply(evolight_catalog::Op::SetContent {
             id,
             width: p.width,
             height: p.height,
@@ -132,11 +132,11 @@ fn reload_of_a_selection_runs_in_the_background() {
             preview_checked: "0.5.0".into(),
         })
         .unwrap();
-    let items = lightcraft_engine::cmd::reload::plan(&mut app.session, &json!({"ids": [id.0]})).unwrap();
-    let probe = lightcraft_engine::cmd::reload::file_probe(&app.session);
+    let items = evolight_engine::cmd::reload::plan(&mut app.session, &json!({"ids": [id.0]})).unwrap();
+    let probe = evolight_engine::cmd::reload::file_probe(&app.session);
     let cancelled = std::sync::atomic::AtomicBool::new(true);
-    let results = lightcraft_engine::cmd::reload::probe(probe.as_ref(), &items, &cancelled, &|_| {});
-    assert!(lightcraft_engine::cmd::reload::apply(&mut app.session, items, results).unwrap().is_empty());
+    let results = evolight_engine::cmd::reload::probe(probe.as_ref(), &items, &cancelled, &|_| {});
+    assert!(evolight_engine::cmd::reload::apply(&mut app.session, items, results).unwrap().is_empty());
     assert!(app.session.catalog.photo(id).unwrap().preview_only.is_some());
 }
 
@@ -145,7 +145,7 @@ fn reload_of_a_selection_runs_in_the_background() {
 fn reload_with_nothing_selected_starts_nothing() {
     let dir = Dir(std::env::temp_dir().join(format!("lc-ui-reload-none-{}", std::process::id())));
     let (mut app, _) = app_with_stale_photo(&dir.0);
-    app.session.selection = lightcraft_engine::Selection::default();
+    app.session.selection = evolight_engine::Selection::default();
     let _ = app.run("photo.reload", json!({}));
     assert!(app.tasks.is_empty());
     assert!(app.session.activity.list().iter().all(|r| r.kind != "reload"));
@@ -182,9 +182,9 @@ fn an_older_reload_does_not_replace_a_newer_one() {
     drop(state);
 
     // an external editor saves new pixels and the user reloads again
-    let image = lightcraft_raster::Rgba8::from_fn(40, 20, |x, y| [(x * 3) as u8, (y * 5) as u8, 90, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
-    std::fs::write(dir.0.join("files/one.png"), lightcraft_engine::export::encode_image(&image, &o).unwrap()).unwrap();
+    let image = evolight_raster::Rgba8::from_fn(40, 20, |x, y| [(x * 3) as u8, (y * 5) as u8, 90, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
+    std::fs::write(dir.0.join("files/one.png"), evolight_engine::export::encode_image(&image, &o).unwrap()).unwrap();
     app.run("photo.reload", json!({"ids": [id.0]})).unwrap();
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while app.session.catalog.photo(id).is_some_and(|p| (p.width, p.height) != (40, 20)) {

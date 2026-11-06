@@ -4,13 +4,13 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_engine::slideshow::Item;
+use evolight_catalog::PhotoId;
+use evolight_engine::slideshow::Item;
 use serde_json::json;
 
 use crate::headless::Headless;
 use crate::render::Slot;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -21,7 +21,7 @@ fn grid() -> Headless {
 
 fn grid_sized(size: [f32; 2]) -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = Headless::new(app, size, 1.0);
     h.step();
     h
@@ -33,7 +33,7 @@ fn run(h: &mut Headless, command: &str, params: serde_json::Value) -> serde_json
     r["result"].clone()
 }
 
-fn play(h: &Headless) -> &lightcraft_engine::slideshow::Playback {
+fn play(h: &Headless) -> &evolight_engine::slideshow::Playback {
     &h.app.ui.slideshow.as_ref().expect("a slideshow is playing").play
 }
 
@@ -500,7 +500,7 @@ fn settings_shows_the_overlays_and_the_preview_follows_them() {
     let r = h.request("ui.clickWidget", json!({"id": "button:slideshowText0Anchor-0"}), T);
     assert_eq!(r["ok"], true, "{r}");
     h.step();
-    assert_eq!(h.app.session.slide_overlays.texts[0].place.anchor, lightcraft_engine::export::Anchor::TopLeft, "picked in the grid");
+    assert_eq!(h.app.session.slide_overlays.texts[0].place.anchor, evolight_engine::export::Anchor::TopLeft, "picked in the grid");
     // removed from its row the text overlay from its row
     reveal(&mut h, "button:slideshowText0Remove");
     let r = h.request("ui.clickWidget", json!({"id": "button:slideshowText0Remove"}), T);
@@ -658,7 +658,7 @@ fn settings_shows_the_titles_and_the_preview_shows_a_title_screen() {
         assert!(has(&h, w), "{w}");
     }
     // the preview switched to the intro screen
-    assert_eq!(crate::panels::slide_titles::preview_shows(&h.view.ctx), Some(lightcraft_engine::slideshow::Title::Intro));
+    assert_eq!(crate::panels::slide_titles::preview_shows(&h.view.ctx), Some(evolight_engine::slideshow::Title::Intro));
     run(&mut h, "slideshow.titles", json!({"intro": {"color": "#ff8000", "content": "none"}}));
     assert!(h.step_until(SETTLE, |h| h.app.renderer.textures.get(&Slot::SlidePreview).is_some_and(|t| t.photo == PhotoId(0))));
     reveal(&mut h, "slideshow:preview");
@@ -672,7 +672,7 @@ fn settings_shows_the_titles_and_the_preview_shows_a_title_screen() {
     let r = h.request("ui.clickWidget", json!({"id": "button:settingsSlideshowIntroContent-1"}), T);
     assert_eq!(r["ok"], true, "{r}");
     h.step();
-    assert_eq!(h.app.session.slide_titles.intro.content, lightcraft_engine::slide_title::TitleContent::Text);
+    assert_eq!(h.app.session.slide_titles.intro.content, evolight_engine::slide_title::TitleContent::Text);
     h.step();
     assert!(has(&h, "field:slideshowIntroText"));
     // back to the photo's slide
@@ -688,7 +688,7 @@ fn settings_shows_the_titles_and_the_preview_shows_a_title_screen() {
 /// renamed and deleted from the browser.
 #[test]
 fn template_browser_previews_on_hover_applies_and_manages_user_templates() {
-    use lightcraft_engine::slide_template::SlideLook;
+    use evolight_engine::slide_template::SlideLook;
     let mut h = grid();
     let dir = std::env::temp_dir().join(format!("lc-ui-sstpl-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

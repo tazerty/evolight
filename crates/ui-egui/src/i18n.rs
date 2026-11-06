@@ -40,7 +40,7 @@ macro_rules! language_table {
             }
 
             /// The ISO 15924 script this language is written in (`"Latn"`, `"Jpan"`, `"Hans"`…):
-            /// the craft-fonts faces for it are the ones this language needs.
+            /// the evo-fonts faces for it are the ones this language needs.
             pub const fn script(self) -> &'static str {
                 match self { Self::$source => "Latn", $(Self::$variant => $script,)* }
             }
@@ -207,11 +207,11 @@ pub fn locale_from_tags(tags: &[String]) -> Option<Locale> {
     tags.iter().find_map(|tag| Locale::parse_tag(tag))
 }
 
-/// The UI language "Auto" resolves to: the environment's (`LIGHTCRAFT_LANGUAGE=zh-hans`, for
+/// The UI language "Auto" resolves to: the environment's (`EVOLIGHT_LANGUAGE=zh-hans`, for
 /// headless runs), or the host-installed default ([`set_default_language`], the browser's languages
 /// on the web), else English.
 pub fn default_language() -> Locale {
-    std::env::var("LIGHTCRAFT_LANGUAGE")
+    std::env::var("EVOLIGHT_LANGUAGE")
         .ok()
         .and_then(|value| Locale::parse_tag(&value))
         .or_else(|| DEFAULT_LANGUAGE.with(std::cell::Cell::get))
@@ -392,21 +392,21 @@ pub fn dropped_photos_unreadable(n: usize) -> String {
 /// (issue #260), in the UI language: the error and, when there is one, the log file to look in.
 pub fn startup_failed_message(error: &str, log_file: Option<&str>) -> (String, String) {
     let text = match log_file {
-        Some(path) => tr_format!("LightCraft could not open its window: {e}\n\nThe log file has the details: {path}", e = error, path = path),
-        None => tr_format!("LightCraft could not open its window: {e}", e = error),
+        Some(path) => tr_format!("EvoLight could not open its window: {e}\n\nThe log file has the details: {path}", e = error, path = path),
+        None => tr_format!("EvoLight could not open its window: {e}", e = error),
     };
-    (tr("LightCraft could not start").to_string(), text)
+    (tr("EvoLight could not start").to_string(), text)
 }
 
-/// The title and text of the message box shown when LightCraft stopped while its window was up
+/// The title and text of the message box shown when EvoLight stopped while its window was up
 /// (issue #1337: the window's renderer after the graphics driver reset the GPU), in the UI
 /// language: what happened and, when there is one, the log file to look in.
 pub fn stopped_message(error: &str, log_file: Option<&str>) -> (String, String) {
     let text = match log_file {
-        Some(path) => tr_format!("LightCraft stopped unexpectedly: {e}\n\nThe log file has the details: {path}", e = error, path = path),
-        None => tr_format!("LightCraft stopped unexpectedly: {e}", e = error),
+        Some(path) => tr_format!("EvoLight stopped unexpectedly: {e}\n\nThe log file has the details: {path}", e = error, path = path),
+        None => tr_format!("EvoLight stopped unexpectedly: {e}", e = error),
     };
-    (tr("LightCraft stopped").to_string(), text)
+    (tr("EvoLight stopped").to_string(), text)
 }
 
 /// Whether sentence case may upper-case `c`. Georgian has no case: upper-casing Mkhedruli would
@@ -434,12 +434,12 @@ pub fn builtin_label(source: &str, builtin: bool) -> &str {
 /// A profile's name for display: a built-in profile's is translated, an imported LUT's is shown as
 /// its file named it (it may happen to match a message, like "Vivid").
 pub fn profile_label<'a>(id: &str, name: &'a str) -> &'a str {
-    builtin_label(name, lightcraft_engine::presets::profile(id).is_some())
+    builtin_label(name, evolight_engine::presets::profile(id).is_some())
 }
 
 /// An Activity (history) step for display. The step's stored label stays English; generated steps
 /// are translated around the names they carry, and a user preset's name is kept verbatim.
-pub fn history_label(source: &str, presets: &[lightcraft_develop::Preset]) -> String {
+pub fn history_label(source: &str, presets: &[evolight_develop::Preset]) -> String {
     if let Some(name) = source.strip_prefix("Preset: ") {
         // A user preset may share a stock preset's name: then the step could be either, so it
         // keeps the name as written.
@@ -457,16 +457,16 @@ pub fn history_label(source: &str, presets: &[lightcraft_develop::Preset]) -> St
 
 /// A library source's heading (All Photos, Recently Deleted…) in the UI language; an album's
 /// name is the user's and stays verbatim.
-pub fn source_label(source: lightcraft_engine::LibrarySource, catalog: &lightcraft_catalog::Catalog) -> String {
+pub fn source_label(source: evolight_engine::LibrarySource, catalog: &evolight_catalog::Catalog) -> String {
     let label = source.label(catalog);
-    if matches!(source, lightcraft_engine::LibrarySource::Album(id) if catalog.album(id).is_some()) { label } else { tr(&label).to_string() }
+    if matches!(source, evolight_engine::LibrarySource::Album(id) if catalog.album(id).is_some()) { label } else { tr(&label).to_string() }
 }
 
 /// What the grid is titled for the session's source: [`source_label`], or a library folder's last
 /// two names (`photos/travel`; the folder's name is the user's and stays verbatim).
-pub fn source_title(session: &lightcraft_engine::Session) -> String {
+pub fn source_title(session: &evolight_engine::Session) -> String {
     match (session.source, session.library_folder.as_deref()) {
-        (lightcraft_engine::LibrarySource::LibraryFolder, Some(path)) => lightcraft_catalog::folders::folder_label(path),
+        (evolight_engine::LibrarySource::LibraryFolder, Some(path)) => evolight_catalog::folders::folder_label(path),
         (source, _) => source_label(source, &session.catalog),
     }
 }
@@ -476,7 +476,7 @@ pub fn source_title(session: &lightcraft_engine::Session) -> String {
 /// catalog's own wording; every other language formats it with its `*-formats.json` date
 /// patterns and weekday names. The grouping keys themselves never change.
 pub fn date_group_label(key: &str, short: bool) -> String {
-    let label = lightcraft_catalog::dates::group_label(key);
+    let label = evolight_catalog::dates::group_label(key);
     if language() == Locale::En {
         return if short {
             match key.len() {
@@ -501,7 +501,7 @@ pub fn date_group_label(key: &str, short: bool) -> String {
         return if short { tr_format!("{month}", month = month) } else { tr_format!("{month} {year}", month = month, year = year) };
     }
     if key.len() == 10
-        && let Some(weekday) = lightcraft_catalog::dates::weekday(key)
+        && let Some(weekday) = evolight_catalog::dates::weekday(key)
         && let Some(day) = key.get(8..10).and_then(|d| d.parse::<u32>().ok())
     {
         let weekday = tr(weekday);
@@ -517,8 +517,8 @@ pub fn date_group_label(key: &str, short: bool) -> String {
 /// A capture time for display in the UI language (English: "March 30, 2022 at 10:11:11 PM");
 /// the metadata itself is never rewritten, and a value that doesn't parse is shown as it is.
 pub fn display_time(iso: &str) -> String {
-    if language() == Locale::En || lightcraft_catalog::dates::normalize_iso(iso).is_none() {
-        return lightcraft_catalog::dates::display_time(iso);
+    if language() == Locale::En || evolight_catalog::dates::normalize_iso(iso).is_none() {
+        return evolight_catalog::dates::display_time(iso);
     }
     let date = date_group_label(iso.get(..10).unwrap_or(iso), false);
     match iso.get(11..).filter(|time| !time.is_empty()) {
@@ -528,16 +528,16 @@ pub fn display_time(iso: &str) -> String {
 }
 
 /// Built-in colour names are translated; custom label names are user data.
-pub fn color_label(catalog: &lightcraft_catalog::Catalog, label: lightcraft_catalog::ColorLabel) -> String {
+pub fn color_label(catalog: &evolight_catalog::Catalog, label: evolight_catalog::ColorLabel) -> String {
     catalog.custom_label_name(label).map_or_else(|| tr(&catalog.label_name(label)).to_string(), str::to_string)
 }
 
 /// A legacy smart-album filter summary, using the same display labels as filter chips.
-pub fn filter_label(filter: &lightcraft_catalog::Filter, catalog: &lightcraft_catalog::Catalog) -> String {
+pub fn filter_label(filter: &evolight_catalog::Filter, catalog: &evolight_catalog::Catalog) -> String {
     if language() == Locale::En {
         filter.describe_with(catalog)
     } else {
-        lightcraft_engine::filter_chips(filter, catalog)
+        evolight_engine::filter_chips(filter, catalog)
             .iter()
             .map(|chip| crate::panels::chips::display_label(chip, filter, catalog))
             .collect::<Vec<_>>()
@@ -547,27 +547,27 @@ pub fn filter_label(filter: &lightcraft_catalog::Filter, catalog: &lightcraft_ca
 
 /// What people read for a smart-album rule's problem, under its row: the field's name and the
 /// issue, in the current language ("Title: needs something to look for").
-pub fn problem_text(problem: &lightcraft_catalog::rules::Problem) -> String {
+pub fn problem_text(problem: &evolight_catalog::rules::Problem) -> String {
     problem_text_in(language(), problem)
 }
 
 /// [`problem_text`] with the rule's position first ("#2.1 Rating: …"), for lists away from the
 /// editor (the sidebar's tooltip).
-pub fn problem_line(problem: &lightcraft_catalog::rules::Problem) -> String {
+pub fn problem_line(problem: &evolight_catalog::rules::Problem) -> String {
     problem_line_in(language(), problem)
 }
 
-fn problem_text_in(language: Locale, problem: &lightcraft_catalog::rules::Problem) -> String {
+fn problem_text_in(language: Locale, problem: &evolight_catalog::rules::Problem) -> String {
     let issue = tr_in(language, problem.issue.text());
     // Japanese and Chinese catalogs join a label and its text with a full-width colon
     let colon = if matches!(language.script(), "Jpan" | "Hans" | "Hant") { "：" } else { ": " };
     match problem.field.as_deref() {
-        Some(field) => format!("{}{colon}{issue}", tr_in(language, lightcraft_catalog::rules::field_label(field).unwrap_or(field))),
+        Some(field) => format!("{}{colon}{issue}", tr_in(language, evolight_catalog::rules::field_label(field).unwrap_or(field))),
         None => issue.to_string(),
     }
 }
 
-fn problem_line_in(language: Locale, problem: &lightcraft_catalog::rules::Problem) -> String {
+fn problem_line_in(language: Locale, problem: &evolight_catalog::rules::Problem) -> String {
     let at: Vec<String> = problem.path.iter().map(|i| i.saturating_add(1).to_string()).collect();
     // a problem with the album filter around the rules has no rule to point at
     if at.is_empty() {
@@ -583,7 +583,7 @@ pub fn choice_text<'a>(field: &str, id: &'a str) -> &'a str {
 }
 
 fn choice_text_in<'a>(language: Locale, field: &str, id: &'a str) -> &'a str {
-    lightcraft_catalog::rules::choice_label(field, id).map_or(id, |label| tr_in(language, label))
+    evolight_catalog::rules::choice_label(field, id).map_or(id, |label| tr_in(language, label))
 }
 
 /// What people read for a smart-album yes/no value ("Ja" / "Nein" in German).
@@ -595,13 +595,13 @@ pub fn bool_text(b: bool) -> &'static str {
 const BOOL_CONTEXT: &str = "smart album value";
 
 fn bool_text_in(language: Locale, b: bool) -> &'static str {
-    tr_ctx_in(language, BOOL_CONTEXT, lightcraft_catalog::rules::bool_label(b))
+    tr_ctx_in(language, BOOL_CONTEXT, evolight_catalog::rules::bool_label(b))
 }
 
 /// A rule summary for display, keeping free-text rule values verbatim.
-pub fn rules_label(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_catalog::Catalog) -> String {
-    fn describe(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_catalog::Catalog, depth: usize) -> String {
-        use lightcraft_catalog::{
+pub fn rules_label(rules: &evolight_catalog::RuleSet, catalog: &evolight_catalog::Catalog) -> String {
+    fn describe(rules: &evolight_catalog::RuleSet, catalog: &evolight_catalog::Catalog, depth: usize) -> String {
+        use evolight_catalog::{
             Match, Rule,
             rules::{FIELDS, Kind, ops_for},
         };
@@ -618,9 +618,9 @@ pub fn rules_label(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_cat
                     let operator = ops_for(*kind).iter().find(|entry| entry.0 == op).map_or(op.as_str(), |entry| entry.1);
                     let text = match kind {
                         // the album's name, as people know it (a user's name is never translated)
-                        Kind::Album => lightcraft_catalog::rules::album_name(value, Some(catalog)),
+                        Kind::Album => evolight_catalog::rules::album_name(value, Some(catalog)),
                         Kind::Choice(_) => value.as_str().map_or_else(|| value.to_string(), |id| choice_text(field, id).to_string()),
-                        Kind::Bool => lightcraft_catalog::rules::bool_value(value).map_or_else(|| value.to_string(), |b| bool_text(b).to_string()),
+                        Kind::Bool => evolight_catalog::rules::bool_value(value).map_or_else(|| value.to_string(), |b| bool_text(b).to_string()),
                         _ if matches!(op.as_str(), "inLast" | "notInLast") => format!(
                             "{} {}",
                             value.get("n").unwrap_or(&serde_json::Value::Null),
@@ -665,7 +665,7 @@ mod tests {
         ];
         for (locale, command, tags, letters) in languages {
             let command = format!("app.language.{command}");
-            let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+            let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
             app.run(&command, serde_json::json!({})).unwrap();
             assert_eq!(app.ui.language, locale);
             assert_eq!(language(), locale);
@@ -791,9 +791,9 @@ mod tests {
     /// file, in the UI language.
     #[test]
     fn startup_failure_message_names_the_error_and_the_log() {
-        let (title, text) = startup_failed_message("no adapter", Some("/home/a/.config/lightcraft/logs/lightcraft.log"));
-        assert_eq!(title, "LightCraft could not start");
-        assert!(text.contains("no adapter") && text.ends_with("lightcraft.log"), "{text}");
+        let (title, text) = startup_failed_message("no adapter", Some("/home/a/.config/evolight/logs/evolight.log"));
+        assert_eq!(title, "EvoLight could not start");
+        assert!(text.contains("no adapter") && text.ends_with("evolight.log"), "{text}");
         assert!(!startup_failed_message("no adapter", None).1.contains("log file"));
     }
 
@@ -904,12 +904,12 @@ mod tests {
     }
 
     /// Every character a catalog paints has a glyph in the fonts the UI installs, so a translation
-    /// never shows as boxes. Without craft-fonts there are no CJK faces at all, and the CJK
+    /// never shows as boxes. Without evo-fonts there are no CJK faces at all, and the CJK
     /// catalogs are skipped (the same degradation the Japanese UI has always had).
     #[test]
     fn catalog_characters_are_paintable() {
         let ctx = egui::Context::default();
-        ctx.set_fonts(crate::theme::font_definitions(lightcraft_engine::CRAFT_FONTS));
+        ctx.set_fonts(crate::theme::font_definitions(evolight_engine::EVO_FONTS));
         let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
         out.textures_delta.clear();
         for language in Locale::ALL {
@@ -917,13 +917,13 @@ mod tests {
             if messages.is_empty() {
                 continue;
             }
-            // The faces this language's script needs; a language the craft-fonts input does not
+            // The faces this language's script needs; a language the evo-fonts input does not
             // cover (a translation added ahead of its font) is reported, not failed.
             let mut faces: Vec<&str> =
-                lightcraft_engine::CRAFT_FONTS.iter().filter(|font| font.serves(language.script())).map(|font| font.family).collect();
+                evolight_engine::EVO_FONTS.iter().filter(|font| font.serves(language.script())).map(|font| font.family).collect();
             faces.dedup();
             if faces.is_empty() {
-                lightcraft_testkit::skip!(Fonts, "{}: built without a craft-fonts face for {}", language.code(), language.script());
+                evolight_testkit::skip!(Fonts, "{}: built without a evo-fonts face for {}", language.code(), language.script());
                 continue;
             }
             ctx.fonts_mut(|fonts| {
@@ -952,7 +952,7 @@ mod tests {
     #[test]
     fn interface_symbols_are_paintable() {
         let ctx = egui::Context::default();
-        ctx.set_fonts(crate::theme::font_definitions(lightcraft_engine::CRAFT_FONTS));
+        ctx.set_fonts(crate::theme::font_definitions(evolight_engine::EVO_FONTS));
         let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
         out.textures_delta.clear();
         // ⌥ and ⌫ come from egui's bundled fonts; ▸ and ▾ are in neither (measured 2026-10-07).
@@ -964,7 +964,7 @@ mod tests {
         });
     }
 
-    /// Symbols a translation must not carry, because the craft-fonts faces of at least one shipped
+    /// Symbols a translation must not carry, because the evo-fonts faces of at least one shipped
     /// script have no glyph for them and egui's bundled fonts do not either: the menu triangles,
     /// and the heavy multiplication X (U+2715) that Noto Sans Georgian lacks — `×` (U+00D7) reads
     /// the same and every face has it.
@@ -1038,7 +1038,7 @@ mod tests {
     /// reads Yes / No, or the language's contextual entry for it where it has one.
     #[test]
     fn choice_values_read_as_words_in_every_language() {
-        use lightcraft_catalog::rules::{FIELDS, Kind, bool_label};
+        use evolight_catalog::rules::{FIELDS, Kind, bool_label};
         assert_eq!(choice_text_in(Locale::En, "copyrightStatus", "publicDomain"), "Public Domain");
         assert_eq!((bool_text_in(Locale::En, true), bool_text_in(Locale::En, false)), ("Yes", "No"));
         assert_eq!(tr_ctx_in(Locale::En, BOOL_CONTEXT, "Yes"), "Yes");
@@ -1071,10 +1071,10 @@ mod tests {
     /// a full-width colon in Japanese and Chinese; the sidebar's list puts the rule's position first.
     #[test]
     fn problems_read_in_every_language() {
-        use lightcraft_catalog::rules::Issue;
-        let cat = lightcraft_catalog::Catalog::new();
+        use evolight_catalog::rules::Issue;
+        let cat = evolight_catalog::Catalog::new();
         let problems = |rules: serde_json::Value| {
-            serde_json::from_value::<lightcraft_catalog::RuleSet>(serde_json::json!({"rules": rules})).unwrap().check(&cat)
+            serde_json::from_value::<evolight_catalog::RuleSet>(serde_json::json!({"rules": rules})).unwrap().check(&cat)
         };
         let p = problems(serde_json::json!([{"field": "rating", "op": "gte", "value": 3}, {"field": "title", "op": "contains", "value": ""}]));
         assert_eq!(problem_text_in(Locale::En, &p[0]), "Title: needs something to look for (or use “is empty”)");
@@ -1087,7 +1087,7 @@ mod tests {
         }
         // a problem with the album filter itself has no rule position to show
         let filter_loop =
-            lightcraft_catalog::rules::Problem { path: Vec::new(), field: Some("album".into()), issue: Issue::AlbumLoop, message: String::new() };
+            evolight_catalog::rules::Problem { path: Vec::new(), field: Some("album".into()), issue: Issue::AlbumLoop, message: String::new() };
         assert!(problem_line_in(Locale::En, &filter_loop).starts_with("Album: "), "{}", problem_line_in(Locale::En, &filter_loop));
         let g = problems(serde_json::json!([{"group": {"rules": []}}]));
         assert_eq!(problem_text_in(Locale::En, &g[0]), "This group is empty: add a rule or remove it.");
@@ -1096,11 +1096,11 @@ mod tests {
     #[test]
     fn ukrainian_panels_dialogs_and_letters_paint_with_bundled_fonts() {
         let ctx = fonts_ctx(&[]);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
         let text = painted_text(&ctx, &mut app, Locale::Uk);
         assert!(text.contains(Locale::Uk.tr("My Photos")) && text.contains(Locale::Uk.tr("All Photos")), "{text}");
-        for (command, title) in [("app.about", "About LightCraft"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
+        for (command, title) in [("app.about", "About EvoLight"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
             app.ui.dialog = None;
             app.run(command, serde_json::json!({})).unwrap();
             let text = painted_text(&ctx, &mut app, Locale::Uk);
@@ -1123,11 +1123,11 @@ mod tests {
     #[test]
     fn italian_panels_dialogs_and_letters_paint_with_bundled_fonts() {
         let ctx = fonts_ctx(&[]);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
         let text = painted_text(&ctx, &mut app, Locale::It);
         assert!(text.contains(Locale::It.tr("My Photos")) && text.contains(Locale::It.tr("All Photos")), "{text}");
-        for (command, title) in [("app.about", "About LightCraft"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
+        for (command, title) in [("app.about", "About EvoLight"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
             app.ui.dialog = None;
             app.run(command, serde_json::json!({})).unwrap();
             let text = painted_text(&ctx, &mut app, Locale::It);
@@ -1150,11 +1150,11 @@ mod tests {
     #[test]
     fn finnish_panels_dialogs_and_letters_paint_with_bundled_fonts() {
         let ctx = fonts_ctx(&[]);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
         let text = painted_text(&ctx, &mut app, Locale::Fi);
         assert!(text.contains(Locale::Fi.tr("My Photos")) && text.contains(Locale::Fi.tr("All Photos")), "{text}");
-        for (command, title) in [("app.about", "About LightCraft"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
+        for (command, title) in [("app.about", "About EvoLight"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
             app.ui.dialog = None;
             app.run(command, serde_json::json!({})).unwrap();
             let text = painted_text(&ctx, &mut app, Locale::Fi);
@@ -1177,7 +1177,7 @@ mod tests {
     #[test]
     fn german_switches_via_menu_and_control_and_persists() {
         use crate::control::{ControlRequest, Outcome};
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.run("app.language.german", serde_json::json!({})).unwrap();
         assert_eq!(app.ui.language, Locale::De);
         assert_eq!(language(), Locale::De);
@@ -1195,25 +1195,25 @@ mod tests {
         assert_eq!(builtin_label("Warm Glow", false), "Warm Glow");
         assert_eq!(builtin_label("Warm Glow", true), Locale::De.tr("Warm Glow"));
         assert_eq!(tr("my-photo.jpg"), "my-photo.jpg");
-        let rules = lightcraft_catalog::RuleSet {
-            mode: lightcraft_catalog::Match::All,
-            rules: vec![lightcraft_catalog::Rule::Field { field: "keywords".into(), op: "contains".into(), value: serde_json::json!("Color") }],
+        let rules = evolight_catalog::RuleSet {
+            mode: evolight_catalog::Match::All,
+            rules: vec![evolight_catalog::Rule::Field { field: "keywords".into(), op: "contains".into(), value: serde_json::json!("Color") }],
         };
-        let mut catalog = lightcraft_catalog::Catalog::new();
+        let mut catalog = evolight_catalog::Catalog::new();
         catalog
-            .apply(lightcraft_catalog::Op::AddAlbum { album: lightcraft_catalog::Album::new(lightcraft_catalog::AlbumId(4), "Ausgeschlossen") })
+            .apply(evolight_catalog::Op::AddAlbum { album: evolight_catalog::Album::new(evolight_catalog::AlbumId(4), "Ausgeschlossen") })
             .unwrap();
         // "Color" is a message too, but a rule's free-text value stays as written
-        let keywords = lightcraft_catalog::rules::field_label("keywords").unwrap_or("keywords");
+        let keywords = evolight_catalog::rules::field_label("keywords").unwrap_or("keywords");
         assert_eq!(rules_label(&rules, &catalog), format!("{} {} Color", Locale::De.tr(keywords), Locale::De.tr("contains")));
-        let album = lightcraft_catalog::RuleSet {
-            mode: lightcraft_catalog::Match::All,
-            rules: vec![lightcraft_catalog::Rule::Field { field: "album".into(), op: "isNot".into(), value: serde_json::json!(4) }],
+        let album = evolight_catalog::RuleSet {
+            mode: evolight_catalog::Match::All,
+            rules: vec![evolight_catalog::Rule::Field { field: "album".into(), op: "isNot".into(), value: serde_json::json!(4) }],
         };
         assert!(rules_label(&album, &catalog).ends_with(" “Ausgeschlossen”"), "{}", rules_label(&album, &catalog));
-        let rules = lightcraft_catalog::RuleSet {
-            mode: lightcraft_catalog::Match::All,
-            rules: vec![lightcraft_catalog::Rule::Field {
+        let rules = evolight_catalog::RuleSet {
+            mode: evolight_catalog::Match::All,
+            rules: vec![evolight_catalog::Rule::Field {
                 field: "copyrightStatus".into(),
                 op: "is".into(),
                 value: serde_json::json!("publicDomain"),
@@ -1222,33 +1222,33 @@ mod tests {
         let public_domain = format!(" {}", choice_text_in(Locale::De, "copyrightStatus", "publicDomain"));
         assert!(rules_label(&rules, &catalog).ends_with(&public_domain), "{}", rules_label(&rules, &catalog));
         for value in [serde_json::json!(false), serde_json::json!("false")] {
-            let rules = lightcraft_catalog::RuleSet {
-                mode: lightcraft_catalog::Match::All,
-                rules: vec![lightcraft_catalog::Rule::Field { field: "edited".into(), op: "is".into(), value }],
+            let rules = evolight_catalog::RuleSet {
+                mode: evolight_catalog::Match::All,
+                rules: vec![evolight_catalog::Rule::Field { field: "edited".into(), op: "is".into(), value }],
             };
             let no = format!(" {}", bool_text_in(Locale::De, false));
             assert!(rules_label(&rules, &catalog).ends_with(&no), "{}", rules_label(&rules, &catalog));
         }
-        let both = lightcraft_catalog::Filter {
-            label: Some(lightcraft_catalog::ColorLabel::Red),
-            labels: vec![lightcraft_catalog::ColorLabel::Blue, lightcraft_catalog::ColorLabel::Red],
+        let both = evolight_catalog::Filter {
+            label: Some(evolight_catalog::ColorLabel::Red),
+            labels: vec![evolight_catalog::ColorLabel::Blue, evolight_catalog::ColorLabel::Red],
             ..Default::default()
         };
         let name = |label| color_label(&app.session.catalog, label);
         let (red, blue, green) =
-            (name(lightcraft_catalog::ColorLabel::Red), name(lightcraft_catalog::ColorLabel::Blue), name(lightcraft_catalog::ColorLabel::Green));
+            (name(evolight_catalog::ColorLabel::Red), name(evolight_catalog::ColorLabel::Blue), name(evolight_catalog::ColorLabel::Green));
         let (label, and, or) = (tr("Label"), tr("and"), tr("or"));
         assert_eq!(filter_label(&both, &app.session.catalog), format!("{label}: {red}"));
-        let both = lightcraft_catalog::Filter { labels: vec![lightcraft_catalog::ColorLabel::Blue], ..both };
+        let both = evolight_catalog::Filter { labels: vec![evolight_catalog::ColorLabel::Blue], ..both };
         assert_eq!(filter_label(&both, &app.session.catalog), format!("{label}: {red} {and} {blue}"));
-        let both = lightcraft_catalog::Filter { labels: vec![lightcraft_catalog::ColorLabel::Blue, lightcraft_catalog::ColorLabel::Green], ..both };
+        let both = evolight_catalog::Filter { labels: vec![evolight_catalog::ColorLabel::Blue, evolight_catalog::ColorLabel::Green], ..both };
         assert_eq!(filter_label(&both, &app.session.catalog), format!("{label}: {red} {and} ({blue} {or} {green})"));
-        let filter = lightcraft_catalog::Filter {
-            labels: vec![lightcraft_catalog::ColorLabel::Red, lightcraft_catalog::ColorLabel::Blue],
+        let filter = evolight_catalog::Filter {
+            labels: vec![evolight_catalog::ColorLabel::Red, evolight_catalog::ColorLabel::Blue],
             ..Default::default()
         };
-        let blue = color_label(&app.session.catalog, lightcraft_catalog::ColorLabel::Blue);
-        let red = color_label(&app.session.catalog, lightcraft_catalog::ColorLabel::Red);
+        let blue = color_label(&app.session.catalog, evolight_catalog::ColorLabel::Blue);
+        let red = color_label(&app.session.catalog, evolight_catalog::ColorLabel::Red);
         let label = filter_label(&filter, &app.session.catalog);
         assert!(label.contains(&red) && label.contains(&blue), "{label}");
         // a label set's own name is the user's
@@ -1261,14 +1261,14 @@ mod tests {
     #[test]
     fn german_panels_dialogs_and_glyphs_are_painted_without_extra_fonts() {
         let ctx = fonts_ctx(&[]);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
         let text = painted_text(&ctx, &mut app, Locale::De);
         assert!(text.contains(Locale::De.tr("My Photos")) && text.contains(Locale::De.tr("All Photos")), "{text}");
         app.ui.view = crate::state::ViewMode::People;
         let text = painted_text(&ctx, &mut app, Locale::De);
         assert!(text.contains(Locale::De.tr("Named People")), "{text}");
-        for (command, title) in [("app.about", "About LightCraft"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
+        for (command, title) in [("app.about", "About EvoLight"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
             app.ui.dialog = None;
             app.run(command, serde_json::json!({})).unwrap();
             let text = painted_text(&ctx, &mut app, Locale::De);
@@ -1299,7 +1299,7 @@ mod tests {
         for language in [Locale::De, Locale::Uk, Locale::It, Locale::Fi] {
             let ctx = fonts_ctx(&[]);
             let services = crate::Services { pick_folder: Some(Box::new(|| None)), ..Default::default() };
-            let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+            let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), services);
             app.ui.language = language;
             let mut bounds = Vec::new();
             for export in [false, true] {
@@ -1348,7 +1348,7 @@ mod tests {
     }
 
     /// The text the whole window paints over a few frames in `language`.
-    fn painted_text(ctx: &egui::Context, app: &mut crate::LightcraftApp, language: Locale) -> String {
+    fn painted_text(ctx: &egui::Context, app: &mut crate::EvoLightApp, language: Locale) -> String {
         fn collect(shape: &egui::epaint::Shape, text: &mut String) {
             match shape {
                 egui::epaint::Shape::Text(shape) => {
@@ -1383,9 +1383,9 @@ mod tests {
     fn every_language_is_painted_and_menu_ids_stay_the_same() {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
-        let ids = |app: &crate::LightcraftApp| crate::menus::menu_entries(app).into_iter().map(|entry| entry.id).collect::<Vec<_>>();
+        let ids = |app: &crate::EvoLightApp| crate::menus::menu_entries(app).into_iter().map(|entry| entry.id).collect::<Vec<_>>();
         let english_ids = ids(&app);
         for language in Locale::ALL {
             let text = painted_text(&ctx, &mut app, *language);
@@ -1399,26 +1399,26 @@ mod tests {
     }
 
     /// The UI families, after one frame so the font definitions are loaded.
-    fn fonts_ctx(craft: &'static [lightcraft_engine::CraftFont]) -> egui::Context {
+    fn fonts_ctx(evo: &'static [evolight_engine::EvoFont]) -> egui::Context {
         let ctx = egui::Context::default();
-        ctx.set_fonts(crate::theme::font_definitions(craft));
+        ctx.set_fonts(crate::theme::font_definitions(evo));
         let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
         out.textures_delta.clear();
         ctx
     }
 
-    /// Built with craft-fonts, every CJK language renders with real glyphs (no tofu) in every UI
+    /// Built with evo-fonts, every CJK language renders with real glyphs (no tofu) in every UI
     /// family, Monospace included.
     #[test]
-    fn craft_fonts_render_cjk_in_the_ui() {
+    fn evo_fonts_render_cjk_in_the_ui() {
         let samples = [(Locale::Ja, "日本語の文字"), (Locale::ZhHans, "简体中文字"), (Locale::ZhHant, "繁體中文字")];
         for (language, sample) in samples {
-            if !lightcraft_engine::CRAFT_FONTS.iter().any(|font| font.serves(language.script())) {
-                lightcraft_testkit::skip!(Fonts, "{}: built without a craft-fonts face for {}", language.code(), language.script());
+            if !evolight_engine::EVO_FONTS.iter().any(|font| font.serves(language.script())) {
+                evolight_testkit::skip!(Fonts, "{}: built without a evo-fonts face for {}", language.code(), language.script());
                 continue;
             }
             set_language(language);
-            let ctx = fonts_ctx(lightcraft_engine::CRAFT_FONTS);
+            let ctx = fonts_ctx(evolight_engine::EVO_FONTS);
             ctx.fonts_mut(|fonts| {
                 for family in
                     [egui::FontFamily::Proportional, egui::FontFamily::Name(crate::theme::FONT_SEMIBOLD.into()), egui::FontFamily::Monospace]
@@ -1436,20 +1436,20 @@ mod tests {
         set_language(Locale::En);
     }
 
-    /// Built without craft-fonts, the UI (in every language) still installs its fonts and runs;
+    /// Built without evo-fonts, the UI (in every language) still installs its fonts and runs;
     /// Latin text keeps Inter.
     #[test]
-    fn the_ui_works_without_craft_fonts() {
+    fn the_ui_works_without_evo_fonts() {
         let ctx = fonts_ctx(&[]);
         ctx.fonts_mut(|fonts| {
             // (Not Monospace: egui's `has_glyph` reports false for glyphs of the family's
             // replacement-glyph face, which there is Hack, the face that draws Latin.)
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Name(crate::theme::FONT_SEMIBOLD.into())] {
                 let font = egui::FontId::new(13.0, family);
-                assert!("LightCraft".chars().all(|ch| fonts.has_glyph(&font, ch)), "{font:?}");
+                assert!("EvoLight".chars().all(|ch| fonts.has_glyph(&font, ch)), "{font:?}");
             }
         });
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         for language in Locale::ALL {
             app.ui.language = *language;
             for frame in 0..3 {
@@ -1469,12 +1469,12 @@ mod tests {
     #[test]
     fn traditional_chinese_switches_through_menu_and_control_and_persists() {
         use crate::control::{ControlRequest, Outcome};
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.run("app.language.traditionalChinese", serde_json::json!({})).unwrap();
         assert_eq!(app.ui.language, Locale::ZhHant);
         // Applied at once, not on the next frame.
         assert_eq!(language(), Locale::ZhHant);
-        assert_eq!(source_label(lightcraft_engine::LibrarySource::All, &app.session.catalog), Locale::ZhHant.tr("All Photos"));
+        assert_eq!(source_label(evolight_engine::LibrarySource::All, &app.session.catalog), Locale::ZhHant.tr("All Photos"));
         assert_eq!(date_group_label("", false), Locale::ZhHant.tr("Unknown Date"));
         assert_eq!(display_time("a-user-value"), "a-user-value");
         assert_eq!(crate::menubar::checked(&app, "app.language.traditionalChinese"), Some(true));
@@ -1500,7 +1500,7 @@ mod tests {
         let Outcome::Done(reply) = crate::control::handle(&mut app, &ctx, &req) else { panic!("expected a reply") };
         assert_eq!(reply["ok"], false);
         assert_eq!(app.ui.language, Locale::ZhHant);
-        let ids = |app: &crate::LightcraftApp| crate::menus::menu_entries(app).into_iter().map(|entry| entry.id).collect::<Vec<_>>();
+        let ids = |app: &crate::EvoLightApp| crate::menus::menu_entries(app).into_iter().map(|entry| entry.id).collect::<Vec<_>>();
         let chinese_ids = ids(&app);
         app.run("app.language.english", serde_json::json!({})).unwrap();
         assert_eq!(tr("File"), "File");
@@ -1515,7 +1515,7 @@ mod tests {
         assert_eq!(date_group_label("2026-09-20", false), "Sunday, 20 September 2026");
         assert_eq!(date_group_label("2026-09-20", true), "Sunday, 20");
         assert_eq!(date_group_label("2026-09", true), "September");
-        assert_eq!(display_time("2026-09-20T16:04:05"), lightcraft_catalog::dates::display_time("2026-09-20T16:04:05"));
+        assert_eq!(display_time("2026-09-20T16:04:05"), evolight_catalog::dates::display_time("2026-09-20T16:04:05"));
         for language in Locale::ALL {
             set_language(*language);
             if *language != Locale::En {
@@ -1540,10 +1540,10 @@ mod tests {
     fn traditional_chinese_presets_and_panel_headers_are_painted() {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.presets = true;
         let builtin = app.session.presets.iter().find(|p| p.name == "Warm Glow").unwrap().clone();
-        app.session.presets.push(lightcraft_develop::Preset { id: "user.test".into(), builtin: false, ..builtin });
+        app.session.presets.push(evolight_develop::Preset { id: "user.test".into(), builtin: false, ..builtin });
         let zh = Locale::ZhHant;
         for (panel, title) in [(crate::state::RightPanel::Activity, "History"), (crate::state::RightPanel::Versions, "Versions")] {
             app.ui.right = panel;
@@ -1562,11 +1562,11 @@ mod tests {
     #[test]
     fn vietnamese_panels_dialogs_and_diacritics_paint_with_bundled_fonts() {
         let ctx = fonts_ctx(&[]);
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.ui.left_panel = true;
         let text = painted_text(&ctx, &mut app, Locale::Vi);
         assert!(text.contains(Locale::Vi.tr("My Photos")) && text.contains(Locale::Vi.tr("All Photos")), "{text}");
-        for (command, title) in [("app.about", "About LightCraft"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
+        for (command, title) in [("app.about", "About EvoLight"), ("app.shortcuts", "Keyboard Shortcuts"), ("app.settings", "Settings")] {
             app.ui.dialog = None;
             app.run(command, serde_json::json!({})).unwrap();
             let text = painted_text(&ctx, &mut app, Locale::Vi);
@@ -1631,10 +1631,10 @@ mod tests {
     /// Every plain message: the keys of every catalog (but contextual entries, which a language adds
     /// only where it needs one) and the labels the UI translates from tables.
     fn plain_messages() -> std::collections::BTreeSet<String> {
-        use lightcraft_catalog::rules;
-        let mut labels: Vec<&str> = lightcraft_engine::command_specs().iter().map(|spec| spec.label).collect();
+        use evolight_catalog::rules;
+        let mut labels: Vec<&str> = evolight_engine::command_specs().iter().map(|spec| spec.label).collect();
         labels.extend(crate::menus::ui_commands().map(|command| command.1).filter(|label| !Locale::ALL.iter().any(|locale| locale.name() == *label)));
-        labels.extend(lightcraft_develop::CONTROLS.iter().map(|control| control.label));
+        labels.extend(evolight_develop::CONTROLS.iter().map(|control| control.label));
         labels.extend(crate::panels::settings::TABS.iter().map(|(_, label)| *label));
         for (_, label, kind) in rules::FIELDS {
             labels.push(label);
@@ -1646,8 +1646,8 @@ mod tests {
         labels.extend(rules::FIELD_GROUPS.iter().map(|group| group.0));
         labels.extend(rules::Issue::ALL.iter().map(|issue| issue.text()));
         labels.extend([rules::bool_label(true), rules::bool_label(false)]);
-        labels.extend(lightcraft_engine::rename::TOKENS.iter().map(|token| token.meaning));
-        labels.extend(lightcraft_engine::rename::TEMPLATE_NOTES);
+        labels.extend(evolight_engine::rename::TOKENS.iter().map(|token| token.meaning));
+        labels.extend(evolight_engine::rename::TEMPLATE_NOTES);
         labels.extend(crate::date_picker::WEEKDAY_SHORT);
         labels.extend(["Pick a date", "Year", "Month", "Day", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
         // the album pickers
@@ -1771,16 +1771,16 @@ mod ",
         std::fs::create_dir_all(&dir).unwrap();
         let png = |name: &str, seed: u8| {
             let data: Vec<[u8; 4]> = (0..48 * 32).map(|i| [(i % 48 * 5) as u8, (i / 48 * 7) as u8, seed, 255]).collect();
-            let img = lightcraft_raster::Rgba8 { width: 48, height: 32, data };
+            let img = evolight_raster::Rgba8 { width: 48, height: 32, data };
             let bytes =
-                lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+                evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
             std::fs::write(dir.join(name), bytes).unwrap();
             dir.join(name).to_string_lossy().into_owned()
         };
         let (trashed, added) = (png("trashed.png", 1), png("new.png", 2));
         let broken = dir.join("broken.jpg");
         std::fs::write(&broken, b"not a jpeg at all").unwrap();
-        let mut s = lightcraft_engine::Session::new().with_fs();
+        let mut s = evolight_engine::Session::new().with_fs();
         let r = s.execute("library.import", &serde_json::json!({"paths": [trashed]})).unwrap();
         s.execute("photo.delete", &serde_json::json!({"ids": [r["imported"][0]]})).unwrap();
         let report = s.execute("library.import", &serde_json::json!({"paths": [trashed, added, broken]})).unwrap();
@@ -1800,7 +1800,7 @@ mod ",
     #[test]
     fn polish_switches_formats_dates_and_reads_every_count() {
         use crate::control::{ControlRequest, Outcome};
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default());
         app.run("app.language.polish", serde_json::json!({})).unwrap();
         assert_eq!(app.ui.language, Locale::Pl);
         assert_eq!(Locale::Pl.name(), "Polski");

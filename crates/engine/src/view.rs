@@ -1,6 +1,6 @@
 //! Library view state: what the grid shows and what is selected.
 
-use lightcraft_catalog::{AlbumId, Catalog, Filter, PhotoId};
+use evolight_catalog::{AlbumId, Catalog, Filter, PhotoId};
 use serde::{Deserialize, Serialize};
 
 /// The "My Photos" source in the left panel.
@@ -43,14 +43,14 @@ impl LibrarySource {
             // everything imported in the 30 days up to the latest import (by import, newest first)
             LibrarySource::RecentlyAdded => {
                 let latest = cat.photos().filter(|p| p.in_library()).map(|p| p.imported.clone()).max().unwrap_or_default();
-                let from = lightcraft_catalog::stacks::iso_seconds(&latest)
-                    .map(|s| lightcraft_catalog::dates::civil(s - RECENT_DAYS * 86_400))
+                let from = evolight_catalog::stacks::iso_seconds(&latest)
+                    .map(|s| evolight_catalog::dates::civil(s - RECENT_DAYS * 86_400))
                     .unwrap_or_else(|| latest.get(..10).unwrap_or("").to_string());
                 f.imported_from = Some(from);
             }
             LibrarySource::Album(a) => f.album = Some(*a),
             LibrarySource::RecentlyDeleted => f.deleted = true,
-            LibrarySource::Picks => f.flag = Some(lightcraft_catalog::Flag::Pick),
+            LibrarySource::Picks => f.flag = Some(evolight_catalog::Flag::Pick),
             // the folder itself is filled in by the session (it holds the path)
             LibrarySource::Folder | LibrarySource::Missing | LibrarySource::LibraryFolder => {}
         }
@@ -143,7 +143,7 @@ pub struct FilterChip {
 
 /// The chips for every constraint in the filter bar / search / sidebar (not the source itself).
 pub fn filter_chips(f: &Filter, cat: &Catalog) -> Vec<FilterChip> {
-    use lightcraft_catalog::{MediaKind, RatingOp};
+    use evolight_catalog::{MediaKind, RatingOp};
     use serde_json::{Value::Null, json};
     let mut v = Vec::new();
     let mut add = |label: String, clear: serde_json::Value| v.push(FilterChip { label, clear });
@@ -162,7 +162,7 @@ pub fn filter_chips(f: &Filter, cat: &Catalog) -> Vec<FilterChip> {
         add(format!("Flag: {}", format!("{fl:?}").to_lowercase()), json!({"flag": Null}));
     }
     if let Some(shown) = f.labels_shown() {
-        let or = |ls: &[lightcraft_catalog::ColorLabel]| ls.iter().map(|l| cat.label_name(*l)).collect::<Vec<_>>().join(" or ");
+        let or = |ls: &[evolight_catalog::ColorLabel]| ls.iter().map(|l| cat.label_name(*l)).collect::<Vec<_>>().join(" or ");
         // empty: `label` and `labels` exclude each other, so name both constraints
         let names = if shown.is_empty() {
             // parenthesised when plural, so "Red and Yellow or Green" cannot read as "(Red and Yellow) or Green"
@@ -205,7 +205,7 @@ pub fn filter_chips(f: &Filter, cat: &Catalog) -> Vec<FilterChip> {
     }
     if let Some(d) = f.library_folder.as_deref().filter(|d| !d.trim().is_empty()) {
         // the last two names, so two folders called "Pictures" are told apart
-        let name = lightcraft_catalog::folders::folder_label(d);
+        let name = evolight_catalog::folders::folder_label(d);
         add(format!("Folder: {name}"), json!({"libraryFolder": Null}));
     }
     if let Some(d) = &f.imported {
@@ -243,7 +243,7 @@ fn date_label(d: &str) -> String {
 #[cfg(test)]
 mod selection_state_tests {
     use super::*;
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
 
     #[test]
     fn select_all_marks_the_others_selected_and_one_active() {

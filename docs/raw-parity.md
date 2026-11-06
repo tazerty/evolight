@@ -32,7 +32,7 @@ rewrites [raw/coverage.tsv](raw/coverage.tsv) and prints the tables below; `--ch
 committed table is stale.
 
 Folder discovery, desktop file pickers, CLI and MCP share
-`lightcraft_engine::import::EXTENSIONS`. The list includes formats that may open only from an
+`evolight_engine::import::EXTENSIONS`. The list includes formats that may open only from an
 embedded preview or report a decoder error; an extension is not a promise of sensor decoding.
 The 2026-10-12 release CLI check of the public DSC-R1 SR2 and DSC-F828 SRF samples found the
 same photos and decode status through recursive and direct import. DSC-F828 moves from
@@ -46,7 +46,7 @@ unsupported to preview-only in the counts; sensor-decoding readiness is unchange
   version. The year a model was added is approximated from that Camera Raw major version.
 - **What we decode**: the decoders and their refusals in `crates/raw/src` (`lib.rs` routing, `vendor/*.rs`
   coding variants, `crx.rs` CRX limits, `orf.rs` / `srw.rs` compressed refusals), the import list
-  `lightcraft_engine::import::EXTENSIONS`, and `KNOWN_UNSUPPORTED` in `crates/raw/tests/it/corpus.rs`. Doc
+  `evolight_engine::import::EXTENSIONS`, and `KNOWN_UNSUPPORTED` in `crates/raw/tests/it/corpus.rs`. Doc
   claims were not used.
 - **Verified** means a real file from that body decoded from sensor data in: the corpus test over the
   `RAW_SAMPLES` manifest (`xtask/src/main.rs`, 105 CC0 files; bodies whose sample is in
@@ -63,7 +63,7 @@ unsupported to preview-only in the counts; sensor-decoding readiness is unchange
 - **2026-10-12 public sweep:** 30 further models on 40 CC0 files, independently downloaded and
   decoded on main `25ef65c8`; [raw/coverage-sweep.tsv](raw/coverage-sweep.tsv) records the URLs,
   SHA-256, dimensions, FNV-1a sensor hashes and render/reference luminance correlations (0.6801
-  to 0.9998). The hashes pin LightCraft's own output. The regression test is
+  to 0.9998). The hashes pin EvoLight's own output. The regression test is
   `crates/raw/tests/it/coverage_sweep_corpus.rs`; downloads are in `RAW_SAMPLES`. Ten references are
   embedded TIFF images; the rest are JPEGs. FFF TIFF previews are not display-ready and check
   image structure only. Eleven candidate models were excluded for identity, provenance or
@@ -192,7 +192,7 @@ sample files. A pointer for contributors, not legal advice.
 
 ## Demosaic, levels, crops and lens metadata
 
-| Stage | Target | LightCraft | Status |
+| Stage | Target | EvoLight | Status |
 |---|---|---|---|
 | Bayer demosaic | Adobe's own, plus AI "Raw Details" | AHD (default), PPG, bilinear (`crates/raw/src/demosaic`) | 🟡 quality unmeasured against Lightroom; no Raw Details |
 | X-Trans demosaic | ✅ | in-house edge-weighted directional | 🟡 unmeasured |
@@ -212,7 +212,7 @@ sample files. A pointer for contributors, not legal advice.
 
 ## Colour
 
-| Item | Adobe | LightCraft |
+| Item | Adobe | EvoLight |
 |---|---|---|
 | Default profile per model | Adobe Standard for every model (1,500 profile names in the bundle) | the DNG's own matrices; else a pooled profile (**5 bundled**: ILCA-99M2, ILCE-7CR, ILCE-7M4, X-H2S, X-T4); else a guarded per-file fit to the camera's embedded JPEG; else spectral matrices (**52 models**, rawtoaces-data, and the bodies sharing their sensors: 6 X-Trans CMOS 4 Fujifilm bodies take the X-T3's); else a neutral matrix |
 | Camera Matching looks | 481 models (plus phone-maker looks) | none (the per-file JPEG fit imitates the camera's own look) |
@@ -240,7 +240,7 @@ essentials user (the default look is what they keep).
 
 ## Lens profiles
 
-| Item | Adobe | LightCraft |
+| Item | Adobe | EvoLight |
 |---|---|---|
 | Profile database | 3,635 profile files, 56 makers, auto-selected | **0** (Adobe LCPs never used; no database of our own) |
 | In-file corrections | ✅ | DNG opcodes (WarpRectilinear, FixVignetteRadial, GainMap…) applied; Panasonic / Leica RW2 distortion (79 photos, 13 bodies, 11 lenses); Sony tag 0x7037 distortion for the ILCE-7RM4A (2 lenses), full-frame Bayer 3:2 ILCE-7CR files with correction Auto or forced Auto (3 lenses; see sony-lens-corrections.md for residuals and limits) and the ILCE-7RM6 (3 lenses, 54 photos; `sony-ilce7rm6-lens-corrections.md`); Nikon NikonNEFInfo distortion (tag `0xc7d5`, about the sensor-shifted optical centre) for the Z 6II and Z f: F-mount lenses on the FTZ within 0.2 px of the camera JPEG, Z lenses within 0.5–1.5 px except the 24-70's wide end (7 px median; `docs/nikon-lens-corrections.md`) |

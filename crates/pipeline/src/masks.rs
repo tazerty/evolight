@@ -6,9 +6,9 @@
 //! AI shapes (Sky, Subject, Background, People) use the segmentation [`Mattes`] the source carries
 //! (DNG semantic masks, e.g. iPhone ProRAW's) when it has a matching one, else a heuristic.
 
-use lightcraft_develop::{BrushStroke, LocalAdjustments, Mask, MaskOp, MaskShape, SegMask};
-use lightcraft_geom::{Orientation, Point};
-use lightcraft_raster::{Image, Plane, Rgb32f};
+use evolight_develop::{BrushStroke, LocalAdjustments, Mask, MaskOp, MaskShape, SegMask};
+use evolight_geom::{Orientation, Point};
+use evolight_raster::{Image, Plane, Rgb32f};
 
 use crate::for_rows;
 use crate::geometry::Frame;
@@ -253,7 +253,7 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
             let tol = color_range_tolerance(*refine);
             let samples: Vec<[f32; 3]> = samples.iter().map(|s| [s[0] as f32, s[1] as f32, s[2] as f32]).collect();
             for (v, c) in out.data.iter_mut().zip(&img.data) {
-                let lab = lightcraft_color::perceptual::oklab_from_2020(tonemap_for_select(c.map(|v| v * gain)));
+                let lab = evolight_color::perceptual::oklab_from_2020(tonemap_for_select(c.map(|v| v * gain)));
                 let d = samples
                     .iter()
                     .map(|s| ((lab[1] - s[1]).powi(2) + (lab[2] - s[2]).powi(2) + 0.25 * (lab[0] - s[0]).powi(2)).sqrt())
@@ -292,7 +292,7 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
         MaskShape::Subject | MaskShape::Object { .. } | MaskShape::People { .. } => {
             // Saliency heuristic: centre-weighted local contrast (replaced by the segmenter in M12).
             let m = frame.out_to_norm(w, h);
-            let blur = lightcraft_raster::blur::gaussian(log_l, 0.03 * frame_px(frame, w));
+            let blur = evolight_raster::blur::gaussian(log_l, 0.03 * frame_px(frame, w));
             for (i, v) in out.data.iter_mut().enumerate() {
                 let (x, y) = (i % w, i / w);
                 let n = m.apply(Point::new(x as f64 + 0.5, y as f64 + 0.5));
@@ -352,7 +352,7 @@ impl SegGrid {
 fn sample_seg(seg: Option<&SegMask>, detail: &[SegMask], gain: f32, frame: &Frame, w: usize, h: usize, out: &mut Plane) {
     let coarse = seg.and_then(SegGrid::new);
     // (capped: a hostile document can hold many)
-    let patches: Vec<SegGrid> = detail.iter().take(lightcraft_develop::segmask::MAX_DETAIL).filter_map(SegGrid::new).collect();
+    let patches: Vec<SegGrid> = detail.iter().take(evolight_develop::segmask::MAX_DETAIL).filter_map(SegGrid::new).collect();
     if coarse.is_none() && patches.is_empty() {
         return;
     }
@@ -372,7 +372,7 @@ fn frame_px(frame: &Frame, w: usize) -> f32 {
 }
 
 fn smooth_plane(p: &mut Plane, sigma: f32) {
-    *p = lightcraft_raster::blur::gaussian(p, sigma.max(0.5));
+    *p = evolight_raster::blur::gaussian(p, sigma.max(0.5));
 }
 
 /// The union (max) of `mattes` (0..255, over the EXIF-oriented source) at output resolution,
@@ -518,7 +518,7 @@ pub fn push_pressures(pressure: &mut Vec<f32>, added: usize, from: f32, to: f32)
 const STATIONARY_PX: f64 = 1e-6;
 
 /// Most dabs one stroke holds (32 MiB of centres). A segment is capped on its own, but a stroke of
-/// many hostile segments (an agent, a crafted XMP or catalog) would otherwise add up without
+/// many hostile segments (an agent, a built XMP or catalog) would otherwise add up without
 /// bound; past this the rest of the stroke lays nothing (#1520).
 pub const MAX_STROKE_DABS: usize = 2_000_000;
 
@@ -637,7 +637,7 @@ pub const AUTO_TOL_CHROMA: f32 = 0.25;
 /// Chromaticity `rgb / Y` (as colour noise reduction uses it).
 #[inline]
 pub fn chromaticity(c: [f32; 3]) -> [f32; 3] {
-    let y = lightcraft_color::luminance_2020(c).max(1e-6);
+    let y = evolight_color::luminance_2020(c).max(1e-6);
     [c[0] / y, c[1] / y, c[2] / y]
 }
 
@@ -668,7 +668,7 @@ pub fn auto_refine(r: f64) -> (f32, f32) {
 /// Guided filter of `p` steered by `guide` (He et al.), clamped to 0..1: `p`'s edges snap to the
 /// guide's.
 pub fn guided_cross(guide: &Plane, p: &Plane, sigma: f32, eps: f32) -> Plane {
-    use lightcraft_raster::blur::gaussian;
+    use evolight_raster::blur::gaussian;
     let mi = gaussian(guide, sigma);
     let mp = gaussian(p, sigma);
     let cip = gaussian(&guide.zip_map(p, |a, b| a * b), sigma);
@@ -740,7 +740,7 @@ fn rasterize_brush(strokes: &[BrushStroke], frame: &Frame, w: usize, h: usize, i
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_develop::{DevelopSettings, MaskComponent};
+    use evolight_develop::{DevelopSettings, MaskComponent};
 
     fn frame(w: usize, h: usize) -> Frame {
         Frame::new(w, h, &DevelopSettings::default(), true)
@@ -777,7 +777,7 @@ mod tests {
         }
         // cropped to the right half: nothing left selected
         let mut d = DevelopSettings::default();
-        d.crop.geometry.rect = lightcraft_geom::Rect::from_center(Point::new(0.75, 0.5), 0.5, 1.0);
+        d.crop.geometry.rect = evolight_geom::Rect::from_center(Point::new(0.75, 0.5), 0.5, 1.0);
         let f = Frame::new(40, 20, &d, true);
         let shape = MaskShape::Prompt { text: "left".into(), seg: Some(seg), detail: vec![], edge: 0.0 };
         let a = shape_alpha(&shape, &f, 20, 20, &Rgb32f::new(20, 20), &Plane::new(20, 20), 0.0, None);
@@ -1100,7 +1100,7 @@ mod tests {
     /// sampled the way `mask.sampleColor` does (3×3 mean of the selection-space OkLab).
     #[test]
     fn color_range_keeps_to_the_sampled_colour() {
-        use lightcraft_color::{REC2020, SRGB, transfer::decode_srgb8};
+        use evolight_color::{REC2020, SRGB, transfer::decode_srgb8};
         let (w, h) = (120usize, 40usize);
         let m = SRGB.to_space(&REC2020);
         let patch = |rgb: [u8; 3]| m.apply_f32(rgb.map(decode_srgb8));
@@ -1111,7 +1111,7 @@ mod tests {
         let mut sample = [0f64; 3];
         for y in 19..=21 {
             for x in 29..=31 {
-                let lab = lightcraft_color::perceptual::oklab_from_2020(tonemap_for_select(img.data[y * w + x]));
+                let lab = evolight_color::perceptual::oklab_from_2020(tonemap_for_select(img.data[y * w + x]));
                 for k in 0..3 {
                     sample[k] += lab[k] as f64 / 9.0;
                 }
@@ -1159,7 +1159,7 @@ mod tests {
         assert_eq!(shape_alpha(&MaskShape::Sky, &f, w, h, &img, &l, 0.0, Some(&hair)), heuristic);
         // rotated 90° clockwise, the source's left half is the top half; a preview and a larger
         // render agree
-        let s = lightcraft_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
+        let s = evolight_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
         let f = Frame::new(w, h, &s, true);
         for (ow, oh) in [(100, 200), (25, 50)] {
             let small = Rgb32f::filled(ow, oh, [0.5, 0.7, 1.4]);

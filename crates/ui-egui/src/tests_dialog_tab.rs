@@ -8,14 +8,14 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 fn demo_with_selection() -> Headless {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     session.selection.ids = session.catalog.photos().take(2).map(|p| p.id).collect();
-    let mut h = Headless::new(LightcraftApp::new(session, Services::default()), [1400.0, 900.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, Services::default()), [1400.0, 900.0], 1.0);
     h.settle(T);
     h
 }

@@ -1,13 +1,13 @@
 //! Scene-linear preparation: white balance + exposure, and the spatial planes the per-pixel stage
 //! needs (edge-aware base layer for highlights/shadows, clarity/texture bands, dehaze veil).
 
-use lightcraft_color::cct::{temp_tint_to_xy, wb_matrix, xy_to_temp_tint};
-use lightcraft_color::{REC2020, luminance_2020};
-use lightcraft_develop::{DevelopSettings, Process};
-use lightcraft_raster::blur::gaussian;
+use evolight_color::cct::{temp_tint_to_xy, wb_matrix, xy_to_temp_tint};
+use evolight_color::{REC2020, luminance_2020};
+use evolight_develop::{DevelopSettings, Process};
+use evolight_raster::blur::gaussian;
 use std::sync::Arc;
 
-use lightcraft_raster::{Plane, Rgb32f, par_join};
+use evolight_raster::{Plane, Rgb32f, par_join};
 
 use crate::geometry::Frame;
 use crate::{Prepared, Quality, SourceInfo, for_rows, masks, timed};
@@ -33,17 +33,17 @@ pub fn wb_matrix_for(info: &SourceInfo, s: &DevelopSettings) -> Option<[[f32; 3]
         return None;
     }
     if let Some(cc) = info.camera_color.as_deref().filter(|_| info.raw && !info.relative_wb)
-        && let Some(m) = lightcraft_raw::color::rebalance(&cc.tags, cc.developed_for, temp_tint_to_xy(t, tint))
+        && let Some(m) = evolight_raw::color::rebalance(&cc.tags, cc.developed_for, temp_tint_to_xy(t, tint))
     {
         return Some(m.to_f32());
     }
     let set = wb_matrix(&REC2020, effective_white(info, s));
     let shot = wb_matrix(&REC2020, temp_tint_to_xy(info.as_shot_temp, info.as_shot_tint));
-    let m = set.mul(&shot.inverse().unwrap_or(lightcraft_color::Mat3::IDENTITY));
+    let m = set.mul(&shot.inverse().unwrap_or(evolight_color::Mat3::IDENTITY));
     // Normalize so neutral luminance is preserved (WB shouldn't change exposure).
     let g = m.apply([1.0, 1.0, 1.0]);
     let y = g[0] * 0.2627 + g[1] * 0.6780 + g[2] * 0.0593;
-    Some(m.mul(&lightcraft_color::Mat3::diag(1.0 / y, 1.0 / y, 1.0 / y)).to_f32())
+    Some(m.mul(&evolight_color::Mat3::diag(1.0 / y, 1.0 / y, 1.0 / y)).to_f32())
 }
 
 fn wb_gain(img: &mut Rgb32f, info: &SourceInfo, s: &DevelopSettings, gain: f32) {
@@ -68,7 +68,7 @@ fn wb_gain(img: &mut Rgb32f, info: &SourceInfo, s: &DevelopSettings, gain: f32) 
 /// the relative scale before a raw's camera matrices reached its white balance give the same colour change on the
 /// Kelvin scale, see [`legacy_to_kelvin`]).
 pub fn effective_wb(info: &SourceInfo, s: &DevelopSettings) -> (f64, f64) {
-    use lightcraft_develop::WbMode;
+    use evolight_develop::WbMode;
     match s.wb.mode {
         WbMode::AsShot => (info.as_shot_temp, info.as_shot_tint),
         _ if legacy_wb(info, s) => legacy_to_kelvin(s.wb.temp, s.wb.tint, (info.as_shot_temp, info.as_shot_tint)),
@@ -80,9 +80,9 @@ pub fn effective_wb(info: &SourceInfo, s: &DevelopSettings) -> (f64, f64) {
 /// The source white the render adapts from the as-shot white to: [`effective_wb`] as a chromaticity, except that a
 /// white balance still on the relative scale is composed exactly ([`legacy_white`]) rather than read back through
 /// its rounded Kelvin / tint.
-fn effective_white(info: &SourceInfo, s: &DevelopSettings) -> lightcraft_color::Xy {
+fn effective_white(info: &SourceInfo, s: &DevelopSettings) -> evolight_color::Xy {
     if legacy_wb(info, s)
-        && s.wb.mode != lightcraft_develop::WbMode::AsShot
+        && s.wb.mode != evolight_develop::WbMode::AsShot
         && let Some(xy) = legacy_white(s.wb.temp, s.wb.tint, (info.as_shot_temp, info.as_shot_tint))
     {
         return xy;
@@ -93,7 +93,7 @@ fn effective_white(info: &SourceInfo, s: &DevelopSettings) -> lightcraft_color::
 
 /// Whether `s` holds a white balance written on the relative scale for a source that is edited in Kelvin today.
 fn legacy_wb(info: &SourceInfo, s: &DevelopSettings) -> bool {
-    info.raw && !info.relative_wb && info.legacy_relative_wb && s.wb.scale == lightcraft_develop::WbScale::Legacy
+    info.raw && !info.relative_wb && info.legacy_relative_wb && s.wb.scale == evolight_develop::WbScale::Legacy
 }
 
 /// The white that renders exactly as `(temp, tint)` did on the relative scale, where 6500 K / 0 meant *as shot* and
@@ -105,8 +105,8 @@ fn legacy_wb(info: &SourceInfo, s: &DevelopSettings) -> bool {
 /// over the old reference's, and the two renders give the same matrix (up to the scale the luminance
 /// normalisation removes). `None` when the arithmetic has nowhere to go (a non-finite input, a white outside the
 /// chromaticity plane).
-pub fn legacy_white(temp: f64, tint: f64, as_shot: (f64, f64)) -> Option<lightcraft_color::Xy> {
-    use lightcraft_color::{BRADFORD, Xy};
+pub fn legacy_white(temp: f64, tint: f64, as_shot: (f64, f64)) -> Option<evolight_color::Xy> {
+    use evolight_color::{BRADFORD, Xy};
     if !(temp.is_finite() && tint.is_finite() && as_shot.0.is_finite() && as_shot.1.is_finite()) {
         return None;
     }
@@ -146,7 +146,7 @@ pub fn legacy_to_kelvin(temp: f64, tint: f64, as_shot: (f64, f64)) -> (f64, f64)
 /// value, since the preset's Kelvin value would be a different look). Elsewhere the scale is cleared, so values
 /// edited on a rendered photo or a raw without matrices never pass for Kelvin when pasted onto one that has them.
 pub fn normalize_wb(d: &mut DevelopSettings, info: &SourceInfo) {
-    use lightcraft_develop::{WbMode, WbScale};
+    use evolight_develop::{WbMode, WbScale};
     if !info.raw || info.relative_wb {
         d.wb.scale = WbScale::Legacy;
         return;
@@ -184,7 +184,7 @@ fn guided_apply(p: &Plane, a: &Plane, b: &Plane) -> Plane {
     let mut q = Plane::new(p.width, p.height);
     let w = p.width;
     if (a.width, a.height) != (p.width, p.height) {
-        use lightcraft_raster::resample::{Filter, weights};
+        use evolight_raster::resample::{Filter, weights};
         let wx = weights(a.width, w, Filter::Bilinear);
         let wy = weights(a.height, p.height, Filter::Bilinear);
         // Bilinear upsampling has at most four taps (including zero-weight boundary taps).
@@ -239,7 +239,7 @@ fn guided_apply(p: &Plane, a: &Plane, b: &Plane) -> Plane {
 /// sampled bilinearly at full resolution; the output keeps full-resolution edges. Equivalent to [`guided`] for
 /// large windows at a fraction of the cost.
 pub fn guided_fast(p: &Plane, sigma: f32, eps: f32) -> Plane {
-    use lightcraft_raster::resample::{Filter, resize};
+    use evolight_raster::resample::{Filter, resize};
     let s = guided_fast_step(sigma);
     if s <= 1 {
         return guided(p, sigma, eps);
@@ -383,7 +383,7 @@ pub fn detail_scale(px_per_long: f64, native_long: usize) -> f32 {
 }
 
 /// Smallest radius (px) noise reduction filters a preview with: [`gaussian`] makes no blur below
-/// about 0.58 px and one 3-px box from there ([`lightcraft_raster::blur::box_sigma`]).
+/// about 0.58 px and one 3-px box from there ([`evolight_raster::blur::box_sigma`]).
 const NR_MIN_SIGMA: f32 = 1.0;
 
 /// Below this fade a preview's noise reduction is not drawn at all (less than 1 % of a 1-px blur).
@@ -396,7 +396,7 @@ fn nr_radius(sigma: f32) -> (f32, f32) {
     if sigma >= NR_MIN_SIGMA {
         return (sigma, 1.0);
     }
-    let made = lightcraft_raster::blur::box_sigma(NR_MIN_SIGMA);
+    let made = evolight_raster::blur::box_sigma(NR_MIN_SIGMA);
     (NR_MIN_SIGMA, (sigma / made).powi(2).min(1.0))
 }
 
@@ -561,8 +561,8 @@ pub fn plane_sigmas(s: &DevelopSettings, px_per_long: f64, q: Quality) -> PlaneS
     let ppl = px_per_long as f32;
     // A hidden mask, or one with no components, does not change the picture. Its sliders must
     // not pick the tone base Clarity reads (#1214).
-    let live = |m: &&lightcraft_develop::Mask| m.visible && !m.components.is_empty();
-    let local_any = |f: fn(&lightcraft_develop::LocalAdjustments) -> f64| s.masks.iter().filter(live).any(|m| f(&m.adjust) != 0.0);
+    let live = |m: &&evolight_develop::Mask| m.visible && !m.components.is_empty();
+    let local_any = |f: fn(&evolight_develop::LocalAdjustments) -> f64| s.masks.iter().filter(live).any(|m| f(&m.adjust) != 0.0);
     let tone_active = s.light.highlights != 0.0
         || s.light.shadows != 0.0
         || s.masks.iter().filter(live).any(|m| m.adjust.highlights != 0.0 || m.adjust.shadows != 0.0);
@@ -722,7 +722,7 @@ mod tests {
         scene_linear_pre(&mut img, &info, &s);
         assert!((img.get(0, 0)[0] - 0.3).abs() < 1e-6);
         let mut warm = s.clone();
-        warm.wb.mode = lightcraft_develop::WbMode::Custom;
+        warm.wb.mode = evolight_develop::WbMode::Custom;
         warm.wb.temp = 9000.0;
         let mut img2 = Rgb32f::filled(4, 4, [0.3, 0.3, 0.3]);
         scene_linear_pre(&mut img2, &info, &warm);
@@ -764,15 +764,15 @@ mod tests {
 
     #[test]
     fn a_hidden_or_empty_mask_does_not_request_the_tone_base() {
-        use lightcraft_develop::{Mask, MaskComponent, MaskOp, MaskShape};
-        use lightcraft_geom::Point;
+        use evolight_develop::{Mask, MaskComponent, MaskOp, MaskShape};
+        use evolight_geom::Point;
         let shape = MaskShape::Linear { start: Point::new(0.0, 0.0), end: Point::new(1.0, 0.0) };
         let component = MaskComponent { name: None, op: MaskOp::Add, invert: false, shape };
         let mut s = DevelopSettings::default();
         s.masks.push(Mask {
             visible: false,
             components: vec![component],
-            adjust: lightcraft_develop::LocalAdjustments { highlights: 40.0, ..Default::default() },
+            adjust: evolight_develop::LocalAdjustments { highlights: 40.0, ..Default::default() },
             ..Default::default()
         });
         assert!(plane_sigmas(&s, 2000.0, Quality::Full).base.is_none());
@@ -804,7 +804,7 @@ mod fast_tests {
 
     /// The previous fast path, including its two materialized coefficient resizes.
     fn resized_reference(p: &Plane, sigma: f32, eps: f32) -> Plane {
-        use lightcraft_raster::resample::{Filter, resize};
+        use evolight_raster::resample::{Filter, resize};
         let s = guided_fast_step(sigma);
         if s <= 1 {
             return guided(p, sigma, eps);

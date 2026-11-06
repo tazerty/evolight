@@ -1,7 +1,7 @@
 //! Library-wide keyword commands: list (tree with counts), suggestions, rename, delete, merge;
 //! keyword sets (nine keywords a keystroke away: ⌥1–⌥9) and Recent Keywords.
 
-use lightcraft_catalog::keywords::{KeywordInfo, clean, closest, is_under, reparent};
+use evolight_catalog::keywords::{KeywordInfo, clean, closest, is_under, reparent};
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, bool_or, cmd, str_param};
@@ -17,8 +17,8 @@ fn strs(p: &Value, key: &str) -> Vec<String> {
 
 /// Commit a keyword batch; returns `{changed: photos changed, listed: keyword list changes}`. The
 /// keyword filter follows a renamed keyword and is cleared when its keyword is deleted.
-fn commit_keywords(s: &mut Session, label: &str, op: lightcraft_catalog::Op, follow: impl Fn(&str) -> Option<String>) -> Result<Value> {
-    use lightcraft_catalog::Op;
+fn commit_keywords(s: &mut Session, label: &str, op: evolight_catalog::Op, follow: impl Fn(&str) -> Option<String>) -> Result<Value> {
+    use evolight_catalog::Op;
     let (photos, listed) = match &op {
         Op::Batch { ops } => {
             (ops.iter().filter(|o| matches!(o, Op::SetMeta { .. })).count(), ops.iter().filter(|o| matches!(o, Op::SetKeyword { .. })).count())
@@ -64,9 +64,9 @@ fn named_keyword(s: &Session, p: &Value, command: &str) -> Result<String> {
 }
 
 /// A catalog refusal as a command error; a taken name says how to merge.
-fn refused(command: &str, e: lightcraft_catalog::CatalogError, how_to_merge: &str) -> crate::EngineError {
+fn refused(command: &str, e: evolight_catalog::CatalogError, how_to_merge: &str) -> crate::EngineError {
     match e {
-        lightcraft_catalog::CatalogError::KeywordExists(k) => bad(command, format!("there is a keyword “{k}” already{how_to_merge}")),
+        evolight_catalog::CatalogError::KeywordExists(k) => bad(command, format!("there is a keyword “{k}” already{how_to_merge}")),
         e => bad(command, e.to_string()),
     }
 }
@@ -81,7 +81,7 @@ pub struct KeywordSet {
 /// Two set names (or recent keywords) are the same whatever the case of any of their letters, as
 /// keywords are.
 fn same_set(a: &str, b: &str) -> bool {
-    lightcraft_catalog::keywords::same(a.trim(), b.trim())
+    evolight_catalog::keywords::same(a.trim(), b.trim())
 }
 
 /// The set name meaning "the nine most recently added keywords".
@@ -130,7 +130,7 @@ pub fn slots(typed: &[String]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for k in typed.iter().take(9) {
         let k = clean(k);
-        let twice = !k.is_empty() && out.iter().any(|x| lightcraft_catalog::keywords::same(x, &k));
+        let twice = !k.is_empty() && out.iter().any(|x| evolight_catalog::keywords::same(x, &k));
         out.push(if twice { String::new() } else { k });
     }
     while out.last().is_some_and(String::is_empty) {
@@ -295,7 +295,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     && ids.iter().all(|id| {
                         s.catalog
                             .photo(*id)
-                            .is_some_and(|ph| ph.meta.keywords.iter().any(|x| lightcraft_catalog::keywords::same(&clean(x), &clean(&k))))
+                            .is_some_and(|ph| ph.meta.keywords.iter().any(|x| evolight_catalog::keywords::same(&clean(x), &clean(&k))))
                     });
                 let ids: Vec<u64> = ids.iter().map(|i| i.0).collect();
                 let key = if all { "removeKeywords" } else { "addKeywords" };
@@ -473,7 +473,7 @@ pub fn specs() -> Vec<CommandSpec> {
                 let refuses: Vec<&str> = file
                     .written
                     .iter()
-                    .filter_map(|p| p.rsplit(lightcraft_catalog::keywords::SEP).next())
+                    .filter_map(|p| p.rsplit(evolight_catalog::keywords::SEP).next())
                     .filter(|n| n.contains(CAPTURE_ONE_REFUSES))
                     .collect();
                 let mut r = json!({"keywords": file.written.len(), "captureOneRefuses": refuses, "unwritable": file.unwritable});
@@ -481,7 +481,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     Some(path) => {
                         s.check_write_target(path).map_err(|e| bad("keyword.export", e))?;
                         // A folder that isn't there is an error, not created.
-                        lightcraft_catalog::safe_file::write_atomic(std::path::Path::new(path), file.text.as_bytes())
+                        evolight_catalog::safe_file::write_atomic(std::path::Path::new(path), file.text.as_bytes())
                             .map_err(|e| crate::EngineError::Other(format!("{path}: {e}")))?;
                         r["path"] = json!(path);
                     }
@@ -506,7 +506,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     (None, Some(text)) => text.to_string(),
                     (None, None) => return Err(bad("keyword.import", "give `path` or `text`")),
                 };
-                let entries = lightcraft_catalog::keywords::parse_keyword_list(&text).map_err(|e| bad("keyword.import", e.to_string()))?;
+                let entries = evolight_catalog::keywords::parse_keyword_list(&text).map_err(|e| bad("keyword.import", e.to_string()))?;
                 let (op, added, updated) = s.catalog.import_keywords_ops(&entries);
                 commit_keywords(s, "Import Keywords", op, |k| Some(k.to_string()))?;
                 Ok(json!({"added": added, "updated": updated}))

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Build and package LightCraft for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
+# Build and package EvoLight for Linux (<arch> is x86_64 or aarch64, or riscv64 when cross-compiling):
 #
-#   $DIST/lightcraft-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
-#   $DIST/lightcraft-<version>-linux-<arch>.AppImage.zsync  delta updates (needs zsyncmake)
-#   $DIST/lightcraft-<version>-linux-<arch>.deb       Debian, Ubuntu, Mint, Pop!_OS, ...
-#   $DIST/lightcraft-<version>-linux-<arch>.rpm       Fedora, openSUSE, RHEL, ...
-#   $DIST/lightcraft-<version>-linux-<arch>.tar.gz    plain FHS-style tree (bin/, share/)
+#   $DIST/evolight-<version>-linux-<arch>.AppImage  any distro with glibc >= the build host's
+#   $DIST/evolight-<version>-linux-<arch>.AppImage.zsync  delta updates (needs zsyncmake)
+#   $DIST/evolight-<version>-linux-<arch>.deb       Debian, Ubuntu, Mint, Pop!_OS, ...
+#   $DIST/evolight-<version>-linux-<arch>.rpm       Fedora, openSUSE, RHEL, ...
+#   $DIST/evolight-<version>-linux-<arch>.tar.gz    plain FHS-style tree (bin/, share/)
 #
 # Usage: packaging/linux/package.sh [--skip-build] [--formats "appimage deb rpm tar"]
-# Fonts: use CRAFT_FONTS_DIR or ../craft-fonts; download the pinned checkout if absent.
+# Fonts: use EVO_FONTS_DIR or ../evo-fonts; download the pinned checkout if absent.
 #
 # Needs: cargo; nfpm for deb/rpm (https://nfpm.goreleaser.com); appimagetool for the AppImage
 # (downloaded into $CARGO_TARGET_DIR if missing). Build on an old distro (CI: Ubuntu 22.04,
@@ -20,7 +20,7 @@ set -euo pipefail
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 HERE="$ROOT/packaging/linux"
-APP_ID=ai.storyteller.lightcraft
+APP_ID=ai.storyteller.evolight
 
 SKIP_BUILD=0
 FORMATS="appimage deb rpm tar"
@@ -40,16 +40,16 @@ case "$ARCH" in
   aarch64 | arm64) ARCH=aarch64; DEB_ARCH=arm64 ;;
   *) echo "unsupported architecture $ARCH" >&2; exit 2 ;;
 esac
-export LIGHTCRAFT_MAINTAINER="${LIGHTCRAFT_MAINTAINER:-LightCraft maintainers <lightcraft@storyteller.ai>}"
-BASENAME="lightcraft-$VERSION-linux-$ARCH"
+export EVOLIGHT_MAINTAINER="${EVOLIGHT_MAINTAINER:-EvoLight maintainers <evolight@storyteller.ai>}"
+BASENAME="evolight-$VERSION-linux-$ARCH"
 
-echo "==> LightCraft $VERSION for Linux $ARCH ($FORMATS)"
+echo "==> EvoLight $VERSION for Linux $ARCH ($FORMATS)"
 
 if [[ "$SKIP_BUILD" = 0 ]]; then
   # shellcheck source=../fonts.sh
   . "$ROOT/packaging/fonts.sh"
   prepare_fonts
-  (cd "$ROOT" && cargo build --release --locked -p lightcraft -p lightcraft-cli --features lightcraft/heif,lightcraft-cli/heif \
+  (cd "$ROOT" && cargo build --release --locked -p evolight -p evolight-cli --features evolight/heif,evolight-cli/heif \
     ${CROSS_TARGET:+--target "$CROSS_TARGET"})
 fi
 BIN="$CARGO_TARGET_DIR/${CROSS_TARGET:+$CROSS_TARGET/}release"
@@ -58,18 +58,18 @@ STAGE="$WORK/root"
 rm -rf "$WORK"
 
 # ---- stage an FHS tree (shared by every format) -------------------------------------------------
-install -Dm755 "$BIN/lightcraft" "$STAGE/usr/bin/lightcraft"
-install -Dm755 "$BIN/lightcraft-cli" "$STAGE/usr/bin/lightcraft-cli"
-"${CROSS_COMPILE:-}strip" "$STAGE/usr/bin/lightcraft" "$STAGE/usr/bin/lightcraft-cli" 2>/dev/null || true
+install -Dm755 "$BIN/evolight" "$STAGE/usr/bin/evolight"
+install -Dm755 "$BIN/evolight-cli" "$STAGE/usr/bin/evolight-cli"
+"${CROSS_COMPILE:-}strip" "$STAGE/usr/bin/evolight" "$STAGE/usr/bin/evolight-cli" 2>/dev/null || true
 install -Dm644 "$HERE/$APP_ID.desktop" "$STAGE/usr/share/applications/$APP_ID.desktop"
 install -Dm644 "$HERE/$APP_ID.mime.xml" "$STAGE/usr/share/mime/packages/$APP_ID.xml"
 mkdir -p "$STAGE/usr/share/metainfo"
-sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$LIGHTCRAFT_BUILD_DATE/g" \
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$EVOLIGHT_BUILD_DATE/g" \
   "$HERE/$APP_ID.metainfo.xml.in" >"$STAGE/usr/share/metainfo/$APP_ID.metainfo.xml"
 mkdir -p "$STAGE/usr/share/icons"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/usr/share/icons/"
-mkdir -p "$STAGE/usr/share/doc/lightcraft"
-copy_docs "$STAGE/usr/share/doc/lightcraft"
+mkdir -p "$STAGE/usr/share/doc/evolight"
+copy_docs "$STAGE/usr/share/doc/evolight"
 
 if command -v desktop-file-validate >/dev/null; then
   desktop-file-validate "$STAGE/usr/share/applications/$APP_ID.desktop"
@@ -119,10 +119,10 @@ if has appimage; then
     aarch64) RUNTIME_SHA256=00cbdfcf917cc6c0ff6d3347d59e0ca1f7f45a6df1a428a0d6d8a78664d87444 ;;
     *) RUNTIME_SHA256='' ;;
   esac
-  APPDIR="$WORK/LightCraft.AppDir"
+  APPDIR="$WORK/EvoLight.AppDir"
   cp -R "$STAGE" "$APPDIR"
   mv "$APPDIR/usr/share/doc" "$WORK/doc-unused"
-  ln -s usr/bin/lightcraft "$APPDIR/AppRun"
+  ln -s usr/bin/evolight "$APPDIR/AppRun"
   cp "$HERE/$APP_ID.desktop" "$APPDIR/$APP_ID.desktop"
   cp "$ROOT/assets/app-icon/hicolor/256x256/apps/$APP_ID.png" "$APPDIR/$APP_ID.png"
   ln -s "$APP_ID.png" "$APPDIR/.DirIcon"
@@ -169,8 +169,8 @@ if has appimage; then
   # fetch only the blocks that changed in a newer release, through the .zsync published next to
   # each AppImage on GitHub Releases. `latest` is the newest published release that is not a
   # pre-release. A fork's builds point at its own releases through GITHUB_REPOSITORY.
-  REPO="${GITHUB_REPOSITORY:-storytold/lightcraft}"
-  UPDATE_INFO="gh-releases-zsync|${REPO%%/*}|${REPO#*/}|latest|lightcraft-*-linux-$ARCH.AppImage.zsync"
+  REPO="${GITHUB_REPOSITORY:-tazerty/evolight}"
+  UPDATE_INFO="gh-releases-zsync|${REPO%%/*}|${REPO#*/}|latest|evolight-*-linux-$ARCH.AppImage.zsync"
   # Extract-and-run: works without FUSE (containers, CI). The output embeds the static runtime,
   # so users don't need libfuse2 either. With zsyncmake on the host (CI installs the zsync
   # package) appimagetool also writes the .zsync, into its working directory, hence the cd.
@@ -184,9 +184,9 @@ if has appimage; then
 fi
 
 if [[ -z "${CROSS_TARGET:-}" ]]; then
-  "$STAGE/usr/bin/lightcraft-cli" --version
+  "$STAGE/usr/bin/evolight-cli" --version
 elif [[ -n "${EMULATOR:-}" ]]; then
-  "$EMULATOR" "$STAGE/usr/bin/lightcraft-cli" --version
+  "$EMULATOR" "$STAGE/usr/bin/evolight-cli" --version
 fi
 echo "==> done"
 ls -lh "$DIST"

@@ -2,8 +2,8 @@
 //! Crop tool shows (the stored one) never takes in the blank corners a Geometry warp leaves, so
 //! ticking it, or moving a Geometry slider while it is ticked, visibly tightens the crop.
 
-use lightcraft_geom::{CropGeometry, Rect};
-use lightcraft_pipeline::geometry::Frame;
+use evolight_geom::{CropGeometry, Rect};
+use evolight_pipeline::geometry::Frame;
 use serde_json::json;
 
 use crate::Session;

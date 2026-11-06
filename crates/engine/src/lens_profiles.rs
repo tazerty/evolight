@@ -1,18 +1,18 @@
-//! Lens profile corrections from a lens database the user supplies ([`lightcraft_lensdb`]).
+//! Lens profile corrections from a lens database the user supplies ([`evolight_lensdb`]).
 //!
 //! When a raw carries no lens correction of its own (DNG opcodes, or a camera correction a raw reader converts,
 //! [`crate::files::embedded_lens`]), the lens named in its EXIF is looked up in a lensfun-format database: the
-//! directory in `LIGHTCRAFT_LENSFUN_DIR` (e.g. lensfun's `data/db`, CC-BY-SA, which is never bundled with the app).
-//! The profile is converted to the same [`lightcraft_develop::EmbeddedLens`] form, so "Enable Profile Corrections", its
+//! directory in `EVOLIGHT_LENSFUN_DIR` (e.g. lensfun's `data/db`, CC-BY-SA, which is never bundled with the app).
+//! The profile is converted to the same [`evolight_develop::EmbeddedLens`] form, so "Enable Profile Corrections", its
 //! amount sliders, the GPU path and DNG export treat both alike. Without the variable nothing changes.
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use lightcraft_develop::EmbeddedLens;
-use lightcraft_lensdb::{LensDb, Shot};
+use evolight_develop::EmbeddedLens;
+use evolight_lensdb::{LensDb, Shot};
 
 /// The environment variable naming the lens database directory.
-pub const ENV: &str = "LIGHTCRAFT_LENSFUN_DIR";
+pub const ENV: &str = "EVOLIGHT_LENSFUN_DIR";
 
 /// The configured database, read once per process; `None` when none is configured or it holds no lenses.
 pub fn database() -> Option<&'static LensDb> {
@@ -37,7 +37,7 @@ pub fn database() -> Option<&'static LensDb> {
 
 /// The database profile for a photo with metadata `m`, for its `w × h` (unoriented, default-cropped) image,
 /// re-expressed after `orientation`. `None` without a database, lens name, focal length or matching profile.
-pub fn lookup(db: &LensDb, m: &lightcraft_meta::Metadata, w: f64, h: f64, orientation: lightcraft_geom::Orientation) -> Option<EmbeddedLens> {
+pub fn lookup(db: &LensDb, m: &evolight_meta::Metadata, w: f64, h: f64, orientation: evolight_geom::Orientation) -> Option<EmbeddedLens> {
     let focal = m.focal_length.filter(|f| f.is_finite() && *f > 0.0)?;
     let camera = db.find_camera(m.make.as_deref().unwrap_or_default(), m.model.as_deref().unwrap_or_default());
     let lens = match m.lens_model.as_deref() {
@@ -45,14 +45,14 @@ pub fn lookup(db: &LensDb, m: &lightcraft_meta::Metadata, w: f64, h: f64, orient
         // Nikon DSLRs record only the lens specification ("24-70mm f/2.8"); a profile must be named exactly that
         // (a user's alias), since the specification fits other makers' lenses too
         None => {
-            let name = lightcraft_lensdb::spec_name(m.lens_spec?);
+            let name = evolight_lensdb::spec_name(m.lens_spec?);
             db.find_lens_named(m.lens_make.as_deref(), &name, camera)?
         }
     };
     let crop = frame_crop_factor(camera.map(|c| c.crop_factor), focal, m.focal_length_35mm);
     let shot = Shot { focal, aperture: m.f_number, distance: None, crop_factor: crop, width: w, height: h };
     let corr = lens.correction(&shot)?;
-    Some(lightcraft_pipeline::optics::reorient_lens(&corr, orientation, w, h))
+    Some(evolight_pipeline::optics::reorient_lens(&corr, orientation, w, h))
 }
 
 /// The crop factor of the recorded frame, which scales the profile's radii: the body's (`camera`), else what the
@@ -69,7 +69,7 @@ fn frame_crop_factor(camera: Option<f64>, focal: f64, focal_35mm: Option<f64>) -
 }
 
 /// [`crate::files::embedded_lens`], else the database profile ([`lookup`]) for a raw with metadata `meta`.
-pub fn for_raw(raw: &lightcraft_raw::RawInfo, meta: impl FnOnce() -> lightcraft_meta::Metadata) -> Option<EmbeddedLens> {
+pub fn for_raw(raw: &evolight_raw::RawInfo, meta: impl FnOnce() -> evolight_meta::Metadata) -> Option<EmbeddedLens> {
     crate::files::embedded_lens(raw).or_else(|| {
         let db = database()?;
         let (w, h) = raw.developed_size();
@@ -80,7 +80,7 @@ pub fn for_raw(raw: &lightcraft_raw::RawInfo, meta: impl FnOnce() -> lightcraft_
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_geom::Orientation;
+    use evolight_geom::Orientation;
 
     const DB: &str = r#"<lensdatabase>
       <camera><maker>Testcam</maker><model>TC-1</model><mount>T</mount><cropfactor>1.5</cropfactor></camera>
@@ -91,8 +91,8 @@ mod tests {
         </calibration>
       </lens></lensdatabase>"#;
 
-    fn meta() -> lightcraft_meta::Metadata {
-        lightcraft_meta::Metadata {
+    fn meta() -> evolight_meta::Metadata {
+        evolight_meta::Metadata {
             make: Some("Testcam".into()),
             model: Some("TC-1".into()),
             lens_model: Some("18-55mm F3.5-5.6".into()),
@@ -108,11 +108,11 @@ mod tests {
         let lens = lookup(&db, &meta(), 6000.0, 4000.0, Orientation::Normal).unwrap();
         assert!(lens.warp.is_some() && lens.vignette.is_some());
         let rotated = lookup(&db, &meta(), 6000.0, 4000.0, Orientation::Rotate90).unwrap();
-        assert_eq!(rotated.warp.unwrap().center, lightcraft_geom::Point::new(0.5, 0.5));
+        assert_eq!(rotated.warp.unwrap().center, evolight_geom::Point::new(0.5, 0.5));
         // no lens name, no focal length, an unknown lens: nothing
-        assert!(lookup(&db, &lightcraft_meta::Metadata { lens_model: None, ..meta() }, 6000.0, 4000.0, Orientation::Normal).is_none());
-        assert!(lookup(&db, &lightcraft_meta::Metadata { focal_length: None, ..meta() }, 6000.0, 4000.0, Orientation::Normal).is_none());
-        let other = lightcraft_meta::Metadata { lens_model: Some("70-200mm F4".into()), ..meta() };
+        assert!(lookup(&db, &evolight_meta::Metadata { lens_model: None, ..meta() }, 6000.0, 4000.0, Orientation::Normal).is_none());
+        assert!(lookup(&db, &evolight_meta::Metadata { focal_length: None, ..meta() }, 6000.0, 4000.0, Orientation::Normal).is_none());
+        let other = evolight_meta::Metadata { lens_model: Some("70-200mm F4".into()), ..meta() };
         assert!(lookup(&db, &other, 6000.0, 4000.0, Orientation::Normal).is_none());
     }
 
@@ -121,7 +121,7 @@ mod tests {
     /// the focal range and aperture.
     #[test]
     fn lens_specification_needs_a_profile_named_by_it() {
-        let nikon = lightcraft_meta::Metadata { lens_model: None, lens_spec: Some([18.0, 55.0, 3.5, 5.6]), ..meta() };
+        let nikon = evolight_meta::Metadata { lens_model: None, lens_spec: Some([18.0, 55.0, 3.5, 5.6]), ..meta() };
         let at = |db: &LensDb| lookup(db, &nikon, 6000.0, 4000.0, Orientation::Normal);
         // "Testcam 18-55mm f/3.5-5.6" fits the specification, but so would any maker's 18-55 f/3.5-5.6: refused
         assert!(at(&LensDb::parse(DB).unwrap()).is_none());
@@ -133,7 +133,7 @@ mod tests {
         assert!(lens.warp.is_some() && lens.vignette.is_some());
         assert_eq!(Some(lens), lookup(&aliased, &meta(), 6000.0, 4000.0, Orientation::Normal), "same profile as by its name");
         // a lens model, when the file has one, still decides
-        let named_other = lightcraft_meta::Metadata { lens_model: Some("70-200mm F4".into()), ..nikon.clone() };
+        let named_other = evolight_meta::Metadata { lens_model: Some("70-200mm F4".into()), ..nikon.clone() };
         assert!(lookup(&aliased, &named_other, 6000.0, 4000.0, Orientation::Normal).is_none());
     }
 
@@ -153,7 +153,7 @@ mod tests {
               </lens></lensdatabase>"#,
         )
         .unwrap();
-        let m = |f35: Option<f64>| lightcraft_meta::Metadata {
+        let m = |f35: Option<f64>| evolight_meta::Metadata {
             make: Some("SONY".into()),
             model: Some("ILCE-1M2".into()),
             lens_model: Some("24-70mm F2.8 DG DN | Art 019".into()),
@@ -204,12 +204,12 @@ mod tests {
         };
         // horizontal scene lines every 50 px (2 px wide, dark on light)
         let line = |v: f64| if v.rem_euclid(50.0) < 2.0 { 0.02f32 } else { 0.8 };
-        let src = lightcraft_raster::Rgb32f::from_fn(w, h, |x, y| {
+        let src = evolight_raster::Rgb32f::from_fn(w, h, |x, y| {
             let (_, sy) = undistort(x as f64 + 0.5, y as f64 + 0.5);
             [line(sy); 3]
         });
         // the dark row nearest y = 51 in each column, sub-pixel (centroid of darkness), as rendered
-        let line_rows = |img: &lightcraft_raster::Rgba8| -> Vec<f64> {
+        let line_rows = |img: &evolight_raster::Rgba8| -> Vec<f64> {
             (20..w - 20)
                 .step_by(10)
                 .map(|x| {
@@ -226,12 +226,12 @@ mod tests {
                 .collect()
         };
         let spread = |rows: &[f64]| rows.iter().cloned().fold(f64::MIN, f64::max) - rows.iter().cloned().fold(f64::MAX, f64::min);
-        let req = lightcraft_pipeline::RenderRequest::fit(w, h);
-        let mut s = lightcraft_develop::DevelopSettings::default();
-        let info = lightcraft_pipeline::SourceInfo { lens: Some(lens), ..Default::default() };
-        let before = spread(&line_rows(&lightcraft_pipeline::render(&src, &info, &s, &req).image));
+        let req = evolight_pipeline::RenderRequest::fit(w, h);
+        let mut s = evolight_develop::DevelopSettings::default();
+        let info = evolight_pipeline::SourceInfo { lens: Some(lens), ..Default::default() };
+        let before = spread(&line_rows(&evolight_pipeline::render(&src, &info, &s, &req).image));
         s.optics.lens_profile = true;
-        let after = spread(&line_rows(&lightcraft_pipeline::render(&src, &info, &s, &req).image));
+        let after = spread(&line_rows(&evolight_pipeline::render(&src, &info, &s, &req).image));
         assert!(before > 2.0, "the recorded line is curved: {before} px");
         // 8-bit output and a 2 px line: the centroid measurement itself is good to about a pixel
         assert!(after < 1.0 && after < before / 8.0, "corrected line bent by {after} px (uncorrected {before})");

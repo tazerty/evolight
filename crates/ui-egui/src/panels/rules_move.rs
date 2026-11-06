@@ -7,7 +7,7 @@
 //! [`judge`], [`move_node`] and [`key_dest`] never trust a path: one that leads nowhere changes
 //! nothing. A group left empty by a move goes away, and groups nest at most [`MAX_GROUP_DEPTH`] deep.
 
-use lightcraft_catalog::{Rule, RuleSet};
+use evolight_catalog::{Rule, RuleSet};
 
 /// Groups nest at most this deep: the editor offers a group only in a list whose depth is below it
 /// (the top list is depth 0).

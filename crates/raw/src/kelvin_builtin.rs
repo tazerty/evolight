@@ -20,7 +20,7 @@ struct Builtin {
 }
 
 const BUILTINS: &[Builtin] = &[
-    // Nikon Z5II (issue emmertex/lightcraft-classic#157): Incandescent 3000 K, Direct sunlight 5210 K, the Kelvin
+    // Nikon Z5II (issue emmertex/evolight-classic#157): Incandescent 3000 K, Direct sunlight 5210 K, the Kelvin
     // setting at 5500 K, Cloudy 5990 K, Shade 8000 K (the temperatures the camera writes in `ColorTemperatureAuto`).
     // Natural Auto (the camera wrote 5030 K) reads back at 5036 K; Flash (5410 K nominal) at about 6500 K.
     Builtin {

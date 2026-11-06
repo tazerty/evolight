@@ -1,16 +1,16 @@
 [package]
-name = "lightcraft-meta"
+name = "evolight-meta"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft metadata: EXIF, XMP, IPTC (L1)"
+description = "EvoLight metadata: EXIF, XMP, IPTC (L1)"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightcraft-tiff = { workspace = true }
-lightcraft-geom = { workspace = true }
+evolight-tiff = { workspace = true }
+evolight-geom = { workspace = true }
 serde = { workspace = true }
 quick-xml = { workspace = true }
 chrono = { workspace = true }

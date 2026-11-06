@@ -1,8 +1,8 @@
 //! Coolpix NRW files stored as big-endian 16-bit words under compression 34713 (P330, P7700, P7800; CC0 samples
-//! from raw.pixls.us). Reads `*.nrw` below `LIGHTCRAFT_NRW_DIR` (default `corpus/raw`), recursively; skips cleanly
+//! from raw.pixls.us). Reads `*.nrw` below `EVOLIGHT_NRW_DIR` (default `corpus/raw`), recursively; skips cleanly
 //! when no such file is there.
 
-use lightcraft_raw::{RawData, decode};
+use evolight_raw::{RawData, decode};
 use std::path::{Path, PathBuf};
 
 fn nrw_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
@@ -19,7 +19,7 @@ fn nrw_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
 #[test]
 fn coolpix_nrw_be16_decodes() {
     let root =
-        std::env::var_os("LIGHTCRAFT_NRW_DIR").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/raw"));
+        std::env::var_os("EVOLIGHT_NRW_DIR").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus/raw"));
     let mut files = Vec::new();
     nrw_files(&root, 0, &mut files);
     let mut checked = 0;

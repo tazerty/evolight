@@ -12,11 +12,11 @@ use serde_json::{Value, json};
 
 use crate::headless::Headless;
 use crate::state::{Dialog, LightroomImport};
-use crate::{LightcraftApp, Services, UiState};
+use crate::{EvoLightApp, Services, UiState};
 
 const T: Duration = Duration::from_secs(20);
 
-/// A folder of its own per test: `Library` (a LightCraft library, demo photos in it unless
+/// A folder of its own per test: `Library` (a EvoLight library, demo photos in it unless
 /// `empty`) and `Lightroom/Travel.lrcat` (a fake catalog) side by side.
 struct Fixture {
     /// The test's own folder.
@@ -41,10 +41,10 @@ impl Fixture {
 
     /// The desktop app on `Library`, with a folder dialog (for Choose…) and screenshots.
     fn app(&self, empty: bool) -> Headless {
-        let mut session = lightcraft_engine::Session::new().with_fs();
+        let mut session = evolight_engine::Session::new().with_fs();
         session.open_library(&self.lib, !empty).unwrap();
-        let png = |img: &lightcraft_raster::Rgba8| {
-            lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(img), &lightcraft_codecs::EncodeMeta::default()).unwrap_or_default()
+        let png = |img: &evolight_raster::Rgba8| {
+            evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(img), &evolight_codecs::EncodeMeta::default()).unwrap_or_default()
         };
         // (a folder dialog for the window's Choose…, and what a screenshot needs)
         let services = Services {
@@ -53,7 +53,7 @@ impl Fixture {
             write: Some(Box::new(|p: &str, b: &[u8]| std::fs::write(p, b).map_err(|e| e.to_string()))),
             ..Default::default()
         };
-        let mut h = Headless::new(LightcraftApp::new(session, services), [1200.0, 800.0], 1.0);
+        let mut h = Headless::new(EvoLightApp::new(session, services), [1200.0, 800.0], 1.0);
         h.step();
         h
     }
@@ -106,9 +106,9 @@ fn import_ends(h: &mut Headless, lrcat: &Path) -> Value {
     last
 }
 
-/// A headless screenshot into `$LIGHTCRAFT_TEST_SHOTS`, when it is set.
+/// A headless screenshot into `$EVOLIGHT_TEST_SHOTS`, when it is set.
 fn shot(h: &mut Headless, name: &str) {
-    if let Some(p) = std::env::var_os("LIGHTCRAFT_TEST_SHOTS") {
+    if let Some(p) = std::env::var_os("EVOLIGHT_TEST_SHOTS") {
         let r = h.request("ui.screenshot", json!({"path": Path::new(&p).join(name).to_string_lossy(), "headless": true}), T);
         assert_eq!(r["ok"], true, "{r}");
     }
@@ -177,7 +177,7 @@ fn create_a_new_library_opens_it_before_the_import_starts() {
     // the new library is the open one, and it was when the import started (the import's
     // snapshot is taken in the same call, after the switch)
     assert_eq!(open_dir(&h), Some(new.clone()));
-    assert!(lightcraft_engine::library::is_library(&new));
+    assert!(evolight_engine::library::is_library(&new));
     assert_eq!(h.app.ui.settings.library_path, new.to_string_lossy(), "opened at the next launch");
     assert!(h.app.ui.settings.recent_libraries.contains(&f.lib.to_string_lossy().into_owned()), "the old one is a recent library");
     import_ends(&mut h, &f.lrcat);
@@ -210,7 +210,7 @@ fn an_empty_library_opens_the_window_on_merge() {
     h.step();
     assert!(matches!(&h.app.ui.dialog, Some(Dialog::LightroomDestination { new_library: false, photos: 0, .. })), "{:?}", h.app.ui.dialog);
     // (the window in French, which translates it: the language is this test thread's own)
-    if std::env::var_os("LIGHTCRAFT_TEST_SHOTS").is_some() {
+    if std::env::var_os("EVOLIGHT_TEST_SHOTS").is_some() {
         h.app.run("app.language.french", json!({})).unwrap();
         h.step();
         h.step();
@@ -360,7 +360,7 @@ fn into_acts_without_the_window() {
 #[test]
 fn a_library_in_memory_merges_without_asking() {
     let f = Fixture::new("memory");
-    let mut h = Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default()), [1200.0, 800.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default()), [1200.0, 800.0], 1.0);
     h.step();
     let r = h.app.run("file.importLightroom", json!({"path": f.lrcat()})).unwrap();
     assert_eq!(r["running"], true, "{r}");

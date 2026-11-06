@@ -3,23 +3,23 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::{Op, Stack, StackId};
+use evolight_catalog::{Op, Stack, StackId};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
 
 #[test]
 fn filmstrip_shows_a_cjk_file_name() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     let first = session.visible_cloned()[0];
     let source = session.catalog.photo(first).expect("demo photo").source.clone();
     // the name from #266: cutting it at byte 13 lands inside '限'
     session.catalog.apply(Op::SetFile { id: first, file_name: "202407層三限定訂閱圖(4).jpg".into(), source }).unwrap();
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail"}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -31,12 +31,12 @@ fn filmstrip_shows_a_cjk_file_name() {
 
 #[test]
 fn filmstrip_stack_badge_expands_and_collapses_the_stack() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     let vis = session.visible_cloned();
     let (loose, top, member) = (vis[0], vis[1], vis[2]);
     let stack = Stack { id: StackId(1), photos: vec![top, member], collapsed: true };
     session.catalog.apply(Op::AddStack { stack }).unwrap();
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     // the loose photo is the one in the loupe: the stack isn't selected
     let r = h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [loose.0]}}), T);

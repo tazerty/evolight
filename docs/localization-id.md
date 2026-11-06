@@ -1,9 +1,9 @@
-# LightCraft in Indonesian
+# EvoLight in Indonesian
 
 Choose **Edit → Language → Bahasa Indonesia** or **Settings → General → Language**. The choice applies
 at once and is saved for the next launch (`language: "id"` in `ui.json`); the control command is
-`app.language.indonesian`. `LIGHTCRAFT_LANGUAGE` selects it for headless runs and accepts `id`, `id-ID`
-and `id_ID.UTF-8`; the saved value is always `id`. LightCraft does not follow the system language, for
+`app.language.indonesian`. `EVOLIGHT_LANGUAGE` selects it for headless runs and accepts `id`, `id-ID`
+and `id_ID.UTF-8`; the saved value is always `id`. EvoLight does not follow the system language, for
 Indonesian as for every other language.
 
 The Indonesian catalogs cover every plain and formats message the other catalogs have (2,258 + 297),
@@ -13,7 +13,7 @@ headings, status messages and the smart-album rule editor. The embedded release 
 stay in English. Technical errors from lower layers stay in English, as in the other languages.
 The catalogs were written with an agent from the meaning of the English labels and reviewed for
 natural, standard app Indonesian; 356 labels reuse the Indonesian wording of the sibling apps
-(PhotoCraft, VectorCraft, FilmCraft, FigCraft) so the suite reads the same. A native speaker's pass
+(EvoPhoto, EvoVector, EvoFilm, EvoFig) so the suite reads the same. A native speaker's pass
 is welcome.
 
 File names, command ids, template placeholders and albums, presets or metadata you named yourself are

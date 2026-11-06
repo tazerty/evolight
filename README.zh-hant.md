@@ -1,14 +1,14 @@
 <p align="center">
-  <a href="https://getartcraft.com/">
+  <a href="https://evora.st">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/upstream-logo-white.svg">
+      <img alt="Upstream" src="docs/brand/upstream-logo.svg" width="200">
     </picture>
   </a>
 </p>
 
 
-<h1 align="center">LightCraft</h1>
+<h1 align="center">EvoLight</h1>
 
 <h3 align="center">Your photos. Your pixels. Your machine.</h3>
 
@@ -32,26 +32,26 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
+  <a href="https://evora.st"><img alt="Join the Upstream community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
 </p>
 
 <p align="center">
-  <a href="https://getartcraft.com/apps/lightcraft"><b>getartcraft.com 上的 LightCraft</b></a> ·
-  <a href="https://getartcraft.com/">ArtCraft</a> ·
-  <a href="https://getartcraft.com/apps">所有 Crafting Apps</a>
+  <a href="https://evora.st"><b>upstream-site.com 上的 EvoLight</b></a> ·
+  <a href="https://evora.st">Upstream</a> ·
+  <a href="https://evora.st">所有 Building Apps</a>
 </p>
 
 <br>
 
 <p align="center">
-  <img src="docs/images/hero-tetons.jpg" alt="LightCraft 的編輯檢視畫面：放大檢視中是安瑟·亞當斯的《提頓山脈與蛇河》，右側開啟著「光線」與「效果」面板，底片顯示窗格中是四張展示照片" width="100%">
+  <img src="docs/images/hero-tetons.jpg" alt="EvoLight 的編輯檢視畫面：放大檢視中是安瑟·亞當斯的《提頓山脈與蛇河》，右側開啟著「光線」與「效果」面板，底片顯示窗格中是四張展示照片" width="100%">
   <br>
-  <sub><i>安瑟·亞當斯，《提頓山脈與蛇河》（1942）。公眾領域，美國國家檔案館。於 LightCraft 中顯影。</i></sub>
+  <sub><i>安瑟·亞當斯，《提頓山脈與蛇河》（1942）。公眾領域，美國國家檔案館。於 EvoLight 中顯影。</i></sub>
 </p>
 
 > [!NOTE]
-> **ArtCraft 是一個由各行各業的創作者組成的社群。** 數位藝術、生成藝術、音樂、
-> 遊戲 &mdash; 只要你在創作，你就是我們的一員。**[來 Discord 打聲招呼吧](https://discord.gg/artcraft)。**
+> **Upstream 是一個由各行各業的創作者組成的社群。** 數位藝術、生成藝術、音樂、
+> 遊戲 &mdash; 只要你在創作，你就是我們的一員。**[來 Discord 打聲招呼吧](https://evora.st)。**
 
 <p align="center">
   <a href="#edit-like-you-mean-it">編輯</a> ·
@@ -66,14 +66,14 @@
   <a href="#quick-start">快速開始</a> ·
   <a href="ROADMAP.md">路線圖</a> ·
   <a href="#downloads">下載</a> ·
-  <a href="#the-crafting-apps">Crafting Apps</a>
+  <a href="#the-building-apps">Building Apps</a>
 </p>
 
 <br>
 
 ## Edit like you mean it
 
-LightCraft 是裝在單一原生應用程式裡的完整暗房。每一項調整都是**非破壞性**的，永遠不會動到原始檔案。
+EvoLight 是裝在單一原生應用程式裡的完整暗房。每一項調整都是**非破壞性**的，永遠不會動到原始檔案。
 每個滑桿都經過一條**場景參考、寬色域、32 位元浮點的管線**算繪：亮部像底片一樣柔和過渡，陰影提亮卻不產生光暈，
 色彩從拍攝到匯出始終保持乾淨。
 
@@ -130,7 +130,7 @@ LightCraft 是裝在單一原生應用程式裡的完整暗房。每一項調整
 ## Before & after
 
 按住 <kbd>\\</kbd> 偷看原圖，按 <kbd>Y</kbd> 並排比較，或按 <kbd>Shift</kbd>+<kbd>Y</kbd> 分割檢視。
-下面每一張都是 LightCraft 的真實截圖，由代理透過[控制通道](#built-for-agents)自動擷取。
+下面每一張都是 EvoLight 的真實截圖，由代理透過[控制通道](#built-for-agents)自動擷取。
 
 <table>
 <tr>
@@ -155,7 +155,7 @@ LightCraft 是裝在單一原生應用程式裡的完整暗房。每一項調整
 <p align="center">
   <img src="docs/images/masking.jpg" alt="遮色片面板中有一個線性天空遮色片與一個放射狀陽光光暈遮色片；放射狀漸層在湖景照片上以紅色疊加層畫在太陽周圍" width="100%">
   <br>
-  <sub>疊加在線性「天空」遮色片之上的放射狀「陽光光暈」遮色片（色溫 +40、曝光 +0.50）。<i>照片來自 LightCraft 程式產生的示範照片庫。</i></sub>
+  <sub>疊加在線性「天空」遮色片之上的放射狀「陽光光暈」遮色片（色溫 +40、曝光 +0.50）。<i>照片來自 EvoLight 程式產生的示範照片庫。</i></sub>
 </p>
 
 <br>
@@ -221,12 +221,12 @@ LightCraft 是裝在單一原生應用程式裡的完整暗房。每一項調整
 
 ## Built for agents
 
-LightCraft 裡的每一個選單項目、滑桿、筆刷筆觸、裁切控點與按鍵，都是一個擁有穩定 ID 與
+EvoLight 裡的每一個選單項目、滑桿、筆刷筆觸、裁切控點與按鍵，都是一個擁有穩定 ID 與
 JSON 參數的**指令**。介面、鍵盤、CLI、JSON-lines 控制通道與一個 **MCP 伺服器**全都透過同一個入口分派。
 代理可以挑片、顯影、為天空加上遮色片並匯出，而且能*看到*結果。
 
 ```sh
-lightcraft --control 7980 ~/Pictures/trip
+evolight --control 7980 ~/Pictures/trip
 ```
 ```jsonc
 {"method": "engine.execute", "params": {"command": "photo.flag",  "params": {"flag": "pick"}}}
@@ -239,30 +239,30 @@ lightcraft --control 7980 ~/Pictures/trip
 
 - **指令註冊表。** `engine.commands` 列出可用的指令；`develop.controls` 列出每個滑桿的範圍、
   預設值與目前值。
-- **MCP 伺服器。** `lightcraft-cli mcp` 把指令註冊表開放給 Claude（或任何 MCP 用戶端），
+- **MCP 伺服器。** `evolight-cli mcp` 把指令註冊表開放給 Claude（或任何 MCP 用戶端），
   同時提供匯入、查詢、顯影、遮色片、算繪（以影像回傳）與匯出的輔助工具。它可以無介面執行，也可以附掛
   到正在執行的應用程式上，支援截圖、點擊與手勢。詳見 [docs/mcp.md](docs/mcp.md)。
 
   ```sh
-  cargo build --release -p lightcraft-cli
-  claude mcp add lightcraft -- "$PWD/target/release/lightcraft-cli" mcp ~/Pictures/shoot          # 無介面
-  claude mcp add lightcraft-app -- "$PWD/target/release/lightcraft-cli" mcp --connect 127.0.0.1:7980  # 操作執行中的應用程式
+  cargo build --release -p evolight-cli
+  claude mcp add evolight -- "$PWD/target/release/evolight-cli" mcp ~/Pictures/shoot          # 無介面
+  claude mcp add evolight-app -- "$PWD/target/release/evolight-cli" mcp --connect 127.0.0.1:7980  # 操作執行中的應用程式
   ```
-- **可腳本化的 CLI：** `lightcraft-cli run --import in.dng develop.set control=light.exposure value=0.7 app.export
+- **可腳本化的 CLI：** `evolight-cli run --import in.dng develop.set control=light.exposure value=0.7 app.export
   path=out.jpg longEdge=2048` 可執行任意指令鏈（無介面、對已儲存的照片庫，或對執行中的應用程式），
-  每條指令印出一行 JSON 結果；`lightcraft-cli render in.dng -o out.jpg --set light.exposure=0.7 --preset …`。
+  每條指令印出一行 JSON 結果；`evolight-cli render in.dng -o out.jpg --set light.exposure=0.7 --preset …`。
 - **一切皆可復原**，包括代理的操作：一次滑桿拖曳（或腳本中一連串的更新）算一步復原。
 - **縮圖目錄（原生應用程式／CLI）：** 選取照片，然後 **檔案 → 縮圖目錄 PDF…**。可選擇 A4 或 Letter、橫向、
   列數與欄數，以及檔名圖說；儲存分頁 PDF，再用你的 PDF 檢視器列印。匯出會套用目前的編輯，每張照片完整放入
   而不再次裁切，以 150 dpi 和 sRGB 算繪。背景匯出支援取消，並保護原始檔案與 XMP 附屬檔案。從 CLI 呼叫：
 
   ```sh
-  lightcraft-cli run --import ~/Pictures/shoot library.selectAll export.contactSheet path=Contact.pdf paper=a4 columns=3 rows=4 captions=true
+  evolight-cli run --import ~/Pictures/shoot library.selectAll export.contactSheet path=Contact.pdf paper=a4 columns=3 rows=4 captions=true
   ```
 
   `export.contactSheet` 也接受明確的 `ids`、`landscape=true` 和 `paper=letter`。只有在整份 PDF 成功產生之後，
   它才會取代既有的輸出檔案。限制：1,000 張照片、100 頁、256 MiB；圖說使用與浮水印相同的字型涵蓋範圍來點陣化
-  （CJK 文字需要 craft-fonts），過長的名稱會在中間省略。
+  （CJK 文字需要 evo-fonts），過長的名稱會在中間省略。
   這是一套縮圖目錄工作流程，
   不是印表機驅動程式或自訂拼版編輯器。
 - **列印版面（原生應用程式／CLI）：** **檔案 → 列印…** 會開啟「列印」模組的版面編輯器：單張照片、
@@ -274,7 +274,7 @@ lightcraft --control 7980 ~/Pictures/trip
   `print.template.save`……），所以 CLI 和 MCP 也能操作它：
 
   ```sh
-  lightcraft-cli run --import ~/Pictures/shoot print.set 'layout={"style":"picturePackage","page":{"paper":"8x10"}}' \
+  evolight-cli run --import ~/Pictures/shoot print.set 'layout={"style":"picturePackage","page":{"paper":"8x10"}}' \
       print.cell.add width=5 height=7 print.cell.add width=2.5 height=3.5 print.layout.autoLayout print.exportPdf path=Package.pdf
   ```
 
@@ -290,7 +290,7 @@ lightcraft --control 7980 ~/Pictures/trip
 - **純 Rust，無 C。** 我們自己的 RAW 解碼器（DNG、Canon CR2/CR3、Sony ARW、Nikon NEF、Fujifilm RAF 含 X-Trans、
   Panasonic RW2／Leica RWL、Pentax PEF、Olympus ORF），我們自己的色彩科學，我們自己的管線。JPEG、PNG、TIFF、WebP、
   PSD 合成圖與 JPEG XL 現在就能開啟；加上 `--features heif` 還能開啟 HEIC/HEIF 照片（HEVC 於建置時選用，
-  與 PhotoCraft 中一致）。
+  與 EvoPhoto 中一致）。
 - **場景參考與寬色域。** 內部使用線性 Rec.2020 浮點、Bradford 色彩適應的白平衡、以色域映射取代裁剪，
   raw 走底片式肩部曲線，未經改動的 JPEG 則採像素級直通。
 - **解析度無關的編輯。** 半徑與筆刷大小都相對於影像，所以 400 px 的預覽、你的 5K 顯示器和 60 MP 的匯出
@@ -311,7 +311,7 @@ lightcraft --control 7980 ~/Pictures/trip
 
 ## Feature status
 
-LightCraft 還很年輕，而且進展飛快：**Alpha 階段**。**老實說，我們目前的進度是**（細節見[路線圖](ROADMAP.md)和
+EvoLight 還很年輕，而且進展飛快：**Alpha 階段**。**老實說，我們目前的進度是**（細節見[路線圖](ROADMAP.md)和
 [docs/target-app-parity.md](docs/target-app-parity.md)）：
 
 - **依功能數量計算，約達 Lightroom 的 81%**（核心功能 98%），逐行記錄在
@@ -345,7 +345,7 @@ LightCraft 還很年輕，而且進展飛快：**Alpha 階段**。**老實說，
 | 照片庫持久化（防當機的操作紀錄 + 快照、背景壓縮、儲存失敗會回報）、磁碟縮圖快取 | ✅ |
 | 匯入：原位置加入／複製／移動、重新命名與資料夾範本、裝置、重複檢測、監看資料夾；本機資料夾瀏覽 | ✅ |
 | MCP 伺服器（無介面或執行中的應用程式、持久化照片庫）、CLI、控制通道 | ✅ |
-| XMP 附屬檔案（讀取／寫入、自動寫入）、讀取 `crs:` 顯影設定、預設集檔案（`.lcpreset`、XMP 預設集） | ✅ |
+| XMP 附屬檔案（讀取／寫入、自動寫入）、讀取 `crs:` 顯影設定、預設集檔案（`.evolightpreset`、XMP 預設集） | ✅ |
 | 鏡頭校正（變形、暗角、自動 + 手動色差、去除邊緣色差、內嵌於 DNG 檔案的鏡頭校正資料、Panasonic／Leica RW2／RWL 變形資料以及 Nikon Z 6II／Z 8／Z f 變形資料）、幾何（變換、限制裁切範圍）、透視校正（自動／水平／垂直／完整／引導式） | ✅ · 相機鏡頭描述檔（我們自己的）⬜ |
 | 照片合併：HDR（自動對齊、去除殘影）、全景（球面／圓柱／透視、邊界變形、自動裁切）、HDR 全景 → DNG | ✅ |
 | GPU 管線（wgpu 計算，與 CPU 一致到 1/255 以內）、裝置限制／發生錯誤時改用 CPU | ✅ · 瀏覽器中的 WebGPU 🚧 |
@@ -361,13 +361,13 @@ LightCraft 還很年輕，而且進展飛快：**Alpha 階段**。**老實說，
 建置整個工作區（含桌面、網頁與 CLI 應用程式）需要 Rust 1.95 或更新版本。
 
 ```sh
-git clone https://github.com/storytold/lightcraft && cd lightcraft
-cargo run --release -p lightcraft                       # 開啟你的照片庫（~/Pictures/LightCraft Library；新照片庫會先帶示範照片）
-cargo run --release -p lightcraft -- ~/Pictures/trip    # 匯入你的照片（掃描資料夾，跳過重複項目）
-cargo run --release -p lightcraft -- --memory           # 用完即丟的記憶體示範工作階段（不寫入任何內容）
-cargo run --release -p lightcraft -- --control 7980     # 附帶自動化通道
+git clone https://github.com/tazerty/evolight && cd evolight
+cargo run --release -p evolight                       # 開啟你的照片庫（~/Pictures/EvoLight Library；新照片庫會先帶示範照片）
+cargo run --release -p evolight -- ~/Pictures/trip    # 匯入你的照片（掃描資料夾，跳過重複項目）
+cargo run --release -p evolight -- --memory           # 用完即丟的記憶體示範工作階段（不寫入任何內容）
+cargo run --release -p evolight -- --control 7980     # 附帶自動化通道
 cargo xtask web --serve                                 # 在瀏覽器中執行同一個應用程式：http://127.0.0.1:8080/
-cargo run --release -p lightcraft-cli -- render photo.jpg -o out.jpg --set light.exposure=0.5
+cargo run --release -p evolight-cli -- render photo.jpg -o out.jpg --set light.exposure=0.5
 cargo xtask ci                                          # fmt、clippy、測試、分層、wasm 檢查
 ```
 
@@ -378,21 +378,21 @@ CI 預設使用行表除錯資訊，並依啟動時可用記憶體每 1.5 GB 開
 `CARGO_PROFILE_DEV_DEBUG`、`CARGO_BUILD_JOBS`、`RUST_TEST_THREADS` 與 `NEXTEST_TEST_THREADS` 會覆寫這些預設值。
 日常開發指令保留各自的設定。
 
-**記憶體受限機器上的 release 建置：** [#1196](https://github.com/storytold/lightcraft/issues/1196)
+**記憶體受限機器上的 release 建置：** [#1196](https://github.com/tazerty/evolight/issues/1196)
 回報在一台 16 GB 的 Arch/AUR 機器上，同時建置桌面應用程式與 CLI，並啟用完整除錯資訊、thin LTO
 及單一程式碼產生單元時，連結過程遭到 OOM 終止。上述 CI 預設值並不適用於一般的
 `cargo build --release`。建議先用一個建置工作；若記憶體充足，可嘗試兩個：
 
 ```sh
-CARGO_BUILD_JOBS=1 cargo build --release -p lightcraft -p lightcraft-cli
-# 或者：CARGO_BUILD_JOBS=2 cargo build --release -p lightcraft -p lightcraft-cli
+CARGO_BUILD_JOBS=1 cargo build --release -p evolight -p evolight-cli
+# 或者：CARGO_BUILD_JOBS=2 cargo build --release -p evolight -p evolight-cli
 ```
 
 如果打包環境啟用了完整除錯資訊或較耗記憶體的 LTO 設定，可以使用僅對本條指令生效的
 覆寫設定，降低原始碼建置所需的記憶體：
 
 ```sh
-CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 cargo build --release -p lightcraft -p lightcraft-cli
+CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 cargo build --release -p evolight -p evolight-cli
 ```
 
 這些 POSIX shell 賦值只影響這一條指令，不會變更全域 Cargo 設定或儲存庫的 release profile。
@@ -402,8 +402,8 @@ CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_PROFILE_RELEASE_LTO=false
 PKGBUILD 可能會覆寫繼承的環境變數；請在本機調整打包腳本或聯絡維護者，而不要假設替
 `makepkg` 加上環境變數前綴就能優先生效。
 
-測試在缺少 GPU、語料庫、craft-fonts 字型或模型時會直接通過而不檢查任何內容（libtest 沒有「已跳過」
-這個狀態），所以 `cargo xtask ci` 會把它們列出來：測試會用 `lightcraft_testkit::skip!` 記錄跳過原因，
+測試在缺少 GPU、語料庫、evo-fonts 字型或模型時會直接通過而不檢查任何內容（libtest 沒有「已跳過」
+這個狀態），所以 `cargo xtask ci` 會把它們列出來：測試會用 `evolight_testkit::skip!` 記錄跳過原因，
 執行結束時會列出機器提供的環境（作業系統、CPU、記憶體、每個後端的 GPU 配接器、語料庫、字型）以及每一項
 跳過的原因。它會寫入 `target/ci/report.json` 和 `target/ci/summary.md`，後者是可直接貼進 PR 的
 Markdown 區塊（`--summary-md` 會把它印出來）；`--hardware` 還會在每個有實體配接器的後端上執行
@@ -412,41 +412,41 @@ GPU 測試。不會上傳任何內容。
 **中文與日文文字**需要共用字型儲存庫，這是一個可選的建置輸入（所有正式發布版都會包含它）：
 
 ```sh
-git clone https://github.com/storytold/craft-fonts ../craft-fonts
-CRAFT_FONTS_DIR=../craft-fonts cargo run --release -p lightcraft
+git clone https://github.com/tazerty/evo-fonts ../evo-fonts
+EVO_FONTS_DIR=../evo-fonts cargo run --release -p evolight
 ```
 
-不指定它時，LightCraft 一樣能建置與執行，只是中文和日文文字沒有字形。字型從不提交到
-本儲存庫，字型的收錄規範記載在該儲存庫：見 [craft-fonts README](https://github.com/storytold/craft-fonts#readme)。
+不指定它時，EvoLight 一樣能建置與執行，只是中文和日文文字沒有字形。字型從不提交到
+本儲存庫，字型的收錄規範記載在該儲存庫：見 [evo-fonts README](https://github.com/tazerty/evo-fonts#readme)。
 
 **介面語言：** **編輯 → 語言**（English、简体中文、繁體中文（台灣）、日本語、Português (Brasil)、Español、Deutsch、Русский、Français、Українська、Čeština、ქართული）或 **設定 → 一般 →
 語言**；選擇後立即生效並會保留。詳見 [docs/localization.md](docs/localization.md)。
 
-**記錄檔：** 桌面應用程式會把記錄檔寫到標準錯誤輸出，以及設定資料夾裡的 `logs/lightcraft.log`
-（Linux `$XDG_CONFIG_HOME/lightcraft/logs/`，預設為 `~/.config/lightcraft/logs/`；macOS
-`~/Library/Application Support/LightCraft/logs/`；Windows `%APPDATA%\LightCraft\logs\`），絕不會寫進照片庫裡。
-**可攜模式：** 在執行檔旁放一個名為 `portable.txt`（或 `LightCraft.portable`）的檔案，會把設定
-資料夾移到執行檔旁的 `LightCraftData`。從桌面選單或 Dock 啟動沒有終端機，所以請把這個檔案附在
+**記錄檔：** 桌面應用程式會把記錄檔寫到標準錯誤輸出，以及設定資料夾裡的 `logs/evolight.log`
+（Linux `$XDG_CONFIG_HOME/evolight/logs/`，預設為 `~/.config/evolight/logs/`；macOS
+`~/Library/Application Support/EvoLight/logs/`；Windows `%APPDATA%\EvoLight\logs\`），絕不會寫進照片庫裡。
+**可攜模式：** 在執行檔旁放一個名為 `portable.txt`（或 `EvoLight.portable`）的檔案，會把設定
+資料夾移到執行檔旁的 `EvoLightData`。從桌面選單或 Dock 啟動沒有終端機，所以請把這個檔案附在
 錯誤回報裡（**說明 ▸ 開啟記錄資料夾** 會在檔案管理員中顯示它）。每次啟動會把
-上一個記錄檔移到 `lightcraft.1.log`，再上一個移到 `lightcraft.2.log`，這樣當機那次的記錄檔就能在下次啟動後
+上一個記錄檔移到 `evolight.1.log`，再上一個移到 `evolight.2.log`，這樣當機那次的記錄檔就能在下次啟動後
 保留下來；檔案到 16 MiB 就會停止增長，`--version` 和 `--help` 不會寫記錄檔，帶
-`LIGHTCRAFT_NO_PREFS` 執行時只會寫到標準錯誤輸出。預設情況下，LightCraft 自己的 crate 會記錄到 `info`
-層級，其他一切則記錄到 `warn`。`LIGHTCRAFT_LOG=info` 或 `debug` 的行為和以前一樣（LightCraft 自己的 crate
-用該層級，其餘只記警告與錯誤；其他值：只記警告與錯誤），並且優先於 `RUST_LOG`；未設定 `LIGHTCRAFT_LOG` 時，`RUST_LOG` 會把預設值換成
-env_logger 風格的指令，例如 `RUST_LOG=debug` 或 `RUST_LOG=warn,lightcraft_pipeline=trace`（以
-`*` 結尾的指令會涵蓋所有以它開頭的目標，如 `lightcraft*=debug`）。panic 一樣會記錄在那裡，
-並且仍然會寫在暫存資料夾裡的 `lightcraft-panics.log`。記錄器程式碼位於 `apps/lightcraft/src/logging.rs`。
+`EVOLIGHT_NO_PREFS` 執行時只會寫到標準錯誤輸出。預設情況下，EvoLight 自己的 crate 會記錄到 `info`
+層級，其他一切則記錄到 `warn`。`EVOLIGHT_LOG=info` 或 `debug` 的行為和以前一樣（EvoLight 自己的 crate
+用該層級，其餘只記警告與錯誤；其他值：只記警告與錯誤），並且優先於 `RUST_LOG`；未設定 `EVOLIGHT_LOG` 時，`RUST_LOG` 會把預設值換成
+env_logger 風格的指令，例如 `RUST_LOG=debug` 或 `RUST_LOG=warn,evolight_pipeline=trace`（以
+`*` 結尾的指令會涵蓋所有以它開頭的目標，如 `evolight*=debug`）。panic 一樣會記錄在那裡，
+並且仍然會寫在暫存資料夾裡的 `evolight-panics.log`。記錄器程式碼位於 `apps/evolight/src/logging.rs`。
 
 網頁版需要 `wasm32-unknown-unknown` target 以及對應版本的 `wasm-bindgen` CLI
 （`cargo xtask web` 會印出確切的安裝指令）；詳見 [docs/web.md](docs/web.md)。
 
-**Nix** 會建置桌面應用程式與 `lightcraft-cli`（Nix 建置永遠包含 craft-fonts 輸入，所以日文
+**Nix** 會建置桌面應用程式與 `evolight-cli`（Nix 建置永遠包含 evo-fonts 輸入，所以日文
 文字有字形）：
 
 ```sh
-nix run github:storytold/lightcraft                    # 桌面應用程式
-nix build github:storytold/lightcraft                  # → ./result/bin/{lightcraft,lightcraft-cli}
-nix develop github:storytold/lightcraft                # rust 工具鏈 + 原生相依套件 + 字型
+nix run github:tazerty/evolight                    # 桌面應用程式
+nix build github:tazerty/evolight                  # → ./result/bin/{evolight,evolight-cli}
+nix develop github:tazerty/evolight                # rust 工具鏈 + 原生相依套件 + 字型
 ```
 
 在 NixOS 上，請從 `nix develop` 執行 `cargo` 建置：在它之外，應用程式找不到 `libvulkan.so.1`，
@@ -457,17 +457,17 @@ nix develop github:storytold/lightcraft                # rust 工具鏈 + 原生
 
 ```nix
 # flake.nix
-inputs.lightcraft.url = "github:storytold/lightcraft";
-# 選用：使用你自己的 nixpkgs，而不是 LightCraft 鎖定的那個
-# inputs.lightcraft.inputs.nixpkgs.follows = "nixpkgs";
+inputs.evolight.url = "github:tazerty/evolight";
+# 選用：使用你自己的 nixpkgs，而不是 EvoLight 鎖定的那個
+# inputs.evolight.inputs.nixpkgs.follows = "nixpkgs";
 
 # 然後在 NixOS 或 home-manager 模組中（`inputs` 在作用範圍內）：
-nixpkgs.overlays = [ inputs.lightcraft.overlays.default ];   # 讓 `pkgs.lightcraft` 可用
-environment.systemPackages = [ pkgs.lightcraft ];           # home-manager：home.packages = [ pkgs.lightcraft ];
+nixpkgs.overlays = [ inputs.evolight.overlays.default ];   # 讓 `pkgs.evolight` 可用
+environment.systemPackages = [ pkgs.evolight ];           # home-manager：home.packages = [ pkgs.evolight ];
 ```
 
 `nix build` 會安裝與 .deb/.rpm 相同的 desktop 檔案、hicolor 圖示和 AppStream 中繼資料，並執行
-`cargo test --workspace` 作為其檢查階段（用 `pkgs.lightcraft.overrideAttrs { doCheck = false; }` 跳過）。
+`cargo test --workspace` 作為其檢查階段（用 `pkgs.evolight.overrideAttrs { doCheck = false; }` 跳過）。
 
 **鍵盤：** <kbd>G</kbd> 格狀檢視 · <kbd>D</kbd> 詳細檢視 · <kbd>E</kbd> 編輯 · <kbd>C</kbd> 裁切 · <kbd>M</kbd> 遮色片 ·
 <kbd>Shift</kbd>+<kbd>P</kbd> 預設集 · <kbd>\\</kbd> 原圖 · <kbd>Y</kbd> 編輯前／後 · <kbd>Z</kbd> 縮放 ·
@@ -477,8 +477,8 @@ environment.systemPackages = [ pkgs.lightcraft ];           # home-manager：hom
 
 一個引擎優先的 Cargo 工作區，由一群小而經過測試的 crate 組成，並強制分層（`cargo xtask layers`）：`geom`、
 `color`、`raster`、`tiff` → `raw`、`codecs`、`meta`、`develop` → `pipeline` → `catalog` → `engine` → `ui-egui`。
-egui 前端是一個可替換的 crate；它之下沒有任何東西知道 UI 的存在。`mcp` 和各個應用程式（`lightcraft`、
-`lightcraft-cli`）則坐落在 `engine` 之上。
+egui 前端是一個可替換的 crate；它之下沒有任何東西知道 UI 的存在。`mcp` 和各個應用程式（`evolight`、
+`evolight-cli`）則坐落在 `engine` 之上。
 
 ## Contributing
 
@@ -489,92 +489,92 @@ egui 前端是一個可替換的 crate；它之下沒有任何東西知道 UI �
 - **絕不使用 Adobe 資產：** 不使用 Adobe 產品的圖示、截圖、預設集、描述檔、LUT 或字型。儲存庫中的每一張
   影像、圖示和字型都是原創、公眾領域、創用 CC、OFL 或寬鬆授權的，並在同一次提交中
   於 [assets/ATTRIBUTION.md](assets/ATTRIBUTION.md) 新增條目。新的字型要提交到
-  [storytold/craft-fonts](https://github.com/storytold/craft-fonts)，而不是這裡。
+  [tazerty/evo-fonts](https://github.com/tazerty/evo-fonts)，而不是這裡。
 - **純 Rust**、強制的 crate 分層、一切皆指令，並且每次提交前 `cargo xtask ci` 都必須通過
   （一次提交對應一個任務 ID）。
 - **絕不當機。** 非測試程式碼要回傳錯誤而不是 panic：不使用 `unwrap()`、`expect()`、`panic!` 或
   `unsafe`，對任何來自輸入的資料都做受檢的索引存取，並且每一個當機修復都要附一個回歸測試。細節見
   [AGENTS.md](AGENTS.md#never-crash-outranks-feature-work)。
 
-有問題、想法，或是想先討論一個 bug？來 [Discord](https://discord.gg/artcraft)。
+有問題、想法，或是想先討論一個 bug？來 [Discord](https://evora.st)。
 
 <br>
 
 ## Downloads
 
-**第一次使用 LightCraft？** 從 [getartcraft.com 的 LightCraft 頁面](https://getartcraft.com/apps/lightcraft)下載。那是最簡單的安裝方式。
+**第一次使用 EvoLight？** 從 [upstream-site.com 的 EvoLight 頁面](https://evora.st)下載。那是最簡單的安裝方式。
 
-**想要特定的建置版本或格式？** 在 GitHub 上，[最新發布版](https://github.com/storytold/lightcraft/releases/latest)包含下面列出的所有建置版本，[所有發布版](https://github.com/storytold/lightcraft/releases)則有更早的版本與其說明。檔名中的 `<ver>` 是版本號，`SHA256SUMS.txt` 列出了每個檔案的檢查碼。
+**想要特定的建置版本或格式？** 在 GitHub 上，[最新發布版](https://github.com/tazerty/evolight/releases/latest)包含下面列出的所有建置版本，[所有發布版](https://github.com/tazerty/evolight/releases)則有更早的版本與其說明。檔名中的 `<ver>` 是版本號，`SHA256SUMS.txt` 列出了每個檔案的檢查碼。
 
 ### Windows
 
 | 建置版本 | 安裝程式 | 可攜版 |
 |---|---|---|
-| x64（64 位元 Intel/AMD） | `lightcraft-<ver>-windows-x64.msi` | `lightcraft-<ver>-windows-x64-portable.zip` |
-| arm64（Snapdragon 及其他 ARM PC） | `lightcraft-<ver>-windows-arm64.msi` | `lightcraft-<ver>-windows-arm64-portable.zip` |
-| x86（32 位元） | `lightcraft-<ver>-windows-x86.msi` | `lightcraft-<ver>-windows-x86-portable.zip` |
+| x64（64 位元 Intel/AMD） | `evolight-<ver>-windows-x64.msi` | `evolight-<ver>-windows-x64-portable.zip` |
+| arm64（Snapdragon 及其他 ARM PC） | `evolight-<ver>-windows-arm64.msi` | `evolight-<ver>-windows-arm64-portable.zip` |
+| x86（32 位元） | `evolight-<ver>-windows-x86.msi` | `evolight-<ver>-windows-x86-portable.zip` |
 
 安裝程式與執行檔都有程式碼簽章。安裝程式會詢問安裝位置（預設為
-`C:\Program Files\LightCraft`；升級時會留在你選擇的資料夾），結束時會有一頁確認 LightCraft 已安裝，
-並可選擇立即啟動。無訊息安裝：`msiexec /i lightcraft-<ver>-windows-x64.msi /qn INSTALLFOLDER="D:\Apps\LightCraft\"`。
+`C:\Program Files\EvoLight`；升級時會留在你選擇的資料夾），結束時會有一頁確認 EvoLight 已安裝，
+並可選擇立即啟動。無訊息安裝：`msiexec /i evolight-<ver>-windows-x64.msi /qn INSTALLFOLDER="D:\Apps\EvoLight\"`。
 
 ### macOS
 
 | 建置版本 | 檔案 | 備註 |
 |---|---|---|
-| 應用程式，通用版（Apple 晶片 + Intel） | `lightcraft-<ver>-macos-universal.dmg` | 已簽章並經過公證 |
-| 命令列工具，通用版 | `lightcraft-cli-<ver>-macos-universal.zip` | 已簽章並經過公證 |
+| 應用程式，通用版（Apple 晶片 + Intel） | `evolight-<ver>-macos-universal.dmg` | 已簽章並經過公證 |
+| 命令列工具，通用版 | `evolight-cli-<ver>-macos-universal.zip` | 已簽章並經過公證 |
 
 ### Linux
 
 | 格式 | x86_64 | aarch64（ARM64） | 備註 |
 |---|---|---|---|
-| AppImage | `lightcraft-<ver>-linux-x86_64.AppImage` | `lightcraft-<ver>-linux-aarch64.AppImage` | 隨處可執行；用 [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate)（`.zsync` 檔案）自我更新 |
-| Flatpak | `lightcraft-<ver>-linux-x86_64.flatpak` | `lightcraft-<ver>-linux-aarch64.flatpak` | 沙箱化；`flatpak install --user <file>` |
-| Debian/Ubuntu | `lightcraft-<ver>-linux-x86_64.deb` | `lightcraft-<ver>-linux-aarch64.deb` | |
-| Fedora/RHEL/openSUSE | `lightcraft-<ver>-linux-x86_64.rpm` | `lightcraft-<ver>-linux-aarch64.rpm` | |
-| 壓縮檔 | `lightcraft-<ver>-linux-x86_64.tar.gz` | `lightcraft-<ver>-linux-aarch64.tar.gz` | 解壓到任意位置即可使用 |
+| AppImage | `evolight-<ver>-linux-x86_64.AppImage` | `evolight-<ver>-linux-aarch64.AppImage` | 隨處可執行；用 [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate)（`.zsync` 檔案）自我更新 |
+| Flatpak | `evolight-<ver>-linux-x86_64.flatpak` | `evolight-<ver>-linux-aarch64.flatpak` | 沙箱化；`flatpak install --user <file>` |
+| Debian/Ubuntu | `evolight-<ver>-linux-x86_64.deb` | `evolight-<ver>-linux-aarch64.deb` | |
+| Fedora/RHEL/openSUSE | `evolight-<ver>-linux-x86_64.rpm` | `evolight-<ver>-linux-aarch64.rpm` | |
+| 壓縮檔 | `evolight-<ver>-linux-x86_64.tar.gz` | `evolight-<ver>-linux-aarch64.tar.gz` | 解壓到任意位置即可使用 |
 
-RISC-V（riscv64）：`lightcraft-<ver>-linux-riscv64.tar.gz`，僅提供壓縮檔（glibc 2.39 或更新版本，例如 Ubuntu 24.04+）。
+RISC-V（riscv64）：`evolight-<ver>-linux-riscv64.tar.gz`，僅提供壓縮檔（glibc 2.39 或更新版本，例如 Ubuntu 24.04+）。
 
-在 Wayland 桌面環境中，LightCraft 會在可用時透過 XWayland 執行，因為只有 X11 支援
-視窗的檔案拖放；設定 `LIGHTCRAFT_WAYLAND=1` 可改用原生 Wayland（更清晰的小數縮放，但無法拖放）。
+在 Wayland 桌面環境中，EvoLight 會在可用時透過 XWayland 執行，因為只有 X11 支援
+視窗的檔案拖放；設定 `EVOLIGHT_WAYLAND=1` 可改用原生 Wayland（更清晰的小數縮放，但無法拖放）。
 
 ### FreeBSD
 
 | 建置版本 | 檔案 |
 |---|---|
-| x86_64 | `lightcraft-<ver>-freebsd-x86_64.tar.gz` |
+| x86_64 | `evolight-<ver>-freebsd-x86_64.tar.gz` |
 
 ### Web (WebAssembly)
 
 | 建置版本 | 檔案 | 備註 |
 |---|---|---|
-| 靜態網站 | `lightcraft-web-<ver>.zip` | 可在現代瀏覽器中執行；可託管在任何靜態伺服器上 |
+| 靜態網站 | `evolight-web-<ver>.zip` | 可在現代瀏覽器中執行；可託管在任何靜態伺服器上 |
 
 <br>
 
-## The Crafting Apps
+## The Building Apps
 
-LightCraft 是 **Crafting Apps** 之一：來自 [ArtCraft](https://getartcraft.com/) 團隊的免費開源創作工具，
+EvoLight 是 **Building Apps** 之一：來自 [Upstream](https://evora.st) 團隊的免費開源創作工具，
 每一個都用 Rust 從零開始撰寫，每一個都能獨立使用。
 
 | | 應用程式 | 用途 | 程式碼 | 了解更多 |
 |:-:|---|---|---|---|
-| <img src="https://raw.githubusercontent.com/storytold/photocraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.photocraft.png" alt="" width="32" height="32"> | **PhotoCraft** | 影像編輯：圖層、遮色片、文字和真正的 PSD 檔案 | [GitHub](https://github.com/storytold/photocraft) | [網站](https://getartcraft.com/apps/photocraft) |
-| <img src="https://raw.githubusercontent.com/storytold/vectorcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.vectorcraft.png" alt="" width="32" height="32"> | **VectorCraft** | 向量插畫 | [GitHub](https://github.com/storytold/vectorcraft) | [網站](https://getartcraft.com/apps/vectorcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/filmcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.filmcraft.png" alt="" width="32" height="32"> | **FilmCraft** | 影片剪輯、調色與聲音 | [GitHub](https://github.com/storytold/filmcraft) | [網站](https://getartcraft.com/apps/filmcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/lightcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.lightcraft.png" alt="" width="32" height="32"> | **LightCraft** | **照片庫與 raw 顯影 · 你現在在這裡** | [GitHub](https://github.com/storytold/lightcraft) | [網站](https://getartcraft.com/apps/lightcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | 閱讀、整理與保護 PDF | [GitHub](https://github.com/storytold/pdfcraft) | [網站](https://getartcraft.com/apps/pdfcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/effectcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | 動態圖形與視覺特效 | [GitHub](https://github.com/storytold/effectcraft) | [網站](https://getartcraft.com/apps/effectcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/designcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | 版面編排與出版 | [GitHub](https://github.com/storytold/designcraft) | [網站](https://getartcraft.com/apps/designcraft) |
+| <img src="https://raw.githubusercontent.com/tazerty/evophoto/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evophoto.png" alt="" width="32" height="32"> | **EvoPhoto** | 影像編輯：圖層、遮色片、文字和真正的 PSD 檔案 | [GitHub](https://github.com/tazerty/evophoto) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evovector/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evovector.png" alt="" width="32" height="32"> | **EvoVector** | 向量插畫 | [GitHub](https://github.com/tazerty/evovector) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evofilm/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evofilm.png" alt="" width="32" height="32"> | **EvoFilm** | 影片剪輯、調色與聲音 | [GitHub](https://github.com/tazerty/evofilm) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evolight/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evolight.png" alt="" width="32" height="32"> | **EvoLight** | **照片庫與 raw 顯影 · 你現在在這裡** | [GitHub](https://github.com/tazerty/evolight) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evopdf/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evopdf.png" alt="" width="32" height="32"> | **EvoPdf** | 閱讀、整理與保護 PDF | [GitHub](https://github.com/tazerty/evopdf) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evoeffect/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evoeffect.png" alt="" width="32" height="32"> | **EvoEffect** | 動態圖形與視覺特效 | [GitHub](https://github.com/tazerty/evoeffect) | [網站](https://evora.st) |
+| <img src="https://raw.githubusercontent.com/tazerty/evodesign/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.evodesign.png" alt="" width="32" height="32"> | **EvoDesign** | 版面編排與出版 | [GitHub](https://github.com/tazerty/evodesign) | [網站](https://evora.st) |
 
-還有 [**ArtCraft**](https://getartcraft.com/) 本身，我們為想要真正掌控創作的人打造的 AI 影像與影片工作室。
+還有 [**Upstream**](https://evora.st) 本身，我們為想要真正掌控創作的人打造的 AI 影像與影片工作室。
 
 <br>
 
 <p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
+  <a href="https://evora.st"><img alt="Join the Upstream community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
 </p>
 
 <h3 align="center">Come make things with us</h3>
@@ -587,43 +587,43 @@ LightCraft 是 **Crafting Apps** 之一：來自 [ArtCraft](https://getartcraft.
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/artcraft"><b>discord.gg/artcraft</b></a> ·
-  <a href="https://getartcraft.com/">getartcraft.com</a> ·
-  <a href="https://getartcraft.com/apps">The Crafting Apps</a> ·
-  <a href="https://getartcraft.com/apps/lightcraft">LightCraft</a>
+  <a href="https://evora.st"><b>discord.gg/upstream</b></a> ·
+  <a href="https://evora.st">upstream-site.com</a> ·
+  <a href="https://evora.st">The Building Apps</a> ·
+  <a href="https://evora.st">EvoLight</a>
 </p>
 
 <br>
 
 ## License and credits
 
-LightCraft 採用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) 雙重授權，任你選擇。
-Copyright (c) 2026 ArtCraft Team and the LightCraft contributors。必要的聲明見 [NOTICE](NOTICE)。
+EvoLight 採用 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE) 雙重授權，任你選擇。
+Copyright (c) 2026 Upstream Team and the EvoLight contributors。必要的聲明見 [NOTICE](NOTICE)。
 
 隨附的字型、圖示、影像與其他資產保留各自的開放授權；每一項都在
 [assets/ATTRIBUTION.md](assets/ATTRIBUTION.md) 中列出了作者、來源與授權。
 
 展示用照片皆為公眾領域作品，取自 Wikimedia Commons：安瑟·亞當斯，*《提頓山脈與蛇河》*
 （1942，美國國家檔案館）；桃樂絲·蘭格，*《移民母親》*（1936，美國國會圖書館）；比爾·安德斯／NASA，
-*《地出》*（1968）；NASA，*《藍色大理石》*（1972）。示範照片庫由 LightCraft 程式產生。介面字型：
-Inter（SIL OFL 1.1）。使用 [craft-fonts](https://github.com/storytold/craft-fonts) 建置的版本（所有正式發布版）
+*《地出》*（1968）；NASA，*《藍色大理石》*（1972）。示範照片庫由 EvoLight 程式產生。介面字型：
+Inter（SIL OFL 1.1）。使用 [evo-fonts](https://github.com/tazerty/evo-fonts) 建置的版本（所有正式發布版）
 還會內嵌其中文與日文字型（Noto Sans CJK SC、BIZ UDPGothic、BIZ UDMincho、Shippori Mincho；SIL OFL 1.1），列於其
-[ATTRIBUTION.md](https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md) 中。所有圖示皆為原創。
+[ATTRIBUTION.md](https://github.com/tazerty/evo-fonts/blob/main/ATTRIBUTION.md) 中。所有圖示皆為原創。
 
-[`docs/brand/`](docs/brand/) 中的 ArtCraft 名稱、字標與標誌是
-ArtCraft 團隊的商標，不在本授權範圍內。它們只能以未經修改的形式，作為
-本儲存庫與 LightCraft 的一部分，依 [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt) 使用。
+[`docs/brand/`](docs/brand/) 中的 Upstream 名稱、字標與標誌是
+Upstream 團隊的商標，不在本授權範圍內。它們只能以未經修改的形式，作為
+本儲存庫與 EvoLight 的一部分，依 [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt) 使用。
 分支與修改版本必須移除它們。
 
-<sub>Adobe、Photoshop、Illustrator、Premiere Pro、Lightroom、Acrobat、After Effects 與 InDesign 是 Adobe Inc. 在美國及／或其他國家的商標或註冊商標。LightCraft 是一個獨立的開源專案，與 Adobe Inc. 沒有任何關係，也未獲其贊助或認可；這些名稱僅用於說明它所相容的工作流程。</sub>
+<sub>Adobe、Photoshop、Illustrator、Premiere Pro、Lightroom、Acrobat、After Effects 與 InDesign 是 Adobe Inc. 在美國及／或其他國家的商標或註冊商標。EvoLight 是一個獨立的開源專案，與 Adobe Inc. 沒有任何關係，也未獲其贊助或認可；這些名稱僅用於說明它所相容的工作流程。</sub>
 
 <p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>由 <a href="https://getartcraft.com/">ArtCraft</a> 團隊與社群製作。</sub>
+  <a href="https://evora.st"><img alt="Upstream" src="docs/brand/upstream-mark.svg" width="28"></a><br>
+  <sub>由 <a href="https://evora.st">Upstream</a> 團隊與社群製作。</sub>
 </p>
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=storytold/lightcraft&type=Date&legend=top-left)](https://www.star-history.com/?repos=storytold%2Flightcraft&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=tazerty/evolight&type=Date&legend=top-left)](https://www.star-history.com/?repos=storytold%2Fevolight&type=date&legend=top-left)
 
 照片庫、工具與預設集面板可以重新分組、拆分、浮動於應用程式視窗內、關閉與重新開啟。工具面板會保留目前的編輯／裁切／遮色片模式；照片檢視區與底片顯示窗格則維持在一起。拖曳面板標題到某個目標邊緣或另一個標題上即可調整。右鍵選單提供「浮動面板」、「移至群組」與「關閉面板」。既有的面板切換按鈕會在上次儲存的位置重新開啟面板；「重設面板配置」則會還原應用程式的版面配置。浮動面板會保持在目前的應用程式視窗之內。

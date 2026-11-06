@@ -1,7 +1,7 @@
 //! Exif / TIFF tags → [`Metadata`] (CIPA DC-008 Exif 2.32, TIFF 6.0, DNG 1.7 tag semantics).
 
 use crate::{DateTime, Flash, Gps, Metadata, Orientation};
-use lightcraft_tiff::{Ifd, Tiff, TiffError, tags as t};
+use evolight_tiff::{Ifd, Tiff, TiffError, tags as t};
 
 /// Strip an `Exif\0\0` (or `Exif\0\xff`) prefix as found in JPEG APP1 and some WebP `EXIF` chunks.
 pub fn strip_exif_header(b: &[u8]) -> &[u8] {
@@ -113,8 +113,8 @@ pub fn from_tiff(tiff: &Tiff) -> Metadata {
     if let Some(iptc) = ifd0.and_then(|i| i.value(t::IPTC_NAA)) {
         // IPTC-NAA is often typed LONG; re-serialise to bytes in file order.
         let bytes = match iptc {
-            lightcraft_tiff::Value::Byte(b) | lightcraft_tiff::Value::Undefined(b) => b.clone(),
-            other => lightcraft_tiff::writer::encode(tiff.order, other),
+            evolight_tiff::Value::Byte(b) | evolight_tiff::Value::Undefined(b) => b.clone(),
+            other => evolight_tiff::writer::encode(tiff.order, other),
         };
         m.fill_missing(&crate::parse_iptc(&bytes));
     }
@@ -181,7 +181,7 @@ fn panasonic_lens(data: &[u8], tiff: &Tiff) -> Option<String> {
     }
     let e = exif.get(t::MAKER_NOTE)?;
     let make = tiff.ifds.first().and_then(|i| i.string(t::MAKE)).unwrap_or_default();
-    let mn = lightcraft_tiff::makernote::parse_makernote(data, e.offset, e.count() as u64, tiff.order, &make)?;
+    let mn = evolight_tiff::makernote::parse_makernote(data, e.offset, e.count() as u64, tiff.order, &make)?;
     text(Some(&mn.ifd), PANASONIC_LENS_TYPE)
 }
 
@@ -198,13 +198,13 @@ fn panasonic_jpg_from_raw_lens(tiff: &Tiff) -> Option<String> {
 const NIKON_LENS: u16 = 0x0084;
 
 /// The lens a Nikon camera records in its maker note, when it's plausible.
-fn nikon_lens_spec(exif: Option<&Ifd>, make: Option<&str>, order: lightcraft_tiff::ByteOrder) -> Option<[f64; 4]> {
+fn nikon_lens_spec(exif: Option<&Ifd>, make: Option<&str>, order: evolight_tiff::ByteOrder) -> Option<[f64; 4]> {
     let make = make?;
     if !make.trim().to_ascii_uppercase().starts_with("NIKON") {
         return None;
     }
     let note = exif?.bytes(t::MAKER_NOTE)?;
-    let mn = lightcraft_tiff::makernote::parse_makernote(note, 0, note.len() as u64, order, make)?;
+    let mn = evolight_tiff::makernote::parse_makernote(note, 0, note.len() as u64, order, make)?;
     let s = mn.ifd.f64s(NIKON_LENS)?;
     let [short, long, wide, narrow] = s.as_slice() else { return None };
     let focal = |f: f64| f.is_finite() && f > 0.0 && f < 10_000.0;
@@ -215,7 +215,7 @@ fn nikon_lens_spec(exif: Option<&Ifd>, make: Option<&str>, order: lightcraft_tif
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
+    use evolight_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
 
     /// An Exif block from a Panasonic body: no LensModel, the lens name in maker note tag 0x0051, whose value
     /// lies outside the note's IFD at an offset relative to the Exif TIFF header (as Panasonic writes it).
@@ -457,19 +457,19 @@ pub(crate) mod tests {
 }
 
 /// An exact `1/N` rational for a sub-second value whose reciprocal is a whole number (shutter speeds such as
-/// 1/12800 s, which [`lightcraft_tiff::writer::rational`]'s decimal denominators cannot represent).
-fn reciprocal(v: Option<f64>) -> Option<lightcraft_tiff::Value> {
+/// 1/12800 s, which [`evolight_tiff::writer::rational`]'s decimal denominators cannot represent).
+fn reciprocal(v: Option<f64>) -> Option<evolight_tiff::Value> {
     let v = v.filter(|v| v.is_finite() && *v > 0.0 && *v < 1.0)?;
     let inv = 1.0 / v;
-    ((inv - inv.round()).abs() < 1e-6 && inv.round() <= u32::MAX as f64).then(|| lightcraft_tiff::Value::Rational(vec![(1, inv.round() as u32)]))
+    ((inv - inv.round()).abs() < 1e-6 && inv.round() <= u32::MAX as f64).then(|| evolight_tiff::Value::Rational(vec![(1, inv.round() as u32)]))
 }
 
 /// Serialise the interchange subset of `meta` as a TIFF-structured Exif block (little-endian, no
 /// `Exif\0\0` prefix): IFD0 (make, model, software, artist, copyright, description, orientation,
 /// date), the Exif IFD (capture settings, lens) and, when present, the GPS IFD.
 pub fn write_exif(meta: &Metadata) -> Vec<u8> {
-    use lightcraft_tiff::writer::{rational, srational};
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
+    use evolight_tiff::writer::{rational, srational};
+    use evolight_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
     let ascii = |s: &Option<String>| s.as_ref().filter(|v| !v.is_empty()).map(|v| Value::Ascii(v.clone()));
     let mut ifd0 = IfdBuilder::new();
     for (tag, v) in [

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use lightcraft_develop::DevelopSettings;
+use evolight_develop::DevelopSettings;
 
 use super::*;
 
@@ -23,7 +23,7 @@ fn apply_and_inverse_roundtrip() {
         Op::SetLabel { id: a, label: Some(ColorLabel::Red) },
         Op::SetDevelop {
             id: a,
-            settings: Arc::new(DevelopSettings { treatment: lightcraft_develop::Treatment::Bw, ..Default::default() }),
+            settings: Arc::new(DevelopSettings { treatment: evolight_develop::Treatment::Bw, ..Default::default() }),
             label: "B&W".into(),
             edited: Some("x".into()),
         },
@@ -388,7 +388,7 @@ fn folder_identity_ignores_spelling() {
 /// first; pets and unnamed faces are not people; the `person` filter and `person:` token match.
 #[test]
 fn people_from_named_face_regions() {
-    use lightcraft_meta::{Rect, Region, RegionKind};
+    use evolight_meta::{Rect, Region, RegionKind};
     let region = |name: Option<&str>, kind: RegionKind| Region {
         rect: Rect { x0: 0.4, y0: 0.4, x1: 0.6, y1: 0.6 },
         kind,
@@ -457,9 +457,9 @@ fn empty_regions_are_not_serialized_and_default_when_missing() {
     let back: Meta = serde_json::from_value(v).unwrap();
     assert!(back.regions.is_empty());
     let mut with = m.clone();
-    with.regions.push(lightcraft_meta::Region {
-        rect: lightcraft_meta::Rect { x0: 0.1, y0: 0.1, x1: 0.2, y1: 0.2 },
-        kind: lightcraft_meta::RegionKind::Face,
+    with.regions.push(evolight_meta::Region {
+        rect: evolight_meta::Rect { x0: 0.1, y0: 0.1, x1: 0.2, y1: 0.2 },
+        kind: evolight_meta::RegionKind::Face,
         name: Some("A".into()),
         description: None,
     });
@@ -477,8 +477,8 @@ fn focus_point_is_not_serialized_when_unknown_and_round_trips() {
     let back: Meta = serde_json::from_value(v).unwrap();
     assert!(back.focus.is_none());
     let mut with = m.clone();
-    with.focus = Some(lightcraft_meta::FocusPoint {
-        rect: lightcraft_meta::Rect { x0: 0.36, y0: 0.33, x1: 0.38, y1: 0.36 },
+    with.focus = Some(evolight_meta::FocusPoint {
+        rect: evolight_meta::Rect { x0: 0.36, y0: 0.33, x1: 0.38, y1: 0.36 },
         mode: Some("AF-C".into()),
         area: Some("Wide".into()),
         tracking: None,
@@ -564,7 +564,7 @@ fn set_embedded_lens_is_undoable_and_journaled() {
         photo: Box::new(Photo::new(a, Source::File { path: "/x.rw2".into() }, "x.rw2", "RW2", 4000, 3000, "2026-10-06T00:00:00")),
     })
     .unwrap();
-    let lens = lightcraft_develop::EmbeddedLens { warp: Some(Default::default()), vignette: None, stages: Default::default() };
+    let lens = evolight_develop::EmbeddedLens { warp: Some(Default::default()), vignette: None, stages: Default::default() };
     let op = Op::SetEmbeddedLens { id: a, lens: Some(Box::new(lens)) };
     let op: Op = serde_json::from_str(&serde_json::to_string(&op).unwrap()).unwrap();
     let inv = c.apply(op).unwrap();
@@ -840,7 +840,7 @@ fn cmp_name_ignores_case_without_allocating() {
 /// together: `person:"Jane Doe"` (issue #1449). Malformed quotes narrow the result or change nothing.
 #[test]
 fn search_text_finds_people_and_quoted_values() {
-    use lightcraft_meta::{Rect, Region, RegionKind};
+    use evolight_meta::{Rect, Region, RegionKind};
     let region = |name: &str, kind: RegionKind| Region {
         rect: Rect { x0: 0.4, y0: 0.4, x1: 0.6, y1: 0.6 },
         kind,

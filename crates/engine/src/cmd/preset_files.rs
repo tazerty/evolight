@@ -1,11 +1,11 @@
-//! Preset files: import `.lcpreset`, XMP, `.lrtemplate`, DNG-preset, Luminar looks and zip bundles; export `.lcpreset`.
+//! Preset files: import `.evolightpreset`, XMP, `.lrtemplate`, DNG-preset, Luminar looks and zip bundles; export `.evolightpreset`.
 
 use serde_json::{Value, json};
 
 use super::mask_effect_files as mef;
 use super::{CommandSpec, always, bad, cmd, str_param};
 use crate::preset_import::{group_from_dir, read_presets};
-use crate::presets::{LCPRESET_EXT, expand_preset_paths, to_lcpreset};
+use crate::presets::{EVOLIGHTPRESET_EXT, expand_preset_paths, to_evolightpreset};
 use crate::{Result, Session};
 
 fn strings(p: &Value, key: &str) -> Option<Vec<String>> {
@@ -88,7 +88,7 @@ fn export(s: &mut Session, p: &Value) -> Result<Value> {
     let path = str_param(p, "path").filter(|x| !x.trim().is_empty()).ok_or_else(|| bad("preset.export", "missing path"))?;
     let mut path = std::path::PathBuf::from(path);
     if path.extension().is_none() {
-        path.set_extension(LCPRESET_EXT);
+        path.set_extension(EVOLIGHTPRESET_EXT);
     }
     let ids = strings(p, "ids");
     let group = str_param(p, "group");
@@ -107,7 +107,7 @@ fn export(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let target = path.to_string_lossy();
     s.check_write_target(&target).map_err(|e| bad("preset.export", e))?;
-    crate::export::write_file_durable(&target, to_lcpreset(&chosen).as_bytes()).map_err(crate::EngineError::Other)?;
+    crate::export::write_file_durable(&target, to_evolightpreset(&chosen).as_bytes()).map_err(crate::EngineError::Other)?;
     Ok(json!({"path": path.display().to_string(), "count": chosen.len()}))
 }
 
@@ -118,7 +118,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Import Presets",
             [],
             None,
-            "{paths: [file or folder], group?, dryRun?} — .lcpreset, XMP presets, .lrtemplate, photos carrying edits (DNG/JPEG/TIFF \"DNG presets\"), Luminar looks (.lmp, .mplumpack collections) and .zip bundles of these; folders give their name as group; crs: fields mapped per docs/xmp-interop.md; local adjustment presets (Lightroom .lrtemplate, Camera Raw local .xmp, .lceffect) become mask effects (`mask.effects`; divider presets become their groups); a profile the preset names applies when it was imported with profile.import (before or after) → {imported: [{id,name,group,file,unmapped,profile: {name, id}|null}], skipped, failed, effects: [{name,group,file,unmapped}], effectDividers: [{name,group,file}]}",
+            "{paths: [file or folder], group?, dryRun?} — .evolightpreset, XMP presets, .lrtemplate, photos carrying edits (DNG/JPEG/TIFF \"DNG presets\"), Luminar looks (.lmp, .mplumpack collections) and .zip bundles of these; folders give their name as group; crs: fields mapped per docs/xmp-interop.md; local adjustment presets (Lightroom .lrtemplate, Camera Raw local .xmp, .lceffect) become mask effects (`mask.effects`; divider presets become their groups); a profile the preset names applies when it was imported with profile.import (before or after) → {imported: [{id,name,group,file,unmapped,profile: {name, id}|null}], skipped, failed, effects: [{name,group,file,unmapped}], effectDividers: [{name,group,file}]}",
             always,
             import
         ),
@@ -127,7 +127,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Export Presets",
             [],
             None,
-            "{path, ids?: [presetId], group?: name} (default: all user presets) → {path, count}; writes a .lcpreset JSON file",
+            "{path, ids?: [presetId], group?: name} (default: all user presets) → {path, count}; writes a .evolightpreset JSON file",
             always,
             export
         ),

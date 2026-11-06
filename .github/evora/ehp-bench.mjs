@@ -5,7 +5,7 @@
 // (origine A, ?host=evora) et l'admet par evora-host.json, servi par le banc à côté d'index.html
 // comme l'écrirait le provisionnement d'Evora. Trois autres cadres l'entourent :
 // - un observateur servi par l'origine du moteur (A) : il amorce le stockage navigateur (restes de
-//   LightCraft hors espace de noms, un autre espace de noms, l'espace du compte, et ce qu'y
+//   EvoLight hors espace de noms, un autre espace de noms, l'espace du compte, et ce qu'y
 //   laisseraient les autres moteurs d'Evora) et le liste EN ENTIER à la demande (OPFS, IndexedDB,
 //   localStorage, sessionStorage, Cache Storage), sans jamais rien créer. Le juge ne filtre pas par
 //   les noms que le moteur se connaît : tout ce qui n'appartient pas aux autres moteurs est au
@@ -28,7 +28,7 @@
 //
 // EVORA-REV-34 (finitions du moteur, lot REV-FK-B2) : « pont-ehp » juge aussi, au rendu, les menus
 // masqués sous le pont (REV-07, REV-08 : web.menus), le nom affiché (E1 : « Revela », jamais
-// « LightCraft », titre de la page et menus), l'accent reçu de la coquille (REV-16 : evora:init puis
+// « EvoLight », titre de la page et menus), l'accent reçu de la coquille (REV-16 : evora:init puis
 // evora:theme), les types offerts par le sélecteur d'Evora (ceux de RevelaFormats), et le catalogue
 // des commandes (command.catalog : evora:commands en français puis en allemand, liste blanche par
 // construction, commandes exécutées, paramètres déclarés seulement, commande destructive refusée
@@ -65,7 +65,7 @@ export const REVELA_ACCEPT = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp',
 export const MASKED_IDS = ['file.importLightroom', 'file.addFolder', 'file.backupLibrary', 'file.importPresets', 'app.openLibrary', 'app.newLibrary',
   'dialog.newAlbum', 'dialog.smartAlbum', 'library.toggleAutoWriteXmp', 'library.compact', 'version.create', 'panel.versions', 'photo.virtualCopy',
   'photo.tagFromTracklog', 'metadata.downloadPlaceNames', 'faces.detect', 'view.people', 'dialog.mergeHdr', 'dialog.mergePanorama', 'stack.group',
-  'photo.saveMetadataToFile', 'photo.editInPhotoCraft', 'app.help', 'app.github', 'app.whatsNew', 'app.quit', 'app.language.french', 'view.secondWindow'];
+  'photo.saveMetadataToFile', 'photo.editInEvoPhoto', 'app.help', 'app.github', 'app.whatsNew', 'app.quit', 'app.language.french', 'view.secondWindow'];
 export const MASKED_SUBMENUS = ['Open Recent Library', 'Import from Device', 'Add to Album', 'Stack', 'Stacks', 'Photo Merge', 'Previews', 'Edit In',
   'Appearance', 'Language', 'Sidebar Sections', 'Debug', 'Loupe Overlay'];
 // Témoin des menus : ces entrées restent (un masquage qui viderait les menus rougit).
@@ -100,7 +100,7 @@ export const CATALOG_LOOSE_SAMPLES = [['photo.rate', { rating: 9 }], ['photo.rat
 export const FILE_ADMITTED = ['file.addPhotos'];
 // E1 : le nom affiché par le moteur sous le pont, et le nom amont qui ne s'affiche jamais.
 export const BRAND = 'Revela';
-export const UPSTREAM_BRAND = 'LightCraft';
+export const UPSTREAM_BRAND = 'EvoLight';
 // REV-16 : l'accent de evora:init (teal-600, teinte de Revela), puis celui de evora:theme (indigo d'Evora).
 export const ACCENT_INIT = '#0D9488';
 export const ACCENT_LIVE = '#4F46E5';
@@ -195,16 +195,16 @@ export const SENTINEL_JS = `'use strict';
 const KINDS = ['opfs', 'idb', 'ls', 'ss', 'cache'];
 // Ce que l'amorçage dépose pour les AUTRES moteurs de l'origine : doit survivre à toute purge. Tout le
 // reste du stockage de l'origine est au moteur, quel que soit son nom.
-const FOREIGN = { opfs: ['effectcraft-cache/', `ns-${NS}/`, 'photocraft-temoin.txt'], idb: ['photocraft.presets'], ls: ['pdfcraft'], ss: [], cache: [] };
-// Les restes de LightCraft que l'amorçage dépose (noms d'apps/lightcraft-web/src/storage_names.rs).
+const FOREIGN = { opfs: ['evoeffect-cache/', `ns-${NS}/`, 'evophoto-temoin.txt'], idb: ['evophoto.presets'], ls: ['evopdf'], ss: [], cache: [] };
+// Les restes de EvoLight que l'amorçage dépose (noms d'apps/evolight-web/src/storage_names.rs).
 const SEEDED_LC = {
-  opfs: ['active-library', 'library-20261013-101500/', 'library/', `lightcraft-ns-${NS}/`, `lightcraft-ns-${OTHER_NS}/`, 'originals/', 'thumbs/'],
-  idb: ['lightcraft', `lightcraft-ns-${NS}`, `lightcraft-ns-${OTHER_NS}`],
-  ls: ['lightcraft.temoin'],
+  opfs: ['active-library', 'library-20261013-101500/', 'library/', `evolight-ns-${NS}/`, `evolight-ns-${OTHER_NS}/`, 'originals/', 'thumbs/'],
+  idb: ['evolight', `evolight-ns-${NS}`, `evolight-ns-${OTHER_NS}`],
+  ls: ['evolight.temoin'],
   ss: [],
   cache: [],
 };
-const KEPT_AFTER_INIT = { opfs: [`lightcraft-ns-${NS}/`], idb: [`lightcraft-ns-${NS}`], ls: [], ss: [], cache: [] };
+const KEPT_AFTER_INIT = { opfs: [`evolight-ns-${NS}/`], idb: [`evolight-ns-${NS}`], ls: [], ss: [], cache: [] };
 
 // --- Pages et scripts servis par le banc ------------------------------------------------------
 
@@ -241,7 +241,7 @@ const list = async (ns) => {
   for await (const [n, h] of root.entries()) opfs.push(n + (h.kind === 'directory' ? '/' : ''));
   let inNs = null;
   try {
-    const d = await root.getDirectoryHandle('lightcraft-ns-' + ns);
+    const d = await root.getDirectoryHandle('evolight-ns-' + ns);
     inNs = [];
     for await (const [n] of d.entries()) inNs.push(n);
   } catch (e) { inNs = null; }
@@ -259,11 +259,11 @@ addEventListener('message', async (e) => {
   try {
     if (cmd === 'seed') {
       for (const p of ['library/catalog.snap', 'library-20261013-101500/catalog.snap', 'originals/0123456789abcdef', 'thumbs/index.json',
-        'active-library', 'lightcraft-ns-' + other + '/library/catalog.snap', 'lightcraft-ns-' + ns + '/library/catalog.snap',
-        'effectcraft-cache/v1/frame.bin', 'ns-' + ns + '/recovery/snapshot.fcproj', 'photocraft-temoin.txt']) await put(p, 'evora');
-      for (const n of ['lightcraft', 'lightcraft-ns-' + other, 'lightcraft-ns-' + ns, 'photocraft.presets']) await db(n);
-      localStorage.setItem('lightcraft.temoin', '1');
-      localStorage.setItem('pdfcraft', '{}');
+        'active-library', 'evolight-ns-' + other + '/library/catalog.snap', 'evolight-ns-' + ns + '/library/catalog.snap',
+        'evoeffect-cache/v1/frame.bin', 'ns-' + ns + '/recovery/snapshot.evofilm', 'evophoto-temoin.txt']) await put(p, 'evora');
+      for (const n of ['evolight', 'evolight-ns-' + other, 'evolight-ns-' + ns, 'evophoto.presets']) await db(n);
+      localStorage.setItem('evolight.temoin', '1');
+      localStorage.setItem('evopdf', '{}');
     }
     e.ports[0].postMessage(await list(ns));
   } catch (err) {
@@ -498,7 +498,7 @@ export function parentPage({ engineUrl, engineOrigin, foreignOrigin }) {
 
 export const WITNESS_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>moteur factice</title><link rel="icon" href="data:,">
 <style>html,body{margin:0;height:100%}canvas{width:100%;height:100%;display:block}</style></head>
-<body><canvas id="lightcraft_canvas" width="320" height="200"></canvas><script src="/__evora/sentinel.js"></script><script src="witness.js"></script></body></html>`;
+<body><canvas id="evolight_canvas" width="320" height="200"></canvas><script src="/__evora/sentinel.js"></script><script src="witness.js"></script></body></html>`;
 
 // Un pont EHP écrit en JavaScript, conforme sauf le défaut demandé par ?flaw= (un seul à la fois).
 // EVORA-REV-29 : documents de la coquille (un docRef par photo), enveloppe revela-save, accusé
@@ -546,7 +546,7 @@ export const WITNESS_JS = `'use strict';
     const docRef = flaw === 'export-permute' && other ? other.docRef : d.docRef;
     send('evora:export', { docRef, name, mime: 'image/jpeg', bytes }, null, [bytes]);
   };
-  globalThis.lightcraft = { command: async (id, text) => {
+  globalThis.evolight = { command: async (id, text) => {
     const p = JSON.parse(text || '{}');
     if (id === 'web.stats') {
       const a = activeDoc();
@@ -592,8 +592,8 @@ export const WITNESS_JS = `'use strict';
   const lcRoot = (n) => /^(library|originals|thumbs|active-library)$/.test(n) || /^library-[A-Za-z0-9-]{1,64}$/.test(n);
   const covers = (scope, n, idb) => {
     if (flaw === 'purge-excessive') return true;
-    if (idb ? n === 'lightcraft' : lcRoot(n)) return true;
-    if (!n.startsWith('lightcraft-ns-')) return false;
+    if (idb ? n === 'evolight' : lcRoot(n)) return true;
+    if (!n.startsWith('evolight-ns-')) return false;
     const id = n.slice(14);
     return scope.all || (scope.keep ? id !== scope.keep : id === scope.current);
   };
@@ -608,10 +608,10 @@ export const WITNESS_JS = `'use strict';
   // écriture sous un nom que le moteur ne se connaît pas (et que sa purge ne couvre donc pas)
   const offName = {
     'hors-nom-opfs': () => put('recovery/snapshot.lcproj'),
-    'hors-nom-idb': () => new Promise((ok, ko) => { const r = indexedDB.open('lightcraft-cache', 1); r.onsuccess = () => { r.result.close(); ok(); }; r.onerror = () => ko(r.error); }),
+    'hors-nom-idb': () => new Promise((ok, ko) => { const r = indexedDB.open('evolight-cache', 1); r.onsuccess = () => { r.result.close(); ok(); }; r.onerror = () => ko(r.error); }),
     'hors-nom-ls': () => localStorage.setItem('egui_memory_ron', '{}'),
     'hors-nom-ss': () => sessionStorage.setItem('egui_memory_ron', '{}'),
-    'hors-nom-cache': async () => (await caches.open('lightcraft-tiles')).put(location.href, new Response('x')),
+    'hors-nom-cache': async () => (await caches.open('evolight-tiles')).put(location.href, new Response('x')),
   };
   const purge = async (scope) => {
     const root = await navigator.storage.getDirectory();
@@ -621,7 +621,7 @@ export const WITNESS_JS = `'use strict';
     for (const { name } of await indexedDB.databases()) {
       if (covers(scope, name, true)) await new Promise((ok, ko) => { const r = indexedDB.deleteDatabase(name); r.onsuccess = ok; r.onerror = () => ko(r.error); r.onblocked = () => ko(new Error('blocked')); });
     }
-    for (const k of Object.keys(localStorage)) if (flaw === 'purge-excessive' || k.startsWith('lightcraft')) localStorage.removeItem(k);
+    for (const k of Object.keys(localStorage)) if (flaw === 'purge-excessive' || k.startsWith('evolight')) localStorage.removeItem(k);
   };
   // EVORA-REV-34 : catalogue des commandes (command.catalog), menus et types offerts du moteur factice
   const catIds = ${JSON.stringify(CATALOG_IDS)};
@@ -749,7 +749,7 @@ export const WITNESS_JS = `'use strict';
         ack(d.id);
         announce();
       } else if (d.type === 'evora:open' && st.inited) {
-        document.title = p.name + ' — ' + (flaw === 'marque-affichee' ? 'LightCraft' : 'Revela');
+        document.title = p.name + ' — ' + (flaw === 'marque-affichee' ? 'EvoLight' : 'Revela');
         if (flaw !== 'ouverture-feinte') {
           st.photos += 1;
           const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', told: null, inflight: [] };
@@ -796,7 +796,7 @@ export const WITNESS_JS = `'use strict';
         if (flaw === 'accuse-avant-purge') { ack(d.id); await sleep(1500); await purge(scope); return; }
         await purge(scope);
         ack(d.id);
-        if (flaw === 'ecriture-apres-purge') setTimeout(() => put('lightcraft-ns-' + st.ns + '/library/catalog.snap'), 300);
+        if (flaw === 'ecriture-apres-purge') setTimeout(() => put('evolight-ns-' + st.ns + '/library/catalog.snap'), 300);
       }
     });
     const caps = ${JSON.stringify(EXERCISED)};
@@ -1134,7 +1134,7 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   const call = async (fn, ...args) => JSON.parse(await evalPage(`window.__ehp.${fn}(...${JSON.stringify(args)})`) || 'null');
   const engine = async (id, params) => {
     try {
-      return { ok: true, value: JSON.parse(await engineEval(`globalThis.lightcraft.command(${JSON.stringify(id)}, ${JSON.stringify(JSON.stringify(params || {}))})`, 60000)) };
+      return { ok: true, value: JSON.parse(await engineEval(`globalThis.evolight.command(${JSON.stringify(id)}, ${JSON.stringify(JSON.stringify(params || {}))})`, 60000)) };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
     }
@@ -1390,7 +1390,7 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
 
   // 10. Clavier : F6 rend la main à la coquille (evora:focus-out), Ctrl+S enregistre la photo devant
   at = await call('mark');
-  const key = (init) => engineEval(`(() => { const c = document.getElementById('lightcraft_canvas') || document.body; const e = new KeyboardEvent('keydown', Object.assign({ bubbles: true, cancelable: true }, ${JSON.stringify(init)})); c.dispatchEvent(e); c.dispatchEvent(new KeyboardEvent('keyup', Object.assign({ bubbles: true, cancelable: true }, ${JSON.stringify(init)}))); return String(e.defaultPrevented); })()`, 20000);
+  const key = (init) => engineEval(`(() => { const c = document.getElementById('evolight_canvas') || document.body; const e = new KeyboardEvent('keydown', Object.assign({ bubbles: true, cancelable: true }, ${JSON.stringify(init)})); c.dispatchEvent(e); c.dispatchEvent(new KeyboardEvent('keyup', Object.assign({ bubbles: true, cancelable: true }, ${JSON.stringify(init)}))); return String(e.defaultPrevented); })()`, 20000);
   const f6 = await key({ key: 'F6', code: 'F6' });
   const out = await call('wait', at, 'evora:focus-out', {}, 5000);
   if (!out || f6 !== 'true') errors.push(`[ehp-focus-out] F6 dans le moteur : evora:focus-out attendu et la touche retenue (defaultPrevented ${f6})`);

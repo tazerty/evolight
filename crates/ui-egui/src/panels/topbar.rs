@@ -3,14 +3,14 @@
 use egui::{Align2, Rect, Sense, Stroke, StrokeKind, pos2, vec2};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::theme::Tokens;
 use crate::widgets::{icon_button, register};
 
 /// The bar doubles as the window's title bar: dragging its empty space moves the window and a
 /// double-click zooms or restores it. Registered before the bar's widgets so they win the click.
-fn window_handle(app: &LightcraftApp, ui: &mut egui::Ui, bar: Rect, search_rect: Rect) {
+fn window_handle(app: &EvoLightApp, ui: &mut egui::Ui, bar: Rect, search_rect: Rect) {
     use crate::titlebar::{Gesture, WindowState, command_for};
     register(ui.ctx(), "region:titlebar", bar);
     let handle = egui::Id::new("titlebar-handle");
@@ -45,7 +45,7 @@ fn window_handle(app: &LightcraftApp, ui: &mut egui::Ui, bar: Rect, search_rect:
     }
 }
 
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     // room for the traffic lights; in full screen they are gone, and the sidebar button sits as far
     // from the left edge as the Discord button from the right (12 margin + 4)
@@ -150,7 +150,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                 },
             );
             // badge: how many filters are on, even with the filter bar closed
-            let active = lightcraft_engine::filter_chips(&app.session.filter, &app.session.catalog).len();
+            let active = evolight_engine::filter_chips(&app.session.filter, &app.session.catalog).len();
             if active > 0 {
                 let c = fr.right_top() + vec2(-3.0, 8.0);
                 ui.painter().circle_filled(c, 7.0, t.accent);
@@ -169,7 +169,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
             // saving is failing: the cloud icon turns into a warning until a save succeeds
             let unsaved = app.session.unsaved().map(|(n, e)| {
                 crate::i18n::tr_format!(
-                    "{n} change{} saved in memory but not written to disk: {e}\nLightCraft retries automatically; quitting now would lose {}.",
+                    "{n} change{} saved in memory but not written to disk: {e}\nEvoLight retries automatically; quitting now would lose {}.",
                     if n == 1 { "" } else { "s" },
                     if n == 1 { "it" } else { "them" },
                     e = e,

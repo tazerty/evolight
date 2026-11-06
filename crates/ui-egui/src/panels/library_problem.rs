@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use egui::{Align2, RichText, vec2};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{AppSettings, LaunchLibrary};
 use crate::theme::Tokens;
 use crate::widgets::register;
@@ -39,7 +39,7 @@ pub enum Launch {
     Ask,
 }
 
-/// What to open at launch: `--library` (`flag`), else `$LIGHTCRAFT_LIBRARY` (`env`), else with
+/// What to open at launch: `--library` (`flag`), else `$EVOLIGHT_LIBRARY` (`env`), else with
 /// *Ask me* the list, else the library last opened, else `default` (the default location).
 /// `settings` is `None` without a settings file; `memory` (`--memory`) never asks.
 pub fn launch_plan(memory: bool, flag: Option<PathBuf>, env: Option<PathBuf>, settings: Option<&AppSettings>, default: Option<PathBuf>) -> Launch {
@@ -83,7 +83,7 @@ pub struct Chooser {
     /// Its rows' checks were started ([`logic`]).
     pub asked: bool,
     /// The library open behind the window (Alt/Option held at launch), by
-    /// [`lightcraft_engine::Session::library_generation`]: Esc keeps it. `None`: no library is open.
+    /// [`evolight_engine::Session::library_generation`]: Esc keeps it. `None`: no library is open.
     pub over: Option<u64>,
 }
 
@@ -113,7 +113,7 @@ impl LibraryProblem {
     }
 
     /// The window listing the recent libraries, each checked now without writing anything
-    /// ([`unavailable`]): one that is gone, isn't a LightCraft library any more or can't be read
+    /// ([`unavailable`]): one that is gone, isn't a EvoLight library any more or can't be read
     /// is greyed out with the reason. The last library opened is selected, or else the first one
     /// that can be opened.
     #[cfg(test)]
@@ -189,7 +189,7 @@ pub enum Unavailable {
     NotAFolder,
     /// The folder can't be listed (the system's reason).
     Unreadable(String),
-    /// The folder holds no LightCraft library any more.
+    /// The folder holds no EvoLight library any more.
     NoLibrary,
     /// The library's catalog file can't be opened (the system's reason).
     CatalogUnreadable(String),
@@ -216,7 +216,7 @@ impl Unavailable {
             Unavailable::NotFound => crate::i18n::tr("Not found: moved, renamed or on a disconnected drive").to_string(),
             Unavailable::NotAFolder => crate::i18n::tr("This is a file, not a library folder").to_string(),
             Unavailable::Unreadable(e) => format!("{} {e}", crate::i18n::tr("This folder can't be read:")),
-            Unavailable::NoLibrary => crate::i18n::tr("There is no LightCraft library in this folder any more").to_string(),
+            Unavailable::NoLibrary => crate::i18n::tr("There is no EvoLight library in this folder any more").to_string(),
             Unavailable::CatalogUnreadable(e) => format!("{} {e}", crate::i18n::tr("The library's catalog can't be read:")),
             Unavailable::CheckFailed(e) => e.clone(),
             Unavailable::LookupFailed(e) => format!("{} {e}", crate::i18n::tr("This library couldn't be checked:")),
@@ -340,7 +340,7 @@ impl RecentChecks {
 /// Check each of `paths` on a worker of its own (one that is being checked already is left to
 /// finish). The activity stack lists each check while it runs (a quick one doesn't show: rows
 /// appear after half a second); none can be stopped, as a stat that hangs can't be.
-fn start_checks(app: &mut LightcraftApp, paths: Vec<String>) {
+fn start_checks(app: &mut EvoLightApp, paths: Vec<String>) {
     for path in paths {
         if app.recent_checks.pending.contains_key(&path) {
             continue;
@@ -385,7 +385,7 @@ fn start_checks(app: &mut LightcraftApp, paths: Vec<String>) {
 
 /// Checks whose worker stopped without answering (it panicked: `tasks::poll` already said so)
 /// end as failed, so the row and the menu don't wait for them forever.
-fn reap_checks(app: &mut LightcraftApp) {
+fn reap_checks(app: &mut EvoLightApp) {
     // (every check has the same label: when none is listed any more, the ones still pending died)
     if app.recent_checks.pending.is_empty() || app.tasks.is_running(CHECK_LABEL) {
         return;
@@ -401,7 +401,7 @@ fn reap_checks(app: &mut LightcraftApp) {
 
 /// Put the answers in into the launch list; once none is missing, select as
 /// [`LibraryProblem::choose`] does unless the person moved the highlight.
-fn apply_answers(app: &mut LightcraftApp) {
+fn apply_answers(app: &mut EvoLightApp) {
     let last = app.ui.settings.library_path.clone();
     let checks = &app.recent_checks;
     let Some(c) = app.library_problem.as_mut().and_then(|p| p.chooser.as_mut()) else { return };
@@ -439,12 +439,12 @@ fn unavailable(path: &str) -> Option<Unavailable> {
         Ok(_) => {}
     }
     // opening would make a new, empty library in it
-    if !lightcraft_engine::library::is_library(dir) {
+    if !evolight_engine::library::is_library(dir) {
         return Some(Unavailable::NoLibrary);
     }
     // the catalog the open reads first: the snapshot, else the log alone (opened to read, not read)
-    let snapshot = dir.join(lightcraft_catalog::journal::SNAPSHOT);
-    let catalog = if snapshot.is_file() { snapshot } else { dir.join(lightcraft_catalog::journal::LOG) };
+    let snapshot = dir.join(evolight_catalog::journal::SNAPSHOT);
+    let catalog = if snapshot.is_file() { snapshot } else { dir.join(evolight_catalog::journal::LOG) };
     if let Err(e) = std::fs::File::open(&catalog) {
         return Some(Unavailable::CatalogUnreadable(e.to_string()));
     }
@@ -470,7 +470,7 @@ enum Choice {
 
 /// Whether dropped photos wait for a library ([`hold_dropped`]): none is open and the window
 /// asking for one is up (not dismissed by Continue Without Saving).
-pub fn holds_drops(app: &LightcraftApp) -> bool {
+pub fn holds_drops(app: &EvoLightApp) -> bool {
     app.session.library.is_none() && app.library_problem.as_ref().is_some_and(|p| !p.dismissed)
 }
 
@@ -478,7 +478,7 @@ pub fn holds_drops(app: &LightcraftApp) -> bool {
 /// library that failed to open): kept with the command line's files and imported once a library
 /// opens, instead of going into the session the next library replaces. Gives the photos back when
 /// a library is open or Continue Without Saving was chosen.
-pub fn hold_dropped(app: &mut LightcraftApp, ctx: &egui::Context, photos: Vec<String>) -> Option<Vec<String>> {
+pub fn hold_dropped(app: &mut EvoLightApp, ctx: &egui::Context, photos: Vec<String>) -> Option<Vec<String>> {
     // called every frame, with nothing dropped most of the time: only a real drop is held (and toasted)
     if photos.is_empty() || !holds_drops(app) {
         return Some(photos);
@@ -491,7 +491,7 @@ pub fn hold_dropped(app: &mut LightcraftApp, ctx: &egui::Context, photos: Vec<St
 
 /// Open `path` (`None`: ask for a folder) through `app.openLibrary`; on success the problem is
 /// over (and command-line files are imported), else it shows the new error.
-fn open(app: &mut LightcraftApp, path: Option<String>) {
+fn open(app: &mut EvoLightApp, path: Option<String>) {
     let params = match &path {
         Some(p) => json!({"path": p}),
         None => json!({}),
@@ -536,7 +536,7 @@ fn open(app: &mut LightcraftApp, path: Option<String>) {
 /// Clear the problem once a library is open (e.g. through Settings → Open Library…) — another
 /// one than the launch list was opened over; offer the list when Alt/Option is held as the window
 /// appears; and the list's keys.
-pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn logic(app: &mut EvoLightApp, ctx: &egui::Context) {
     if let Some(p) = &app.library_problem
         && app.session.library.is_some()
         && p.chooser.as_ref().and_then(|c| c.over) != Some(app.session.library_generation())
@@ -606,7 +606,7 @@ pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// Alt/Option held during the first [`ALT_SECONDS`] after the window appears opens the launch list
 /// once, over the library that opened (opening another one closes it). Not while files from the
 /// command line are importing into that library.
-fn alt_at_launch(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn alt_at_launch(app: &mut EvoLightApp, ctx: &egui::Context) {
     if !app.alt_asks_for_library {
         return;
     }
@@ -631,14 +631,14 @@ fn alt_at_launch(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// The launch list on screen (no dialog over it, e.g. New Library's name).
-fn chooser_shown(app: &LightcraftApp) -> Option<&Chooser> {
+fn chooser_shown(app: &EvoLightApp) -> Option<&Chooser> {
     let p = app.library_problem.as_ref().filter(|p| !p.dismissed)?;
     p.chooser.as_ref().filter(|_| app.ui.dialog.is_none())
 }
 
 /// ↑ / ↓ move the selection, Return opens it (unless a button has the keyboard focus: it acts
 /// itself), Esc quits — or, over a library already open, keeps it. Taken before the shortcuts.
-fn chooser_keys(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn chooser_keys(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(c) = chooser_shown(app) else { return };
     let (n, selected, over) = (c.libraries.len(), c.selected, c.over.is_some());
     let focused = ctx.memory(|m| m.focused().is_some());
@@ -665,7 +665,7 @@ fn chooser_keys(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Highlight row `at` of the launch list.
-fn select(app: &mut LightcraftApp, at: usize) {
+fn select(app: &mut EvoLightApp, at: usize) {
     if let Some(c) = app.library_problem.as_mut().and_then(|p| p.chooser.as_mut())
         && at < c.libraries.len()
     {
@@ -684,7 +684,7 @@ fn dim(ctx: &egui::Context) {
 }
 
 /// The blocking window (until a choice is made).
-pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(problem) = app.library_problem.clone() else { return };
     if problem.dismissed {
         return;
@@ -713,9 +713,9 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
             ui.set_width(440.0);
             ui.spacing_mut().item_spacing.y = 8.0;
             if problem.path.is_empty() {
-                ui.label(RichText::new(crate::i18n::tr("LightCraft couldn't find where to keep your library.")).color(t.text));
+                ui.label(RichText::new(crate::i18n::tr("EvoLight couldn't find where to keep your library.")).color(t.text));
             } else {
-                ui.label(RichText::new(crate::i18n::tr("LightCraft couldn't open the library at")).color(t.text_label));
+                ui.label(RichText::new(crate::i18n::tr("EvoLight couldn't open the library at")).color(t.text_label));
                 ui.label(RichText::new(&problem.path).font(t.semibold(12.5)).color(t.text));
             }
             ui.add(egui::Label::new(RichText::new(&problem.error).color(t.caution)).wrap());
@@ -748,7 +748,7 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Carry out `choice` (a button or key of either window).
-fn act(app: &mut LightcraftApp, choice: Choice) {
+fn act(app: &mut EvoLightApp, choice: Choice) {
     let Some(problem) = app.library_problem.clone() else { return };
     let chosen = problem.chooser.as_ref().and_then(|c| c.selected.and_then(|i| c.libraries.get(i)).map(|l| (l.clone(), c.over)));
     match choice {
@@ -803,7 +803,7 @@ fn act(app: &mut LightcraftApp, choice: Choice) {
 
 /// The launch list (issue #1290): the recent libraries, greyed out with the reason when they
 /// can't be opened, and Open / Open Another… / New Library… / Remove from List / Quit.
-fn show_chooser(app: &mut LightcraftApp, ctx: &egui::Context, problem: &LibraryProblem, chooser: &Chooser) {
+fn show_chooser(app: &mut EvoLightApp, ctx: &egui::Context, problem: &LibraryProblem, chooser: &Chooser) {
     let t = Tokens::get(ctx);
     dim(ctx);
     let mut choice = None;
@@ -929,7 +929,7 @@ fn recent_row(ui: &mut egui::Ui, t: &Tokens, i: usize, library: &RecentLibrary, 
 }
 
 /// The banner under the top bar while the session is temporary (Continue Without Saving).
-pub fn banner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn banner(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     if !app.library_problem.as_ref().is_some_and(|p| p.dismissed) {
         return;
     }

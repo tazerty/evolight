@@ -1,16 +1,16 @@
-//! The LightCraft develop pipeline on the GPU (wgpu compute, WGSL kernels).
+//! The EvoLight develop pipeline on the GPU (wgpu compute, WGSL kernels).
 //!
-//! The CPU pipeline (`lightcraft-pipeline`) is the reference: every kernel here is a port of a CPU
-//! stage, both read the same resolved parameters ([`lightcraft_pipeline::Plan`],
-//! [`lightcraft_pipeline::finish::FinishParams`]), and the equivalence tests (`tests/`) render the
+//! The CPU pipeline (`evolight-pipeline`) is the reference: every kernel here is a port of a CPU
+//! stage, both read the same resolved parameters ([`evolight_pipeline::Plan`],
+//! [`evolight_pipeline::finish::FinishParams`]), and the equivalence tests (`tests/`) render the
 //! same settings on both and bound the difference in 8-bit sRGB. Stages without a kernel run on the
 //! CPU inside the same render (per-stage hybrid); see `docs/gpu-pipeline.md`.
 //!
-//! Which backends wgpu may load (DX12 only on Windows; `LIGHTCRAFT_GPU_BACKEND`, `WGPU_BACKEND`) and
+//! Which backends wgpu may load (DX12 only on Windows; `EVOLIGHT_GPU_BACKEND`, `WGPU_BACKEND`) and
 //! the crash sentinel around device creation: [`backend`] (issue #136).
 //!
-//! Use [`render`]: it returns `None` when the GPU is unavailable, disabled (`LIGHTCRAFT_GPU=0`,
-//! `LIGHTCRAFT_GPU_BACKEND=off` or [`set_enabled`]), the render does not fit the device, or the device reported an error, ran out
+//! Use [`render`]: it returns `None` when the GPU is unavailable, disabled (`EVOLIGHT_GPU=0`,
+//! `EVOLIGHT_GPU_BACKEND=off` or [`set_enabled`]), the render does not fit the device, or the device reported an error, ran out
 //! of memory or returned an incomplete image — callers then render on the CPU. [`try_render`] is
 //! the same call reporting why *this* render fell back ([`Fallback`]); [`unavailable_reason`] and
 //! [`last_fallback`] (the latest fallback in the process) feed the status displays (`ui.inspect` →
@@ -25,9 +25,9 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use lightcraft_develop::DevelopSettings;
-use lightcraft_pipeline::{RenderRequest, Rendered, SourceInfo, StageCache};
-use lightcraft_raster::Rgb32f;
+use evolight_develop::DevelopSettings;
+use evolight_pipeline::{RenderRequest, Rendered, SourceInfo, StageCache};
+use evolight_raster::Rgb32f;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod backend;
@@ -72,7 +72,7 @@ fn record_fallback(reason: String) {
 }
 
 /// Why renders do not use the GPU, or `None` when they do (or will, once the device is created).
-/// E.g. "disabled by LIGHTCRAFT_GPU=0", "software adapter (llvmpipe …) skipped", "device lost …".
+/// E.g. "disabled by EVOLIGHT_GPU=0", "software adapter (llvmpipe …) skipped", "device lost …".
 /// Never blocks.
 pub fn unavailable_reason() -> Option<String> {
     if let Some(why) = env_off_reason() {
@@ -82,7 +82,7 @@ pub fn unavailable_reason() -> Option<String> {
         return Some("disabled by the GPU rendering preference (app.gpu)".into());
     }
     if shutting_down() {
-        return Some("LightCraft is closing".into());
+        return Some("EvoLight is closing".into());
     }
     if BROKEN.load(Ordering::Relaxed) {
         let r = BROKEN_REASON.lock().unwrap_or_else(|e| e.into_inner()).clone().unwrap_or_else(|| "device error".into());
@@ -190,7 +190,7 @@ pub fn reset_failures() {
     let _ = BROKEN_HERE.try_with(|b| *b.borrow_mut() = None);
 }
 
-/// Allow or forbid GPU rendering at runtime (a preference). `LIGHTCRAFT_GPU=0` forbids it for the
+/// Allow or forbid GPU rendering at runtime (a preference). `EVOLIGHT_GPU=0` forbids it for the
 /// whole process regardless.
 pub fn set_enabled(on: bool) {
     ENABLED.store(on, Ordering::Relaxed);
@@ -247,8 +247,8 @@ pub(crate) fn switched_off() -> Option<String> {
     (!ENABLED.load(Ordering::Relaxed)).then(|| "disabled by the GPU rendering preference (app.gpu)".into())
 }
 
-/// Why the environment switches the GPU off for the whole process (`LIGHTCRAFT_GPU=0` or
-/// `LIGHTCRAFT_GPU_BACKEND=off`), or `None`. Code with a GPU path of its own (the SAM 3 model on
+/// Why the environment switches the GPU off for the whole process (`EVOLIGHT_GPU=0` or
+/// `EVOLIGHT_GPU_BACKEND=off`), or `None`. Code with a GPU path of its own (the SAM 3 model on
 /// Metal) follows it too.
 pub fn env_off_reason() -> Option<&'static str> {
     if !env_disabled() {
@@ -256,16 +256,16 @@ pub fn env_off_reason() -> Option<&'static str> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     if backend::env_off() {
-        return Some("disabled by LIGHTCRAFT_GPU_BACKEND=off");
+        return Some("disabled by EVOLIGHT_GPU_BACKEND=off");
     }
-    Some("disabled by LIGHTCRAFT_GPU=0")
+    Some("disabled by EVOLIGHT_GPU=0")
 }
 
-/// `LIGHTCRAFT_GPU=0` (or `LIGHTCRAFT_GPU_BACKEND=off`): no GPU for the whole process.
+/// `EVOLIGHT_GPU=0` (or `EVOLIGHT_GPU_BACKEND=off`): no GPU for the whole process.
 fn env_disabled() -> bool {
     static OFF: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *OFF.get_or_init(|| {
-        let off = std::env::var("LIGHTCRAFT_GPU").is_ok_and(|v| matches!(v.trim(), "0" | "off" | "false" | "no"));
+        let off = std::env::var("EVOLIGHT_GPU").is_ok_and(|v| matches!(v.trim(), "0" | "off" | "false" | "no"));
         #[cfg(not(target_arch = "wasm32"))]
         let off = off || backend::env_off();
         off
@@ -287,7 +287,7 @@ pub(crate) fn device() -> Option<&'static ctx::Gpu> {
     // creating the device is a long call into the driver: not once the process is ending
     let _work = exit::enter()?;
     GPU.get_or_init(|| {
-        let Some(backends) = backend::compute_backends() else { return Err("disabled by LIGHTCRAFT_GPU_BACKEND=off".into()) };
+        let Some(backends) = backend::compute_backends() else { return Err("disabled by EVOLIGHT_GPU_BACKEND=off".into()) };
         let r = backend::with_init_marker(backends, || {
             std::panic::catch_unwind(|| ctx::Gpu::new(backends)).unwrap_or_else(|_| Err("device creation panicked".into()))
         });
@@ -454,8 +454,8 @@ pub fn render(src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &R
 /// soft proofs against an output-device profile (`device_proof`: its 3D table is CPU-side) and
 /// Visualize HDR, which needs the float HDR render. [`try_render`] follows it, and the loupe sizes
 /// its slider-drag drafts by it (issue #330), so the two can't drift apart.
-pub fn handles(depth: lightcraft_pipeline::OutputDepth, device_proof: bool, overlay: lightcraft_pipeline::Overlay) -> bool {
-    depth == lightcraft_pipeline::OutputDepth::U8 && !device_proof && overlay != lightcraft_pipeline::Overlay::HdrRange
+pub fn handles(depth: evolight_pipeline::OutputDepth, device_proof: bool, overlay: evolight_pipeline::Overlay) -> bool {
+    depth == evolight_pipeline::OutputDepth::U8 && !device_proof && overlay != evolight_pipeline::Overlay::HdrRange
 }
 
 /// [`render`], reporting why this render made no GPU image: [`Fallback::NotTried`] when the GPU
@@ -474,11 +474,11 @@ pub fn try_render(
         // sections switched off with their eye render as if at their defaults (issue #316)
         let effective = s.effective();
         let s: &DevelopSettings = &effective;
-        let device_proof = req.proof.is_some_and(|p| lightcraft_pipeline::proof_profile(p.profile).is_some());
+        let device_proof = req.proof.is_some_and(|p| evolight_pipeline::proof_profile(p.profile).is_some());
         if !enabled() || !handles(req.depth, device_proof, req.overlay) {
             return Err(Fallback::NotTried);
         }
-        let s = &*lightcraft_pipeline::settings_for(s, req);
+        let s = &*evolight_pipeline::settings_for(s, req);
         // in flight until this returns; not tried once the process is ending (issue #620)
         let _work = exit::enter().ok_or(Fallback::NotTried)?;
         let gpu = device().ok_or(Fallback::NotTried)?;
@@ -552,7 +552,7 @@ pub fn try_render(
 
 #[cfg(test)]
 mod tests {
-    use lightcraft_pipeline::{OutputDepth, Overlay};
+    use evolight_pipeline::{OutputDepth, Overlay};
 
     // Given a request the 8-bit kernel can't draw (high bit depth, a soft proof, Visualize HDR),
     // the GPU doesn't take it; the loupe and diagnostic overlays it can draw stay on the GPU

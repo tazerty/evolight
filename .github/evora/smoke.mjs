@@ -178,12 +178,12 @@ const STORAGE_PROBE = `(async () => {
 
 // Sonde évaluée dans l'iframe du moteur.
 const PROBE = `(async () => {
-  const c = document.getElementById('lightcraft_canvas');
+  const c = document.getElementById('evolight_canvas');
   const st = { href: location.href, origin: location.origin, canvas: !!c, w: c ? c.width : 0, h: c ? c.height : 0,
-    loading: !!document.getElementById('lightcraft_loading'), api: typeof globalThis.lightcraft?.command === 'function',
-    status: document.getElementById('lightcraft_status')?.textContent || '', t: performance.now(), ready: false };
+    loading: !!document.getElementById('evolight_loading'), api: typeof globalThis.evolight?.command === 'function',
+    status: document.getElementById('evolight_status')?.textContent || '', t: performance.now(), ready: false };
   if (st.api && !st.loading && st.w > 0 && st.h > 0) {
-    const stats = await Promise.race([globalThis.lightcraft.command('web.stats', '{}'),
+    const stats = await Promise.race([globalThis.evolight.command('web.stats', '{}'),
       new Promise((_, ko) => setTimeout(() => ko(new Error('web.stats sans réponse en 10 s')), 10000))]);
     st.stats = JSON.parse(stats);
     st.ready = true;
@@ -381,14 +381,14 @@ allow="fullscreen; clipboard-read; clipboard-write" title="moteur"></iframe></bo
           const r = await withTimeout(cdp.send('Runtime.evaluate', { expression: STORAGE_PROBE, awaitPromise: true, returnByValue: true }, frameSession), 15000, 'sonde de stockage');
           if (r.exceptionDetails) { errors.push(`sonde de stockage : ${r.exceptionDetails.exception?.description || r.exceptionDetails.text}`); break; }
           st = JSON.parse(r.result.value);
-          if (st.opfs.includes('library/') || st.idb.includes('lightcraft')) break;
+          if (st.opfs.includes('library/') || st.idb.includes('evolight')) break;
           await sleep(500);
         }
         result.storage = st;
         if (st) {
-          const named = [...st.opfs, ...st.idb].filter((n) => /^(lightcraft-)?ns-/.test(n) || n.includes('evoraTest1'));
+          const named = [...st.opfs, ...st.idb].filter((n) => /^(evolight-)?ns-/.test(n) || n.includes('evoraTest1'));
           if (named.length) errors.push(`E5 hors pont : espace de noms pris dans l'URL (${JSON.stringify(named)})`);
-          if (!st.opfs.includes('library/') && !st.idb.includes('lightcraft')) errors.push(`E5 hors pont : bibliothèque amont absente du stockage (${JSON.stringify(st)})`);
+          if (!st.opfs.includes('library/') && !st.idb.includes('evolight')) errors.push(`E5 hors pont : bibliothèque amont absente du stockage (${JSON.stringify(st)})`);
         }
       }
       if (sc.ehp) {
@@ -397,7 +397,7 @@ allow="fullscreen; clipboard-read; clipboard-write" title="moteur"></iframe></bo
           if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
           return r.result.value;
         };
-        const ctx = { errors, result, evalPage: (e) => evalIn(page, e), engineStats: async () => JSON.parse(await evalIn(frameSession, "globalThis.lightcraft.command('web.stats', '{}')", 20000)),
+        const ctx = { errors, result, evalPage: (e) => evalIn(page, e), engineStats: async () => JSON.parse(await evalIn(frameSession, "globalThis.evolight.command('web.stats', '{}')", 20000)),
           // EVORA-REV-29 : commandes et événements dans le cadre du moteur ; téléchargements relevés
           engineEval: (e, ms) => evalIn(frameSession, e, ms),
           downloads: async () => ({ anchors: JSON.parse(await evalIn(frameSession, 'JSON.stringify(globalThis.__evoraDownloads || [])', 20000)), events: downloadEvents.length }) };
@@ -411,7 +411,7 @@ allow="fullscreen; clipboard-read; clipboard-write" title="moteur"></iframe></bo
       if (sc.audit) {
         const params = JSON.stringify({ terms: [...SENSITIVE_TERMS, ...INFO_TERMS], probe: sc.probe });
         const r = await withTimeout(cdp.send('Runtime.evaluate', {
-          expression: `globalThis.lightcraft.command('web.renderAudit', ${JSON.stringify(params)})`, awaitPromise: true, returnByValue: true,
+          expression: `globalThis.evolight.command('web.renderAudit', ${JSON.stringify(params)})`, awaitPromise: true, returnByValue: true,
         }, frameSession), 90000, 'web.renderAudit');
         if (r.exceptionDetails) errors.push(`web.renderAudit : ${r.exceptionDetails.exception?.description || r.exceptionDetails.text}`);
         else result.renderAudit = JSON.parse(r.result.value);

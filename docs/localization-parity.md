@@ -13,7 +13,7 @@ How far each interface language is from `full`. How to add or maintain a languag
 Lightroom 9.6 (installed on the owner's Mac) ships 16 interface languages, listed from its bundle's
 `.lproj` folder names: English, German, Spanish, French, Italian, Japanese, Korean, Norwegian Bokmål,
 Dutch, Polish, Portuguese (Brazil), Russian, Swedish, Thai, Simplified Chinese and Traditional
-Chinese. It does **not** ship Hindi, Arabic, Indonesian or Vietnamese, so for those LightCraft would
+Chinese. It does **not** ship Hindi, Arabic, Indonesian or Vietnamese, so for those EvoLight would
 go beyond the target.
 
 ## How the numbers are measured
@@ -42,7 +42,7 @@ contributors whose commits only touch that language (ja, zh-hans, zh-hant, fr, d
 that is promising but is not recorded as review, so the column says `no (community edits)`.
 
 Form of address: German speaks to the user with *du* ("Wähle ein Foto", "Dein Name"), never *Sie*.
-LightCraft is built by its community, and *du* is how people helping each other talk. A new German
+EvoLight is built by its community, and *du* is how people helping each other talk. A new German
 string follows that.
 
 ## The twelve key languages
@@ -50,31 +50,31 @@ string follows that.
 | # | Language | Code | UI strings translated | Dialogs / tooltips / help | Script support | Native review | Status | To `full` |
 |---|---|---|---:|---|---|---|---|---:|
 | 1 | English | `en` | 2,304 / 2,304 (100%, source) | all; Help ▸ What's New and the shortcut sheet; no full user manual | Latin (Inter) | n/a | **full** | 0 h |
-| 2 | Simplified Chinese | `zh-hans` | 1,994 / 2,304 (87%) | menus, panels, dialogs, presets, profiles, dates; lower-layer errors English | Hans via craft-fonts (Noto Sans CJK SC); IME through winit; no vertical text in UI (not in target either) | no (community edits) | partial | 6–10 h |
+| 2 | Simplified Chinese | `zh-hans` | 1,994 / 2,304 (87%) | menus, panels, dialogs, presets, profiles, dates; lower-layer errors English | Hans via evo-fonts (Noto Sans CJK SC); IME through winit; no vertical text in UI (not in target either) | no (community edits) | partial | 6–10 h |
 | 3 | Spanish | `es` | 2,362 / 2,398 (98%; 2026-10-12) | as zh-hans | Latin | no (community edits) | partial | 2–4 h (native review, lower-layer errors) |
 | 4 | Hindi | `hi` | 0 (0%) | none | **Devanagari shaping missing** (egui has no complex shaping) | no | none (target: not shipped) | 50–90 h (shaping 25–50 h, shared with Arabic) |
 | 5 | Arabic | `ar` | 0 (0%) | none | **RTL layout and Arabic shaping missing** | no | none (target: not shipped) | 60–110 h (RTL mirroring 30–50 h + shaping, shared with Hindi) |
 | 6 | French | `fr` | 2,315 / 2,398 (97%; 2026-10-12, the rest are words spelled the same) | as zh-hans | Latin | no (community edits) | partial | 2–4 h (native review, lower-layer errors) |
 | 7 | Portuguese (Brazil) | `pt-br` | 1,966 / 2,304 (85%) | as zh-hans | Latin | no (community edits) | partial | 6–10 h |
 | 8 | Indonesian | `id` | 2,555 / 2,555 (100%; 2026-10-19: every plain and formats message any catalog has, plus 69 command labels; What's New left in English) | as zh-hans | Latin (Inter covers it) | no (written with an agent; native-speaker pass pending) | partial (target: not shipped) | 2–4 h (native review, lower-layer errors) |
-| 9 | Japanese | `ja` | 2,383 / 2,398 (99%; 2026-10-12) | as zh-hans; vertical export watermarks | Jpan via craft-fonts (BIZ UDPGothic / UDMincho); IME through winit | no (community edits) | partial | 2–4 h (native review, lower-layer errors) |
+| 9 | Japanese | `ja` | 2,383 / 2,398 (99%; 2026-10-12) | as zh-hans; vertical export watermarks | Jpan via evo-fonts (BIZ UDPGothic / UDMincho); IME through winit | no (community edits) | partial | 2–4 h (native review, lower-layer errors) |
 | 10 | German | `de` | 3,644 / 3,754 (97%; 2026-10-16: every interface message and every What's New line except 59: the distinct What's New lines whose English text has a ▸ menu path have no German entry yet and wait for #2016; the rest are words spelled the same) | as zh-hans; What's New translated line by line | Latin | partly (2026-10-24: every interface string and formats message, reviewed with an agent and spot-checked by a native speaker; What's New lines not reviewed) | partial | 1–2 h (What's New review, lower-layer errors) |
-| 11 | Korean | `ko` | 0 (0%) | none | **no Korean (Hangul) face**: needs a non-Adobe OFL face in craft-fonts (Noto CJK is allowed only for Chinese) | no | none | 14–22 h |
+| 11 | Korean | `ko` | 0 (0%) | none | **no Korean (Hangul) face**: needs a non-Adobe OFL face in evo-fonts (Noto CJK is allowed only for Chinese) | no | none | 14–22 h |
 | 12 | Vietnamese | `vi` | 2,471 / 2,471 (100% key coverage of current union; intentional English like `ISO`/`OK` kept) | menus, panels, dialogs, presets, profiles, dates, formats; lower-layer errors English | Latin with stacked diacritics (Inter) | no (community contribution) | partial (catalog complete; lower-layer errors English) | 1–3 h |
 
-## Other languages LightCraft ships (7)
+## Other languages EvoLight ships (7)
 
 | Language | Code | UI strings translated | Script | Native review | Status | To `full` |
 |---|---|---:|---|---|---|---:|
-| Traditional Chinese (Taiwan) | `zh-hant` | 1,993 / 2,304 (87%) | Hant; uses the Simplified Chinese face until craft-fonts has a TC face | no (community edits) | partial | 8–14 h (incl. the font) |
+| Traditional Chinese (Taiwan) | `zh-hant` | 1,993 / 2,304 (87%) | Hant; uses the Simplified Chinese face until evo-fonts has a TC face | no (community edits) | partial | 8–14 h (incl. the font) |
 | Russian | `ru` | 1,704 / 2,304 (74%) | Cyrillic (Inter) | no (community edits) | partial | 8–12 h |
 | Ukrainian | `uk` | 2,383 / 2,398 (99%; 2026-10-12) | Cyrillic (Inter) | no (community edits) | partial (lower-layer errors English) | 2–4 h |
 | Italian | `it` | 2,628 / 3,278 (80%, measured 2026-10-15; every interface string is translated, the other 650 are What's New lines, left in English) | Latin (Inter) | partly (written with an agent; corrections and the 2026-10-15 additions by a native speaker) | partial (lower-layer errors English) | 3–5 h |
-| Georgian | `ka` | 2,398 / 2,398 (100%: every plain and formats message any catalog has on 2026-10-12, plus the 27 display labels and 397 What's New lines no other catalog translates) | Geor: no craft-fonts face yet (boxes until one is available) | yes (native speaker) | partial (lower-layer errors English) | 2–4 h (+ a Georgian face) |
+| Georgian | `ka` | 2,398 / 2,398 (100%: every plain and formats message any catalog has on 2026-10-12, plus the 27 display labels and 397 What's New lines no other catalog translates) | Geor: no evo-fonts face yet (boxes until one is available) | yes (native speaker) | partial (lower-layer errors English) | 2–4 h (+ a Georgian face) |
 | Finnish | `fi` | 2,610 / 3,308 (79%, measured 2026-10-17: 2,313 plain + 297 formats; the rest is What's New) | Latin (Inter) | yes (written with an agent; native-speaker review by @roopeg) | partial (lower-layer errors English) | 3–5 h |
 | Polish | `pl` | 2,159 messages + 291 formats; every format message translated (2026-10-15) | Latin (Inter) | no (AI-drafted; follow-up by a native speaker) | partial (lower-layer errors English) | 2–4 h (full native review) |
 
-Target languages LightCraft lacks: Korean, Dutch, Norwegian Bokmål, Thai
+Target languages EvoLight lacks: Korean, Dutch, Norwegian Bokmål, Thai
 (Thai needs shaping and line breaking without spaces). Each Latin-script one is ~10–16 h; Thai
 ~20–35 h on top of the shaping work.
 
@@ -82,7 +82,7 @@ Target languages LightCraft lacks: Korean, Dutch, Norwegian Bokmål, Thai
 
 - Route lower-layer error messages (catalog, raw, codecs, engine) through translatable message ids
   instead of English `format!` strings (~12–20 h). Translating them must not change what the app does:
-  since #1046 the interface decides on an error's kind (`lightcraft_engine::ErrorKind`, a download's or
+  since #1046 the interface decides on an error's kind (`evolight_engine::ErrorKind`, a download's or
   Apple Photos import's `cancelled` flag), not its words; new decisions on an error go through a kind too.
 - A check in `cargo xtask ci` that every user-visible literal reaches a catalog (~4–8 h).
 - A user manual / help pages beyond What's New and the shortcut sheet (Lightroom links to online

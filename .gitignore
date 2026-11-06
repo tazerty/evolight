@@ -7,7 +7,7 @@ plan/
 /log
 .DS_Store
 .claude/
-/craft-fonts
+/evo-fonts
 # nix build / nix develop
 /result
 /result-*

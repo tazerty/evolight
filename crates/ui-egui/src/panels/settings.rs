@@ -15,7 +15,7 @@
 use egui::RichText;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{GridBadges, PREVIEW_LIMITS, StartupView};
 use crate::theme::Tokens;
 use crate::widgets::register;
@@ -38,7 +38,7 @@ const CACHE_SIZES: [u32; 5] = [512, 1024, 2048, 4096, 8192];
 const LABEL_W: f32 = 150.0;
 
 /// The page of `tab` (the tab bar in [`window`] switches `tab`).
-pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, tab: &str) {
+pub fn body(app: &mut EvoLightApp, ui: &mut egui::Ui, tab: &str) {
     let t = Tokens::get(ui.ctx());
     match tab {
         "import" => import_tab(app, ui, &t),
@@ -78,7 +78,7 @@ const PREVIEW_CHROME: f32 = 82.0;
 /// up: a row's controls wrap ([`row`]) and paths are shortened ([`path_label`]).
 /// On Slideshow the slide preview is pinned between the tab bar and the page (where the room
 /// allows), and comes off that page's room.
-pub fn window(app: &mut LightcraftApp, ui: &mut egui::Ui, tab: &mut String, max_height: f32) {
+pub fn window(app: &mut EvoLightApp, ui: &mut egui::Ui, tab: &mut String, max_height: f32) {
     ui.set_width((ui.ctx().content_rect().width() - 64.0).clamp(240.0, PAGE_SIZE.x));
     let top = ui.cursor().top();
     ui.horizontal_wrapped(|ui| {
@@ -235,7 +235,7 @@ pub(super) fn choices<V: PartialEq + Copy>(ui: &mut egui::Ui, id: &str, options:
 
 // ------------------------------------------------------------------------------------- General
 
-fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn general_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     row(ui, t, crate::i18n::tr("Language"), |ui| {
         let languages: Vec<_> = crate::i18n::Locale::for_picker().into_iter().map(|language| (language, language.name())).collect();
         // Thirteen language names do not fit one line in a narrow window: wrap them.
@@ -308,18 +308,18 @@ fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, t, crate::i18n::tr("Dialogs"));
     check(ui, "settings.closeDialogsOutside", &mut app.ui.settings.close_dialogs_outside, "Close a dialog by clicking outside it");
     heading(ui, t, crate::i18n::tr("External Editing"));
-    row(ui, t, crate::i18n::tr("PhotoCraft"), |ui| {
-        crate::text_field::TextField::singleline("field:photocraftPath", &mut app.ui.settings.photocraft_path)
+    row(ui, t, crate::i18n::tr("EvoPhoto"), |ui| {
+        crate::text_field::TextField::singleline("field:evophotoPath", &mut app.ui.settings.evophoto_path)
             .hint(crate::i18n::tr("Found automatically"))
             .width(220.0)
             .show(ui);
     });
-    edit_file_rows(ui, t, "photocraftFile", &mut app.ui.settings.photocraft_file);
+    edit_file_rows(ui, t, "evophotoFile", &mut app.ui.settings.evophoto_file);
     hint(
         ui,
         t,
         crate::i18n::tr(
-            "Photo ▸ Edit In ▸ Edit in PhotoCraft (⇧⌘E, or right-click a photo) renders a copy with your edits, stacks it with the original and opens it in PhotoCraft. Save there and the copy updates here. As PSD, PhotoCraft saves straight back to it. Leave the location empty unless you use a portable copy.",
+            "Photo ▸ Edit In ▸ Edit in EvoPhoto (⇧⌘E, or right-click a photo) renders a copy with your edits, stacks it with the original and opens it in EvoPhoto. Save there and the copy updates here. As PSD, EvoPhoto saves straight back to it. Leave the location empty unless you use a portable copy.",
         ),
     );
     row(ui, t, crate::i18n::tr("Other editor"), |ui| {
@@ -360,7 +360,7 @@ fn edit_file_rows(ui: &mut egui::Ui, t: &Tokens, id: &str, file: &mut crate::sta
 // -------------------------------------------------------------------------------------- Import
 
 /// A preset picker: `None` = `none_label`. Returns the new choice when it changed.
-fn preset_combo(app: &LightcraftApp, ui: &mut egui::Ui, id: &str, current: Option<&str>, none_label: &str) -> Option<Option<String>> {
+fn preset_combo(app: &EvoLightApp, ui: &mut egui::Ui, id: &str, current: Option<&str>, none_label: &str) -> Option<Option<String>> {
     let name = |pid: &str| {
         app.session
             .presets
@@ -384,12 +384,12 @@ fn preset_combo(app: &LightcraftApp, ui: &mut egui::Ui, id: &str, current: Optio
 }
 
 /// Cameras of the raws in the library plus those with a stored default, sorted.
-fn cameras(app: &LightcraftApp) -> Vec<String> {
+fn cameras(app: &EvoLightApp) -> Vec<String> {
     let mut v: Vec<String> = app
         .session
         .catalog
         .photos()
-        .filter(|p| p.kind == lightcraft_catalog::MediaKind::Raw && !p.meta.camera.is_empty())
+        .filter(|p| p.kind == evolight_catalog::MediaKind::Raw && !p.meta.camera.is_empty())
         .map(|p| p.meta.camera.clone())
         .chain(app.session.import_defaults.cameras.iter().map(|c| c.camera.clone()))
         .collect();
@@ -398,12 +398,12 @@ fn cameras(app: &LightcraftApp) -> Vec<String> {
     v
 }
 
-fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn import_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     let d = app.session.import_defaults.clone();
     heading(ui, t, crate::i18n::tr("Raw defaults"));
     hint(ui, t, crate::i18n::tr("Settings new raw photos start from. Changing them doesn't touch photos already in the library."));
     row(ui, t, crate::i18n::tr("Raw photos"), |ui| {
-        if let Some(v) = preset_combo(app, ui, "settingsRawPreset", d.raw_preset.as_deref(), "LightCraft Default") {
+        if let Some(v) = preset_combo(app, ui, "settingsRawPreset", d.raw_preset.as_deref(), "EvoLight Default") {
             let _ = app.run("library.preferences", json!({"import": {"rawPreset": v}}));
         }
     });
@@ -422,7 +422,7 @@ fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
             for (i, cam) in cams.iter().enumerate() {
                 let entry = d.cameras.iter().find(|c| c.camera.eq_ignore_ascii_case(cam));
                 row(ui, t, cam, |ui| {
-                    // "Raw default" = no entry; otherwise the entry's preset (None = LightCraft Default)
+                    // "Raw default" = no entry; otherwise the entry's preset (None = EvoLight Default)
                     const RAW_DEFAULT: &str = "\u{1}raw";
                     let current = match entry {
                         None => Some(RAW_DEFAULT),
@@ -431,7 +431,7 @@ fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
                     let mut pick = None;
                     let label = match current {
                         Some(RAW_DEFAULT) => crate::i18n::tr("Same as raw default").to_string(),
-                        None => crate::i18n::tr("LightCraft Default").to_string(),
+                        None => crate::i18n::tr("EvoLight Default").to_string(),
                         Some(pid) => app
                             .session
                             .presets
@@ -445,7 +445,7 @@ fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
                         if ui.selectable_label(current == Some(RAW_DEFAULT), crate::i18n::tr("Same as raw default")).clicked() {
                             pick = Some(json!({"camera": cam, "remove": true}));
                         }
-                        if ui.selectable_label(current.is_none(), crate::i18n::tr("LightCraft Default")).clicked() {
+                        if ui.selectable_label(current.is_none(), crate::i18n::tr("EvoLight Default")).clicked() {
                             pick = Some(json!({"camera": cam, "preset": null}));
                         }
                         if let Some(pid) = crate::panels::presets::picker_rows(ui, &id, &app.session.presets, current) {
@@ -515,7 +515,7 @@ fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
         let _ = app.run("library.xmpPreferences", json!({"autoWrite": xmp.auto_write}));
     }
     row(ui, t, crate::i18n::tr("Sidecar names"), |ui| {
-        use lightcraft_engine::sidecar::SidecarNaming as N;
+        use evolight_engine::sidecar::SidecarNaming as N;
         let mut n = xmp.naming;
         if choices(ui, "settingsXmpNaming", &[(N::Stem, "IMG_1.xmp"), (N::Full, "IMG_1.CR3.xmp")], &mut n) {
             let naming = if n == N::Full { "full" } else { "stem" };
@@ -576,14 +576,14 @@ fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
         }
     }
     if app.session.library.is_none() {
-        hint(ui, t, crate::i18n::tr("In-memory session: these settings last until LightCraft quits."));
+        hint(ui, t, crate::i18n::tr("In-memory session: these settings last until EvoLight quits."));
     }
 }
 
 // --------------------------------------------------------------------------------- Performance
 
-fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::gpu;
+fn performance_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::gpu;
     heading(ui, t, crate::i18n::tr("Rendering"));
     check(ui, "settings.gpu", &mut app.ui.settings.gpu, "Use the GPU for rendering");
     let status = if !gpu::available() {
@@ -612,7 +612,7 @@ fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
         ),
     );
     row(ui, t, crate::i18n::tr("Memory for caches"), |ui| {
-        let auto = crate::i18n::tr_format!("Automatic ({} MB)", lightcraft_engine::memory::default_budget() >> 20);
+        let auto = crate::i18n::tr_format!("Automatic ({} MB)", evolight_engine::memory::default_budget() >> 20);
         let opts = [(0u32, auto.as_str()), (512, "512 MB"), (1024, "1 GB"), (2048, "2 GB"), (4096, "4 GB")];
         choices(ui, "settingsMemory", &opts, &mut app.ui.settings.memory_mb);
     });
@@ -659,7 +659,7 @@ fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 /// Where this library keeps its smart previews (the offline-editing proxies, which can be large):
 /// the effective folder, what is in it, and choosing another one.
 #[cfg(not(target_arch = "wasm32"))]
-fn smart_previews(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn smart_previews(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     // listing a big folder every frame would be slow: refresh every 2 s and after a change
     let cache = egui::Id::new("smart-location");
     let now = ui.input(|i| i.time);
@@ -765,7 +765,7 @@ fn smart_previews(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 
 /// The monitor profile (`app.displayProfile`): previews are shown through the display's ICC
 /// profile, so wide-gamut and calibrated displays show colours as they are.
-fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn display_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, t, crate::i18n::tr("Monitor profile"));
     let current = app.renderer.display().cloned();
     let screen = current.as_ref().is_some_and(|d| d.path == crate::SCREEN_PROFILE);
@@ -811,8 +811,8 @@ fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
         }
         row(ui, t, crate::i18n::tr("Type"), |ui| {
             let kind = match d.profile.kind {
-                lightcraft_engine::display::DisplayKind::MatrixTrc => crate::i18n::tr("Matrix/TRC"),
-                lightcraft_engine::display::DisplayKind::Lut => crate::i18n::tr("LUT-based"),
+                evolight_engine::display::DisplayKind::MatrixTrc => crate::i18n::tr("Matrix/TRC"),
+                evolight_engine::display::DisplayKind::Lut => crate::i18n::tr("LUT-based"),
             };
             ui.label(RichText::new(kind).color(t.text));
         });
@@ -834,7 +834,7 @@ fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
     hint(ui, t, crate::i18n::tr("Profiles assigned in your desktop's colour settings are usually in ~/.local/share/icc."));
 }
 
-fn interface_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn interface_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     let system = app.system_theme(ui.ctx());
     appearance(ui, t, &mut app.ui.settings, system);
     heading(ui, t, crate::i18n::tr("Filmstrip"));
@@ -873,7 +873,7 @@ fn interface_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 /// which, the three lines each of Info 1 and Info 2 shows, which of them shows briefly when the
 /// photo changes, and whether the loupe shows its loading and rendering message
 /// (`view.viewOptions`). Changes apply as they are made.
-pub(super) fn view_options(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(super) fn view_options(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     use crate::state::{InfoOverlay as I, LoupeInfo, LoupeInfoField as F};
     heading(ui, t, crate::i18n::tr("Loupe View"));
     let mut show = app.ui.info_overlay != I::Off;
@@ -922,7 +922,7 @@ pub(super) fn view_options(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Token
 
 /// A playback duration slider (`slider:{id}`). While it is dragged the value changes in memory
 /// (the slideshow reads it); letting go saves it through `slideshow.playback`.
-fn duration_slider(app: &mut LightcraftApp, ui: &mut egui::Ui, id: &str, key: &str, value: f64, range: std::ops::RangeInclusive<f64>) {
+fn duration_slider(app: &mut EvoLightApp, ui: &mut egui::Ui, id: &str, key: &str, value: f64, range: std::ops::RangeInclusive<f64>) {
     let mut v = value;
     let r = ui.add(egui::Slider::new(&mut v, range).logarithmic(key == "slideDuration").suffix(" s").max_decimals(1));
     register(ui.ctx(), format!("slider:{id}"), r.rect);
@@ -939,7 +939,7 @@ fn duration_slider(app: &mut LightcraftApp, ui: &mut egui::Ui, id: &str, key: &s
 /// The Slideshow tab: the slide preview, then the settings, in one column the width of the page
 /// (the page scrolls; a column beside the preview would be wider than the window). Without
 /// `with_preview` the preview is left out: [`window`] has pinned it above the page.
-fn slideshow_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, with_preview: bool) {
+fn slideshow_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, with_preview: bool) {
     if with_preview {
         super::slide_layout::preview(app, ui, t, f32::INFINITY);
         ui.add_space(6.0);
@@ -958,7 +958,7 @@ fn slideshow_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, with_pr
 }
 
 /// Export: PDF, JPEG sequence or video of the slideshow (View ▸ Export Slideshow…).
-fn export_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn export_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, t, crate::i18n::tr("Export"));
     let running = app.session.slideshow_export.as_ref().is_some_and(|r| r.running());
     ui.horizontal_wrapped(|ui| {
@@ -977,8 +977,8 @@ fn export_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
     hint(ui, t, crate::i18n::tr("The photos in view as slides, with the settings above. Progress shows in the activity stack."));
 }
 
-fn playback_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::slideshow::{FADE_MAX, SLIDE_MAX, SLIDE_MIN};
+fn playback_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::slideshow::{FADE_MAX, SLIDE_MAX, SLIDE_MIN};
     heading(ui, t, crate::i18n::tr("Playback"));
     let s = app.session.slideshow.clone();
     let mut v = s.manual;
@@ -1055,7 +1055,7 @@ fn playback_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 
 /// Appearance Mode (`button:settingsAppearance-{0,1,2}`: Auto, Dark, Light) above the light and
 /// dark theme cards (`radio:theme-{id}`), each with a preview of the chosen theme. The card in
-/// use is outlined. Applied on the next frame ([`LightcraftApp::sync_theme`]).
+/// use is outlined. Applied on the next frame ([`EvoLightApp::sync_theme`]).
 fn appearance(ui: &mut egui::Ui, t: &Tokens, s: &mut crate::state::AppSettings, system: Option<egui::Theme>) {
     use crate::state::{AppearanceMode as M, DarkTheme, LightTheme};
     heading(ui, t, crate::i18n::tr("Appearance"));
@@ -1150,7 +1150,7 @@ fn theme_card<V: PartialEq + Copy>(
         });
 }
 
-/// A small LightCraft window painted with `kind`'s tokens: the top bar with its search field, the
+/// A small EvoLight window painted with `kind`'s tokens: the top bar with its search field, the
 /// photo with the filmstrip under it, the Edit panel (histogram and sliders), the tool strip and
 /// the bottom bar.
 fn theme_preview(ui: &mut egui::Ui, kind: crate::theme::ThemeKind, width: f32) {
@@ -1275,7 +1275,7 @@ fn theme_preview(ui: &mut egui::Ui, kind: crate::theme::ThemeKind, width: f32) {
 
 /// Switching libraries is refused while an import (or the folder scan before one) is running: its
 /// remaining batches would be committed into the new library (issue #1509).
-pub(crate) fn can_switch_library(app: &LightcraftApp) -> Result<(), String> {
+pub(crate) fn can_switch_library(app: &EvoLightApp) -> Result<(), String> {
     if crate::lightroom_import::is_running(app) {
         return Err("wait for Lightroom catalog import to finish before switching libraries".into());
     }
@@ -1289,10 +1289,10 @@ pub(crate) fn can_switch_library(app: &LightcraftApp) -> Result<(), String> {
 /// or a folder chosen in a dialog. Remembered as the library to open at launch.
 ///
 /// A Lightroom Classic catalog (its folder, an `.lrdata` / `.lrcat-data` folder or the `.lrcat`
-/// itself, see [`lightcraft_engine::lightroom_folder`]) is not opened: the current library stays
+/// itself, see [`evolight_engine::lightroom_folder`]) is not opened: the current library stays
 /// and a dialog offers Import Lightroom Catalog… instead; returns `{opened: false,
 /// lightroomCatalog: <.lrcat path or null>, path}`.
-pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn open_library(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     can_switch_library(app)?;
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => x.to_string(),
@@ -1310,9 +1310,9 @@ pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
     };
     // A Lightroom catalog folder (or part of one) is not a library: before closing the library
     // open now, offer to import it instead (issue #891). The engine refuses it too.
-    if let Some(place) = lightcraft_engine::lightroom_folder::lightroom_catalog_at(std::path::Path::new(&path)) {
+    if let Some(place) = evolight_engine::lightroom_folder::lightroom_catalog_at(std::path::Path::new(&path)) {
         let catalog = place.catalog.map(|c| c.to_string_lossy().into_owned());
-        let err = lightcraft_engine::EngineError::LightroomCatalog { path: path.clone().into(), catalog: catalog.clone().map(Into::into) };
+        let err = evolight_engine::EngineError::LightroomCatalog { path: path.clone().into(), catalog: catalog.clone().map(Into::into) };
         // the library problem window (no library could be opened) shows the error instead
         if app.library_problem.is_some() {
             return Err(err.to_string());
@@ -1332,7 +1332,7 @@ pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
 /// another program, unreadable, a file), the error is returned and the current library stays open:
 /// the target is checked before anything is closed, and if opening it still fails the previous
 /// library is opened again (both errors are reported if that fails too).
-fn switch_library(app: &mut LightcraftApp, path: &str) -> Result<Value, String> {
+fn switch_library(app: &mut EvoLightApp, path: &str) -> Result<Value, String> {
     let dir = app.session.check_library(std::path::Path::new(path)).map_err(|e| format!("{path}: {e}"))?;
     let path = dir.to_string_lossy().into_owned();
     // the library being left goes in the list too (also when it was opened at launch)
@@ -1382,7 +1382,7 @@ pub fn library_name(dir: &std::path::Path) -> String {
 }
 
 /// The open library's name (`None`: in memory, nothing is saved).
-pub fn open_library_name(app: &LightcraftApp) -> Option<String> {
+pub fn open_library_name(app: &EvoLightApp) -> Option<String> {
     app.session.library.as_ref().filter(|l| l.on_disk).map(|l| library_name(&l.dir))
 }
 
@@ -1390,7 +1390,7 @@ pub fn open_library_name(app: &LightcraftApp) -> Option<String> {
 /// is the folder `name` inside `path` (or inside a location chosen in a dialog); without it,
 /// `path` itself, or a new folder named after the default library. The folder must not hold a
 /// library already, nor anything else.
-pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn new_library(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     can_switch_library(app)?;
     let name = match p.get("name") {
         None | Some(Value::Null) => None,
@@ -1403,7 +1403,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> 
             app,
             "New Library",
             "Library name",
-            lightcraft_engine::library::DEFAULT_NAME,
+            evolight_engine::library::DEFAULT_NAME,
             "app.newLibrary",
             json!({}),
             "name",
@@ -1427,10 +1427,10 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> 
     let dir = match name {
         Some(n) => location.join(n),
         // a chosen location gets a new folder in it, named after the default library
-        None if picked => free_name(&location, lightcraft_engine::library::DEFAULT_NAME),
+        None if picked => free_name(&location, evolight_engine::library::DEFAULT_NAME),
         None => location,
     };
-    if lightcraft_engine::library::is_library(&dir) {
+    if evolight_engine::library::is_library(&dir) {
         return Err(format!("{}: there is a library here already; open it with File ▸ Open Library…", dir.display()));
     }
     if dir.is_file() {
@@ -1478,7 +1478,7 @@ pub(crate) fn free_name(location: &std::path::Path, base: &str) -> std::path::Pa
 /// `lastOpened`: ISO 8601 time, `null` when not known. `remove` forgets that
 /// one entry (an error if the list doesn't hold it) and `clear` forgets them all; neither touches
 /// anything on disk (issue #1290).
-pub fn recent_libraries(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn recent_libraries(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     match p.get("remove") {
         None | Some(Value::Null) => {}
         Some(Value::String(path)) => {
@@ -1526,7 +1526,7 @@ pub fn forget_library(settings: &mut crate::state::AppSettings, path: &str) -> b
 /// only. A file that can't be used is an error and changes nothing. Returns the profile in use:
 /// `{path, description, kind (matrix|lut), primaries {red, green, blue: [x, y]}}`, with
 /// `path: null, screen: true` for the screen's profile.
-pub fn display_profile(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn display_profile(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let path = match p.get("path") {
         None => None,
         Some(Value::Null) => Some(String::new()),
@@ -1534,7 +1534,7 @@ pub fn display_profile(app: &mut LightcraftApp, p: &Value) -> Result<Value, Stri
         Some(_) => return Err("app.displayProfile: path must be a string or null".into()),
     };
     if let Some(path) = path {
-        let d = lightcraft_engine::display::Display::load_opt(&path).map_err(|e| format!("app.displayProfile: {e}"))?;
+        let d = evolight_engine::display::Display::load_opt(&path).map_err(|e| format!("app.displayProfile: {e}"))?;
         app.renderer.set_display(d);
         app.ui.settings.display_profile = path.clone();
         app.display_applied = Some(path);
@@ -1562,8 +1562,8 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn app_with_import() -> LightcraftApp {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+    fn app_with_import() -> EvoLightApp {
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.run("photo.setReference", json!({})).unwrap();
         app.import = Some(crate::import::ImportTask::new(vec!["a.jpg".into()], json!({"mode": "add"}), 0, false));
         app
@@ -1592,7 +1592,7 @@ mod tests {
     /// The menu items that switch libraries are greyed out meanwhile, like during a Lightroom import.
     #[test]
     fn library_switching_menu_items_are_disabled_while_an_import_runs() {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), crate::Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::new(), crate::Services::default());
         app.services.pick_folder = Some(Box::new(|| None));
         assert!(crate::menus::ui_enabled(&app, "app.openLibrary"));
         assert!(crate::menus::ui_enabled(&app, "app.newLibrary"));
@@ -1606,7 +1606,7 @@ mod tests {
     fn open_library_is_refused_while_an_import_scan_runs() {
         let dir = std::env::temp_dir().join(format!("lc-ui-switchscan-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.run("photo.setReference", json!({})).unwrap();
         let pin = app.ui.reference;
         crate::import::open(&mut app, vec![dir.to_string_lossy().into_owned()]).unwrap();

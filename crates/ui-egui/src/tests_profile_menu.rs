@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(5);
 const SETTLE: Duration = Duration::from_secs(10);
@@ -25,9 +25,9 @@ fn go(h: &mut Headless, method: &str, id: &str) {
 
 #[test]
 fn a_folder_of_many_imported_profiles_scrolls_inside_the_window() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     for i in 0..80 {
-        app.session.lut_profiles.push(lightcraft_engine::cmd::lut_profiles::LutProfile {
+        app.session.lut_profiles.push(evolight_engine::cmd::lut_profiles::LutProfile {
             id: format!("lut:imported-{i}"),
             name: format!("Imported {i}"),
             group: FOLDER.into(),

@@ -4,8 +4,8 @@
 //! separated by three split points. Each region contributes a cosine-windowed bump, summed and
 //! forced monotone.
 
-use lightcraft_color::spline::Lut1;
-use lightcraft_develop::ToneCurve;
+use evolight_color::spline::Lut1;
+use evolight_develop::ToneCurve;
 
 /// The four shape controls of the parametric curve, in graph order: region 0 is the darkest.
 pub const PARAM_AMOUNTS: [&str; 4] = ["curve.shadows", "curve.darks", "curve.lights", "curve.highlights"];

@@ -5,15 +5,15 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
-use lightcraft_pipeline::ParametricCurve;
+use crate::{EvoLightApp, Services};
+use evolight_pipeline::ParametricCurve;
 
 const T: Duration = Duration::from_secs(20);
 
 /// Detail view with the Edit panel's Curve flyout open on `channel`.
 fn curve_open(channel: &str) -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = Headless::new(app, [1200.0, 1400.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail"}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -36,12 +36,12 @@ fn exec(h: &mut Headless, command: &str, params: serde_json::Value) -> serde_jso
     r["result"].clone()
 }
 
-fn develop(h: &Headless) -> lightcraft_develop::DevelopSettings {
+fn develop(h: &Headless) -> evolight_develop::DevelopSettings {
     let id = h.app.session.active().expect("active photo");
     (*h.app.session.develop_of(id).unwrap_or_default()).clone()
 }
 
-fn pts(v: &[lightcraft_geom::Point]) -> Vec<(f64, f64)> {
+fn pts(v: &[evolight_geom::Point]) -> Vec<(f64, f64)> {
     v.iter().map(|p| (p.x, p.y)).collect()
 }
 
@@ -118,7 +118,7 @@ fn reset_button_resets_every_curve() {
     h.step();
     click_widget(&mut h, "button:curveReset", 1);
     let c = develop(&h).curve;
-    assert_eq!(c, lightcraft_develop::ToneCurve::default());
+    assert_eq!(c, evolight_develop::ToneCurve::default());
 }
 
 #[test]
@@ -226,8 +226,8 @@ fn curve_points_from_an_agent_are_stored_in_order() {
 /// The settings the parametric graph is drawn from: two neighbouring regions pushed opposite ways,
 /// where the raw sum of their bumps folds back on itself before the renderer's running maximum
 /// straightens it out.
-fn folded_regions() -> lightcraft_develop::ToneCurve {
-    lightcraft_develop::ToneCurve { shadows: 90.0, darks: -80.0, lights: -70.0, highlights: 60.0, ..Default::default() }
+fn folded_regions() -> evolight_develop::ToneCurve {
+    evolight_develop::ToneCurve { shadows: 90.0, darks: -80.0, lights: -70.0, highlights: 60.0, ..Default::default() }
 }
 
 /// The bare sum of the four region bumps is not monotone, so the drawn curve needs the renderer's
@@ -345,7 +345,7 @@ fn reset_clears_the_sliders_and_the_graph_together() {
     let undo_before = h.app.session.undo.len();
     click_widget(&mut h, "button:curveReset", 1);
     let c = develop(&h).curve;
-    assert_eq!(c, lightcraft_develop::ToneCurve::default(), "Reset puts every slider and split back: {c:?}");
+    assert_eq!(c, evolight_develop::ToneCurve::default(), "Reset puts every slider and split back: {c:?}");
     let flat = painted_tone(&mut h, MID);
     assert!((flat - MID).abs() < 0.02, "and the graph is the diagonal again: {flat}");
     assert_eq!(h.app.session.undo.len(), undo_before + 1, "Reset is one undo step");
@@ -360,7 +360,7 @@ fn undo_restores_the_slider_and_the_graph_together() {
     let bent = painted_tone(&mut h, MID);
     assert!(bent > MID + 0.02, "the graph is bent: {bent}");
     click_widget(&mut h, "button:curveReset", 1);
-    assert_eq!(develop(&h).curve, lightcraft_develop::ToneCurve::default(), "reset first");
+    assert_eq!(develop(&h).curve, evolight_develop::ToneCurve::default(), "reset first");
     exec(&mut h, "edit.undo", json!({}));
     let c = develop(&h).curve;
     assert_eq!(c.lights, 60.0, "Undo brings the slider back: {c:?}");
@@ -368,7 +368,7 @@ fn undo_restores_the_slider_and_the_graph_together() {
     assert!(again > MID + 0.02, "and the graph is bent with it, not left flat: {again}");
     // redo puts the diagonal back, and the graph follows that too
     exec(&mut h, "edit.redo", json!({}));
-    assert_eq!(develop(&h).curve, lightcraft_develop::ToneCurve::default(), "redo restores the reset");
+    assert_eq!(develop(&h).curve, evolight_develop::ToneCurve::default(), "redo restores the reset");
     let flat = painted_tone(&mut h, MID);
     assert!((flat - MID).abs() < 0.02, "the graph is flat with the sliders: {flat}");
 }
@@ -397,7 +397,7 @@ fn one_graph_drag_that_moves_several_regions_is_one_undo_step() {
 }
 
 /// The screen point where a drag should grab the curve: graph fraction `fx`, on the line itself.
-fn on_curve(r: [f32; 4], c: &lightcraft_develop::ToneCurve, fx: f32) -> [f32; 2] {
+fn on_curve(r: [f32; 4], c: &evolight_develop::ToneCurve, fx: f32) -> [f32; 2] {
     let y = ParametricCurve::new(c).at(fx as f64);
     [r[0] + fx * r[2], r[1] + (1.0 - y as f32) * r[3]]
 }
@@ -552,7 +552,7 @@ fn hovering_the_line_names_the_region_it_would_move() {
 /// cannot reach saturates rather than jumping.
 #[test]
 fn a_curve_level_and_its_amount_are_inverses() {
-    let c = lightcraft_develop::ToneCurve { shadows: 20.0, lights: 40.0, ..Default::default() };
+    let c = evolight_develop::ToneCurve { shadows: 20.0, lights: 40.0, ..Default::default() };
     let model = ParametricCurve::new(&c);
     for region in 0..4 {
         let centre = model.region_x(region);
@@ -575,7 +575,7 @@ fn a_curve_level_and_its_amount_are_inverses() {
 /// drag anywhere on the line moves exactly one slider and the one the pointer is over.
 #[test]
 fn the_four_regions_tile_the_graph() {
-    let model = ParametricCurve::new(&lightcraft_develop::ToneCurve::default());
+    let model = ParametricCurve::new(&evolight_develop::ToneCurve::default());
     assert_eq!(model.region_at(0.0), 0, "black is the darkest region");
     assert_eq!(model.region_at(1.0), 3, "white is the lightest");
     assert_eq!(model.region_at(0.2), 0, "below the first split");

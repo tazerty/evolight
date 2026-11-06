@@ -1,0 +1,9 @@
+[package]
+name = "evo-docpath"
+description = "Decide whether a file path or file URL stored in a document refers to a local file."
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "vendor/evo-libs"
+

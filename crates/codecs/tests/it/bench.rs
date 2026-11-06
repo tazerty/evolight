@@ -1,7 +1,7 @@
 //! Benchmark-ish, ignored by default. Run with:
-//! `cargo test --release -p lightcraft-codecs --test it bench:: -- --ignored --nocapture`
+//! `cargo test --release -p evolight-codecs --test it bench:: -- --ignored --nocapture`
 
-use lightcraft_codecs::*;
+use evolight_codecs::*;
 use std::time::Instant;
 
 fn synthetic(w: usize, h: usize) -> Vec<u8> {

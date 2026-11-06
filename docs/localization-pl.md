@@ -3,7 +3,7 @@
 Język polski (`pl`, English name **Polish**, nazwa natywna **Polski**) włącza się przez **Edytuj → Język →
 Polski** albo **Ustawienia → Ogólne → Język**. Zmiana działa od razu i jest zapamiętywana przy kolejnym
 uruchomieniu. Polecenie to `app.language.polish`; kanał sterowania przyjmuje `ui.set {"language":"pl"}`
-oraz znaczniki `pl-PL` i `pl_PL.UTF-8`. Bez okna można ustawić `LIGHTCRAFT_LANGUAGE=pl`.
+oraz znaczniki `pl-PL` i `pl_PL.UTF-8`. Bez okna można ustawić `EVOLIGHT_LANGUAGE=pl`.
 
 Katalogi `crates/ui-egui/locales/pl.json` i `pl-formats.json` dodał #1100 (tłumaczenie przygotowane
 z pomocą AI). Uzupełnienie opisane niżej również przygotowano z pomocą AI; przygotował je rodzimy

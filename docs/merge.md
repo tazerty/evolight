@@ -20,16 +20,16 @@ All algorithms are our own implementations from published papers (cited in the m
   - `merge.panorama {ids?, projection=auto|spherical|cylindrical|perspective, boundaryWarp=0..100, autoCrop=false, fillEdges=false, autoSettings=true, maxMegapixels (default: the photos' own resolution), preview, previewPath?}`
   - `merge.hdrPanorama {ids?, bracket=0 (from EXIF), …both sets of options}`
   - `merge.hdrBatch {ids?, align, deghost, autoSettings, stack}` → `{merged: [{id, path, …}], failed: [{photos, error}]}`
-- **CLI:** `lightcraft-cli merge hdr|panorama|hdr-panorama|hdr-batch [options] FILES…` (`hdr-batch` finds the brackets
+- **CLI:** `evolight-cli merge hdr|panorama|hdr-panorama|hdr-batch [options] FILES…` (`hdr-batch` finds the brackets
   among the files, e.g. a whole folder);
-  `lightcraft-cli synth-merge hdr|panorama -o DIR` writes synthetic inputs (procedural scene).
+  `evolight-cli synth-merge hdr|panorama -o DIR` writes synthetic inputs (procedural scene).
 
 ## What it does
 
 **HDR** (`hdr.rs`): frames ordered by EXIF exposure (or median luminance); the middle one is the
 reference. Auto Align: features on exposure-normalised luminance, RANSAC translation / similarity /
 homography (the simplest model that explains ≥ 97 % of the matches). Frames are resampled with Lanczos-3, held to
-the range of their 4 × 4 neighbours so edges don't ring (`lightcraft_raster::sample`); bilinear lost a third of the
+the range of their 4 × 4 neighbours so edges don't ring (`evolight_raster::sample`); bilinear lost a third of the
 finest detail. Exposure ratios are measured
 (median log ratio of well-exposed pixels between brightness neighbours), EXIF is the fallback.
 Radiance is a weighted mean in linear light, weight `k · (1 − smoothstep(0.8·clip, 0.96·clip, max
@@ -62,7 +62,7 @@ push–pull diffusion. Output: 16-bit integer DNG (16-bit float for HDR panorama
 scale in `BaselineExposure`; raw sources keep their DNG colour tags (camera RGB), other sources get
 `ColorMatrix1`/`ForwardMatrix1` of their RGB space.
 
-## Measured (synthetic tests, `cargo test -p lightcraft-merge`)
+## Measured (synthetic tests, `cargo test -p evolight-merge`)
 
 - HDR, 3 brackets ±2 EV with 14-bit noise and handheld shifts: alignment error < 0.3 px, exposure
   error < 0.02 EV, radiance median log error < 0.03 (noise-limited, bias < 0.01), recovered

@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::pick::{PickRequest, Picked};
 use crate::state::{BeforeAfter, Dialog, RightPanel, ViewMode, Zoom};
 
@@ -221,7 +221,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("app.print", "Print to PDF", None, ""),
     ("dialog.contactSheet", "Contact Sheet PDF…", None, "File"),
     ("app.contactSheet", "Export Contact Sheet PDF", None, ""),
-    ("photo.editInPhotoCraft", "Edit in PhotoCraft", Some("Cmd+Shift+E"), "Photo>Edit In"),
+    ("photo.editInEvoPhoto", "Edit in EvoPhoto", Some("Cmd+Shift+E"), "Photo>Edit In"),
     ("photo.editInExternal", "Edit in Other Editor", Some("Cmd+Alt+E"), "Photo>Edit In"),
     // {ids?, app?}: the original files themselves (a raw stays a raw: no render, no copy), opened
     // in the other editor, e.g. a raw developer
@@ -243,7 +243,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("file.restoreLibrary", "Restore Library from Backup…", None, "File"),
     ("photo.locate", "Locate Missing File…", None, ""),
     ("dialog.saveMetadataPreset", "Save Metadata Preset…", None, ""),
-    ("app.quit", "Quit LightCraft", Some("Cmd+Q"), "File"),
+    ("app.quit", "Quit EvoLight", Some("Cmd+Q"), "File"),
     ("file.importPresets", "Import Profiles & Presets…", None, "File"),
     ("file.exportPresets", "Export Presets…", None, "File"),
     // Masking panel ▸ Effect menu
@@ -262,16 +262,16 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("app.clearRecentLibraries", "Clear Recent Libraries", None, ""),
     // Settings ▸ Display
     ("app.displayProfile", "Display Profile", None, ""),
-    ("app.about", "About LightCraft", None, "Help"),
+    ("app.about", "About EvoLight", None, "Help"),
     ("app.systemInfo", "System Info…", None, "Help"),
     ("app.openLogFolder", "Open Log Folder", None, "Help"),
     // the frame-rate display (`frame_rate`): a debugging aid, never saved
     ("view.frameRate", "Frame Rate", None, "Help>Debug"),
     ("app.whatsNew", "What's New", None, "Help"),
     ("dialog.cull", "Assisted Culling…", None, "Photo"),
-    ("app.help", "LightCraft Help", Some("F1"), "Help"),
+    ("app.help", "EvoLight Help", Some("F1"), "Help"),
     ("app.feedback", "Send Feedback…", None, "Help"),
-    ("app.github", "LightCraft on GitHub", None, "Help"),
+    ("app.github", "EvoLight on GitHub", None, "Help"),
     ("app.shortcuts", "Keyboard Shortcuts", Some("Cmd+/"), "Help"),
     ("app.setShortcut", "Set Keyboard Shortcut", None, ""),
     ("app.resetShortcuts", "Reset All Keyboard Shortcuts", None, ""),
@@ -286,7 +286,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("app.exportPrevious", "Export with Previous", Some("Cmd+Alt+Shift+E"), "File"),
 ];
 
-fn panel(app: &mut LightcraftApp, ctx: &egui::Context, p: RightPanel, name: &str) {
+fn panel(app: &mut EvoLightApp, ctx: &egui::Context, p: RightPanel, name: &str) {
     if app.ui.right == p && crate::docking::exposed(app, crate::docking::Panel::Tools) {
         app.ui.right = RightPanel::None;
         app.toast(ctx, crate::i18n::tr_format!("{name} Off", name = crate::i18n::tr(name)));
@@ -305,7 +305,7 @@ fn panel(app: &mut LightcraftApp, ctx: &egui::Context, p: RightPanel, name: &str
 
 /// `[` / `]` (size ×`k`) and ⇧`[` / ⇧`]` (feather +`df`) for the brush in use: the Remove tool's
 /// (and its selected spot's) or the Masking brush's.
-fn adjust_brush(app: &mut LightcraftApp, k: f32, df: f32) -> Value {
+fn adjust_brush(app: &mut EvoLightApp, k: f32, df: f32) -> Value {
     if app.ui.right == RightPanel::Remove {
         app.ui.remove_size = (app.ui.remove_size * k).clamp(0.001, 0.25);
         app.ui.remove_feather = (app.ui.remove_feather + df).clamp(0.0, 100.0);
@@ -335,7 +335,7 @@ fn parent_param(p: &Value) -> Option<u64> {
 /// `file.addPhotos` / `file.addFolder` / `file.addFromDevice` `{album?}`: the review of the scan
 /// just started opens with that album chosen (an album's context menu ▸ Import ▸ …). An error
 /// means another scan is running.
-fn import_into_album(app: &mut LightcraftApp, p: &Value, r: Result<Value, String>) -> Result<Value, String> {
+fn import_into_album(app: &mut EvoLightApp, p: &Value, r: Result<Value, String>) -> Result<Value, String> {
     if r.is_ok()
         && let Some(t) = &mut app.scan
     {
@@ -393,14 +393,14 @@ fn tool_overlay_toast(mode: crate::state::ToolOverlay) -> String {
     .to_string()
 }
 
-fn appearance_json(app: &LightcraftApp) -> Value {
+fn appearance_json(app: &EvoLightApp) -> Value {
     let s = &app.ui.settings;
     json!({"mode": s.appearance_mode, "darkTheme": s.dark_theme, "lightTheme": s.light_theme})
 }
 
 /// `view.appearance {mode?}`: set Appearance Mode, or step to the next one (Auto, Light, Dark).
-/// The theme follows on the next frame ([`LightcraftApp::sync_theme`]).
-fn appearance_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+/// The theme follows on the next frame ([`EvoLightApp::sync_theme`]).
+fn appearance_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     use crate::state::AppearanceMode;
     let mode = match p.get("mode") {
         None | Some(Value::Null) => app.ui.settings.appearance_mode.next(),
@@ -416,7 +416,7 @@ fn appearance_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, Strin
 }
 
 /// `view.theme {theme}`: pick a theme; the mode becomes its family's (Dark or Light).
-fn theme_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn theme_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let ids = crate::theme::ThemeKind::ALL.map(|k| k.id()).join("|");
     let Some(id) = p.get("theme").and_then(Value::as_str) else {
         return Err(format!("view.theme: `theme` is required ({ids})"));
@@ -429,7 +429,7 @@ fn theme_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
 }
 
 /// Handle UI commands; `None` means "not a UI command — send it to the engine".
-pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Result<Value, String>> {
+pub fn run_ui_command(app: &mut EvoLightApp, id: &str, p: &Value) -> Option<Result<Value, String>> {
     if matches!(id, "ui.dock" | "ui.dock.reset") {
         return Some(crate::docking::command(app, id == "ui.dock.reset", p));
     }
@@ -608,7 +608,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         "view.reference" => {
             // the reference: the one set before, else the active photo (the next one becomes active)
             let vis = app.session.visible_cloned();
-            let live = |id: u64| crate::panels::compare::live(app, lightcraft_catalog::PhotoId(id));
+            let live = |id: u64| crate::panels::compare::live(app, evolight_catalog::PhotoId(id));
             let active = app.session.active().map(|a| a.0);
             let reference = app.ui.reference.filter(|r| live(*r)).or_else(|| active.filter(|a| live(*a)));
             let Some(r) = reference else {
@@ -637,7 +637,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 None => app.session.active().map(|a| a.0),
             };
             let Some(id) = id else { return Some(Err("select a photo to use as the reference".into())) };
-            match app.session.catalog.photo(lightcraft_catalog::PhotoId(id)) {
+            match app.session.catalog.photo(evolight_catalog::PhotoId(id)) {
                 None => return Some(Err(format!("no photo {id}"))),
                 Some(p) if p.deleted => return Some(Err(format!("photo {id} is in Recently Deleted: restore it to use it as the reference"))),
                 Some(_) => {}
@@ -648,7 +648,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         "compare.swap" => crate::panels::compare::swap(app),
         "compare.set" => {
             let Some(id) = p.get("id").and_then(Value::as_u64) else { return Some(Err("compare.set needs `id`".into())) };
-            crate::panels::compare::set_photo(app, lightcraft_catalog::PhotoId(id), p.get("side").and_then(Value::as_str))
+            crate::panels::compare::set_photo(app, evolight_catalog::PhotoId(id), p.get("side").and_then(Value::as_str))
         }
         "compare.makeSelect" => crate::panels::compare::make_select(app),
         "view.autoAdvance" => {
@@ -1018,7 +1018,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             // destWarning?, displayWarning?}; no params toggles
             let has = |k: &str| p.get(k).is_some();
             if let Some(s) = p.get("space").and_then(Value::as_str) {
-                match lightcraft_engine::pipeline::OutputSpace::parse(s) {
+                match evolight_engine::pipeline::OutputSpace::parse(s) {
                     Some(sp) => {
                         app.ui.proof.space = sp;
                         // a standard space replaces a device profile (unless one is given too)
@@ -1028,7 +1028,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 }
             }
             if let Some(i) = p.get("intent") {
-                match i.as_str().and_then(lightcraft_engine::proof::ProofIntent::parse) {
+                match i.as_str().and_then(evolight_engine::proof::ProofIntent::parse) {
                     Some(i) => app.ui.proof_intent = i,
                     None => return Some(Err("view.softProof: intent must be perceptual or relative".into())),
                 }
@@ -1046,7 +1046,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 None => app.ui.proof_profile.as_ref().map(|(f, _)| f.clone()),
             };
             match path {
-                Some(path) => match lightcraft_engine::proof::load(&path, app.ui.proof_intent, app.ui.proof_paper_ink) {
+                Some(path) => match evolight_engine::proof::load(&path, app.ui.proof_intent, app.ui.proof_paper_ink) {
                     Ok(pp) => {
                         app.ui.proof.profile = pp.id;
                         app.ui.proof_profile = Some((path, pp.name));
@@ -1087,7 +1087,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             Ok(json!({"maskOverlayAll": app.ui.mask_overlay_all}))
         }
         "view.maskOverlayMode" => {
-            use lightcraft_engine::pipeline::MaskView;
+            use evolight_engine::pipeline::MaskView;
             let cur = MaskView::parse(&app.ui.mask_overlay_mode).unwrap_or_default();
             let next = match p.get("mode").and_then(Value::as_str) {
                 Some(m) => match MaskView::parse(m) {
@@ -1341,7 +1341,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                         .session
                         .active()
                         .and_then(|id| app.session.develop_of(id))
-                        .is_some_and(|d| d.geometry.upright == lightcraft_develop::Upright::Guided);
+                        .is_some_and(|d| d.geometry.upright == evolight_develop::Upright::Guided);
                     if !guided && let Err(e) = app.run("geometry.upright", json!({"mode": "guided"})) {
                         return Some(Err(e));
                     }
@@ -1418,7 +1418,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             let album = p
                 .get("id")
                 .and_then(Value::as_u64)
-                .and_then(|id| app.session.catalog.album(lightcraft_catalog::AlbumId(id)).filter(|a| a.is_smart()).cloned());
+                .and_then(|id| app.session.catalog.album(evolight_catalog::AlbumId(id)).filter(|a| a.is_smart()).cloned());
             app.ui.dialog = Some(match album {
                 Some(a) => Dialog::SmartRules {
                     id: Some(a.id.0),
@@ -1438,7 +1438,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 None => Dialog::SmartRules {
                     id: None,
                     name: p.get("name").and_then(Value::as_str).unwrap_or("").into(),
-                    rules: lightcraft_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
+                    rules: evolight_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
                     parent: parent_param(p),
                 },
             });
@@ -1455,7 +1455,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 .active()
                 .and_then(|id| app.session.catalog.photo(id))
                 .map(|p| p.date())
-                .filter(|d| lightcraft_catalog::dates::shift_iso(d, 0).is_some())
+                .filter(|d| evolight_catalog::dates::shift_iso(d, 0).is_some())
                 .map(|d| d.replace('T', " "))
                 .unwrap_or_default();
             let mode = p.get("mode").and_then(Value::as_str).unwrap_or("set").to_string();
@@ -1465,7 +1465,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         }
         "dialog.labelNames" => {
             let names =
-                lightcraft_catalog::ColorLabel::ALL.iter().map(|l| app.session.catalog.custom_label_name(*l).unwrap_or("").to_string()).collect();
+                evolight_catalog::ColorLabel::ALL.iter().map(|l| app.session.catalog.custom_label_name(*l).unwrap_or("").to_string()).collect();
             app.ui.dialog = Some(Dialog::LabelNames { names, save_as: String::new() });
             Ok(Value::Null)
         }
@@ -1497,16 +1497,16 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         }
         "dialog.slideshowExport" => {
             let format = match p.get("format").and_then(Value::as_str) {
-                Some("jpeg") => lightcraft_engine::slideshow_export::Format::Jpeg,
-                Some("video") => lightcraft_engine::slideshow_export::Format::Video,
-                _ => lightcraft_engine::slideshow_export::Format::Pdf,
+                Some("jpeg") => evolight_engine::slideshow_export::Format::Jpeg,
+                Some("video") => evolight_engine::slideshow_export::Format::Video,
+                _ => evolight_engine::slideshow_export::Format::Pdf,
             };
-            app.ui.dialog = Some(Dialog::SlideshowExport { settings: lightcraft_engine::slideshow_export::ExportSettings::for_format(format) });
+            app.ui.dialog = Some(Dialog::SlideshowExport { settings: evolight_engine::slideshow_export::ExportSettings::for_format(format) });
             Ok(Value::Null)
         }
         "app.slideshowExport" => crate::slideshow_export::start(app, id, p),
         "dialog.contactSheet" => {
-            app.ui.dialog = Some(Dialog::ContactSheet { options: lightcraft_engine::contact_sheet::Options::default() });
+            app.ui.dialog = Some(Dialog::ContactSheet { options: evolight_engine::contact_sheet::Options::default() });
             Ok(Value::Null)
         }
         "dialog.print" => {
@@ -1553,9 +1553,9 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             let u = |k: &str, d: u64| prev.get(k).and_then(Value::as_u64).unwrap_or(d);
             let dir = prev.get("dir").and_then(Value::as_str).map(str::to_string).unwrap_or_else(crate::control::default_export_dir);
             // stored settings: a depth the format lacks (saved before #1952) opens at the format's own
-            let opts = lightcraft_engine::export::ExportOptions::from_json(&lightcraft_engine::export::ExportOptions::known_keys_only(&prev));
+            let opts = evolight_engine::export::ExportOptions::from_json(&evolight_engine::export::ExportOptions::known_keys_only(&prev));
             // no previous export: 2048 px long edge; a previous full-size export: full size
-            let full_size = opts.resize.is_none() && lightcraft_engine::export::ExportOptions::has_size_param(&prev);
+            let full_size = opts.resize.is_none() && evolight_engine::export::ExportOptions::has_size_param(&prev);
             let resize = opts.resize.unwrap_or_default();
             app.ui.dialog = Some(Dialog::Export { opts, full_size, resize, preset_name: String::new(), limit_kb: u("limitKb", 0) as u32, dir });
             Ok(Value::Null)
@@ -1582,7 +1582,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             app.ui.dialog = Some(Dialog::About);
             Ok(Value::Null)
         }
-        "photo.editInPhotoCraft" => edit_in(app, &ctx, p, true),
+        "photo.editInEvoPhoto" => edit_in(app, &ctx, p, true),
         "photo.editInExternal" => edit_in(app, &ctx, p, false),
         "photo.openOriginalInExternal" => open_original_in(app, &ctx, p),
         "dialog.cull" => {
@@ -1596,7 +1596,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         }
         "app.systemInfo" => {
             let info = app.session.execute("library.info", &json!({})).unwrap_or_default();
-            let gpu = (lightcraft_engine::gpu::ready() && lightcraft_engine::gpu::available()).then(lightcraft_engine::gpu::adapter_name).flatten();
+            let gpu = (evolight_engine::gpu::ready() && evolight_engine::gpu::available()).then(evolight_engine::gpu::adapter_name).flatten();
             let mb = |b: u64| format!("{:.0} MB", b as f64 / (1u64 << 20) as f64);
             let mut rows = vec![
                 ("Version".to_string(), env!("CARGO_PKG_VERSION").to_string()),
@@ -1604,13 +1604,13 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 ("CPU threads".to_string(), std::thread::available_parallelism().map(|n| n.get().to_string()).unwrap_or_else(|_| "?".into())),
                 (
                     "GPU".to_string(),
-                    gpu.unwrap_or_else(|| match lightcraft_engine::gpu::unavailable_reason() {
+                    gpu.unwrap_or_else(|| match evolight_engine::gpu::unavailable_reason() {
                         Some(why) => crate::i18n::tr_format!("none (CPU rendering): {why}", why = why),
                         None => "none (CPU rendering)".into(),
                     }),
                 ),
                 ("GPU rendering".to_string(), if app.ui.settings.gpu { "on".into() } else { "off".into() }),
-                ("Memory budget".to_string(), mb(lightcraft_engine::memory::default_budget() as u64)),
+                ("Memory budget".to_string(), mb(evolight_engine::memory::default_budget() as u64)),
                 (
                     "Preview size".to_string(),
                     match app.ui.settings.preview_limit {
@@ -1630,7 +1630,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 format!("{:.1} ms (logic {:.1} ms; slowest {:.0} ms)", app.perf.update_ms, app.perf.logic_ms, app.perf.max_update_ms),
             ));
             rows.push(("Last loupe render".into(), format!("{:.0} ms", app.renderer.last_main_ms)));
-            if let Some(f) = lightcraft_engine::gpu::last_fallback() {
+            if let Some(f) = evolight_engine::gpu::last_fallback() {
                 rows.push(("Last GPU fallback".into(), f));
             }
             let r = json!(rows.iter().map(|(k, v)| json!({"label": k, "value": v})).collect::<Vec<_>>());
@@ -1663,7 +1663,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             let paths = match p.get("paths").and_then(Value::as_array) {
                 Some(a) => a.iter().filter_map(Value::as_str).map(str::to_string).collect(),
                 None => {
-                    let req = PickRequest::files(None, crate::i18n::tr("Photos"), lightcraft_engine::import::EXTENSIONS);
+                    let req = PickRequest::files(None, crate::i18n::tr("Photos"), evolight_engine::import::EXTENSIONS);
                     match crate::pick::ask(app, id, p, "paths", req, |s| s.pick_files.as_mut().map(|f| f())) {
                         Picked::Now(paths) => paths,
                         Picked::Later | Picked::Unavailable => return Some(Ok(Value::Null)),
@@ -1751,9 +1751,9 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             if app.tasks.is_running(LABEL) {
                 return Some(Err("Find Missing Photos is already searching".into()));
             }
-            let mut candidates = lightcraft_engine::cmd::missing::find_candidates(&app.session.catalog);
+            let mut candidates = evolight_engine::cmd::missing::find_candidates(&app.session.catalog);
             if let Some(within) = within {
-                candidates.retain(|candidate| lightcraft_catalog::query::folder_within(&candidate.path, &within));
+                candidates.retain(|candidate| evolight_catalog::query::folder_within(&candidate.path, &within));
             }
             #[cfg(test)]
             let test_delay = app.ui.find_missing_test_delay;
@@ -1762,9 +1762,9 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 if let Some(d) = test_delay {
                     std::thread::sleep(d);
                 }
-                lightcraft_engine::cmd::missing::plan_find_missing(&candidates, &folder)
+                evolight_engine::cmd::missing::plan_find_missing(&candidates, &folder)
             };
-            let done = |app: &mut LightcraftApp, ctx: &egui::Context, plan: Result<lightcraft_engine::cmd::missing::FindPlan, String>| {
+            let done = |app: &mut EvoLightApp, ctx: &egui::Context, plan: Result<evolight_engine::cmd::missing::FindPlan, String>| {
                 // relinked under the session as it is now: photos relinked meanwhile and files
                 // now in use are skipped
                 let r = plan.and_then(|plan| app.run("library.findMissing", plan.to_json()));
@@ -1870,7 +1870,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                 Some(x) => Some(x.to_string()),
                 None => {
                     let req =
-                        PickRequest::file(crate::i18n::tr("Locate Missing File…"), crate::i18n::tr("Photos"), lightcraft_engine::import::EXTENSIONS);
+                        PickRequest::file(crate::i18n::tr("Locate Missing File…"), crate::i18n::tr("Photos"), evolight_engine::import::EXTENSIONS);
                     match crate::pick::ask(app, "photo.locate", p, "path", req, |s| s.pick_files.as_mut().map(|f| f())) {
                         Picked::Now(v) => v.into_iter().next(),
                         Picked::Later | Picked::Unavailable => None,
@@ -1886,7 +1886,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             // a camera / card: review its DCIM folder, copying into the library by default
             let path = match p.get("path").and_then(Value::as_str) {
                 Some(x) => x.to_string(),
-                None => match lightcraft_engine::devices::devices_now().into_iter().next() {
+                None => match evolight_engine::devices::devices_now().into_iter().next() {
                     Some(d) => d.path,
                     None => return Some(Err("no camera or memory card found".into())),
                 },
@@ -2139,7 +2139,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
                     let name = format!("{}.lceffect", p.get("group").and_then(Value::as_str).unwrap_or("Effect Presets"));
                     let req = PickRequest::save(
                         crate::i18n::tr("Export Effect Presets"),
-                        crate::i18n::tr("LightCraft Effect Presets"),
+                        crate::i18n::tr("EvoLight Effect Presets"),
                         &["lceffect"],
                         name.clone(),
                     );
@@ -2169,8 +2169,8 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             let path = match p.get("path").and_then(Value::as_str) {
                 Some(x) => Some(x.to_string()),
                 None => {
-                    let name = format!("{}.lcpreset", group.as_deref().unwrap_or("LightCraft Presets"));
-                    let req = PickRequest::save(crate::i18n::tr("Export Presets"), crate::i18n::tr("LightCraft Preset"), &["lcpreset"], name.clone());
+                    let name = format!("{}.evolightpreset", group.as_deref().unwrap_or("EvoLight Presets"));
+                    let req = PickRequest::save(crate::i18n::tr("Export Presets"), crate::i18n::tr("EvoLight Preset"), &["evolightpreset"], name.clone());
                     match crate::pick::ask(app, id, p, "path", req, |s| s.save_preset_file.as_mut().map(|f| f(&name).into_iter().collect())) {
                         Picked::Now(v) => v.into_iter().next(),
                         Picked::Later => return Some(Ok(Value::Null)),
@@ -2255,14 +2255,14 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         }
         "app.export" => crate::control::export_active(app, p),
         "app.showInFinder" => show_in_finder(app),
-        "app.showInFolders" => show_in_folders(app, p.get("id").and_then(Value::as_u64).map(lightcraft_catalog::PhotoId)),
+        "app.showInFolders" => show_in_folders(app, p.get("id").and_then(Value::as_u64).map(evolight_catalog::PhotoId)),
         "app.openLogFolder" => open_log_folder(app),
         "app.github" | "app.help" | "app.feedback" => match crate::links::url_of(id) {
             Some(url) => crate::links::open(app, url),
             None => Err(format!("no link for {id}")),
         },
         "app.exportPrevious" => match app.session.last_export.clone() {
-            Some(prev) => crate::control::export_active(app, &lightcraft_engine::export::ExportOptions::known_keys_only(&prev)),
+            Some(prev) => crate::control::export_active(app, &evolight_engine::export::ExportOptions::known_keys_only(&prev)),
             None => Err("nothing exported yet — use Export…".into()),
         },
         _ => return None,
@@ -2271,11 +2271,11 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
 }
 
 /// Views whose bottom bar has the thumbnail-size slider and that draw tiles of that size.
-fn thumb_size_view(app: &LightcraftApp) -> bool {
+fn thumb_size_view(app: &EvoLightApp) -> bool {
     matches!(app.ui.view, ViewMode::PhotoGrid | ViewMode::SquareGrid | ViewMode::People)
 }
 
-pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
+pub fn ui_enabled(app: &EvoLightApp, id: &str) -> bool {
     match id {
         "library.selectOnlyActive" => app.session.active().is_some(),
         "view.thumbSizeUp" | "view.thumbSizeDown" => thumb_size_view(app),
@@ -2290,15 +2290,15 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
             app.session.active().is_some()
         }
         "photo.tagFromTracklog" => app.session.active().is_some() && app.services.pick_tracklog.is_some(),
-        "photo.editInPhotoCraft" | "photo.editInExternal" => app.session.active().is_some() && app.services.open_with.is_some(),
+        "photo.editInEvoPhoto" | "photo.editInExternal" => app.session.active().is_some() && app.services.open_with.is_some(),
         "app.exportPrevious" => app.session.active().is_some() && app.session.last_export.is_some(),
         "dialog.pasteSettings" => app.session.active().is_some() && app.session.clipboard.is_some(),
         "photo.openOriginalInExternal" => {
-            // only a file type LightCraft reads can be handed over (#2135); the extension alone
+            // only a file type EvoLight reads can be handed over (#2135); the extension alone
             // decides, so no disk or share is touched while a menu is drawn
             app.services.open_with.is_some()
                 && app.session.active().and_then(|id| app.session.catalog.photo(id)).is_some_and(|p| match &p.source {
-                    lightcraft_engine::catalog::Source::File { path } => lightcraft_engine::open_path::is_media(std::path::Path::new(path)),
+                    evolight_engine::catalog::Source::File { path } => evolight_engine::open_path::is_media(std::path::Path::new(path)),
                     _ => false,
                 })
         }
@@ -2308,7 +2308,7 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
                     .session
                     .active()
                     .and_then(|id| app.session.catalog.photo(id))
-                    .is_some_and(|p| matches!(p.source, lightcraft_engine::catalog::Source::File { .. }))
+                    .is_some_and(|p| matches!(p.source, evolight_engine::catalog::Source::File { .. }))
         }
         "app.showInFolders" => show_in_folders_enabled(app, None),
         "app.openSamModelFolder" => app.session.segmenter.dir.is_some() && app.services.open_with.is_some(),
@@ -2343,7 +2343,7 @@ pub struct MenuEntry {
 }
 
 /// The flattened menu model (UI commands + engine commands with menu paths).
-pub fn menu_entries(app: &LightcraftApp) -> Vec<MenuEntry> {
+pub fn menu_entries(app: &EvoLightApp) -> Vec<MenuEntry> {
     let mut v: Vec<MenuEntry> = ui_commands()
         .filter(|c| !c.3.is_empty())
         .map(|(id, label, sc, m)| MenuEntry {
@@ -2372,8 +2372,8 @@ pub fn menu_entries(app: &LightcraftApp) -> Vec<MenuEntry> {
 /// which stay in the library and their folder; a smart album keeps them (its rules decide) and
 /// says so. True when the key was handled here, false outside albums (then it deletes the photos
 /// from the library). Photo ▸ Delete Photo still deletes from the library everywhere.
-pub fn delete_in_album(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
-    let lightcraft_engine::LibrarySource::Album(aid) = app.session.source else { return false };
+pub fn delete_in_album(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
+    let evolight_engine::LibrarySource::Album(aid) = app.session.source else { return false };
     let Some(album) = app.session.catalog.album(aid) else { return false };
     if album.is_smart() {
         app.toast(ctx, crate::i18n::tr("Smart albums update automatically: change their rules, or use Photo ▸ Delete Photo"));
@@ -2396,7 +2396,7 @@ pub fn delete_in_album(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
 
 /// With Settings → General → "Confirm before deleting" on, open the confirmation dialog instead
 /// of deleting; true when it did (the dialog's OK runs `photo.delete`).
-pub fn confirm_delete(app: &mut LightcraftApp) -> bool {
+pub fn confirm_delete(app: &mut EvoLightApp) -> bool {
     if !app.ui.settings.confirm_delete {
         return false;
     }
@@ -2421,7 +2421,7 @@ pub fn reveal_label() -> &'static str {
 
 /// Help ▸ Open Log Folder: reveal the host's log file in the system file manager, so it can be
 /// attached to a report without hunting for the settings folder (#260).
-fn open_log_folder(app: &mut LightcraftApp) -> Result<Value, String> {
+fn open_log_folder(app: &mut EvoLightApp) -> Result<Value, String> {
     let path = app.services.log_file.clone().ok_or("this session keeps no log file")?;
     let reveal = app.services.reveal.as_mut().ok_or("not available here")?;
     reveal(&path)?;
@@ -2429,10 +2429,10 @@ fn open_log_folder(app: &mut LightcraftApp) -> Result<Value, String> {
 }
 
 /// Reveal the active photo's original in the system file manager.
-fn show_in_finder(app: &mut LightcraftApp) -> Result<Value, String> {
+fn show_in_finder(app: &mut EvoLightApp) -> Result<Value, String> {
     let id = app.session.active().ok_or("no photo selected")?;
     let path = match app.session.catalog.photo(id).map(|p| p.source.clone()) {
-        Some(lightcraft_engine::catalog::Source::File { path }) => path,
+        Some(evolight_engine::catalog::Source::File { path }) => path,
         _ => return Err("this photo has no file (demo scene)".into()),
     };
     let reveal = app.services.reveal.as_mut().ok_or("not available here")?;
@@ -2443,17 +2443,17 @@ fn show_in_finder(app: &mut LightcraftApp) -> Result<Value, String> {
 /// The folder the active photo was imported from, as the sidebar's Folders section counts it (a
 /// photo straight in a disk's root is in the root). `None` for a demo scene, a photo only browsed
 /// in Local or in Recently Deleted, and one on the startup disk's root, which has no row to show.
-fn photo_folder(app: &LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> Option<String> {
+fn photo_folder(app: &EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> Option<String> {
     let photo = id.or_else(|| app.session.active()).and_then(|id| app.session.catalog.photo(id)).filter(|p| p.in_library())?;
-    let lightcraft_engine::catalog::Source::File { path } = &photo.source else { return None };
+    let evolight_engine::catalog::Source::File { path } = &photo.source else { return None };
     let dir = path.rfind(['/', '\\']).and_then(|i| path.get(..i.max(1)))?;
-    (!lightcraft_catalog::folders::is_startup_disk(dir)).then(|| dir.to_string())
+    (!evolight_catalog::folders::is_startup_disk(dir)).then(|| dir.to_string())
 }
 
 /// Whether Show in Folders has a row to show for photo `id` (the active one when `None`): its
 /// folder must be a row of the tree, which stops `MAX_DEPTH` levels down. With no fresh tree to
 /// look in, the folder alone decides, and the command still checks.
-pub fn show_in_folders_enabled(app: &LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> bool {
+pub fn show_in_folders_enabled(app: &EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> bool {
     let Some(dir) = photo_folder(app, id) else { return false };
     app.caches.folder_tree_if_fresh(&app.session.catalog).is_none_or(|tree| crate::panels::left::folder_row_of(&tree, &dir).is_some())
 }
@@ -2462,7 +2462,7 @@ pub fn show_in_folders_enabled(app: &LightcraftApp, id: Option<lightcraft_catalo
 /// (the active one when `None`; the grid's menu passes the photo right-clicked) as a click on its
 /// row in the sidebar's Folders section does, and bring the row into view: the sidebar, the
 /// section and the folders above it open, and it scrolls there (`reveal_folder`).
-fn show_in_folders(app: &mut LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> Result<Value, String> {
+fn show_in_folders(app: &mut EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> Result<Value, String> {
     let dir = photo_folder(app, id).ok_or("this photo is not in a folder of the library")?;
     let tree = app.caches.folder_tree(&app.session.catalog);
     // the row's own spelling (forward slashes): what its click hands `library.source`, and its id
@@ -2475,19 +2475,19 @@ fn show_in_folders(app: &mut LightcraftApp, id: Option<lightcraft_catalog::Photo
 
 /// Photo ▸ Edit In: render a copy of each selected photo with its edits (stacked on its original)
 /// as Settings ▸ External Editing asks for that editor, then open them there. `p` may override the
-/// file (`format`, `colorSpace`, `bitDepth`) and the editor (`app`). PhotoCraft is checked first,
+/// file (`format`, `colorSpace`, `bitDepth`) and the editor (`app`). EvoPhoto is checked first,
 /// so a missing editor leaves no copy behind. Once the copies exist, an editor that won't open them
 /// is reported in the result's `failed` (and a toast), not as an error.
-fn edit_in(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photocraft: bool) -> Result<Value, String> {
+fn edit_in(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value, evophoto: bool) -> Result<Value, String> {
     // every way in (menu, shortcut, context menu, the control channel) says why nothing opened
-    edit_in_inner(app, ctx, p, photocraft).inspect_err(|e| app.toast(ctx, crate::i18n::tr_format!("Couldn't open the editor: {e}", e = e)))
+    edit_in_inner(app, ctx, p, evophoto).inspect_err(|e| app.toast(ctx, crate::i18n::tr_format!("Couldn't open the editor: {e}", e = e)))
 }
 
-fn edit_in_inner(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photocraft: bool) -> Result<Value, String> {
+fn edit_in_inner(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value, evophoto: bool) -> Result<Value, String> {
     let settings = &app.ui.settings;
-    let (file, configured) = if photocraft {
-        let path = settings.photocraft_path.trim();
-        (settings.photocraft_file, if path.is_empty() { crate::state::PHOTOCRAFT.to_string() } else { path.to_string() })
+    let (file, configured) = if evophoto {
+        let path = settings.evophoto_path.trim();
+        (settings.evophoto_file, if path.is_empty() { crate::state::EVOPHOTO.to_string() } else { path.to_string() })
     } else {
         (settings.external_file, settings.external_editor.clone())
     };
@@ -2512,9 +2512,9 @@ fn edit_in_inner(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photoc
         if let Some(id) = id {
             app.ui.external_edits.push(*id);
         }
-        // the copy is LightCraft's own render, but it goes through the same gate as any other
+        // the copy is EvoLight's own render, but it goes through the same gate as any other
         // path handed to the system opener (#2135)
-        match lightcraft_engine::open_path::openable(path, "") {
+        match evolight_engine::open_path::openable(path, "") {
             Err(e) => failed = Some(e),
             Ok(absolute) => {
                 if let Some(Err(e)) = app.services.open_with.as_mut().map(|f| f(&absolute, &editor)) {
@@ -2551,7 +2551,7 @@ const MAX_ORIGINALS: usize = 50;
 /// set in Settings ▸ External Editing, e.g. a raw developer. `p` may give `ids` and the editor
 /// (`app`). Demo photos and missing files are skipped and listed; when no photo has a file to
 /// open, it fails saying why.
-fn open_original_in(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value) -> Result<Value, String> {
+fn open_original_in(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value) -> Result<Value, String> {
     let r = open_originals(app, p);
     if let Err(e) = &r {
         app.toast(ctx, e.clone());
@@ -2569,7 +2569,7 @@ fn open_original_in(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value) -> 
     Ok(r)
 }
 
-fn open_originals(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn open_originals(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let mut ids = app.session.targets(p).map_err(|e| e.to_string())?;
     ids.dedup();
     if ids.is_empty() {
@@ -2581,10 +2581,10 @@ fn open_originals(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
     let mut files = Vec::new();
     let mut skipped = Vec::new();
     for id in ids {
-        // the path may come from an imported catalog: only a photo file LightCraft reads is
+        // the path may come from an imported catalog: only a photo file EvoLight reads is
         // handed to the opener, never a program (#2135)
         match app.session.catalog.photo(id).map(|ph| (ph.file_name.clone(), ph.source.clone())) {
-            Some((name, lightcraft_engine::catalog::Source::File { path })) => match lightcraft_engine::open_path::openable(&path, &name) {
+            Some((name, evolight_engine::catalog::Source::File { path })) => match evolight_engine::open_path::openable(&path, &name) {
                 Ok(absolute) => files.push((id, absolute)),
                 Err(reason) => skipped.push(json!({"id": id.0, "reason": reason})),
             },

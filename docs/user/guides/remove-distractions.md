@@ -7,7 +7,7 @@ verified: 0.8.0
 
 ## Remove a distraction
 
-Paint over the distraction and release the mouse button. LightCraft applies the repair automatically; there is no **Apply** button.
+Paint over the distraction and release the mouse button. EvoLight applies the repair automatically; there is no **Apply** button.
 
 For example, remove a small speck from a plain background:
 
@@ -16,7 +16,7 @@ For example, remove a small speck from a plain background:
 3. Choose **Remove** at the top of the panel.
 4. Adjust **Size** so the brush covers the speck. Set **Opacity** to 100 for a full repair. **Feather** softens the edge.
 5. Click once for a round spot, or hold the mouse button and drag to paint over a longer distraction.
-6. Release the mouse button. LightCraft adds the repair and updates the photo. The painted area is not waiting for confirmation. Allow the preview to finish updating.
+6. Release the mouse button. EvoLight adds the repair and updates the photo. The painted area is not waiting for confirmation. Allow the preview to finish updating.
 7. Press `E` to open **Edit** and inspect the result without the repair outlines. Return with `H` if you need to [adjust the repair](#adjust-or-undo-a-repair).
 8. [Export the photo](export-photos.md) to save an edited copy. For a rendered photo with the repair, choose a format such as **JPEG**.
 
@@ -26,7 +26,7 @@ Each click or completed stroke creates one repair, called a spot in the panel.
 
 1. Open **Remove** and click the repair's pin on the photo to select it. Clicking an existing pin selects that repair instead of adding another one.
 2. Change **Size**, **Feather** or **Opacity** to adjust the selected repair. Drag its target pin to move the repaired area.
-3. For **Remove**, **Heal** or **Clone**, drag the source outline to a cleaner area if the copied detail looks wrong. Or click **Refresh Source (/)** to ask LightCraft to choose another source. It may report that no other source fits.
+3. For **Remove**, **Heal** or **Clone**, drag the source outline to a cleaner area if the copied detail looks wrong. Or click **Refresh Source (/)** to ask EvoLight to choose another source. It may report that no other source fits.
 4. To replace the painted shape or try another mode, click **Delete (⌫)**, choose the mode, and paint again. The mode buttons choose the mode for new repairs.
 5. To undo your last change, choose **Edit** > **Undo**. To delete a particular repair, select its pin and click **Delete (⌫)**.
 
@@ -34,7 +34,7 @@ Each click or completed stroke creates one repair, called a spot in the panel.
 
 Choose the mode before painting a new repair.
 
-| Mode | What it does in LightCraft 0.8.0 |
+| Mode | What it does in EvoLight 0.8.0 |
 |---|---|
 | **Remove** | Chooses a nearby source patch and blends its detail with the tone around the repaired area. You can move or refresh the source afterward. |
 | **Content-Aware** | Rebuilds the painted area from patches of its surroundings. It does not use one source patch, so moving or refreshing a source does not change the fill. |

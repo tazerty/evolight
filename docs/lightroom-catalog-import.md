@@ -2,13 +2,13 @@
 
 File → Import Lightroom Catalog… opens `.lrcat` directly. Lightroom, Python, DNG conversion
 and a C SQLite runtime are not required. The source database is read-only, including committed
-`-wal` pages; a catalog that changes during the read is rejected. LightCraft owns subsequent edits.
+`-wal` pages; a catalog that changes during the read is rejected. EvoLight owns subsequent edits.
 
 File → Open Library… given a Lightroom catalog folder (or an `.lrdata` / `.lrcat-data` folder, or the `.lrcat`)
-doesn't make a LightCraft library there: it offers this import instead, with the catalog found
+doesn't make a EvoLight library there: it offers this import instead, with the catalog found
 (`crates/engine/src/lightroom_folder.rs`, issue #891), and then asks where the catalog goes as described next
 (unless the question is turned off, below).
-`lightcraft-cli --library` refuses those places too.
+`evolight-cli --library` refuses those places too.
 
 **Where the catalog goes.** Before the import starts, the desktop app asks where the catalog goes (issue #2672),
 unless Settings says to always merge (*Turning the question off*, below):
@@ -17,7 +17,7 @@ unless Settings says to always merge (*Turning the question off*, below):
   already in the library open now (the library's name is its folder's name).
 - **Create a new library**: named after the catalog file (`Travel.lrcat` → "Travel", or "Travel 2" when a
   "Travel" folder is already there) and placed next to the open library (in its parent folder); both can be
-  changed (Choose… picks the folder). LightCraft creates and opens it as File → New Library… does (the folder
+  changed (Choose… picks the folder). EvoLight creates and opens it as File → New Library… does (the folder
   must be new or empty; it is refused while another import runs), then imports the catalog into it. The library
   left behind stays in File → Open Recent Library.
 - **Cancel** does nothing.
@@ -35,7 +35,7 @@ A session with no library on disk (in memory, e.g. after Continue Without Saving
 next to: the catalog merges into it without asking, as before.
 
 **Scripts and agents.** The app command `file.importLightroom {path?, into?, name?, location?}` (control channel,
-`lightcraft-cli mcp --connect`) chooses without the window: `into: "open"` merges, `into: "new"` creates the library
+`evolight-cli mcp --connect`) chooses without the window: `into: "open"` merges, `into: "new"` creates the library
 `name` (default: the catalog's name) in the folder `location` (default: the open library's parent folder; a full
 path), opens it and imports. Without `into` it shows the window (and returns `{asking: true, path, into}`, `into`
 being the choice the window opens with) or merges when the setting says so. A catalog path that doesn't exist is
@@ -45,11 +45,11 @@ open now.
 Equivalent commands:
 
 ```text
-lightcraft-cli run --library "LightCraft Library" library.inspectLightroom path="Lightroom Catalog.lrcat"
-lightcraft-cli run --library "LightCraft Library" library.importLightroom path="Lightroom Catalog.lrcat"
+evolight-cli run --library "EvoLight Library" library.inspectLightroom path="Lightroom Catalog.lrcat"
+evolight-cli run --library "EvoLight Library" library.importLightroom path="Lightroom Catalog.lrcat"
 ```
 
-The import itself (`library.importLightroom`, `lightcraft-cli run`) adds records to the currently open LightCraft
+The import itself (`library.importLightroom`, `evolight-cli run`) adds records to the currently open EvoLight
 library; only the desktop window above can make a new library for it first. The desktop result stays open until dismissed and
 shows the destination library, the number of records added, missing originals and warnings.
 **Show in Library** opens All Photos, clears filters and selects an imported record. Errors stay
@@ -68,14 +68,14 @@ copies instead of failing the whole import. The result lists them as data (`skip
 image id with its reason, `missingFile`, `missingFolder`, `missingRoot`, `incompletePath` or
 `masterSkipped`), also in `library.inspectLightroom`, and the desktop result window says how many in the UI language.
 Virtual copies count as added records too; reimport reports zero additions when all
-records already exist. Existing LightCraft
+records already exist. Existing EvoLight
 edits are preserved by default; `updateExisting=true` explicitly replaces them. Persistent import
 identity prevents reimport from duplicating virtual copies and collections. One undo step reverses
 catalog changes; any saved recovery archives remain available.
 
 Before changing records, the importer attempts to save source image records, decoded XMP,
 verbatim develop settings, history, snapshots and collection content to compressed
-`Interop/lightroom-import-N.lca` recovery archives in the LightCraft library. Archiving is
+`Interop/lightroom-import-N.lca` recovery archives in the EvoLight library. Archiving is
 best-effort: a size limit or write failure produces a warning and does not prevent photo import.
 Unchanged source data reuses its existing archive. Opaque SQL BLOBs are skipped. Each archive is
 capped at 32 MiB (uncompressed and on disk), with at most eight archives and 128 MiB total
@@ -101,23 +101,23 @@ Develop settings reuse the existing XMP/preset mapper. Supported sliders, curves
 mask structures remain editable, but this is approximate rendering: camera profiles, Adobe AI
 models, some masking/retouch fields and process-version algorithms are not reproduced. Unmapped
 fields are reported. Lightroom's `ProcessVersion` is not mapped: newly imported photos are on
-LightCraft's latest rendering process, and photos already in the library keep theirs
+EvoLight's latest rendering process, and photos already in the library keep theirs
 ([process-versions.md](process-versions.md)). When a recovery archive is saved, it retains source settings/history/snapshots
 and original smart-collection rules. Smart collections become regular albums with current
-membership. Archived history and snapshots are source data, not native LightCraft history yet.
-A Custom white balance on a raw LightCraft develops relative to its as-shot look (ARW, NEF, RW2,
+membership. Archived history and snapshots are source data, not native EvoLight history yet.
+A Custom white balance on a raw EvoLight develops relative to its as-shot look (ARW, NEF, RW2,
 RAF, CR3, CR2, PEF, SRW; Lightroom names them all `RAW`) can't be taken as Kelvin: the catalog keeps no
 as-shot white for Custom photos, so the photo stays As Shot and `Temperature, Tint` are reported
 (issue #510; a DNG keeps the Kelvin value, and an XMP packet with `crs:AsShotTemperature` is
 shifted by the same mired difference, see [xmp-interop.md](xmp-interop.md)). A raw whose camera has
-measured colour matrices (`lightcraft_raw::spectral`: ILCE-7M3, D850, EOS 5D Mark III…), or whose white-balance
-presets give a Kelvin scale (`lightcraft_raw::kelvin_presets`: ILCA-99M2, ILCA-77M2…), edits in Kelvin
+measured colour matrices (`evolight_raw::spectral`: ILCE-7M3, D850, EOS 5D Mark III…), or whose white-balance
+presets give a Kelvin scale (`evolight_raw::kelvin_presets`: ILCA-99M2, ILCA-77M2…), edits in Kelvin
 and keeps the Kelvin value too (issue #730) — when its file was found and probed, since the camera is
 read from the file, not from the Lightroom catalog; a missing file is treated as a relative-scale raw
 until Reload reads it.
 Lightroom's `-999999` deferred-adjustment sentinel is omitted from both catalog and XMP mappings;
 it is reported, included in any saved archive, and never clamped into a real slider value. Deferred Adobe Auto Tone
-is not evaluated by the importer; LightCraft's Auto control remains available after migration.
+is not evaluated by the importer; EvoLight's Auto control remains available after migration.
 
 New photo records are moved into staged operations; only masters needed for virtual copies
 retain a second owned record while the import commits.
@@ -140,7 +140,7 @@ path isn't a folder on this computer (a catalog copied from another machine), th
 the path relative to the catalog that Lightroom records for root folders on the catalog's volume
 (`relativePathFromCatalog`), when that is a folder, and reports the remapping as a warning. Copying
 a project folder with its catalog inside it therefore keeps its originals linked. Other moved
-originals stay missing; use LightCraft's missing-photo relinking tools to update their paths.
+originals stay missing; use EvoLight's missing-photo relinking tools to update their paths.
 
 Original and root folder paths are resolved with the catalog as the document and are looked at
 only when they are on this computer or on the network share the catalog itself is on

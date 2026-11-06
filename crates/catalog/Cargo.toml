@@ -1,17 +1,17 @@
 [package]
-name = "lightcraft-catalog"
+name = "evolight-catalog"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft library: photos, albums, ratings/flags, search/filter/sort, op-log persistence (L3)"
+description = "EvoLight library: photos, albums, ratings/flags, search/filter/sort, op-log persistence (L3)"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightcraft-develop = { workspace = true }
-lightcraft-meta = { workspace = true }
-lightcraft-raw = { workspace = true }
+evolight-develop = { workspace = true }
+evolight-meta = { workspace = true }
+evolight-raw = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -21,5 +21,5 @@ chrono = { workspace = true }
 web-time = { workspace = true }
 
 [dev-dependencies]
-lightcraft-geom = { workspace = true }
+evolight-geom = { workspace = true }
 proptest = { workspace = true }

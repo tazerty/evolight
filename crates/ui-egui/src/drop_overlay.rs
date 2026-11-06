@@ -3,7 +3,7 @@
 
 use egui::{Align2, Color32, Context, Order, Rect, Stroke, StrokeKind, vec2};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::theme::Tokens;
 
 /// Dropped paths by what becomes of them.
@@ -26,7 +26,7 @@ pub fn classify(paths: Vec<String>) -> Sorted {
 
 /// The lines the card shows for files hovering over the window (`unknown`: how many have no path
 /// to look at, as on some platforms and in browsers), for the current settings.
-fn lines(app: &LightcraftApp, paths: Vec<String>, unknown: bool) -> Vec<String> {
+fn lines(app: &EvoLightApp, paths: Vec<String>, unknown: bool) -> Vec<String> {
     if app.ui.dialog.is_some() {
         return vec![crate::i18n::tr("Close the open dialog to drop files here").to_string()];
     }
@@ -68,7 +68,7 @@ fn lines(app: &LightcraftApp, paths: Vec<String>, unknown: bool) -> Vec<String> 
 }
 
 /// Veil and card while files are dragged over the window.
-pub fn show(app: &LightcraftApp, ctx: &Context) {
+pub fn show(app: &EvoLightApp, ctx: &Context) {
     let count = ctx.input(|i| i.raw.hovered_files.len());
     if count == 0 {
         return;

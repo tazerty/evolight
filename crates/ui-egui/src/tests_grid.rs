@@ -5,13 +5,13 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::{Op, Photo, PhotoId, Source, Stack, StackId};
-use lightcraft_engine::Session;
+use evolight_catalog::{Op, Photo, PhotoId, Source, Stack, StackId};
+use evolight_engine::Session;
 use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::ViewMode;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(30);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -23,7 +23,7 @@ fn library() -> Session {
     let mut s = Session::new();
     for i in 0..N {
         let (w, h) = if i % 5 == 4 { (4000, 6000) } else { (6000, 4000) };
-        let path = format!("/lightcraft-grid-test/IMG_{i:05}.jpg");
+        let path = format!("/evolight-grid-test/IMG_{i:05}.jpg");
         let mut p = Photo::new(PhotoId(i + 1), Source::File { path }, &format!("IMG_{i:05}.jpg"), "JPEG", w, h, "2026-01-01T00:00:00");
         let day = i / 40;
         p.captured = Some(format!("2026-{:02}-{:02}T{:02}:00:00", 12 - day / 28, 28 - day % 28, 8 + i % 40 / 4));
@@ -38,7 +38,7 @@ fn library() -> Session {
 }
 
 fn grid(view: ViewMode) -> Headless {
-    let app = LightcraftApp::new(library(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(library(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     h.app.ui.view = view;
     h.app.ui.thumb_size = 160.0;
@@ -260,7 +260,7 @@ fn photo(h: &mut Headless, n: u64, captured: &str) -> Op {
     let (w, h_) = if n.is_multiple_of(3) { (4000, 6000) } else { (6000, 4000) };
     let mut p = Photo::new(
         id,
-        Source::File { path: format!("/lightcraft-grid-test/NEW_{n:05}.jpg") },
+        Source::File { path: format!("/evolight-grid-test/NEW_{n:05}.jpg") },
         &format!("NEW_{n:05}.jpg"),
         "JPEG",
         w,
@@ -308,7 +308,7 @@ fn a_grid_followed_through_edits_shows_what_a_grid_made_afresh_shows() {
         let mut h = grid(ViewMode::PhotoGrid);
         let mut dice = seed;
         let mut roll = |sides: u64| {
-            dice = lightcraft_catalog::mix64(dice);
+            dice = evolight_catalog::mix64(dice);
             dice % sides
         };
         for step in 0..120 {
@@ -343,7 +343,7 @@ fn a_grid_followed_through_edits_shows_what_a_grid_made_afresh_shows() {
                 }
                 4 => {
                     let mut d = (*h.app.session.catalog.photo(PhotoId(id)).unwrap().develop).clone();
-                    d.crop.geometry.rect = lightcraft_geom::Rect::new(0.1, 0.0, 0.9 - 0.1 * (n % 4) as f64, 1.0);
+                    d.crop.geometry.rect = evolight_geom::Rect::new(0.1, 0.0, 0.9 - 0.1 * (n % 4) as f64, 1.0);
                     h.app
                         .session
                         .commit("Crop", Op::SetDevelop { id: PhotoId(id), settings: std::sync::Arc::new(d), label: "Crop".into(), edited: None })
@@ -367,11 +367,11 @@ fn a_grid_followed_through_edits_shows_what_a_grid_made_afresh_shows() {
                     // picks, for the filter below to show some
                     for k in 0..1 + n % 40 {
                         let p = vis[(n as usize * 7 + k as usize * 13) % vis.len()];
-                        h.app.session.commit("Flag", Op::SetFlag { id: p, flag: lightcraft_catalog::Flag::Pick }).unwrap();
+                        h.app.session.commit("Flag", Op::SetFlag { id: p, flag: evolight_catalog::Flag::Pick }).unwrap();
                     }
                 }
                 10 => h.app.ui.view = if h.app.ui.view == ViewMode::PhotoGrid { ViewMode::SquareGrid } else { ViewMode::PhotoGrid },
-                _ => h.app.session.filter.flag = n.is_multiple_of(2).then_some(lightcraft_catalog::Flag::Pick),
+                _ => h.app.session.filter.flag = n.is_multiple_of(2).then_some(evolight_catalog::Flag::Pick),
             }
             h.step();
             assert_as_made_afresh(&mut h, &format!("seed {seed}, after step {step}"));

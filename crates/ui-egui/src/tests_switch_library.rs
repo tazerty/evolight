@@ -4,7 +4,7 @@
 
 use serde_json::json;
 
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 #[test]
 fn opening_another_library_drops_the_old_librarys_cached_panels() {
@@ -15,13 +15,13 @@ fn opening_another_library_drops_the_old_librarys_cached_panels() {
     std::fs::create_dir_all(&b).unwrap();
 
     // library A with photos, reopened from disk (as at launch)
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&a, true).unwrap();
     session.close_library().unwrap();
     session.open_library(&a, false).unwrap();
     assert!(!session.catalog.is_empty());
 
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     let (cat, caches) = (&app.session.catalog, &mut app.caches);
     assert!(caches.counts(cat).total > 0);
     assert!(!caches.keyword_tree(cat).is_empty());
@@ -49,10 +49,10 @@ fn temp(tag: &str) -> std::path::PathBuf {
     dir
 }
 
-fn app_in(dir: &std::path::Path) -> LightcraftApp {
-    let mut session = lightcraft_engine::Session::new().with_fs();
+fn app_in(dir: &std::path::Path) -> EvoLightApp {
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.join("first"), false).unwrap();
-    LightcraftApp::new(session, Services::default())
+    EvoLightApp::new(session, Services::default())
 }
 
 #[test]
@@ -81,13 +81,13 @@ fn switching_libraries_dismisses_the_previous_lightroom_result() {
 fn switching_libraries_restarts_the_brief_info_overlay() {
     let dir = temp("switch-brief-info");
     let mut app = app_in(&dir);
-    app.ui.brief_info = crate::state::BriefInfo { photo: Some(lightcraft_catalog::PhotoId(1)), since: 5.0, shown: true };
+    app.ui.brief_info = crate::state::BriefInfo { photo: Some(evolight_catalog::PhotoId(1)), since: 5.0, shown: true };
     app.run("app.newLibrary", json!({"path": dir.to_string_lossy(), "name": "Second"})).unwrap();
     assert_eq!(app.ui.brief_info, crate::state::BriefInfo::default());
     let _ = std::fs::remove_dir_all(dir);
 }
 
-fn recent_submenu(app: &LightcraftApp) -> Vec<crate::menubar::MenuNode> {
+fn recent_submenu(app: &EvoLightApp) -> Vec<crate::menubar::MenuNode> {
     use crate::menubar::MenuNode;
     let bar = crate::menubar::menu_bar(app);
     let file = &bar.iter().find(|(t, _)| t == "File").unwrap().1;
@@ -104,14 +104,14 @@ fn new_library_creates_opens_and_is_remembered_and_named() {
     let dir = temp("newlib");
     let mut app = app_in(&dir);
     app.library_changed(&egui::Context::default());
-    assert_eq!(app.window_title(), "LightCraft — first");
+    assert_eq!(app.window_title(), "EvoLight — first");
 
     let r = app.run("app.newLibrary", json!({"path": dir.to_string_lossy(), "name": "Client A"})).unwrap();
     assert_eq!(r["name"], "Client A");
     let a = dir.join("Client A");
     assert_eq!(app.session.library.as_ref().unwrap().dir, a);
-    assert!(lightcraft_engine::library::is_library(&a), "the catalog is written");
-    assert_eq!(app.window_title(), "LightCraft — Client A");
+    assert!(evolight_engine::library::is_library(&a), "the catalog is written");
+    assert_eq!(app.window_title(), "EvoLight — Client A");
     assert_eq!(app.ui.settings.library_path, a.to_string_lossy());
 
     // a second New Library at the same place is refused and the current one stays open
@@ -142,7 +142,7 @@ fn new_library_creates_opens_and_is_remembered_and_named() {
         })
         .expect("first in Open Recent Library");
     app.run("app.openLibrary", first).unwrap();
-    assert_eq!(app.window_title(), "LightCraft — first");
+    assert_eq!(app.window_title(), "EvoLight — first");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -157,7 +157,7 @@ fn new_library_from_the_menu_asks_for_a_name_then_a_location() {
     let Some(crate::state::Dialog::TextPrompt { value, command, key, .. }) = app.ui.dialog.as_mut() else {
         panic!("no name prompt: {:?}", app.ui.dialog)
     };
-    assert_eq!(value, lightcraft_engine::library::DEFAULT_NAME);
+    assert_eq!(value, evolight_engine::library::DEFAULT_NAME);
     assert_eq!((command.as_str(), key.as_str()), ("app.newLibrary", "name"));
     *value = "Wedding".into();
     // what the dialog's OK runs
@@ -203,17 +203,17 @@ fn missing_recent_libraries_are_greyed_out_and_pruned_and_the_list_is_capped() {
 fn reference_photo_ids_do_not_cross_library_boundaries() {
     let dir = temp("reference-switch");
     let (first, second) = (dir.join("first"), dir.join("second"));
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&second, true).unwrap();
     let new_photo = session.visible_cloned()[0];
     session.close_library().unwrap();
     session.open_library(&first, true).unwrap();
     let old_reference = session.visible_cloned()[1];
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     app.run("library.select", json!({"ids": [old_reference.0]})).unwrap();
     app.run("photo.setReference", json!({})).unwrap();
     app.run("view.reference", json!({})).unwrap();
-    let held = lightcraft_catalog::LibraryLock::acquire(&second, "another program").unwrap();
+    let held = evolight_catalog::LibraryLock::acquire(&second, "another program").unwrap();
     assert!(app.run("app.openLibrary", json!({"path": second.to_string_lossy()})).is_err());
     assert_eq!(app.ui.reference, Some(old_reference.0), "a refused switch keeps the live pin");
     assert_eq!(app.ui.view, crate::state::ViewMode::Reference);
@@ -243,7 +243,7 @@ fn switching_to_a_locked_library_keeps_the_current_one_open() {
     app.run("app.openLibrary", json!({"path": dir.join("first").to_string_lossy()})).unwrap();
     // "another program" holds Other's lock
     let other = dir.join("Other");
-    let held = lightcraft_catalog::LibraryLock::acquire(&other, "someone else").unwrap();
+    let held = evolight_catalog::LibraryLock::acquire(&other, "someone else").unwrap();
     let e = app.run("app.openLibrary", json!({"path": other.to_string_lossy()})).unwrap_err();
     assert!(e.contains("already open"), "{e}");
     assert!(app.session.library.as_ref().unwrap().dir.ends_with("first"), "the current library stays");
@@ -275,17 +275,17 @@ fn library_names_must_work_as_folder_names_on_every_system() {
 /// which document a drop opened), with • while changes are not yet in storage (issue #2397).
 #[test]
 fn page_title_names_the_active_photo_and_unsaved_changes() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
     let ids = app.session.visible_cloned();
-    let name = |app: &LightcraftApp, id: lightcraft_catalog::PhotoId| app.session.catalog.photo(id).unwrap().file_name.clone();
+    let name = |app: &EvoLightApp, id: evolight_catalog::PhotoId| app.session.catalog.photo(id).unwrap().file_name.clone();
     app.run("library.select", json!({"ids": [ids[0].0]})).unwrap();
-    assert_eq!(app.page_title(false), format!("{} — LightCraft", name(&app, ids[0])));
-    assert_eq!(app.page_title(true), format!("{} • — LightCraft", name(&app, ids[0])));
+    assert_eq!(app.page_title(false), format!("{} — EvoLight", name(&app, ids[0])));
+    assert_eq!(app.page_title(true), format!("{} • — EvoLight", name(&app, ids[0])));
     app.run("library.select", json!({"ids": [ids[1].0]})).unwrap();
-    assert_eq!(app.page_title(false), format!("{} — LightCraft", name(&app, ids[1])));
+    assert_eq!(app.page_title(false), format!("{} — EvoLight", name(&app, ids[1])));
     // no photo: the window title
-    let empty = LightcraftApp::new(lightcraft_engine::Session::new(), Services::default());
+    let empty = EvoLightApp::new(evolight_engine::Session::new(), Services::default());
     assert!(empty.session.active().is_none());
-    assert_eq!(empty.page_title(false), "LightCraft");
-    assert_eq!(empty.page_title(true), "LightCraft •");
+    assert_eq!(empty.page_title(false), "EvoLight");
+    assert_eq!(empty.page_title(true), "EvoLight •");
 }

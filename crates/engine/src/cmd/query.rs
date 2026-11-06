@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use lightcraft_catalog::{Album, AlbumId, Photo, PhotoId};
-use lightcraft_develop::{CONTROLS, controls};
+use evolight_catalog::{Album, AlbumId, Photo, PhotoId};
+use evolight_develop::{CONTROLS, controls};
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, cmd, has_active};
@@ -34,11 +34,11 @@ pub fn photo_summary(p: &Photo) -> Value {
 }
 
 /// How deep [`album_json`] lists folders inside folders: a catalog that loops (an album inside
-/// itself, which [`lightcraft_catalog::Catalog::repair`] puts right on load) lists no further
+/// itself, which [`evolight_catalog::Catalog::repair`] puts right on load) lists no further
 /// instead of overflowing the stack.
 const MAX_ALBUM_DEPTH: usize = 64;
 
-fn album_json(a: &Album, all: &[Album], counts: &HashMap<AlbumId, usize>, cat: &lightcraft_catalog::Catalog, depth: usize) -> Value {
+fn album_json(a: &Album, all: &[Album], counts: &HashMap<AlbumId, usize>, cat: &evolight_catalog::Catalog, depth: usize) -> Value {
     let children: Vec<Value> = if depth < MAX_ALBUM_DEPTH {
         all.iter().filter(|c| c.parent == Some(a.id)).map(|c| album_json(c, all, counts, cat, depth + 1)).collect()
     } else {
@@ -97,8 +97,8 @@ pub fn specs() -> Vec<CommandSpec> {
             Ok(json!({
                 "photos": all.len(),
                 "edited": all.iter().filter(|p| p.is_edited()).count(),
-                "picks": all.iter().filter(|p| p.flag == lightcraft_catalog::Flag::Pick).count(),
-                "rejects": all.iter().filter(|p| p.flag == lightcraft_catalog::Flag::Reject).count(),
+                "picks": all.iter().filter(|p| p.flag == evolight_catalog::Flag::Pick).count(),
+                "rejects": all.iter().filter(|p| p.flag == evolight_catalog::Flag::Reject).count(),
                 "deleted": s.catalog.photos().filter(|p| p.deleted).count(),
                 "albums": s.catalog.albums().filter(|a| !a.folder).count(),
                 "byDate": s.catalog.date_groups(),
@@ -107,7 +107,7 @@ pub fn specs() -> Vec<CommandSpec> {
         }),
         cmd!(query "library.state", "Library State", [], None, "{}", always, |s, _| {
             let label = match (s.source, s.library_folder.as_deref()) {
-                (LibrarySource::LibraryFolder, Some(path)) => lightcraft_catalog::folders::folder_label(path),
+                (LibrarySource::LibraryFolder, Some(path)) => evolight_catalog::folders::folder_label(path),
                 _ => s.source.label(&s.catalog),
             };
             let n = s.visible().len();
@@ -129,7 +129,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(query "photo.allMetadata", "All Metadata", [], None, "{id?} → {exif: [{group, tag, name, value}], xmp: [{name, value}]} — every EXIF / TIFF / GPS tag of the file and its XMP properties", always, |s, p| {
             let id = photo_arg(s, p, "photo.allMetadata")?;
             let ph = s.catalog.photo(id).ok_or_else(|| super::bad("photo.allMetadata", "no such photo"))?.clone();
-            let lightcraft_catalog::Source::File { path } = &ph.source else {
+            let evolight_catalog::Source::File { path } = &ph.source else {
                 return Ok(json!({"exif": [], "xmp": [], "note": "a generated demo photo has no file"}));
             };
             let bytes = match &s.media.file_bytes {
@@ -137,17 +137,17 @@ pub fn specs() -> Vec<CommandSpec> {
                 None => std::fs::read(path).map_err(|e| format!("{path}: {e}")),
             }
             .map_err(|e| super::bad("photo.allMetadata", e))?;
-            let exif: Vec<Value> = lightcraft_meta::file_tag_rows(&bytes)
+            let exif: Vec<Value> = evolight_meta::file_tag_rows(&bytes)
                 .into_iter()
                 .map(|r| json!({"group": r.group, "tag": r.tag, "name": r.name, "value": r.value}))
                 .collect();
             // Keep sidecar precedence; reuse the loaded bytes for embedded XMP.
             let packet = match crate::sidecar::find_sidecar(path, s.sidecar_naming(ph.id)) {
                 Some(sc) => std::fs::read_to_string(sc).ok(),
-                None => lightcraft_meta::embedded(&bytes).xmp,
+                None => evolight_meta::embedded(&bytes).xmp,
             };
             let xmp: Vec<Value> = packet
-                .and_then(|x| lightcraft_meta::parse_xmp(&x).ok())
+                .and_then(|x| evolight_meta::parse_xmp(&x).ok())
                 .map(|d| d.properties.into_iter().filter(|(k, _)| !k.starts_with("lc:")).map(|(k, v)| json!({"name": k, "value": v.join("; ")})).collect())
                 .unwrap_or_default();
             Ok(json!({"exif": exif, "xmp": xmp}))
@@ -155,7 +155,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(query "albums.list", "List Albums", [], None, "{}", always, |s, _| {
             let all: Vec<Album> = s.catalog.albums().cloned().collect();
             // every album counted in one pass, so a smart album tested by others is worked out once
-            let counts = lightcraft_catalog::tally::AlbumTally::of(&s.catalog);
+            let counts = evolight_catalog::tally::AlbumTally::of(&s.catalog);
             Ok(Value::Array(all.iter().filter(|a| a.parent.is_none()).map(|a| album_json(a, &all, counts.counts(), &s.catalog, 0)).collect()))
         }),
         cmd!(query "photo.inspect", "Inspect Photo", [], None, "{id?}", always, |s, p| {
@@ -189,7 +189,7 @@ pub fn specs() -> Vec<CommandSpec> {
         }),
         cmd!(query "develop.controls", "List Develop Controls", [], None, "{section?} — every slider with range, default and current value", always, |s, p| {
             let d = s.active().and_then(|id| s.develop_of(id)).unwrap_or_default();
-            let sec = p.get("section").and_then(|v| serde_json::from_value::<lightcraft_develop::Section>(v.clone()).ok());
+            let sec = p.get("section").and_then(|v| serde_json::from_value::<evolight_develop::Section>(v.clone()).ok());
             Ok(Value::Array(
                 CONTROLS
                     .iter()
@@ -230,16 +230,16 @@ pub fn specs() -> Vec<CommandSpec> {
                 "versions": ph.versions.iter().map(|v| json!({"name": v.name, "created": v.created})).collect::<Vec<_>>(),
             }))
         }),
-        cmd!(query "app.gpu", "GPU Rendering", [], None, "{enabled?: bool} — allow/forbid GPU rendering (CPU fallback; LIGHTCRAFT_GPU=0 forbids it for the process); returns {enabled, available, adapter, reason (why the GPU is off), lastFallback (latest render redone on the CPU, and why)}", always, |_, p| {
+        cmd!(query "app.gpu", "GPU Rendering", [], None, "{enabled?: bool} — allow/forbid GPU rendering (CPU fallback; EVOLIGHT_GPU=0 forbids it for the process); returns {enabled, available, adapter, reason (why the GPU is off), lastFallback (latest render redone on the CPU, and why)}", always, |_, p| {
             if let Some(on) = p.get("enabled").and_then(Value::as_bool) {
-                lightcraft_gpu::set_enabled(on);
+                evolight_gpu::set_enabled(on);
             }
             Ok(json!({
-                "enabled": lightcraft_gpu::enabled(),
-                "available": lightcraft_gpu::available(),
-                "adapter": lightcraft_gpu::adapter_name(),
-                "reason": lightcraft_gpu::unavailable_reason(),
-                "lastFallback": lightcraft_gpu::last_fallback(),
+                "enabled": evolight_gpu::enabled(),
+                "available": evolight_gpu::available(),
+                "adapter": evolight_gpu::adapter_name(),
+                "reason": evolight_gpu::unavailable_reason(),
+                "lastFallback": evolight_gpu::last_fallback(),
             }))
         }),
         cmd!(query "library.memory", "Memory Usage", [], None, "{} — bytes held by each cache (decoded sources, rendered previews, GPU buffers; heap when instrumented)", always, |s, _| {
