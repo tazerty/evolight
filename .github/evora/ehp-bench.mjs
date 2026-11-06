@@ -594,7 +594,7 @@ export const WITNESS_JS = `'use strict';
     if (flaw === 'purge-excessive') return true;
     if (idb ? n === 'evolight' : lcRoot(n)) return true;
     if (!n.startsWith('evolight-ns-')) return false;
-    const id = n.slice(14);
+    const id = n.slice('evolight-ns-'.length);
     return scope.all || (scope.keep ? id !== scope.keep : id === scope.current);
   };
   const put = async (path) => {
