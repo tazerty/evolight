@@ -36,7 +36,9 @@ const LOCALES = 'crates/ui-egui/locales';
 const OVERRIDES = 'crates/ui-egui/overrides/display-overrides.json';
 // Termes sensibles (D-16, E9) : jamais affichés après surcharge ; et termes relevés pour information.
 // EVORA-REV-34 (E1) : le nom amont « EvoLight » ne s'affiche plus (affiché « Revela » par la surcharge).
-export const SENSITIVE_TERMS = ['Lumetri', 'Lightroom', 'Acrobat', 'Premiere', 'Adobe', 'Cycore', 'EvoLight'];
+// EVORA-REV-46 (décision Q-EVO-1) : aucun nom de moteur affiché, graphies voisines et autres moteurs compris.
+export const SENSITIVE_TERMS = ['Lumetri', 'Lightroom', 'Acrobat', 'Premiere', 'Adobe', 'Cycore', 'EvoLight', 'evolight', 'EVOLIGHT',
+  'EvoPhoto', 'EvoFilm', 'EvoVector', 'EvoEffect', 'EvoPdf', 'EvoDesign'];
 export const INFO_TERMS = ['Apple Photos'];
 const RUST_DIRS = ['crates/ui-egui/src', 'apps/evolight-web/src'];
 const TEXT_DEFAULT = new Set(['#', '*', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '\u00A9', '\u00AE', '\u2122']);
@@ -283,6 +285,14 @@ function selftest() {
   writeFileSync(join(brand, OVERRIDES), JSON.stringify({ replace: [['EvoLight', 'Revela']], messages: {} }));
   const bYes = report(brand, false, true);
   checks.push(['nom amont remplacé par la surcharge : 0 affiché, la porte reste verte', bYes.tm.blocking === 0 && bYes.failed === false]);
+  // EVORA-REV-46 (Q-EVO-1) : un autre nom de moteur et une graphie voisine, sans puis avec leurs règles marquées « name »
+  const neighbours = mk('voisins', { 'Edit in EvoPhoto': 'Modifier dans EvoPhoto', 'Run `evolight-cli`': 'Lancer `evolight-cli`' }, 'fn f() {}\n');
+  const nNo = report(neighbours, false, true);
+  checks.push(['autre moteur et minuscules sans surcharge : 4 affichés, la porte rougit', nNo.tm.blocking === 4 && nNo.failed === true]);
+  mkdirSync(join(neighbours, 'crates/ui-egui/overrides'), { recursive: true });
+  writeFileSync(join(neighbours, OVERRIDES), JSON.stringify({ replace: [['EvoPhoto', 'Lumbra', 'name'], ['evolight-', 'revela-', 'name']], messages: {} }));
+  const nYes = report(neighbours, false, true);
+  checks.push(['autre moteur et minuscules remplacés : 0 affiché, la porte reste verte', nYes.tm.blocking === 0 && nYes.failed === false]);
   // E10 jugé tel qu'affiché : un émoji couvert par une surcharge, puis la même surcharge défaite
   const shownCase = mk('affiche', { 'Marked ⚠ in the list': 'Marqué ⚠ dans la liste' }, 'fn f() {}\n');
   const sNo = report(shownCase, false);

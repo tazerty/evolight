@@ -43,7 +43,9 @@ fn document() -> Option<web_sys::Document> {
 
 /// Ask the user (the browser's own confirm box). `false` when it can't be shown.
 pub fn confirm(text: &str) -> bool {
-    web_sys::window().and_then(|w| w.confirm_with_message(text).ok()).unwrap_or(false)
+    // Evora (EVORA-REV-46): the app's name, never the engine's
+    let text = evolight_ui_egui::i18n::named(text);
+    web_sys::window().and_then(|w| w.confirm_with_message(&text).ok()).unwrap_or(false)
 }
 
 /// Cover the page with a message (the app can't continue, or must not start).
@@ -65,7 +67,9 @@ pub fn show_blocking(text: &str) {
             el
         }
     };
-    el.set_text_content(Some(text));
+    // Evora (EVORA-REV-46): the app's name, never the engine's
+    let text = evolight_ui_egui::i18n::named(text);
+    el.set_text_content(Some(text.as_str()));
     if let Some(loading) = doc.get_element_by_id("evolight_loading") {
         loading.remove();
     }
@@ -190,7 +194,7 @@ pub async fn backup(files: Files, backend: Backend, names: HashMap<String, Strin
     opts.set_type("application/zip");
     let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &opts).map_err(|e| format!("{e:?}"))?;
     let day: String = String::from(js_sys::Date::new_0().to_iso_string()).chars().take(10).collect();
-    download_blob(&format!("evolight-library-backup-{day}.zip"), &blob)?;
+    download_blob(&format!("revela-library-backup-{day}.zip"), &blob)?;
     Ok((originals, bytes + tail.len() as f64))
 }
 

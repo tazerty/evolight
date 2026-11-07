@@ -267,6 +267,8 @@ fn tr_in(language: Locale, source: &str) -> &str {
 /// `build.rs` compiles them, from the same file.
 struct DisplayOverrides {
     replace: Vec<(String, String)>,
+    /// Evora (EVORA-REV-46): the rules of `replace` marked `"name"`, which [`named`] applies.
+    names: Vec<(String, String)>,
     messages: BTreeMap<String, BTreeMap<String, String>>,
 }
 
@@ -282,6 +284,16 @@ fn display_overrides() -> &'static DisplayOverrides {
             .as_array()
             .map(|rules| rules.iter().filter_map(|rule| Some((rule[0].as_str()?.to_string(), rule[1].as_str()?.to_string()))).collect())
             .unwrap_or_default();
+        let names: Vec<(String, String)> = parsed["replace"]
+            .as_array()
+            .map(|rules| {
+                rules
+                    .iter()
+                    .filter(|rule| rule[2].as_str() == Some("name"))
+                    .filter_map(|rule| Some((rule[0].as_str()?.to_string(), rule[1].as_str()?.to_string())))
+                    .collect()
+            })
+            .unwrap_or_default();
         let messages: BTreeMap<String, BTreeMap<String, String>> = parsed["messages"]
             .as_object()
             .map(|all| {
@@ -295,7 +307,7 @@ fn display_overrides() -> &'static DisplayOverrides {
                     .collect()
             })
             .unwrap_or_default();
-        DisplayOverrides { replace, messages }
+        DisplayOverrides { replace, names, messages }
     })
 }
 
@@ -324,6 +336,20 @@ fn display_override(text: &str) -> &str {
         cache.insert(text.to_string(), shown);
         shown
     })
+}
+
+/// Evora (EVORA-REV-46, Gabriel's decision Q-EVO-1): `text` with the app's name instead of the
+/// engine's, for what reaches the screen without passing through [`tr`]: an engine message (an
+/// error, a warning), the arguments of a `tr_format!` message. Only the rules marked `"name"` in
+/// the override catalog apply, so a folder called "Lightroom" named by a message stays as it is.
+/// Text without the engine's name comes back as it is, without a copy when it is a `String`.
+pub fn named(text: impl Into<String>) -> String {
+    let text = text.into();
+    let names = &display_overrides().names;
+    if !names.iter().any(|(from, _)| text.contains(from.as_str())) {
+        return text;
+    }
+    names.iter().fold(text, |shown, (from, to)| shown.replace(from.as_str(), to))
 }
 
 /// One language's catalog keyed for lookup, with values that outlive the catalog's own borrow.
@@ -792,7 +818,7 @@ mod tests {
     #[test]
     fn startup_failure_message_names_the_error_and_the_log() {
         let (title, text) = startup_failed_message("no adapter", Some("/home/a/.config/evolight/logs/evolight.log"));
-        assert_eq!(title, "EvoLight could not start");
+        assert_eq!(title, "Revela could not start");
         assert!(text.contains("no adapter") && text.ends_with("evolight.log"), "{text}");
         assert!(!startup_failed_message("no adapter", None).1.contains("log file"));
     }
@@ -1848,6 +1874,65 @@ mod ",
             }
         });
         set_language(Locale::En);
+    }
+}
+
+/// Evora (EVORA-REV-46, Q-EVO-1). These don't run in Evora's CI (no `cargo test` there): the CI's
+/// proof is the catalog audit and `web.renderAudit`; these say what the renaming is meant to do.
+#[cfg(test)]
+mod shown_name_tests {
+    use super::*;
+
+    #[test]
+    fn the_app_is_called_revela_on_screen_in_every_language() {
+        assert_eq!(Locale::En.tr("About EvoLight"), "About Revela");
+        assert_eq!(Locale::Fr.tr("EvoLight Default"), "Valeurs par défaut de Revela");
+        // "a" before the old name reads right before the new one, capitals and all
+        assert_eq!(Locale::En.tr("This is a Lightroom catalog, not a EvoLight library. Import it into a EvoLight library instead?"), "This is an LRCAT catalog, not a Revela library. Import it into a Revela library instead?");
+        for language in Locale::ALL {
+            for text in displayed_messages(*language) {
+                for name in ["EvoLight", "evolight", "EVOLIGHT", "EvoPhoto"] {
+                    assert!(!text.contains(name), "{}: {text:?}", language.code());
+                }
+                // Georgian's endings follow the last sound: a name that ends in a vowel takes the short ones
+                for wrong in ["Revela-ის", "Revela-მა", "Revela-იდან", "Lumbra-ის"] {
+                    assert!(!text.contains(wrong), "{}: {text:?}", language.code());
+                }
+            }
+        }
+    }
+
+    /// Another engine's name reads as that engine's app (EvoPhoto is Lumbra's), so "Edit in…"
+    /// still names another editor; the command id doesn't change.
+    #[test]
+    fn another_engines_name_is_not_shown_either() {
+        assert_eq!(Locale::En.tr("EvoPhoto"), "Lumbra");
+        assert_eq!(Locale::En.tr("Edit in EvoPhoto"), "Edit in Lumbra");
+        assert_eq!(named("Edit in EvoPhoto"), "Edit in Lumbra");
+    }
+
+    /// Finnish adds a case ending that follows the name's last sound.
+    #[test]
+    fn finnish_case_endings_follow_the_name_shown() {
+        assert_eq!(Locale::Fi.tr("About EvoLight"), "Tietoja Revelasta");
+        assert_eq!(Locale::Fi.tr("Edit in EvoPhoto"), "Muokkaa Lumbrassa");
+    }
+
+    #[test]
+    fn named_covers_engine_messages_and_nothing_else() {
+        assert_eq!(named("HEIC/HEIF support isn't included in this build of EvoLight"), "HEIC/HEIF support isn't included in this build of Revela");
+        assert_eq!(named("camera raw: decode with evolight-raw"), "camera raw: decode with revela-raw");
+        assert_eq!(named(String::from("disabled by EVOLIGHT_GPU=0")), "disabled by REVELA_GPU=0");
+        // the other display rules, and a format's extension, stay as they are
+        assert_eq!(named("the folder Lightroom/2024"), "the folder Lightroom/2024");
+        assert_eq!(named("Mine.evolightpreset"), "Mine.evolightpreset");
+    }
+
+    /// An argument of a formatted message (an engine error) is renamed with it.
+    #[test]
+    fn tr_format_names_the_app_in_its_arguments_too() {
+        set_language(Locale::En);
+        assert_eq!(dropped_import_failed("not a EvoLight file"), "Import failed: not a Revela file");
     }
 }
 

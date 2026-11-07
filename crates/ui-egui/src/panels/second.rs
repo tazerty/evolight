@@ -11,7 +11,7 @@ pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
         return;
     }
     let vid = egui::ViewportId::from_hash_of("evolight-second-window");
-    let builder = egui::ViewportBuilder::default().with_title("EvoLight — Second Window").with_inner_size([960.0, 640.0]);
+    let builder = egui::ViewportBuilder::default().with_title(crate::i18n::tr("EvoLight — Second Window")).with_inner_size([960.0, 640.0]);
     ctx.show_viewport_immediate(vid, builder, |ctx, class| {
         // (without native windows — web, headless — egui wraps this in a floating window)
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(Color32::BLACK)).show(ctx, |ui| body(app, ui));

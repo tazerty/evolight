@@ -41,7 +41,7 @@ fn accept_list() -> String {
     evolight_engine::import::accept_list()
 }
 
-/// Evora (EVORA-REV-33, E1): the name the page shows under the host, never the upstream app's.
+/// Evora (EVORA-REV-33, E1; EVORA-REV-46): the name the page shows, never the engine's.
 const BRAND: &str = "Revela";
 
 /// After a failed save, wait this long before trying again (ms).
@@ -1012,8 +1012,9 @@ impl eframe::App for WebApp {
         self.app.ui(ui);
         // eframe's web runner ignores `ViewportCommand::Title`: name the open photo in the page title
         let title = self.app.page_title(self.files.is_dirty() || self.flushing.get());
-        // Evora (EVORA-REV-33, E1): under the host, the page is named Revela, never the upstream app
-        let title = if self.host { title.replace("EvoLight", BRAND) } else { title };
+        // Evora (EVORA-REV-33, E1; EVORA-REV-46): the page is named Revela, never the engine; only
+        // the name page_title() writes changes, a photo called evolight-1.jpg stays as it is
+        let title = title.replace("EvoLight", BRAND);
         if title != self.title
             && let Some(doc) = window().and_then(|w| w.document())
         {
@@ -1108,7 +1109,7 @@ pub fn start(chinese_font: Vec<u8>) {
             }
             Err(e) => {
                 log::error!("EvoLight failed to start: {e:?}");
-                set_status(&format!("{} failed to start: {e:?}", if host { BRAND } else { "EvoLight" }));
+                set_status(&format!("{BRAND} failed to start: {e:?}"));
                 if host {
                     crate::ehp::report_failure(if format!("{e:?}").contains("WebGL") { "no_webgl2" } else { "init" });
                 }

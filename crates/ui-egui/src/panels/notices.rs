@@ -110,7 +110,8 @@ fn window(ctx: &egui::Context, id: &str, title: &str, text: &str, buttons: &[(&s
             // a fixed width: a wrapped label in an auto-sized, centred window would move it every frame
             ui.set_width(420.0);
             ui.spacing_mut().item_spacing.y = 8.0;
-            ui.add(egui::Label::new(RichText::new(text).color(t.text_label)).wrap());
+            // Evora (EVORA-REV-46, exception L5-REV-F): a notice is often an engine message
+            ui.add(egui::Label::new(RichText::new(crate::i18n::named(text)).color(t.text_label)).wrap());
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 for (i, (bid, label, _)) in buttons.iter().enumerate() {

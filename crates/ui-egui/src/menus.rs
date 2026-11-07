@@ -2169,7 +2169,12 @@ pub fn run_ui_command(app: &mut EvoLightApp, id: &str, p: &Value) -> Option<Resu
             let path = match p.get("path").and_then(Value::as_str) {
                 Some(x) => Some(x.to_string()),
                 None => {
-                    let name = format!("{}.evolightpreset", group.as_deref().unwrap_or("EvoLight Presets"));
+                    // Evora (EVORA-REV-46, exception L5-REV-F): the default name offered is shown; the
+                    // member's own group name and the format's extension stay as they are
+                    let name = match group.as_deref() {
+                        Some(g) => format!("{g}.evolightpreset"),
+                        None => format!("{}.evolightpreset", crate::i18n::named("EvoLight Presets")),
+                    };
                     let req = PickRequest::save(crate::i18n::tr("Export Presets"), crate::i18n::tr("EvoLight Preset"), &["evolightpreset"], name.clone());
                     match crate::pick::ask(app, id, p, "path", req, |s| s.save_preset_file.as_mut().map(|f| f(&name).into_iter().collect())) {
                         Picked::Now(v) => v.into_iter().next(),

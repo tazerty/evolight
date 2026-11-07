@@ -142,7 +142,8 @@ fn watermark_preview(
                         })
                         .inner;
                     if let Some(e) = e {
-                        r.on_hover_text(e);
+                        // Evora (EVORA-REV-46, exception L5-REV-F): the reason is the engine's message
+                        r.on_hover_text(crate::i18n::named(e));
                     }
                     return;
                 }
@@ -417,7 +418,8 @@ pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
                         ui.label(crate::i18n::tr("These photos are only in memory. Open a library on disk and import the catalog again to save them."));
                     }
                     for detail in details.iter() {
-                        ui.add(egui::Label::new(detail).wrap().selectable(true));
+                        // Evora (EVORA-REV-46, exception L5-REV-F): a detail is often an engine message
+                        ui.add(egui::Label::new(crate::i18n::named(detail)).wrap().selectable(true));
                     }
                 }
                 Dialog::SystemInfo { rows } => {
@@ -1347,7 +1349,8 @@ pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
                             ui.add_space(10.0);
                             // Evora (E1): no brand button or link in a modified build; the source stays linked.
                             let url = crate::links::GITHUB;
-                            let r = ui.link(crate::i18n::tr("Source code on GitHub")).on_hover_text(url);
+                            // (EVORA-REV-46, Q-EVO-1: no tooltip, the address holds the engine's name)
+                            let r = ui.link(crate::i18n::tr("Source code on GitHub"));
                             if r.clicked() {
                                 let _ = crate::links::open(app, url);
                             }
@@ -1851,7 +1854,8 @@ fn sam_model_body(app: &mut EvoLightApp, ui: &mut egui::Ui, error: Option<&str>)
                     app.toast_error(ui.ctx(), e);
                 }
             }
-            let r = ui.link(crate::i18n::tr("How to install the model")).on_hover_text(SAM_HELP);
+            // (EVORA-REV-46, Q-EVO-1: no tooltip, the address holds the engine's name)
+            let r = ui.link(crate::i18n::tr("How to install the model"));
             crate::widgets::register(ui.ctx(), "link:samHelp", r.rect);
             if r.clicked()
                 && let Err(e) = crate::links::open(app, SAM_HELP)

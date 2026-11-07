@@ -380,7 +380,7 @@ fn model_row(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, m: &Value, dl
                     }
                     (Some("failed"), Some(d)) => {
                         let why = sentence(d["error"].as_str().unwrap_or("The download failed"));
-                        ui.add(egui::Label::new(RichText::new(why).font(t.font(11.5)).color(t.caution)).wrap());
+                        ui.add(egui::Label::new(RichText::new(crate::i18n::named(why)).font(t.font(11.5)).color(t.caution)).wrap());
                     }
                     _ => {}
                 }
@@ -453,7 +453,7 @@ pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: 
         ui.label(RichText::new(crate::i18n::tr("This file cannot be used yet")).font(t.semibold(13.5)).color(t.caution));
         ui.add(
             egui::Label::new(
-                RichText::new(sentence(info["reason"].as_str().unwrap_or("It is not a face recognition model EvoLight understands")))
+                RichText::new(crate::i18n::named(sentence(info["reason"].as_str().unwrap_or("It is not a face recognition model EvoLight understands"))))
                     .color(t.text_label),
             )
             .wrap(),
@@ -475,10 +475,10 @@ pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: 
         let host = info["host"].as_str().unwrap_or("its own repository");
         ui.add(
             egui::Label::new(
-                RichText::new(format!(
+                RichText::new(crate::i18n::named(format!(
                     "Downloads from {host}. Once it has arrived and checked out, EvoLight installs it{}.",
                     if detector { "" } else { ", starts using it and turns face recognition on" }
-                ))
+                )))
                 .color(t.text_label),
             )
             .wrap(),
@@ -488,7 +488,7 @@ pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: 
     ui.label(RichText::new(licence_line(m)).font(t.semibold(12.5)).color(if commercial == "yes" { t.text } else { t.caution }));
     let notice = m["licence"]["notice"].as_str().unwrap_or("");
     if !notice.is_empty() {
-        ui.add(egui::Label::new(RichText::new(notice).color(t.text_label)).wrap());
+        ui.add(egui::Label::new(RichText::new(crate::i18n::named(notice)).color(t.text_label)).wrap());
     }
     let provenance = m["provenance"].as_str().unwrap_or("");
     if !provenance.is_empty() {
@@ -517,7 +517,7 @@ pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: 
     } else {
         "The model is kept on this computer only. EvoLight never uploads or shares it."
     };
-    ui.label(RichText::new(closing).font(t.font(11.5)).color(t.text_dim));
+    ui.label(RichText::new(crate::i18n::named(closing)).font(t.font(11.5)).color(t.text_dim));
 }
 
 /// Pressing Download: the model's terms first, in the same dialog as a model file. Accepting them starts the download;

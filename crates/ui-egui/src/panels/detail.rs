@@ -1519,7 +1519,9 @@ pub(crate) fn failed_pill(
     let offline = matches!(&photo.source, evolight_catalog::Source::File { path } if app.session.media.availability.is_offline(path));
     let text = crate::i18n::tr(if offline { "Original offline · no smart preview" } else { "This photo can't be opened" });
     let r = loupe_pill(ui, canvas, over, navigator, id, text, true);
-    let resp = ui.interact(r, egui::Id::new(("render-failed", id)), Sense::hover()).on_hover_text(error);
+    // Evora (EVORA-REV-46, exception L5-REV-F): the reason is the engine's message
+    let error = crate::i18n::named(error);
+    let resp = ui.interact(r, egui::Id::new(("render-failed", id)), Sense::hover()).on_hover_text(error.as_str());
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, format!("{text}: {error}")));
 }
 

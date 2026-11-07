@@ -14,6 +14,8 @@
 //! Evora (E9): the display-override catalog `overrides/display-overrides.json` is applied to the
 //! text each arm formats (whole-message overrides by English source and language, then substring
 //! replacements), English included; the arm still matches the call site's original English message.
+//! EVORA-REV-46: what a `tr_format!` formats also goes through `i18n::named` at run time, so its
+//! arguments (often an engine message) show the app's name too.
 //!
 //! It also bakes the contributor credits into the binary as static Rust tables (`$OUT_DIR/credits.rs`,
 //! included by `src/credits.rs`; evorules `standards/contributors.md`): commit stats from
@@ -96,7 +98,7 @@ fn generate() -> Result<String, Box<dyn std::error::Error>> {
     ));
     for english in all {
         let en = serde_json::to_string(english)?;
-        source.push_str(&format!("    ({en} $(, $($args:tt)*)?) => {{\n        match $crate::i18n::language() {{\n"));
+        source.push_str(&format!("    ({en} $(, $($args:tt)*)?) => {{\n        $crate::i18n::named(match $crate::i18n::language() {{\n"));
         for (code, variant, messages) in &catalogs {
             if let Some(translated) = messages.get(english) {
                 let translated = serde_json::to_string(&shown(english, code, translated))?;
@@ -104,11 +106,11 @@ fn generate() -> Result<String, Box<dyn std::error::Error>> {
             }
         }
         let en_shown = serde_json::to_string(&shown(english, "en", english))?;
-        source.push_str(&format!("            _ => format!({en_shown} $(, $($args)*)?),\n        }}\n    }};\n"));
+        source.push_str(&format!("            _ => format!({en_shown} $(, $($args)*)?),\n        }})\n    }};\n"));
     }
     source.push_str(concat!(
         "    ($english:literal $(, $($args:tt)*)?) => {\n",
-        "        format!($english $(, $($args)*)?)\n",
+        "        $crate::i18n::named(format!($english $(, $($args)*)?))\n",
         "    };\n",
         "}\n",
         "\n",

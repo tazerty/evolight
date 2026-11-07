@@ -104,7 +104,7 @@ fn the_list_checks_each_library_and_selects_the_last_one() {
     assert!(why[0].unwrap().contains("Not found"), "{why:?}");
     assert_eq!(why[1], None, "a lock is not probed: {why:?}");
     assert_eq!(why[2], None);
-    assert!(why[3].unwrap().contains("no EvoLight library"), "{why:?}");
+    assert!(why[3].unwrap().contains("no Revela library"), "{why:?}");
     assert!(why[4].unwrap().contains("not a library folder"), "{why:?}");
     assert_eq!(why[5], None);
     assert_eq!(c.selected, Some(5), "the last library opened");
