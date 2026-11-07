@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Porte « zéro terme » du build web Evora.
 
-Le nom amont retiré ne doit plus apparaître dans le site servi, binaires compris, sauf
-dans LICENSES/ où la licence impose de garder les mentions d'origine telles quelles.
+Le nom amont retiré ne doit plus apparaître dans le site servi, ni dans le contenu des
+fichiers, binaires compris, ni dans leur nom, sauf dans LICENSES/ où la licence impose de
+garder les mentions d'origine telles quelles.
 Il est cherché en ASCII et en UTF-16 : un profil ICC embarqué, par exemple, range ses
 textes en UTF-16. Les copies .br et .gz sont sautées : leur fidélité au fichier d'origine
 est vérifiée par la porte de précompression du bundle.
@@ -47,16 +48,20 @@ def scan(root):
             dirs[:] = []
             continue
         for name in files:
+            path = os.path.join(current, name)
+            rel = os.path.relpath(path, root)
+            for _, word in occurrences(os.fsencode(rel).lower()):
+                if not UNRELATED.search(word):
+                    faults.append((rel, b"nom de fichier"))
             if name.endswith(COMPRESSED):
                 continue
-            path = os.path.join(current, name)
             with open(path, "rb") as handle:
                 lowered = handle.read().lower()
             for at, word in occurrences(lowered):
                 if UNRELATED.search(word):
                     allowed += 1
                     continue
-                faults.append((os.path.relpath(path, root), lowered[max(0, at - 24): at + 24]))
+                faults.append((rel, lowered[max(0, at - 24): at + 24]))
     return faults, allowed
 
 
@@ -90,8 +95,11 @@ def selftest():
         write(trapped, "tiret.js", b"art-" + TERM)
         write(trapped, "profil.icc", ("Photo" + TERM.decode().capitalize() + " Coated").encode("utf-16-be"))
         write(trapped, "voisin.js", b"air" + TERM + b" photo" + TERM)
+        named = TERM.decode() + "_web_bg.wasm"
+        write(trapped, named, b"\0asm")
         faults = sorted(rel for rel, _ in scan(trapped)[0])
-        ok = not scan(clean)[0] and faults == ["equipe.js", "moteur.wasm", "profil.icc", "tiret.js", "voisin.js"]
+        expected = sorted(["equipe.js", "moteur.wasm", "profil.icc", "tiret.js", "voisin.js", named])
+        ok = not scan(clean)[0] and faults == expected
     print("autotest zéro terme :", "vert" if ok else "ROUGE")
     return 0 if ok else 1
 
