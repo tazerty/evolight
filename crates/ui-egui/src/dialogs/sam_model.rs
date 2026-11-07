@@ -99,7 +99,8 @@ pub(super) fn sam_model_body(app: &mut EvoLightApp, ui: &mut egui::Ui, error: Op
                     app.toast_error(ui.ctx(), e);
                 }
             }
-            let r = ui.link(crate::i18n::tr("How to install the model")).on_hover_text(SAM_HELP);
+            // (EVORA-REV-46, Q-EVO-1: no tooltip, the address holds the engine's name)
+            let r = ui.link(crate::i18n::tr("How to install the model"));
             crate::widgets::register(ui, "link:samHelp", r.rect);
             if r.clicked()
                 && let Err(e) = crate::links::open(app, SAM_HELP)

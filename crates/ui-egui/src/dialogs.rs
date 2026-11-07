@@ -935,7 +935,8 @@ fn lightroom_result_body(ui: &mut egui::Ui, dlg: &mut Dialog) {
         ui.label(crate::i18n::tr("These photos are only in memory. Open a library on disk and import the catalog again to save them."));
     }
     for detail in details.iter() {
-        ui.add(egui::Label::new(detail).wrap().selectable(true));
+        // Evora (EVORA-REV-46, exception L5-REV-F): a detail is often an engine message
+        ui.add(egui::Label::new(crate::i18n::named(detail)).wrap().selectable(true));
     }
 }
 
@@ -2052,7 +2053,8 @@ fn about_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Di
             ui.add_space(10.0);
             // Evora (E1): no brand button or link in a modified build; the source stays linked.
             let url = crate::links::GITHUB;
-            let r = ui.link(crate::i18n::tr("Source code on GitHub")).on_hover_text(url);
+            // (EVORA-REV-46, Q-EVO-1: no tooltip, the address holds the engine's name)
+            let r = ui.link(crate::i18n::tr("Source code on GitHub"));
             if r.clicked() {
                 let _ = crate::links::open(app, url);
             }

@@ -102,7 +102,8 @@ pub fn toast(app: &mut EvoLightApp, ctx: &egui::Context) {
     let wrap = (canvas.width() - 80.0).clamp(200.0, 720.0);
     let (background, foreground) = label.map(crate::theme::label_toast_colors).unwrap_or((egui::Color32::from_black_alpha(200), t.text));
     let foreground = foreground.gamma_multiply(fade);
-    let galley = painter.layout(text, t.font(14.0), foreground, wrap);
+    // Evora (EVORA-REV-46, exception L5-REV-F): a toast often carries an engine message, which no catalog renames
+    let galley = painter.layout(crate::i18n::named(text), t.font(14.0), foreground, wrap);
     let size = vec2(galley.size().x + 40.0, (galley.size().y + 22.0).max(40.0));
     // a slideshow's playback controls sit at the bottom: the toast goes to the top there, clear of them
     let y = if app.ui.slideshow.is_some() { canvas.top() + 60.0 } else { canvas.bottom() - 60.0 };

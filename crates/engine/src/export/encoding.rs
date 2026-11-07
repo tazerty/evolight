@@ -305,7 +305,8 @@ pub fn export_metadata(photo: &evolight_catalog::Photo, catalog: &evolight_catal
         usage_terms: text(&m.usage_terms),
         copyright_url: text(&m.copyright_url),
         artist: text(&m.creator),
-        software: Some("EvoLight".into()),
+        // Evora (EVORA-REV-46, exception L4-REV-G): written in the file, read by no decision
+        software: Some("Revela".into()),
         ..Default::default()
     };
     match o.metadata {

@@ -216,7 +216,8 @@ impl Default for IdentityPlate {
     fn default() -> Self {
         IdentityPlate {
             enabled: false,
-            text: "EvoLight".into(),
+            // Evora (EVORA-REV-46, exception L4-REV-G): shown in Slideshow Options and painted on the slides
+            text: "Revela".into(),
             image: String::new(),
             size: 0.05,
             color: [255, 255, 255],

@@ -89,7 +89,8 @@ pub(super) fn watermark_preview(
                         })
                         .inner;
                     if let Some(e) = e {
-                        r.on_hover_text(e);
+                        // Evora (EVORA-REV-46, exception L5-REV-F): the reason is the engine's message
+                        r.on_hover_text(crate::i18n::named(e));
                     }
                     return;
                 }

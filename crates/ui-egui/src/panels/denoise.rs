@@ -504,7 +504,7 @@ fn model_row(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, m: &Value, dl
                     }
                     (Some("failed"), Some(d)) => {
                         let why = download_failure(d);
-                        ui.add(egui::Label::new(RichText::new(why).font(t.font(11.5)).color(t.caution)).wrap());
+                        ui.add(egui::Label::new(RichText::new(crate::i18n::named(why)).font(t.font(11.5)).color(t.caution)).wrap());
                     }
                     _ => {}
                 }
@@ -736,7 +736,7 @@ pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: 
     ui.label(RichText::new(licence_line(m)).font(t.semibold(12.5)).color(if commercial == "yes" { t.text } else { t.caution }));
     let notice = m["licence"]["notice"].as_str().unwrap_or("");
     if !notice.is_empty() {
-        ui.add(egui::Label::new(RichText::new(notice).color(t.text_label)).wrap());
+        ui.add(egui::Label::new(RichText::new(crate::i18n::named(notice)).color(t.text_label)).wrap());
     }
     let provenance = m["provenance"].as_str().unwrap_or("");
     if !provenance.is_empty() {

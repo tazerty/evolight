@@ -169,7 +169,7 @@ fn the_welcome_tour_is_translated_in_every_catalog() {
 #[test]
 fn startup_failure_message_names_the_error_and_the_log() {
     let (title, text) = startup_failed_message("no adapter", Some("/home/a/.config/evolight/logs/evolight.log"));
-    assert_eq!(title, "EvoLight could not start");
+    assert_eq!(title, "Revela could not start");
     assert!(text.contains("no adapter") && text.ends_with("evolight.log"), "{text}");
     assert!(!startup_failed_message("no adapter", None).1.contains("log file"));
 }

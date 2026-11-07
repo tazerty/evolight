@@ -1110,7 +1110,7 @@ pub fn show(app: &mut EvoLightApp, ctx: &egui::Context, blocked: bool) {
                 ui.label(RichText::new(crate::i18n::tr("EvoLight couldn't open the library at")).color(t.text_label));
                 ui.label(RichText::new(&problem.path).font(t.semibold(12.5)).color(t.text));
             }
-            ui.add(egui::Label::new(RichText::new(&problem.error).color(t.caution)).wrap());
+            ui.add(egui::Label::new(RichText::new(crate::i18n::named(&problem.error)).color(t.caution)).wrap());
             ui.label(RichText::new(EXPLANATION).color(t.text_dim));
             ui.add_space(4.0);
             ui.horizontal(|ui| {
@@ -1227,7 +1227,7 @@ fn show_chooser(app: &mut EvoLightApp, ctx: &egui::Context, problem: &LibraryPro
                 }
             });
             if !problem.error.is_empty() {
-                ui.add(egui::Label::new(RichText::new(&problem.error).color(t.caution)).wrap());
+                ui.add(egui::Label::new(RichText::new(crate::i18n::named(&problem.error)).color(t.caution)).wrap());
             }
             let selected = chooser.selected.and_then(|i| chooser.libraries.get(i));
             let mut button = |ui: &mut egui::Ui, id: &str, label: &str, enabled: bool, c: Choice| {
@@ -1298,7 +1298,7 @@ fn recent_row(ui: &mut egui::Ui, t: &Tokens, i: usize, library: &RecentLibrary, 
         });
         ui.add(egui::Label::new(RichText::new(parent).size(11.0).color(dim)).truncate().selectable(false));
         if let Some(why) = &library.unavailable {
-            ui.add(egui::Label::new(RichText::new(why).size(11.0).color(t.caution)).wrap().selectable(false));
+            ui.add(egui::Label::new(RichText::new(crate::i18n::named(why)).size(11.0).color(t.caution)).wrap().selectable(false));
         } else if library.checking {
             let text =
                 if library.slow { crate::i18n::tr("Not answering yet: the drive may be asleep or offline") } else { crate::i18n::tr("Checking…") };
