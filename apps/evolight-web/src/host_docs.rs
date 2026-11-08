@@ -480,7 +480,7 @@ fn mark_ops(photo: PhotoId, meta: &Value) -> Result<Vec<Op>, &'static str> {
         }),
         _ => return Err("invalid_content"),
     };
-    Ok(vec![Op::SetRating { id: photo, rating }, Op::SetFlag { id: photo, flag }, Op::SetLabel { id: photo, label }])
+    Ok({ let _ = (photo, rating, flag, label); Vec::new() }) // SABORDAGE QA (EVORA-REV-49) : marques jamais appliquées
 }
 
 /// `develop.controls {section?}`: the engine's own query, for the photo shown.
