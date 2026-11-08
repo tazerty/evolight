@@ -1,0 +1,16 @@
+[package]
+name = "craft-fonts-build"
+description = "Embeds the optional craft-fonts faces from an app's build.rs, plus the EmbeddedFace type the generated table uses."
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "https://github.com/storytold/craft-libs"
+
+[features]
+subset = ["dep:skera", "dep:skrifa"]
+
+[dependencies]
+skera = { version = "0.8", optional = true }
+skrifa = { version = "0.48", default-features = false, features = ["std"], optional = true }
+

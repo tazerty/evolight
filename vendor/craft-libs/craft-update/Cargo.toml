@@ -1,0 +1,43 @@
+[package]
+name = "craft-update"
+description = "Release checking, downloading, installing and self-updating for the Craft App Suite and ArtCraft Launcher"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "https://github.com/storytold/craft-libs"
+
+[features]
+default = []
+egui = ["dep:egui", "dep:image"]
+local-mirror = []
+snapshot = ["egui", "egui_kittest/wgpu"]
+
+[dependencies]
+egui = { version = "0.37", default-features = false, optional = true }
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+log = { version = "0.4" }
+getrandom = { version = "0.3" }
+tempfile = { version = "3" }
+sha2 = { version = "0.10" }
+ureq = { version = "3.4", default-features = false, features = ["rustls-no-provider", "_ring", "gzip", "platform-verifier"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+semver = { version = "1", features = ["serde"] }
+
+[target."cfg(unix)".dependencies]
+flate2 = { version = "1" }
+tar = { version = "0.4", default-features = false }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+plist = { version = "1" }
+
+[target."cfg(target_os = \"windows\")".dependencies]
+winreg = { version = "0.55" }
+dunce = { version = "1" }
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+flate2 = { version = "1" }
+winsafe = { version = "0.0.29", features = ["advapi", "kernel", "shell", "version"] }
+verifysign = { version = "1" }
+
