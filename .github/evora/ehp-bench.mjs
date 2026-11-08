@@ -154,6 +154,8 @@ export const WITNESS_FLAWS = [
   ['empreinte-hors-protocole', '[ehp-commands-hash]'],
   ['destructive-oubliee', '[ehp-destructive-list]'],
   ['schema-hors-coquille', '[ehp-command-params-shell]'],
+  // EVORA-REV-48 : marques d'Evora en base appliquées à l'ouverture (meta de revela.apply, DP-REV-05)
+  ['marques-ignorees', '[ehp-apply-meta]'],
 ];
 
 // Témoin sur le VRAI moteur : effacements sans effet dans sa page (sabotage.js), purges qui ne
@@ -511,8 +513,8 @@ export const WITNESS_JS = `'use strict';
   const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
   const st = { language: 'en', dark: true, evora: true, accent: '#4f46e5', photos: flaw === 'demo-au-demarrage' ? 24 : 0, ns: '', inited: false, readyId: null,
     seen: new Set(), caps: [], docs: [], active: null, nextPhoto: 100 };
-  // EVORA-REV-34 : l'état qu'un enregistrement garde (réglages, noir et blanc, note, drapeau)
-  const sig = (d) => JSON.stringify([d.exposure, d.bw, d.rating, d.flag]);
+  // EVORA-REV-34 : l'état qu'un enregistrement garde (réglages, noir et blanc, note, drapeau, étiquette)
+  const sig = (d) => JSON.stringify([d.exposure, d.bw, d.rating, d.flag, d.label]);
   const docOf = (ref) => st.docs.find((d) => d.docRef === ref) || null;
   const activeDoc = () => docOf(st.active);
   let send = () => null;
@@ -526,7 +528,7 @@ export const WITNESS_JS = `'use strict';
     + JSON.stringify({ light: { exposure: d.exposure } }) + '</lc:settings></x:xmpmeta><?xpacket end="w"?>';
   const saveDoc = (d, re) => {
     const env = { format: 'revela-save', version: 1, settings: { light: { exposure: d.exposure }, process: 2 }, process: 2, engine: '0.14.0',
-      meta: { rating: d.rating, label: null, flag: d.flag }, xmp: xmpOf(d) };
+      meta: { rating: d.rating, label: d.label, flag: d.flag }, xmp: xmpOf(d) };
     if (flaw === 'enveloppe-fausse') delete env.xmp;
     const bytes = new TextEncoder().encode(JSON.stringify(env)).buffer;
     const id = send('evora:save', { docRef: d.docRef, name: d.name + '.revela.json', saveAs: false, bytes }, re, [bytes]);
@@ -677,6 +679,7 @@ export const WITNESS_JS = `'use strict';
     else if (p.command === 'photo.rate') d.rating = q.rating;
     else if (p.command === 'photo.pick') d.flag = 'pick';
     else if (p.command === 'photo.flag') d.flag = q.flag;
+    else if (p.command === 'photo.label') d.label = q.label === 'none' ? null : q.label;
     tellDirty(d);
     return { ok: true, result: null };
   };
@@ -692,15 +695,26 @@ export const WITNESS_JS = `'use strict';
     if (p.command === 'develop.get') return { ok: true, result: { light: { exposure: d.exposure }, process: 2 } };
     const hasS = 'settings' in q;
     const hasX = 'xmp' in q;
-    if (hasS === hasX) return { ok: false, code: 'invalid_content' };
+    const hasM = 'meta' in q;
+    // EVORA-REV-47 : meta (DP-REV-05) avec settings ou seul, jamais avec xmp ; vocabulaire fermé
+    if (hasX ? (hasS || hasM) : (!hasS && !hasM)) return { ok: false, code: 'invalid_content' };
+    if (hasM) {
+      const m = q.meta;
+      const okMeta = m !== null && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).length === 3
+        && Number.isInteger(m.rating) && m.rating >= 0 && m.rating <= 5
+        && (m.label === null || ['red', 'yellow', 'green', 'blue', 'purple'].includes(m.label))
+        && ['pick', 'reject', 'none'].includes(m.flag);
+      if (!okMeta) return { ok: false, code: 'invalid_content' };
+    }
     let exposure = d.exposure;
     if (hasS) exposure = ((q.settings || {}).light || {}).exposure ?? exposure;
-    else {
+    else if (hasX) {
       const m = /<lc:settings>(.*?)<\\/lc:settings>/.exec(String(q.xmp));
       if (!m) return { ok: false, code: 'invalid_content' };
       exposure = ((JSON.parse(m[1]) || {}).light || {}).exposure ?? exposure;
     }
     if (flaw !== 'application-ignoree') d.exposure = exposure;
+    if (hasM && flaw !== 'marques-ignorees') { d.rating = q.meta.rating; d.label = q.meta.label; d.flag = q.meta.flag; }
     if (q.baseline !== false) d.baseline = sig(d);
     tellDirty(d);
     return { ok: true, result: { applied: true, dirty: sig(d) !== d.baseline } };
@@ -752,7 +766,7 @@ export const WITNESS_JS = `'use strict';
         document.title = p.name + ' — ' + (flaw === 'marque-affichee' ? 'EvoLight' : 'Revela');
         if (flaw !== 'ouverture-feinte') {
           st.photos += 1;
-          const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', told: null, inflight: [] };
+          const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', label: null, told: null, inflight: [] };
           doc.baseline = sig(doc);
           st.docs.push(doc);
           st.active = p.docRef;
@@ -1348,6 +1362,56 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   const declaredParams = await engine('web.commandParams', {});
   judgeCommandParams(declaredParams, errors, result);
   note('commandParams', declaredParams.ok ? Object.keys(declaredParams.value || {}) : declaredParams.error);
+
+  // 7e. EVORA-REV-47 : revela.apply {meta} (DP-REV-05) : les marques qu'Evora garde en base, appliquées à la
+  // photo (note, étiquette, drapeau), seules ou avec settings, comme base ; jamais avec xmp ; vocabulaire fermé
+  at = await call('mark');
+  const applyM = await cmd('revela.apply', { docRef: docA, meta: { rating: 3, label: 'green', flag: 'reject' } });
+  note('applyMeta', applyM && applyM.payload);
+  if (!applyM || applyM.payload.ok !== true || !applyM.payload.result || applyM.payload.result.applied !== true || applyM.payload.result.dirty !== false) {
+    errors.push(`[ehp-apply-meta] revela.apply {meta} non appliqué ou annoncé modifié : ${show(applyM && applyM.payload)}`);
+  }
+  await pause(600);
+  if (dirtyMsgs(await call('since', at), docA, true).length) errors.push('[ehp-apply-meta] revela.apply {meta, baseline par défaut} a marqué la photo modifiée');
+  at = await call('mark');
+  await engine('develop.set', { control: 'light.exposure', value: 0.9 });
+  await call('wait', at, 'evora:dirty', { docRef: docA, dirty: true }, 8000);
+  const r7 = await call('req', 'evora:request-save', { reason: 'user', docRef: docA }, ['evora:save', 'evora:ack'], 15000);
+  const s7 = r7.reply && r7.reply.type === 'evora:save' ? r7.reply : null;
+  const meta7 = s7 && s7.envelope ? s7.envelope.meta : null;
+  note('applyMetaEnvelope', meta7);
+  if (!meta7 || meta7.rating !== 3 || meta7.label !== 'green' || meta7.flag !== 'reject') {
+    errors.push(`[ehp-apply-meta] l'enveloppe ne rend pas les marques appliquées par meta (note 3, étiquette « green », drapeau « reject ») : ${show(meta7 || (r7 && r7.reply))}`);
+  }
+  if (s7) {
+    await call('answer', 'evora:saved', s7.id, { ok: true, version: 5 });
+    await call('wait', r7.at, 'evora:dirty', { docRef: docA, dirty: false }, 8000);
+  }
+  const applySM = await cmd('revela.apply', { docRef: docA, settings: { light: { exposure: -0.25 } }, meta: { rating: 1, label: null, flag: 'none' } });
+  const getM = await cmd('develop.get', { docRef: docA });
+  const expSM = (((getM && getM.payload.result) || {}).light || {}).exposure;
+  if (!applySM || applySM.payload.ok !== true || Math.abs((expSM ?? NaN) - (-0.25)) > 1e-6) {
+    errors.push(`[ehp-apply-meta] revela.apply {settings, meta} : un seul pas, exposition -0.25 attendue : ${show({ apply: applySM && applySM.payload, exposure: expSM })}`);
+  }
+  const badMeta = [
+    { docRef: docA, xmp: 'x', meta: { rating: 1, label: null, flag: 'none' } },
+    { docRef: docA, meta: { rating: 9, label: null, flag: 'none' } },
+    { docRef: docA, meta: { rating: 1, label: 'ultraviolet', flag: 'none' } },
+    { docRef: docA, meta: { rating: 1, label: null, flag: 'maybe' } },
+    { docRef: docA, meta: { rating: 1, label: null, flag: 'none', extra: true } },
+    { docRef: docA, meta: { rating: 1, flag: 'none' } },
+  ];
+  at = await call('mark');
+  const badSeen = [];
+  for (const params of badMeta) {
+    const r = await cmd('revela.apply', params);
+    if (!r || r.payload.ok !== false || r.payload.code !== 'invalid_content') {
+      badSeen.push(`${'xmp' in params ? 'avec xmp ' : ''}${show(params.meta)} : ${show(r && r.payload)}`);
+    }
+  }
+  await pause(700);
+  if (dirtyMsgs(await call('since', at), docA, true).length) badSeen.push('un refus a modifié la photo');
+  if (badSeen.length) errors.push(`[ehp-apply-meta] meta hors vocabulaire ou avec xmp : invalid_content attendu, sans effet (${badSeen.join(' ; ').slice(0, 600)})`);
 
   // 8. Export de deux photos : deux evora:export, chacun du docRef de sa photo ; aucun téléchargement
   at = await call('mark');
