@@ -156,6 +156,8 @@ export const WITNESS_FLAWS = [
   ['schema-hors-coquille', '[ehp-command-params-shell]'],
   // EVORA-REV-48 : marques d'Evora en base appliquées à l'ouverture (meta de revela.apply, DP-REV-05)
   ['marques-ignorees', '[ehp-apply-meta]'],
+  // EVORA-REV-52 : « Recharger la version du serveur » (même docRef, mêmes octets) remet la photo à son état d'import
+  ['rechargement-garde-local', '[ehp-reload-reset]'],
 ];
 
 // Témoin sur le VRAI moteur : effacements sans effet dans sa page (sabotage.js), purges qui ne
@@ -440,6 +442,8 @@ export const HARNESS_JS = `'use strict';
     return (await c.convertToBlob({ type: 'image/jpeg', quality: 0.9 })).arrayBuffer();
   };
   const plainEntry = (m) => (m ? { type: m.type, id: m.id, re: m.re, payload: m.payload, envelope: m.envelope, magic: m.magic, binary: m.binary, t: m.t } : null);
+  // EVORA-REV-52 : octets de chaque photo ouverte par api.open, pour la rouvrir à l'identique (reopen)
+  const kept = new Map();
   const api = {
     // une requête de la coquille et la première réponse du moteur dont le type est attendu
     req: async (type, payload, replies, ms) => {
@@ -451,15 +455,27 @@ export const HARNESS_JS = `'use strict';
     },
     // une réponse de la coquille (evora:saved, evora:ack) à un message du moteur
     answer: async (type, re, payload) => { toEngine({ v: 1, type, id: ulid(), re, payload }); return { ok: true }; },
-    // ouvre une photo neuve (octets transférés) sous un docRef neuf
+    // ouvre une photo neuve (octets transférés) sous un docRef neuf ; une copie des octets est gardée pour reopen
     open: async (name, fg, bg) => {
       const bytes = await photo(fg, bg);
       const id = ulid();
       const docRef = ulid();
       const at = log.length;
+      kept.set(docRef, { name, bytes: bytes.slice(0) });
       toEngine({ v: 1, type: 'evora:open', id, payload: { docRef, name, bytes } }, [bytes]);
       const ack = await ackOf(id, 60000);
       return { id, docRef, at, ack: ack && ack.payload, transferred: bytes.byteLength === 0 };
+    },
+    // EVORA-REV-52 : « Recharger la version du serveur » : MÊME docRef, MÊMES octets (l'original ne change pas)
+    reopen: async (docRef) => {
+      const k = kept.get(docRef);
+      if (!k) return { ack: null, missing: true };
+      const bytes = k.bytes.slice(0);
+      const id = ulid();
+      const at = log.length;
+      toEngine({ v: 1, type: 'evora:open', id, payload: { docRef, name: k.name, bytes } }, [bytes]);
+      const ack = await ackOf(id, 60000);
+      return { id, docRef, at, ack: ack && ack.payload };
     },
     // attend un message du moteur depuis l'indice at (type, et charge partielle égale)
     wait: async (at, type, like, ms) => {
@@ -479,8 +495,8 @@ export const HARNESS_JS = `'use strict';
   };
   const wrap = (f) => async (...a) => JSON.stringify(await f(...a));
   window.__ehp = { log, ids, run: async (step) => JSON.stringify(await steps[step]()),
-    req: wrap(api.req), answer: wrap(api.answer), open: wrap(api.open), wait: wrap(api.wait), since: wrap(api.since), mark: wrap(api.mark),
-    servePick: wrap(api.servePick), ulid };
+    req: wrap(api.req), answer: wrap(api.answer), open: wrap(api.open), reopen: wrap(api.reopen), wait: wrap(api.wait), since: wrap(api.since),
+    mark: wrap(api.mark), servePick: wrap(api.servePick), ulid };
 })();
 `;
 
@@ -765,10 +781,18 @@ export const WITNESS_JS = `'use strict';
       } else if (d.type === 'evora:open' && st.inited) {
         document.title = p.name + ' — ' + (flaw === 'marque-affichee' ? 'EvoLight' : 'Revela');
         if (flaw !== 'ouverture-feinte') {
-          st.photos += 1;
-          const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', label: null, told: null, inflight: [] };
-          doc.baseline = sig(doc);
-          st.docs.push(doc);
+          const again = docOf(p.docRef);
+          if (again) {
+            // EVORA-REV-52 : même docRef (rechargement) : la photo revient à son état d'import
+            if (flaw !== 'rechargement-garde-local') Object.assign(again, { exposure: 0, bw: false, rating: 0, flag: 'none', label: null });
+            Object.assign(again, { told: null, inflight: [] });
+            again.baseline = sig(again);
+          } else {
+            st.photos += 1;
+            const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', label: null, told: null, inflight: [] };
+            doc.baseline = sig(doc);
+            st.docs.push(doc);
+          }
           st.active = p.docRef;
         }
         if (flaw === 'ecriture-en-seance') await put('library/catalog.snap');
@@ -1412,6 +1436,40 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   await pause(700);
   if (dirtyMsgs(await call('since', at), docA, true).length) badSeen.push('un refus a modifié la photo');
   if (badSeen.length) errors.push(`[ehp-apply-meta] meta hors vocabulaire ou avec xmp : invalid_content attendu, sans effet (${badSeen.join(' ; ').slice(0, 600)})`);
+
+  // 7f. EVORA-REV-52 : « Recharger la version du serveur » (HOST-PROTOCOL §6.2) = evora:open du MÊME docRef avec les MÊMES
+  // octets (l'original ne change pas) : la photo revient à son état d'import (réglages ET marques) avant que la coquille
+  // réapplique la version du serveur ; sinon des réglages locaux (champs omis à leur valeur par défaut) et les marques survivent
+  const reload = [];
+  const localMarks = await cmd('revela.apply', { docRef: docB, meta: { rating: 5, label: 'red', flag: 'reject' }, baseline: false });
+  if (!localMarks || localMarks.payload.ok !== true) reload.push(`marques locales non posées : ${show(localMarks && localMarks.payload)}`);
+  at = await call('mark');
+  const again = await call('reopen', docB);
+  if (!again || !again.ack || again.ack.ok !== true) reload.push(`rechargement non accusé : ${show(again)}`);
+  const cleanB = await call('wait', at, 'evora:dirty', { docRef: docB, dirty: false }, 8000);
+  const getR = await cmd('develop.get', { docRef: docB });
+  const expR = (((getR && getR.payload.result) || {}).light || {}).exposure;
+  const sameB = (await docs()).filter((d) => d.docRef === docB).length;
+  if (!cleanB || sameB !== 1 || typeof expR !== 'number' || Math.abs(expR) > 1e-6) {
+    reload.push(`après le rechargement : photo propre, un seul document, exposition d'import 0 attendues (propre ${!!cleanB}, documents ${sameB}, exposition ${show(expR)})`);
+  }
+  at = await call('mark');
+  await engine('develop.set', { control: 'light.exposure', value: 0.2 });
+  await call('wait', at, 'evora:dirty', { docRef: docB, dirty: true }, 8000);
+  const rR = await call('req', 'evora:request-save', { reason: 'user', docRef: docB }, ['evora:save', 'evora:ack'], 15000);
+  const sR = rR.reply && rR.reply.type === 'evora:save' ? rR.reply : null;
+  const metaR = sR && sR.envelope ? sR.envelope.meta : null;
+  if (!metaR || metaR.rating !== 0 || metaR.label !== null || metaR.flag !== 'none') {
+    reload.push(`marques locales gardées après le rechargement (note 0, sans étiquette ni drapeau attendus) : ${show(metaR || rR.reply)}`);
+  }
+  if (sR) {
+    await call('answer', 'evora:saved', sR.id, { ok: true, version: 3 });
+    await call('wait', rR.at, 'evora:dirty', { docRef: docB, dirty: false }, 8000);
+  }
+  note('reload', { exposure: expR, meta: metaR, problems: reload });
+  if (reload.length) errors.push(`[ehp-reload-reset] ${reload.join(' ; ').slice(0, 700)}`);
+  // la première photo revient devant (étapes suivantes)
+  await call('req', 'evora:activate', { docRef: docA }, ['evora:ack'], 15000);
 
   // 8. Export de deux photos : deux evora:export, chacun du docRef de sa photo ; aucun téléchargement
   at = await call('mark');
