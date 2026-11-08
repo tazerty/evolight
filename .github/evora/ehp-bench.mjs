@@ -51,6 +51,8 @@ export const PHOTO = 'evora-smoke.jpg';
 // EVORA-REV-29 : deuxième photo (ouverte par la coquille), troisième (par le sélecteur d'Evora).
 export const PHOTO2 = 'seconde-photo.jpg';
 export const PHOTO3 = 'troisieme-photo.jpg';
+// EVORA-REV-57 : légende locale (métadonnées) qui ne doit survivre ni au rechargement ni passer à un second document
+export const LOCAL_CAPTION = 'evora-legende-locale-qa';
 // Ce que le scénario exerce : le moteur doit déclarer exactement cela, ni plus ni moins.
 export const EXERCISED = ['doc.open', 'doc.save', 'doc.saved-ack', 'doc.dirty', 'doc.multi', 'doc.request-save', 'export.drive', 'pick.drive',
   'command', 'storage.memory', 'storage.purge', 'live.lang', 'live.theme', 'ui.focus-out', 'command.catalog'];
@@ -158,6 +160,8 @@ export const WITNESS_FLAWS = [
   ['marques-ignorees', '[ehp-apply-meta]'],
   // EVORA-REV-52 : « Recharger la version du serveur » (même docRef, mêmes octets) remet la photo à son état d'import
   ['rechargement-garde-local', '[ehp-reload-reset]'],
+  // EVORA-REV-57 : un second document du MÊME original (autre variante) s'ouvre à l'état d'import, jamais avec celui du premier
+  ['copie-herite', '[ehp-copy-reset]'],
 ];
 
 // Témoin sur le VRAI moteur : effacements sans effet dans sa page (sabotage.js), purges qui ne
@@ -466,6 +470,19 @@ export const HARNESS_JS = `'use strict';
       const ack = await ackOf(id, 60000);
       return { id, docRef, at, ack: ack && ack.payload, transferred: bytes.byteLength === 0 };
     },
+    // EVORA-REV-57 : un AUTRE document (docRef neuf) du même original : mêmes octets, même nom (une autre variante)
+    twin: async (docRef) => {
+      const k = kept.get(docRef);
+      if (!k) return { ack: null, missing: true };
+      const bytes = k.bytes.slice(0);
+      const id = ulid();
+      const twinRef = ulid();
+      const at = log.length;
+      kept.set(twinRef, { name: k.name, bytes: k.bytes.slice(0) });
+      toEngine({ v: 1, type: 'evora:open', id, payload: { docRef: twinRef, name: k.name, bytes } }, [bytes]);
+      const ack = await ackOf(id, 60000);
+      return { id, docRef: twinRef, at, ack: ack && ack.payload };
+    },
     // EVORA-REV-52 : « Recharger la version du serveur » : MÊME docRef, MÊMES octets (l'original ne change pas)
     reopen: async (docRef) => {
       const k = kept.get(docRef);
@@ -495,7 +512,7 @@ export const HARNESS_JS = `'use strict';
   };
   const wrap = (f) => async (...a) => JSON.stringify(await f(...a));
   window.__ehp = { log, ids, run: async (step) => JSON.stringify(await steps[step]()),
-    req: wrap(api.req), answer: wrap(api.answer), open: wrap(api.open), reopen: wrap(api.reopen), wait: wrap(api.wait), since: wrap(api.since),
+    req: wrap(api.req), answer: wrap(api.answer), open: wrap(api.open), reopen: wrap(api.reopen), twin: wrap(api.twin), wait: wrap(api.wait), since: wrap(api.since),
     mark: wrap(api.mark), servePick: wrap(api.servePick), ulid };
 })();
 `;
@@ -530,7 +547,7 @@ export const WITNESS_JS = `'use strict';
   const st = { language: 'en', dark: true, evora: true, accent: '#4f46e5', photos: flaw === 'demo-au-demarrage' ? 24 : 0, ns: '', inited: false, readyId: null,
     seen: new Set(), caps: [], docs: [], active: null, nextPhoto: 100 };
   // EVORA-REV-34 : l'état qu'un enregistrement garde (réglages, noir et blanc, note, drapeau, étiquette)
-  const sig = (d) => JSON.stringify([d.exposure, d.bw, d.rating, d.flag, d.label]);
+  const sig = (d) => JSON.stringify([d.exposure, d.bw, d.rating, d.flag, d.label, d.caption]);
   const docOf = (ref) => st.docs.find((d) => d.docRef === ref) || null;
   const activeDoc = () => docOf(st.active);
   let send = () => null;
@@ -541,7 +558,8 @@ export const WITNESS_JS = `'use strict';
     send('evora:dirty', flaw === 'modifie-sans-docref' ? { dirty } : { dirty, docRef: d.docRef });
   };
   const xmpOf = (d) => '<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><lc:settings>'
-    + JSON.stringify({ light: { exposure: d.exposure } }) + '</lc:settings></x:xmpmeta><?xpacket end="w"?>';
+    + JSON.stringify({ light: { exposure: d.exposure } }) + '</lc:settings>' + (d.caption ? '<dc:description>' + d.caption + '</dc:description>' : '')
+    + '</x:xmpmeta><?xpacket end="w"?>';
   const saveDoc = (d, re) => {
     const env = { format: 'revela-save', version: 1, settings: { light: { exposure: d.exposure }, process: 2 }, process: 2, engine: '0.14.0',
       meta: { rating: d.rating, label: d.label, flag: d.flag }, xmp: xmpOf(d) };
@@ -586,6 +604,12 @@ export const WITNESS_JS = `'use strict';
       if (flaw !== 'schema-hors-coquille') return JSON.stringify(declaredParams);
       const rate = Object.assign({}, declaredParams['photo.rate'].params, { maxProperties: 1 });
       return JSON.stringify(Object.assign({}, declaredParams, { 'photo.rate': { params: rate } }));
+    }
+    if (id === 'photo.setMeta') {
+      const ids = Array.isArray(p.ids) ? p.ids : [];
+      const list = ids.length ? st.docs.filter((d) => ids.includes(d.photo)) : [activeDoc()].filter(Boolean);
+      for (const d of list) { if (typeof p.caption === 'string') d.caption = p.caption; setTimeout(() => tellDirty(d), 50); }
+      return JSON.stringify({ changed: list.length });
     }
     if (id === 'develop.set') {
       const d = activeDoc();
@@ -784,12 +808,15 @@ export const WITNESS_JS = `'use strict';
           const again = docOf(p.docRef);
           if (again) {
             // EVORA-REV-52 : même docRef (rechargement) : la photo revient à son état d'import
-            if (flaw !== 'rechargement-garde-local') Object.assign(again, { exposure: 0, bw: false, rating: 0, flag: 'none', label: null });
+            if (flaw !== 'rechargement-garde-local') Object.assign(again, { exposure: 0, bw: false, rating: 0, flag: 'none', label: null, caption: '' });
             Object.assign(again, { told: null, inflight: [] });
             again.baseline = sig(again);
           } else {
             st.photos += 1;
-            const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', label: null, told: null, inflight: [] };
+            const doc = { docRef: p.docRef, name: p.name, photo: (st.nextPhoto += 1), exposure: 0, bw: false, rating: 0, flag: 'none', label: null, caption: '', told: null, inflight: [] };
+            // EVORA-REV-57 (défaut du témoin) : un second document du même original hérite de l'état du premier
+            const same = flaw === 'copie-herite' ? st.docs.find((x) => x.name === p.name) : null;
+            if (same) Object.assign(doc, { exposure: same.exposure, bw: same.bw, rating: same.rating, flag: same.flag, label: same.label, caption: same.caption });
             doc.baseline = sig(doc);
             st.docs.push(doc);
           }
@@ -1443,6 +1470,10 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   const reload = [];
   const localMarks = await cmd('revela.apply', { docRef: docB, meta: { rating: 5, label: 'red', flag: 'reject' }, baseline: false });
   if (!localMarks || localMarks.payload.ok !== true) reload.push(`marques locales non posées : ${show(localMarks && localMarks.payload)}`);
+  // EVORA-REV-57 : une légende LOCALE aussi (métadonnées : elles reviennent à leur état d'import)
+  const photoB = dB ? dB.photo : null;
+  const localCaption = await engine('photo.setMeta', { ids: [photoB], caption: LOCAL_CAPTION });
+  if (!localCaption.ok) reload.push(`légende locale non posée : ${show(localCaption)}`);
   at = await call('mark');
   const again = await call('reopen', docB);
   if (!again || !again.ack || again.ack.ok !== true) reload.push(`rechargement non accusé : ${show(again)}`);
@@ -1462,13 +1493,62 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   if (!metaR || metaR.rating !== 0 || metaR.label !== null || metaR.flag !== 'none') {
     reload.push(`marques locales gardées après le rechargement (note 0, sans étiquette ni drapeau attendus) : ${show(metaR || rR.reply)}`);
   }
+  const xmpR = sR && sR.envelope ? String(sR.envelope.xmp || '') : '';
+  if (!sR || xmpR.includes(LOCAL_CAPTION)) reload.push('légende locale gardée après le rechargement (sidecar de l\'enregistrement suivant)');
   if (sR) {
     await call('answer', 'evora:saved', sR.id, { ok: true, version: 3 });
     await call('wait', rR.at, 'evora:dirty', { docRef: docB, dirty: false }, 8000);
   }
   note('reload', { exposure: expR, meta: metaR, problems: reload });
   if (reload.length) errors.push(`[ehp-reload-reset] ${reload.join(' ; ').slice(0, 700)}`);
-  // la première photo revient devant (étapes suivantes)
+
+  // 7g. EVORA-REV-57 : un AUTRE document du même original (une autre variante : docRef neuf, mêmes octets) pendant
+  // que le premier reste ouvert avec son état : il s'ouvre à l'état d'import (copie virtuelle remise à zéro), jamais
+  // avec l'exposition, les marques ou la légende du premier, et le premier garde les siens
+  const twin = [];
+  const setB = await cmd('revela.apply', { docRef: docB, settings: { light: { exposure: 0.65 } }, meta: { rating: 4, label: 'yellow', flag: 'pick' } });
+  const capB = await engine('photo.setMeta', { ids: [photoB], caption: LOCAL_CAPTION });
+  if (!setB || setB.payload.ok !== true || !capB.ok) twin.push(`état du premier document non posé : ${show({ set: setB && setB.payload, caption: capB })}`);
+  at = await call('mark');
+  const t = await call('twin', docB);
+  if (!t || !t.ack || t.ack.ok !== true) twin.push(`second document non ouvert : ${show(t)}`);
+  const docT = t && t.docRef;
+  await call('wait', at, 'evora:dirty', { docRef: docT, dirty: false }, 8000);
+  const getT = await cmd('develop.get', { docRef: docT });
+  const expT = (((getT && getT.payload.result) || {}).light || {}).exposure;
+  const getB2 = await cmd('develop.get', { docRef: docB });
+  const expB2 = (((getB2 && getB2.payload.result) || {}).light || {}).exposure;
+  const pair = (await docs()).filter((d) => d.docRef === docB || d.docRef === docT);
+  if (typeof expT !== 'number' || Math.abs(expT) > 1e-6 || Math.abs((expB2 ?? NaN) - 0.65) > 1e-6 || pair.length !== 2 || pair[0].photo === pair[1].photo) {
+    twin.push(`second document : exposition d'import 0 et photo distincte attendues, premier inchangé à 0.65 (second ${show(expT)}, premier ${show(expB2)}, documents ${show(pair)})`);
+  }
+  at = await call('mark');
+  await engine('develop.set', { control: 'light.exposure', value: 0.1 });
+  await call('wait', at, 'evora:dirty', { docRef: docT, dirty: true }, 8000);
+  const rT = await call('req', 'evora:request-save', { reason: 'user', docRef: docT }, ['evora:save', 'evora:ack'], 15000);
+  const sT = rT.reply && rT.reply.type === 'evora:save' ? rT.reply : null;
+  const metaT = sT && sT.envelope ? sT.envelope.meta : null;
+  const xmpT = sT && sT.envelope ? String(sT.envelope.xmp || '') : '';
+  if (!metaT || metaT.rating !== 0 || metaT.label !== null || metaT.flag !== 'none' || xmpT.includes(LOCAL_CAPTION)) {
+    twin.push(`second document : marques et légende du premier héritées (note 0, ni étiquette, ni drapeau, ni légende attendus) : ${show({ meta: metaT, caption: xmpT.includes(LOCAL_CAPTION) })}`);
+  }
+  if (sT) {
+    await call('answer', 'evora:saved', sT.id, { ok: true, version: 2 });
+    await call('wait', rT.at, 'evora:dirty', { docRef: docT, dirty: false }, 8000);
+  }
+  // le second document se ferme (sa copie quitte la séance) : l'export de l'étape 8 garde un rattachement univoque
+  at = await call('mark');
+  const shut = (await call('req', 'evora:command', { command: 'photo.delete', params: {}, confirmed: true }, ['evora:ack'], 20000)).reply;
+  const closedT = await call('wait', at, 'evora:closed', { docRef: docT }, 8000);
+  if (!shut || shut.payload.ok !== true || !closedT) twin.push(`second document non refermé : ${show({ ack: shut && shut.payload, closed: !!closedT })}`);
+  note('twin', { exposure: expT, first: expB2, meta: metaT, problems: twin });
+  if (twin.length) errors.push(`[ehp-copy-reset] ${twin.join(' ; ').slice(0, 700)}`);
+  // la première photo revient devant (étapes suivantes) ; le premier document, modifié en 7g, est enregistré
+  const rB = await call('req', 'evora:request-save', { reason: 'user', docRef: docB }, ['evora:save', 'evora:ack'], 15000);
+  if (rB.reply && rB.reply.type === 'evora:save') {
+    await call('answer', 'evora:saved', rB.reply.id, { ok: true, version: 4 });
+    await call('wait', rB.at, 'evora:dirty', { docRef: docB, dirty: false }, 8000);
+  }
   await call('req', 'evora:activate', { docRef: docA }, ['evora:ack'], 15000);
 
   // 8. Export de deux photos : deux evora:export, chacun du docRef de sa photo ; aucun téléchargement
