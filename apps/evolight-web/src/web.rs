@@ -762,9 +762,9 @@ impl WebApp {
                     ack(&id, true, None);
                 }
                 HostEvent::Open { id, doc_ref, name, bytes } => match self.open_bytes(&name, bytes) {
-                    Ok(photo) => {
-                        // EVORA-REV-29: the photo is the host's document `doc_ref`
-                        let photo = self.docs.bind(&mut self.app, &doc_ref, PhotoId(photo));
+                    Ok((photo, fresh)) => {
+                        // EVORA-REV-29: the photo is the host's document `doc_ref` (EVORA-REV-56: `fresh`, imported now)
+                        let photo = self.docs.bind(&mut self.app, &doc_ref, PhotoId(photo), fresh);
                         log::info!("evolight: {name} opened from the host (docRef {doc_ref}, photo {})", photo.0);
                         ack(&id, true, None);
                         self.docs.opened(&doc_ref);
@@ -809,8 +809,9 @@ impl WebApp {
 
     /// Evora (E4, `evora:open`; the in-crate counterpart of REV-01's `import_bytes`): import a
     /// photo the host sends as bytes, kept in memory only, and make it the active photo. Returns
-    /// its id, or the EHP code and the reason it wasn't opened.
-    fn open_bytes(&mut self, name: &str, bytes: Vec<u8>) -> Result<u64, (&'static str, String)> {
+    /// its id and whether the import created it now (EVORA-REV-56: not a duplicate of a photo the
+    /// engine has, nor one restored from its trash), or the EHP code and the reason it wasn't opened.
+    fn open_bytes(&mut self, name: &str, bytes: Vec<u8>) -> Result<(u64, bool), (&'static str, String)> {
         // v0.14.0: the accept list is derived from the engine's import extensions (`accept_list`)
         let ext = name.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()).unwrap_or_default();
         if ext.is_empty() || !accept_list().split(',').any(|a| a.trim_start_matches('.') == ext) {
@@ -821,12 +822,13 @@ impl WebApp {
         self.originals.insert(&hash, Arc::from(bytes));
         let report = self.app.run("library.import", json!({"paths": [path]})).map_err(|e| ("invalid_content", e))?;
         let first = |k: &str| report[k].as_array().and_then(|a| a.first()).and_then(serde_json::Value::as_u64);
-        let id = first("imported")
+        let fresh = first("imported");
+        let id = fresh
             .or_else(|| first("restored"))
             .or_else(|| report["duplicates"].as_array().and_then(|a| a.first()).and_then(|d| d["existing"].as_u64()))
             .ok_or_else(|| ("invalid_content", format!("not imported: {report}")))?;
         self.app.session.selection = Selection::single(PhotoId(id));
-        Ok(id)
+        Ok((id, fresh.is_some()))
     }
 
     fn web_stats(&self) -> serde_json::Value {

@@ -27,10 +27,11 @@
 //! - **XMP auto-write** is held off: the host writes the sidecar, never the engine.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 use evolight_engine::Selection;
-use evolight_engine::catalog::{ColorLabel, Flag, Op, PhotoId, Source};
+use evolight_engine::catalog::{ColorLabel, Flag, Meta, Op, PhotoId, Source};
 use evolight_ui_egui::EvoLightApp;
 use serde_json::{Value, json};
 
@@ -73,6 +74,8 @@ pub struct HostDocs {
     /// The `docRef` of the last `evora:active`.
     told_active: Option<String>,
     next_check: f64,
+    /// EVORA-REV-56: the metadata each photo had when it was first imported (by photo id), for resets.
+    import_meta: HashMap<u64, Box<Meta>>,
 }
 
 /// What the export writer needs of each document: `docRef`, the original's content hash and
@@ -173,7 +176,13 @@ impl HostDocs {
     /// `evora:open` of `doc_ref` imported as `photo`: the document is bound to it (a second
     /// document of the same photo gets its own virtual copy, so two documents never share their
     /// settings). Returns the photo bound; the photo becomes the one shown.
-    pub fn bind(&mut self, app: &mut EvoLightApp, doc_ref: &str, photo: PhotoId) -> PhotoId {
+    /// `fresh`: the import created the photo now (not a duplicate, not restored from the trash).
+    pub fn bind(&mut self, app: &mut EvoLightApp, doc_ref: &str, photo: PhotoId, fresh: bool) -> PhotoId {
+        // EVORA-REV-56: a freshly imported photo's metadata IS its import state, kept for later resets
+        if fresh && let Some(p) = app.session.catalog.photo(photo) {
+            self.import_meta.insert(photo.0, Box::new(p.meta.clone()));
+        }
+        let original = photo;
         let shared = self.docs.iter().any(|d| d.photo == photo && d.doc_ref != doc_ref);
         let photo = if shared {
             let copy = app.run("photo.virtualCopy", json!({"ids": [photo.0]})).ok();
@@ -182,12 +191,15 @@ impl HostDocs {
             photo
         };
         app.session.selection = Selection::single(photo);
-        // EVORA-REV-51: the same document again (« Reload the server's version », HOST-PROTOCOL §6.2). Its
-        // original's bytes are the same, so the import found the photo as a duplicate, with its LOCAL settings and
-        // marks; it goes back to its import state before the host reapplies the server's (`revela.apply`): the
-        // settings JSON omits some fields at their default (`hdr`, `camera_local_tone`…), which a merge never resets.
-        if self.index(doc_ref).is_some() {
-            reset_to_import(app, photo);
+        // EVORA-REV-51, -56: a photo the engine already had goes back to its import state before the host reapplies
+        // the server's (`revela.apply`): the same document again (« Reload the server's version », HOST-PROTOCOL
+        // §6.2), a second document of the same original (another variant: a virtual copy that cloned the first
+        // document's state), a photo restored from the engine's trash. Its settings JSON omits some fields at their
+        // default (`hdr`, `camera_local_tone`…), which a merge never resets. Never a photo another document holds
+        // (a copy that failed falls back to it).
+        let held_by_other = self.docs.iter().any(|d| d.photo == photo && d.doc_ref != doc_ref);
+        if (!fresh || photo != original) && !held_by_other {
+            reset_to_import(app, photo, self.import_meta.get(&original.0).map(|m| &**m));
         }
         let baseline = fingerprint(app, photo).unwrap_or_default();
         match self.index(doc_ref) {
@@ -462,18 +474,24 @@ impl HostDocs {
     }
 }
 
-/// EVORA-REV-51: photo `photo` back to its import state on a reload: develop settings to the
-/// engine's own import defaults (`develop.reset`, the photo's defaults or the default preset's
-/// look), and no rating, flag or label. Failures are logged: the host's settings still follow.
-fn reset_to_import(app: &mut EvoLightApp, photo: PhotoId) {
+/// EVORA-REV-51, -56: photo `photo` back to its import state: develop settings to the engine's own
+/// import defaults (`develop.reset`, the photo's defaults or the default preset's look), no rating,
+/// flag or label, and the metadata the import read (`import_meta`, kept at the photo's first open).
+/// Failures are logged: the host's settings still follow.
+fn reset_to_import(app: &mut EvoLightApp, photo: PhotoId, import_meta: Option<&Meta>) {
     if let Err(e) = app.run("develop.reset", json!({"ids": [photo.0]})) {
         log::warn!("evolight: reload of photo {}: develop settings not reset: {e}", photo.0);
     }
-    let ops = vec![
+    let mut ops = vec![
         Op::SetRating { id: photo, rating: 0 },
         Op::SetFlag { id: photo, flag: Flag::None },
         Op::SetLabel { id: photo, label: None },
     ];
+    // EVORA-REV-56: the metadata (title, caption, keywords…) as the import read them; the camera fields come back too
+    match import_meta {
+        Some(meta) => ops.push(Op::SetMeta { id: photo, meta: Box::new(meta.clone()) }),
+        None => log::warn!("evolight: reload of photo {}: no import metadata kept, metadata left as they are", photo.0),
+    }
     if let Err(e) = app.session.commit(RELOAD_LABEL, Op::Batch { ops }) {
         log::warn!("evolight: reload of photo {}: marks not reset: {e}", photo.0);
     }
