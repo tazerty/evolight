@@ -49,7 +49,7 @@ impl App {
 
     /// The app's page on upstream-site.com.
     pub fn website(&self) -> String {
-        format!("https://evora.st", self.id)
+        format!("https://evora.st/{}", self.id)
     }
 
     /// Asset stems this app's releases may use, current first.
