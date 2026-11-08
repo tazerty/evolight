@@ -11,7 +11,7 @@ repository = "vendor/evo-libs"
 default = []
 egui = ["dep:egui", "dep:image"]
 local-mirror = []
-snapshot = ["egui", "egui_kittest/wgpu"]
+snapshot = ["egui"]
 
 [dependencies]
 egui = { version = "0.37", default-features = false, optional = true }
