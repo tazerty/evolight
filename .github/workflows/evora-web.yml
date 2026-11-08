@@ -306,6 +306,9 @@ jobs:
           done
           # E1 : mention en texte simple du projet d'origine, seulement dans LICENSES/ (licence de marque amont).
           cp packaging/evora/NOTICE-EVORA.txt "$WORK/$NAME/LICENSES/"
+          # EVORA-REV-66 : Inter est embarquée dans le .wasm (theme.rs) ; copy_font_licences livre toujours
+          # son OFL à côté de NOTICE (OFL-Inter.txt), comme NOTICE l'annonce.
+          cp assets/fonts/OFL-Inter.txt "$WORK/$NAME/LICENSES/OFL-Inter.txt"
           for lic in evo-fonts/fonts/*/OFL.txt; do
             [ -f "$lic" ] || continue
             cp "$lic" "$WORK/$NAME/LICENSES/OFL-$(basename "$(dirname "$lic")").txt"
@@ -406,6 +409,9 @@ jobs:
           [ "$a" = "$b" ] || { echo "::error::evolight_zh_hans.otf ($b) diffère de la face de evo-fonts ($a)"; exit 1; }
           [ "$b" = "$pinned" ] || { echo "::error::evolight_zh_hans.otf ($b) diffère de l'empreinte du manifeste ($pinned)"; exit 1; }
           cmp -s "$lic" "$DIR/OFL-noto-sans-cjk-sc.txt" || { echo "::error::licence OFL de la police chinoise absente ou différente"; exit 1; }
+          # EVORA-REV-66 : licence OFL d'Inter (police embarquée dans le .wasm), identique à celle de l'arbre
+          cmp -s assets/fonts/OFL-Inter.txt "$DIR/LICENSES/OFL-Inter.txt" || { echo "::error::licence OFL d'Inter absente de LICENSES/ ou différente de assets/fonts/OFL-Inter.txt"; exit 1; }
+          inter_ofl="$(sha256sum "$DIR/LICENSES/OFL-Inter.txt" | cut -d' ' -f1)"
           n_ofl="$(find "$DIR/LICENSES" -name 'OFL-*.txt' | wc -l)"
           wasm="$(stat -c %s "$DIR/evolight_web_bg.wasm")"; font="$(stat -c %s "$served")"
           {
@@ -414,6 +420,7 @@ jobs:
             echo "- evo-fonts : $have (épinglé)"
             echo "- police chinoise servie à part : evolight_zh_hans.otf, $font o, sha256 $b, identique à $font_path de evo-fonts et à l'empreinte de son manifeste"
             echo "- licence : OFL-noto-sans-cjk-sc.txt identique à $lic_path ; $n_ofl fichiers OFL dans LICENSES/"
+            echo "- Inter : LICENSES/OFL-Inter.txt identique à assets/fonts/OFL-Inter.txt (sha256 $inter_ofl)"
             echo "- module wasm (Inter, police japonaise BIZ UDPGothic, polices thaïe Noto Sans Thai et géorgienne Noto Sans Georgian embarquées) : $wasm o"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
