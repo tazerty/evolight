@@ -143,6 +143,8 @@ export const WITNESS_FLAWS = [
   ['selecteur-absent', '[ehp-pick]'],
   ['sans-focus-out', '[ehp-focus-out]'],
   ['demo-au-demarrage', '[ehp-boot-neutral]'],
+  // EVORA-REV-64 : aucune fenêtre du moteur ouverte d'elle-même au démarrage (visite de premier lancement, What's New)
+  ['visite-au-demarrage', '[ehp-boot-neutral]'],
   // EVORA-REV-34 : finitions du moteur
   ['menus-vivants', '[ehp-menus-masked]'],
   ['marque-affichee', '[ehp-brand]'],
@@ -590,7 +592,7 @@ export const WITNESS_JS = `'use strict';
       return JSON.stringify({ language: st.language, theme: { evora: st.evora, dark: st.dark, accent: st.accent }, storage: 'memory',
         photos: st.photos, active: a ? a.name : null, activeThumb: !!a, activeFailure: null, renderQueue: 0, rendersInFlight: 0,
         host: { docs: st.docs.map((d) => ({ docRef: d.docRef, photo: d.photo, name: d.name, dirty: sig(d) !== d.baseline, inFlight: d.inflight.length })),
-          active: st.active, autoWrite: false, neutral: { bench: false, backup: false, restore: false } } });
+          active: st.active, autoWrite: false, neutral: { bench: false, backup: false, restore: false, dialog: flaw === 'visite-au-demarrage' } } });
     }
     if (id === 'web.menus') {
       const items = kept.map((k) => ({ id: k, label: k === 'app.about' ? 'About Revela' : k, path: ['File'] }));
@@ -964,12 +966,14 @@ export async function runEhp(ctx) {
   }
 
   // EVORA-REV-29 : démarrage neutre sous le pont (ni photos de démonstration, ni ?bench, ni
-  // sauvegarde ou restauration de photothèque, écriture automatique du XMP coupée)
+  // sauvegarde ou restauration de photothèque, écriture automatique du XMP coupée) ; EVORA-REV-64 :
+  // ni fenêtre du moteur ouverte d'elle-même (visite de premier lancement, What's New), qui ferait
+  // répondre « busy » à evora:activate tant que le membre ne l'a pas fermée
   const h1 = s1.host || {};
   const neutral = h1.neutral || {};
-  if (s1.photos !== 0 || neutral.bench !== false || neutral.backup !== false || neutral.restore !== false || h1.autoWrite !== false
-    || !Array.isArray(h1.docs) || h1.docs.length !== 0) {
-    errors.push(`[ehp-boot-neutral] démarrage sous le pont non neutre (attendu 0 photo, ni banc, ni sauvegarde, ni restauration, XMP manuel) : ${show({ photos: s1.photos, host: s1.host })}`);
+  if (s1.photos !== 0 || neutral.bench !== false || neutral.backup !== false || neutral.restore !== false || neutral.dialog !== false
+    || h1.autoWrite !== false || !Array.isArray(h1.docs) || h1.docs.length !== 0) {
+    errors.push(`[ehp-boot-neutral] démarrage sous le pont non neutre (attendu 0 photo, ni banc, ni sauvegarde, ni restauration, aucune fenêtre ouverte, XMP manuel) : ${show({ photos: s1.photos, host: s1.host })}`);
   }
 
   const before = s1.photos;

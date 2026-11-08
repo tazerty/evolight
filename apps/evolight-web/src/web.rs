@@ -673,6 +673,12 @@ impl WebApp {
             app.ui = ui;
         }
         app.ui = app.ui.sanitized();
+        // Evora (EVORA-REV-64, REV-07, D-10): under the host (memory mode, no ui.json kept), the
+        // running version counts as seen, so neither the first-run tour (library, albums, imports,
+        // printing) nor What's New opens at every session and holds `evora:activate` as `busy`
+        if opts.host {
+            app.ui.record_startup_dialog_seen();
+        }
         // Evora (E3): the host's language wins over the one saved in this browser.
         if let Some(tag) = opts.lang.as_deref() {
             app.ui.language = host_language(tag);
@@ -1031,6 +1037,8 @@ impl WebApp {
                 "bench": self.bench.is_some(),
                 "backup": self.app.services.backup_library.is_some(),
                 "restore": self.app.services.restore_library.is_some(),
+                // EVORA-REV-64: no engine dialog open on its own (first-run tour, What's New)
+                "dialog": self.app.ui.dialog.is_some(),
             });
             v
         });
