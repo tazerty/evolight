@@ -1132,8 +1132,9 @@ fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::
         let definitions = fonts.definitions();
         let proportional = definitions.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
         let faces: Vec<String> = definitions.font_data.keys().cloned().collect();
-        let mut font = fonts.fonts.font(&egui::FontFamily::Proportional);
-        let covered = font.characters();
+        // egui 0.37: the family's character map is read through `FontsView::characters` (the
+        // `fonts` field and `FontsImpl::font` of 0.36 are gone)
+        let covered = fonts.characters(&egui::FontFamily::Proportional);
         let coverage: BTreeMap<char, Vec<String>> = chars.iter().map(|c| (*c, covered.get(c).cloned().unwrap_or_default())).collect();
         (proportional, faces, coverage)
     });
