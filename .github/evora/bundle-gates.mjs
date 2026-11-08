@@ -43,6 +43,11 @@ const HOSTING_EXT = new Set(['.conf', '.php', '.phtml', '.phar', '.cgi', '.pl', 
 // Fichiers servis qui doivent avoir leurs copies précompressées fidèles (.gz et .br).
 const COMPRESSIBLE = new Set(['.html', '.js', '.wasm', '.otf']);
 const LICENSES_DIR = 'LICENSES';
+// EVORA-REV-70 : modules JS que wasm-bindgen extrait des crates (inline_js, module = …) sous
+// snippets/<crate>-<empreinte>/ ; evolight_web.js les importe : ils font partie du site. Seuls des
+// dossiers et des modules .js (et leurs copies .gz/.br) y sont admis.
+const SNIPPETS_DIR = 'snippets';
+const SNIPPET_FILE = /\.js(?:\.gz|\.br)?$/;
 const CSP_FILE = 'csp-hashes.txt';
 
 function walk(root) {
@@ -65,6 +70,7 @@ function walk(root) {
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 const inLicenses = (rel) => rel === LICENSES_DIR || rel.startsWith(LICENSES_DIR + '/');
 const isCompressedCopy = (rel) => rel.endsWith('.gz') || rel.endsWith('.br');
+const inSnippets = (rel) => rel === SNIPPETS_DIR || rel.startsWith(SNIPPETS_DIR + '/');
 
 function countAll(haystack, needle) {
   let n = 0;
@@ -117,7 +123,10 @@ function hostingProblem(rel, kind) {
   if (HOSTING_NAMES.has(name.toLowerCase())) return "fichier d'hébergement";
   if (HOSTING_EXT.has(extname(name).toLowerCase())) return 'extension interprétable par un serveur';
   if (name.startsWith('.')) return 'fichier caché';
-  if (kind === 'dir' && rel !== LICENSES_DIR) return 'dossier inattendu (seul LICENSES/ est admis)';
+  if (inSnippets(rel)) {
+    return kind === 'dir' || SNIPPET_FILE.test(name) ? null : 'fichier inattendu sous snippets/ (seuls les modules .js de wasm-bindgen sont admis)';
+  }
+  if (kind === 'dir' && rel !== LICENSES_DIR) return 'dossier inattendu (seuls LICENSES/ et snippets/ sont admis)';
   return null;
 }
 
@@ -315,7 +324,10 @@ function render(results, title) {
 }
 
 // --- Auto-test : chaque porte rougit sur un paquet piégé, et le témoin reste vert -------------
-function makePackage(base, name, { trapped, app: appText }) {
+// EVORA-REV-70 : module de wasm-bindgen tel qu'eframe en produit un (inline_js), sous-dossier compris
+const SNIPPET_SAMPLE = `${SNIPPETS_DIR}/eframe-0123456789abcdef/inline0.js`;
+
+function makePackage(base, name, { trapped, app: appText, strayDirs = false }) {
   const top = join(base, name);
   const dir = join(top, 'pkg');
   mkdirSync(join(dir, LICENSES_DIR), { recursive: true });
@@ -323,8 +335,9 @@ function makePackage(base, name, { trapped, app: appText }) {
     + (trapped ? '<button onclick="go()">x</button>' : '') + '\n';
   const app = appText ?? (trapped ? `console.log("Join the ${BRAND} Discord https://discord.gg/x")\n` : 'console.log("ok")\n');
   const wasm = Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
-  const files = { 'index.html': index, 'app.js': app, 'm.wasm': wasm };
+  const files = { 'index.html': index, 'app.js': app, 'm.wasm': wasm, [SNIPPET_SAMPLE]: 'export function probe() { return 1; }\n' };
   for (const [f, data] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, f)), { recursive: true });
     writeFileSync(join(dir, f), data);
     writeFileSync(join(dir, f + '.gz'), gzipSync(Buffer.from(data)));
     if (!(trapped && f === 'm.wasm')) writeFileSync(join(dir, f + '.br'), brotliCompressSync(Buffer.from(data)));
@@ -334,6 +347,12 @@ function makePackage(base, name, { trapped, app: appText }) {
     writeFileSync(join(dir, 'app.js.gz'), gzipSync(Buffer.from('console.log("autre")\n')));
     for (const f of ['.htaccess', '_headers', 'site.conf']) writeFileSync(join(dir, f), 'x\n');
     symlinkSync('index.html', join(dir, 'lien.html'));
+  }
+  if (strayDirs) {
+    // EVORA-REV-70 : un dossier hors de LICENSES/ et snippets/, et un fichier non .js sous snippets/
+    mkdirSync(join(dir, 'autre'), { recursive: true });
+    writeFileSync(join(dir, 'autre', 'x.txt'), 'x\n');
+    writeFileSync(join(dir, dirname(SNIPPET_SAMPLE), 'note.txt'), 'x\n');
   }
   writeCsp(dir);
   if (trapped) writeFileSync(join(dir, CSP_FILE), cspFileText([{ file: 'index.html', hash: "'sha256-AAAA'" }]));
@@ -348,6 +367,8 @@ function selftest() {
   const clean = makePackage(base, 'temoin', { trapped: false });
   // EVORA-REV-68 : un paquet propre en tout, sauf des restes de marque tels que le renommage les écrit
   const renamed = gateBrands(makePackage(base, 'renomme', { trapped: false, app: `console.log(${JSON.stringify(RENAMED_BRAND_SAMPLE)})\n` }).dir);
+  const stray = makePackage(base, 'dossiers', { trapped: false, strayDirs: true });
+  const s = gateHosting(stray.dir, stray.zip);
   const t = Object.fromEntries(checkAll(trap.dir, trap.zip).map((r, i) => [i, r]));
   const c = checkAll(clean.dir, clean.zip);
   const checks = [
@@ -361,6 +382,15 @@ function selftest() {
     ['CSP : rouge sur un gestionnaire inline et un fichier d\'empreintes faux', !t[3].ok && t[3].details.some((d) => d.includes('onclick')) && t[3].details.some((d) => d.includes('ne correspond pas'))],
     ['témoin : toutes les portes vertes', c.every((r) => r.ok)],
     ['témoin : une empreinte CSP calculée', c[3].metrics.hashes.length === 1],
+    // EVORA-REV-70 : snippets/ de wasm-bindgen admis (témoin vert ci-dessus), ses modules précompressés et jugés
+    ['témoin : le module de snippets/ est jugé par la précompression', c[2].metrics.files.some((f) => f.file === SNIPPET_SAMPLE)],
+    ['hébergement : rouge sur un autre dossier et sur un fichier non .js sous snippets/, dossier extrait et archive',
+      !s.ok && s.details.some((d) => d === 'autre : dossier inattendu (seuls LICENSES/ et snippets/ sont admis)')
+      && s.details.some((d) => d.startsWith(`${dirname(SNIPPET_SAMPLE)}/note.txt : fichier inattendu sous snippets/`))
+      && s.details.some((d) => d.startsWith('archive') && d.includes('pkg/autre/'))
+      && s.details.some((d) => d.startsWith('archive') && d.includes('note.txt'))
+      // ces quatre-là seulement : snippets/, son sous-dossier et ses modules restent admis
+      && s.details.filter((d) => !d.startsWith('archive')).length === 2 && s.details.filter((d) => d.startsWith('archive')).length === 2],
     // EVORA-REV-34 (DT-S20) : budget du .wasm (8 octets dans le paquet) en mode rapport, puis bloquant
     ['taille : budget dépassé en mode rapport, porte verte et dépassement consigné',
       ((r) => r.ok && r.metrics.over === true && r.metrics.budgetMode === 'rapport')(measureSize(clean.dir, clean.zip, { bytes: 4, mode: 'rapport' }))],

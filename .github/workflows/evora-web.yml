@@ -293,13 +293,30 @@ jobs:
           if grep -Eq '(src|href)="/[^/]' "$SITE/index.html"; then
             echo "::error::$SITE/index.html contient des URL absolues depuis la racine"; exit 1
           fi
-          # Le site produit par xtask est plat : un sous-dossier ou un lien symbolique signale un changement amont à relire.
-          odd="$(find "$SITE" -mindepth 1 \( -type d -o -type l \) -print)"
+          # Le site produit par xtask est plat, sauf snippets/ (EVORA-REV-70) : les modules JS que wasm-bindgen
+          # extrait des crates (inline_js de la fourche d'eframe depuis v0.19.0), importés par evolight_web.js,
+          # donc indispensables au démarrage. Tout autre sous-dossier, un lien symbolique, ou sous snippets/ autre
+          # chose qu'un module .js régulier, signale un changement amont à relire.
+          odd="$(find "$SITE" -mindepth 1 \( -type l \
+            -o \( -type d ! -path "$SITE/snippets" ! -path "$SITE/snippets/*" \) \
+            -o \( -path "$SITE/snippets/*" ! -type d ! \( -type f -name '*.js' \) \) \) -print)"
           if [ -n "$odd" ]; then echo "::error::structure inattendue dans $SITE :"; echo "$odd"; exit 1; fi
           mkdir -p "$WORK/$NAME/LICENSES" "$OUT"
           # Copie des fichiers réguliers du site (avec leurs copies .gz/.br produites par xtask), sans fichiers
           # cachés ni fichiers d'hébergement (ni _headers ni .htaccess ni HOSTING.md : Evora pose ses propres en-têtes).
           find "$SITE" -maxdepth 1 -type f ! -name '.*' ! -name '_headers' ! -name '*.conf' -exec cp {} "$WORK/$NAME/" \;
+          # EVORA-REV-70 : modules de wasm-bindgen, avec leurs copies précompressées (xtask ne précompresse que
+          # ses propres fichiers ; la porte du bundle exige .gz et .br fidèles pour tout .js servi).
+          if [ -d "$SITE/snippets" ]; then
+            cp -R "$SITE/snippets" "$WORK/$NAME/snippets"
+            find "$WORK/$NAME/snippets" -type f -name '*.js' -print0 | LC_ALL=C sort -z |
+              while IFS= read -r -d '' f; do
+                gzip -9 -n -k "$f"
+                brotli -q 11 -k "$f"
+              done
+            echo "Modules de wasm-bindgen livrés :"
+            (cd "$WORK/$NAME" && find snippets -type f | LC_ALL=C sort | xargs -r ls -l)
+          fi
           # Licences et mentions (logique copy_docs et copy_font_licences de packaging/env.sh, README exclu).
           for f in LICENSE LICENSE-MIT LICENSE-APACHE COPYRIGHT NOTICE assets/ATTRIBUTION.md; do
             if [ -f "$f" ]; then cp "$f" "$WORK/$NAME/LICENSES/"; fi
