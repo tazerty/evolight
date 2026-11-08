@@ -51,6 +51,8 @@ const MAX_COMMAND_RESULT_BYTES: usize = 65_536;
 const CHECK_EVERY_S: f64 = 0.25;
 /// The history label of `revela.apply`.
 const APPLY_LABEL: &str = "Evora";
+/// The history label of a reload's reset to the import state (EVORA-REV-51).
+const RELOAD_LABEL: &str = "Evora reload";
 
 /// One of the host's documents.
 struct Doc {
@@ -180,6 +182,13 @@ impl HostDocs {
             photo
         };
         app.session.selection = Selection::single(photo);
+        // EVORA-REV-51: the same document again (« Reload the server's version », HOST-PROTOCOL §6.2). Its
+        // original's bytes are the same, so the import found the photo as a duplicate, with its LOCAL settings and
+        // marks; it goes back to its import state before the host reapplies the server's (`revela.apply`): the
+        // settings JSON omits some fields at their default (`hdr`, `camera_local_tone`…), which a merge never resets.
+        if self.index(doc_ref).is_some() {
+            reset_to_import(app, photo);
+        }
         let baseline = fingerprint(app, photo).unwrap_or_default();
         match self.index(doc_ref) {
             // the same document again: its content is the host's again (« Reload the server's version »)
@@ -450,6 +459,23 @@ impl HostDocs {
             })
             .collect();
         json!({"docs": docs, "active": self.told_active, "autoWrite": app.session.xmp.auto_write})
+    }
+}
+
+/// EVORA-REV-51: photo `photo` back to its import state on a reload: develop settings to the
+/// engine's own import defaults (`develop.reset`, the photo's defaults or the default preset's
+/// look), and no rating, flag or label. Failures are logged: the host's settings still follow.
+fn reset_to_import(app: &mut EvoLightApp, photo: PhotoId) {
+    if let Err(e) = app.run("develop.reset", json!({"ids": [photo.0]})) {
+        log::warn!("evolight: reload of photo {}: develop settings not reset: {e}", photo.0);
+    }
+    let ops = vec![
+        Op::SetRating { id: photo, rating: 0 },
+        Op::SetFlag { id: photo, flag: Flag::None },
+        Op::SetLabel { id: photo, label: None },
+    ];
+    if let Err(e) = app.session.commit(RELOAD_LABEL, Op::Batch { ops }) {
+        log::warn!("evolight: reload of photo {}: marks not reset: {e}", photo.0);
     }
 }
 
