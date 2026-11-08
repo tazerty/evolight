@@ -45,8 +45,16 @@ exceptions = [
 ]
 
 [sources]
-# Seuls crates.io et la dépendance git épinglée de l'amont (vendor/evo-libs, révision du Cargo.lock).
+# Seuls crates.io et, depuis v0.19.0, les fourches d'egui et de winit que l'amont tire par git
+# ([patch.crates-io] du Cargo.toml, révision épinglée du Cargo.lock) ; ses bibliothèques sont recopiées
+# sous vendor/evo-libs. Chaque adresse est écrite avec et sans « .git » : celle que cargo-deny ne
+# rencontre pas ne donne qu'un avertissement.
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+allow-git = [
+    "https://github.com/storytold/egui",
+    "https://github.com/storytold/egui.git",
+    "https://github.com/storytold/winit",
+    "https://github.com/storytold/winit.git",
+]

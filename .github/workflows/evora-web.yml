@@ -58,17 +58,23 @@ concurrency:
 
 env:
   # Tag amont épinglé et son commit (D-19) ; la branche doit s'appeler evora/<UPSTREAM_TAG>.
-  UPSTREAM_TAG: v0.14.0
-  UPSTREAM_COMMIT: 03c88c166c054c009db2a47187d59991f6232b85
+  UPSTREAM_TAG: v0.19.0
+  UPSTREAM_COMMIT: 16636c45a63bff3065a6fd31aecc22a6fc15ca53
   # Aucun rust-toolchain(.toml) dans le dépôt : version stable exacte, celle du job « Web (wasm) »
-  # réussi de la release amont v0.14.0 (run 40197629258, rustc 1.99.1), conforme au README amont
+  # réussi de la release amont v0.19.0 (run 42280437097, job 128108175534, rustc 1.99.1), conforme au README amont
   # (Rust >= 1.95) et au rust-version du Cargo.toml (1.95).
   RUST_VERSION: "1.99.1"
   # Doit être égal à la version de wasm-bindgen dans Cargo.lock (cargo xtask web le vérifie).
   WASM_BINDGEN_VERSION: "0.2.129"
-  # tazerty/evo-fonts à la révision du release.yml amont au tag (« bump deliberately ») ; depuis
+  # tazerty/evo-fonts, copie de la révision du release.yml amont (« bump deliberately ») ; depuis
   # v0.9.1, crates/engine/build.rs exige Noto Sans Thai Regular quand EVO_FONTS_REQUIRED est posé,
   # et depuis v0.14.0 le module web embarque aussi Noto Sans Georgian (présente à cette révision).
+  # v0.19.0 : la release amont prend une révision plus récente des polices (b076417), dont
+  # tazerty/evo-fonts n'a pas de copie ; elle n'ajoute que des faces au manifeste (Devanagari,
+  # Hebrew, Symbols, Symbols 2, NanumGothic) que le module web n'embarque pas (build.rs : seulement
+  # BIZ UDPGothic, Noto Sans Thai, Noto Sans Georgian sur wasm32), et les lignes du manifeste de ces
+  # trois faces et de la face chinoise servie à part sont identiques à l'octet : la copie de a71c20e
+  # est gardée.
   EVO_FONTS_REV: 694feb975e8c85807341856d54c4973949dac49e
   # Outils des portes : binaires officiels épinglés par version ET par empreinte (digest publié par
   # GitHub pour l'asset de la release, relu le 2026-10-13).
