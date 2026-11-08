@@ -186,8 +186,7 @@ impl HostDocs {
         // original's bytes are the same, so the import found the photo as a duplicate, with its LOCAL settings and
         // marks; it goes back to its import state before the host reapplies the server's (`revela.apply`): the
         // settings JSON omits some fields at their default (`hdr`, `camera_local_tone`…), which a merge never resets.
-        if self.index(doc_ref).is_some() && doc_ref.is_empty() {
-            // SABORDAGE QA (EVORA-REV-53) : remise à l'état d'import jamais faite au rechargement
+        if self.index(doc_ref).is_some() {
             reset_to_import(app, photo);
         }
         let baseline = fingerprint(app, photo).unwrap_or_default();
