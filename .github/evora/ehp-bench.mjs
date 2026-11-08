@@ -67,7 +67,8 @@ export const REVELA_ACCEPT = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp',
 export const MASKED_IDS = ['file.importLightroom', 'file.addFolder', 'file.backupLibrary', 'file.importPresets', 'app.openLibrary', 'app.newLibrary',
   'dialog.newAlbum', 'dialog.smartAlbum', 'library.toggleAutoWriteXmp', 'library.compact', 'version.create', 'panel.versions', 'photo.virtualCopy',
   'photo.tagFromTracklog', 'metadata.downloadPlaceNames', 'faces.detect', 'view.people', 'dialog.mergeHdr', 'dialog.mergePanorama', 'stack.group',
-  'photo.saveMetadataToFile', 'photo.editInEvoPhoto', 'app.help', 'app.github', 'app.whatsNew', 'app.quit', 'app.language.french', 'view.secondWindow'];
+  'photo.saveMetadataToFile', 'photo.editInEvoPhoto', 'app.help', 'app.github', 'app.whatsNew', 'app.quit', 'app.language.french', 'view.secondWindow',
+  'app.checkForUpdates'];
 export const MASKED_SUBMENUS = ['Open Recent Library', 'Import from Device', 'Add to Album', 'Stack', 'Stacks', 'Photo Merge', 'Previews', 'Edit In',
   'Appearance', 'Language', 'Sidebar Sections', 'Debug', 'Loupe Overlay'];
 // Témoin des menus : ces entrées restent (un masquage qui viderait les menus rougit).
@@ -76,12 +77,12 @@ export const KEPT_IDS = ['file.addPhotos', 'dialog.export', 'edit.undo', 'develo
 // paramètres, ce qui y est destructif, et les seules entrées « file.* » admises.
 export const CATALOG_IDS = ['edit.undo', 'develop.treatment', 'develop.auto', 'photo.rotateLeft', 'photo.pick', 'photo.rate', 'photo.flag', 'photo.label',
   'photo.delete', 'dialog.export', 'file.addPhotos', 'photo.unflag', 'develop.reset', 'beforeAfter.resetBefore', 'ui.dock.reset', 'panel.remove',
-  'library.clearFilter'];
+  'library.clearFilter', 'photo.clearLabel'];
 export const DECLARED_IDS = ['photo.rate', 'photo.flag', 'photo.label', 'develop.treatment'];
 // EVORA-REV-38 : les commandes que la coquille ne transmet qu'après l'accord du membre (règle d'Evora du
 // 2026-10-27 : tout ce qui retire du contenu ou un réglage, réversible ou non), et les seules commandes du
 // catalogue marquées « retrait » qui ne le sont pas, chacune justifiée.
-export const DESTRUCTIVE = ['photo.delete', 'photo.unflag', 'develop.reset', 'beforeAfter.resetBefore', 'ui.dock.reset'];
+export const DESTRUCTIVE = ['photo.delete', 'photo.unflag', 'photo.clearLabel', 'develop.reset', 'beforeAfter.resetBefore', 'ui.dock.reset'];
 export const DESTRUCTIVE_EXCEPTIONS = {
   'panel.remove': 'affiche le panneau de l\'outil « Retirer » (correcteur) ; la commande elle-même ne retire rien',
   'library.clearFilter': 'efface le filtre d\'affichage de la séance : aucune photo, retouche ni métadonnée touchée, rien d\'enregistré (mode mémoire)',

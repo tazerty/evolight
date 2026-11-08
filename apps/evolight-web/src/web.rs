@@ -1280,7 +1280,9 @@ pub fn start(chinese_font: Vec<u8>) {
         .and_then(|w| w.document())
         .and_then(|d| d.get_element_by_id("evolight_canvas"))
         .and_then(|e| e.dyn_into::<web_sys::HtmlCanvasElement>().ok());
-    let mode = crate::host::transport_for(canvas.as_ref().and_then(|c| c.get_attribute("data-host")).as_deref(), &opts.query);
+    // Evora (EVORA-REV-62, E4): under Evora's bridge (`?host=evora`) the upstream page bridge never opens,
+    // whatever the query or the canvas say: one host only, the one that speaks EHP and checks its origin
+    let mode = if opts.host { None } else { crate::host::transport_for(canvas.as_ref().and_then(|c| c.get_attribute("data-host")).as_deref(), &opts.query) };
     let bridge = mode.and_then(|m| crate::host::Bridge::for_mode(m, canvas.as_ref()));
     if mode == Some(crate::host::Mode::Parent) && bridge.is_none() {
         log::warn!(

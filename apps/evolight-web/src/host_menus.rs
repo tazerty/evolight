@@ -135,6 +135,8 @@ const MASKED: &[&str] = &[
     "app.github",
     "app.whatsNew",
     "app.openLogFolder",
+    // v0.19.0: the update check of the app (on the web, a window saying it is not supported)
+    "app.checkForUpdates",
     "view.frameRate",
     "@Debug",
 ];
@@ -157,10 +159,12 @@ pub const OFF_CATALOG: [&str; 6] =
 /// The commands Evora runs only with `confirmed: true` (EVORA-REV-38, Evora's rule of 2026-10-27):
 /// what removes the member's work or one of their settings, whether Edit › Undo gives it back or not
 /// — a deleted photo leaves Evora's documents (`evora:closed`), a flag removed, the develop settings
-/// or the « before » state reset, the panel layout reset. The CI bench proves the list: a catalog
+/// or the « before » state reset, the panel layout reset, a colour label cleared (`photo.clearLabel`,
+/// new in v0.19.0, like `photo.unflag`). The CI bench proves the list: a catalog
 /// command whose id or label says it removes something is in it, or in the bench's exceptions, each
 /// justified (a panel shown, a view filter cleared).
-pub const DESTRUCTIVE: [&str; 5] = ["photo.delete", "photo.unflag", "develop.reset", "beforeAfter.resetBefore", "ui.dock.reset"];
+pub const DESTRUCTIVE: [&str; 6] =
+    ["photo.delete", "photo.unflag", "photo.clearLabel", "develop.reset", "beforeAfter.resetBefore", "ui.dock.reset"];
 
 /// What one declared parameter takes.
 #[derive(Clone, Copy)]
