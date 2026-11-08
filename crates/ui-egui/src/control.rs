@@ -18,7 +18,7 @@ use std::sync::mpsc::Sender;
 
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 pub type ControlResponse = Value;
 
@@ -63,11 +63,11 @@ pub enum Outcome {
     Later,
     /// A capture was admitted: `target` pins the destination identity until the write.
     Screenshot {
-        target: Option<lightcraft_engine::originals::WriteTarget>,
+        target: Option<evolight_engine::originals::WriteTarget>,
         headless: bool,
     },
     /// A synthetic-input request that must wait for a fresh layout and for its last event to be
-    /// consumed before it is answered (see `LightcraftApp::admit_gesture`).
+    /// consumed before it is answered (see `EvoLightApp::admit_gesture`).
     Gesture {
         method: String,
         params: Value,
@@ -95,7 +95,7 @@ fn wrap(r: Result<Value, String>) -> Outcome {
     }
 }
 
-pub fn all_commands(app: &LightcraftApp) -> Value {
+pub fn all_commands(app: &EvoLightApp) -> Value {
     let keymap = &app.ui.settings.keymap;
     let mut v: Vec<Value> = app
         .session
@@ -120,7 +120,7 @@ fn rect_json(r: egui::Rect) -> Value {
     json!([r.left(), r.top(), r.width(), r.height()])
 }
 
-pub fn inspect(app: &LightcraftApp, ctx: &egui::Context) -> Value {
+pub fn inspect(app: &EvoLightApp, ctx: &egui::Context) -> Value {
     let r = ctx.content_rect();
     json!({
         "ui": serde_json::to_value(&app.ui).unwrap_or_default(),
@@ -133,7 +133,7 @@ pub fn inspect(app: &LightcraftApp, ctx: &egui::Context) -> Value {
         "selection": app.session.selection.ids.iter().map(|p| p.0).collect::<Vec<_>>(),
         "activeMask": app.session.active_mask,
         "widgetCount": app.widgets.len(),
-        "perf": {"viewFollowed": app.session.view_followed, "viewWorkedOut": app.session.view_worked_out, "frameMs": app.perf.frame_ms, "logicMs": app.perf.logic_ms, "updateMs": app.perf.update_ms, "maxUpdateMs": app.perf.max_update_ms, "fps": app.perf.fps, "lastRenderMs": app.renderer.last_main_ms, "renderQueue": app.renderer.queued(), "rendersInFlight": app.renderer.in_flight(), "pendingSlots": app.renderer.pending_slots(), "mergeRunning": app.merge.busy(), "lastMerge": app.merge.last_result, "rendersDone": app.renderer.completed, "thumbTextures": app.renderer.thumb_textures(), "thumbsMade": app.renderer.thumbs_made, "variantTextures": app.renderer.variant_textures(), "gpu": (lightcraft_engine::gpu::ready() && lightcraft_engine::gpu::available()).then(lightcraft_engine::gpu::adapter_name).flatten(), "gpuReason": lightcraft_engine::gpu::unavailable_reason(), "gpuFallback": lightcraft_engine::gpu::last_fallback(), "gpuWindowDevice": lightcraft_engine::gpu::on_window_device(), "screenTextures": app.renderer.has_screen_textures(), "mainOnGpu": app.renderer.textures.get(&crate::render::Slot::Main).is_some_and(|t| t.native.is_some()), "loupeSteps": app.loupe_timing.to_json(), "previewCache": preview_cache_json(app)},
+        "perf": {"viewFollowed": app.session.view_followed, "viewWorkedOut": app.session.view_worked_out, "frameMs": app.perf.frame_ms, "logicMs": app.perf.logic_ms, "updateMs": app.perf.update_ms, "maxUpdateMs": app.perf.max_update_ms, "fps": app.perf.fps, "lastRenderMs": app.renderer.last_main_ms, "renderQueue": app.renderer.queued(), "rendersInFlight": app.renderer.in_flight(), "pendingSlots": app.renderer.pending_slots(), "mergeRunning": app.merge.busy(), "lastMerge": app.merge.last_result, "rendersDone": app.renderer.completed, "thumbTextures": app.renderer.thumb_textures(), "thumbsMade": app.renderer.thumbs_made, "variantTextures": app.renderer.variant_textures(), "gpu": (evolight_engine::gpu::ready() && evolight_engine::gpu::available()).then(evolight_engine::gpu::adapter_name).flatten(), "gpuReason": evolight_engine::gpu::unavailable_reason(), "gpuFallback": evolight_engine::gpu::last_fallback(), "gpuWindowDevice": evolight_engine::gpu::on_window_device(), "screenTextures": app.renderer.has_screen_textures(), "mainOnGpu": app.renderer.textures.get(&crate::render::Slot::Main).is_some_and(|t| t.native.is_some()), "loupeSteps": app.loupe_timing.to_json(), "previewCache": preview_cache_json(app)},
         "loupe": app.loupe_shown.map(|(p, src)| json!({
             "photo": p.0,
             "source": src,
@@ -167,7 +167,7 @@ pub fn inspect(app: &LightcraftApp, ctx: &egui::Context) -> Value {
 }
 
 /// Bytes held by the engine's caches and the renderer's (`ui.inspect` → `memory`).
-pub fn memory(app: &LightcraftApp) -> Value {
+pub fn memory(app: &EvoLightApp) -> Value {
     let mut v = serde_json::to_value(app.session.memory_report()).unwrap_or_default();
     if let (Some(o), Value::Object(r)) = (v.as_object_mut(), app.renderer.memory()) {
         o.extend(r);
@@ -246,7 +246,7 @@ impl GestureOutcome {
     }
 }
 
-fn push_drag(app: &mut LightcraftApp, a: egui::Pos2, b: egui::Pos2, steps: u64, m: egui::Modifiers) {
+fn push_drag(app: &mut EvoLightApp, a: egui::Pos2, b: egui::Pos2, steps: u64, m: egui::Modifiers) {
     app.synthetic.push(egui::Event::PointerMoved(a));
     app.synthetic.push(egui::Event::PointerButton { pos: a, button: egui::PointerButton::Primary, pressed: true, modifiers: m });
     for i in 1..=steps.max(1) {
@@ -258,13 +258,13 @@ fn push_drag(app: &mut LightcraftApp, a: egui::Pos2, b: egui::Pos2, steps: u64, 
 
 /// The rectangle registered for automation id `id` in the latest completed pass. The last
 /// registration wins, so a redrawn widget's current geometry is returned.
-pub(crate) fn widget_rect(app: &LightcraftApp, id: &str) -> Option<egui::Rect> {
+pub(crate) fn widget_rect(app: &EvoLightApp, id: &str) -> Option<egui::Rect> {
     app.widgets.iter().rev().find(|(w, _)| w == id).map(|(_, r)| *r)
 }
 
 /// The real egui widget that owns automation id `id` in the latest completed pass (the last
 /// registration wins, as [`widget_rect`] does).
-pub(crate) fn widget_hit(app: &LightcraftApp, id: &str) -> Option<crate::widgets::WidgetHit> {
+pub(crate) fn widget_hit(app: &EvoLightApp, id: &str) -> Option<crate::widgets::WidgetHit> {
     app.widget_hits.iter().rev().find(|(w, _)| w == id).map(|(_, hit)| *hit)
 }
 
@@ -331,7 +331,7 @@ pub(crate) fn widget_target_visible(ctx: &egui::Context, hit: Option<crate::widg
 /// Dispatch one control request: run engine commands, list menus/widgets, inspect state, queue
 /// file drops and synthetic input, capture screenshots, or return an error for an unknown or
 /// invalid request. Requests that need fresh widget geometry are queued as `Outcome` values.
-pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context, req: &ControlRequest) -> Outcome {
+pub fn handle(app: &mut EvoLightApp, ctx: &egui::Context, req: &ControlRequest) -> Outcome {
     let p = &req.params;
     let s = |k: &str| p.get(k).and_then(Value::as_str);
     let f = |k: &str| p.get(k).and_then(Value::as_f64);
@@ -398,7 +398,7 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context, req: &ControlRequest
                 Err(e) => return err(e),
             };
             let mut v = serde_json::to_value(&app.ui).unwrap_or_default();
-            lightcraft_develop::presets::deep_merge(&mut v, p);
+            evolight_develop::presets::deep_merge(&mut v, p);
             match serde_json::from_value::<crate::UiState>(v) {
                 Ok(mut u) => {
                     if let Err(error) = crate::docking::set_widths(&mut u, p) {
@@ -511,7 +511,7 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context, req: &ControlRequest
         "ui.render" => {
             let id = match p.get("id").filter(|v| !v.is_null()) {
                 Some(v) => match v.as_u64() {
-                    Some(n) => Some(lightcraft_catalog::PhotoId(n)),
+                    Some(n) => Some(evolight_catalog::PhotoId(n)),
                     None => return err("`id` must be a photo id (a whole number)"),
                 },
                 None => app.session.active(),
@@ -546,20 +546,20 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context, req: &ControlRequest
 /// Shown when an export has nowhere to go (no folder typed or chosen, and no home folder to default to).
 pub const NO_EXPORT_FOLDER: &str = "Choose an export folder first.";
 
-/// Default export folder: `~/Pictures/LightCraft Exports` (`%USERPROFILE%\Pictures\LightCraft Exports`
+/// Default export folder: `~/Pictures/EvoLight Exports` (`%USERPROFILE%\Pictures\EvoLight Exports`
 /// on Windows, where `HOME` usually isn't set). Empty when no home folder is known.
 pub fn default_export_dir() -> String {
     let home = if cfg!(windows) { std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) } else { std::env::var_os("HOME") };
     home.filter(|h| !h.is_empty())
-        .map(|h| std::path::PathBuf::from(h).join("Pictures").join("LightCraft Exports").to_string_lossy().into_owned())
+        .map(|h| std::path::PathBuf::from(h).join("Pictures").join("EvoLight Exports").to_string_lossy().into_owned())
         .unwrap_or_default()
 }
 
 /// Export the selected photos (UI command `app.export`). Params: see
-/// [`lightcraft_engine::export::ExportOptions::from_json`], plus `dir` (output folder) or `path`
+/// [`evolight_engine::export::ExportOptions::from_json`], plus `dir` (output folder) or `path`
 /// (exact output file, single photo), `ids` (default: the selection, else the active photo).
-pub fn export_active(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
-    use lightcraft_engine::export::{Destination, ExportOptions, export_batch};
+pub fn export_active(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
+    use evolight_engine::export::{Destination, ExportOptions, export_batch};
     let p = &app.session.export_params(p)?;
     // the format follows `path` (JPEG when it names none), and `bitDepth` is checked against it
     let opts = ExportOptions::from_params(p).map_err(|e| e.to_string())?;
@@ -569,7 +569,7 @@ pub fn export_active(app: &mut LightcraftApp, p: &Value) -> Result<Value, String
             .as_array()
             .ok_or("app.export: `ids` must be a list of photo ids")?
             .iter()
-            .map(|v| v.as_u64().map(lightcraft_catalog::PhotoId).ok_or("app.export: `ids` must be photo ids (whole numbers)"))
+            .map(|v| v.as_u64().map(evolight_catalog::PhotoId).ok_or("app.export: `ids` must be photo ids (whole numbers)"))
             .collect::<Result<_, _>>()?,
         None if !app.session.selection.ids.is_empty() => {
             // Batch order (and `{seq}`) follows the grid order.
@@ -598,7 +598,7 @@ pub fn export_active(app: &mut LightcraftApp, p: &Value) -> Result<Value, String
             last_dir.map(str::to_string).unwrap_or_else(default_export_dir)
         }
     };
-    let own_folders = opts.destination_mode == lightcraft_engine::export::DestinationMode::SameAsOriginal;
+    let own_folders = opts.destination_mode == evolight_engine::export::DestinationMode::SameAsOriginal;
     if dir.is_empty() && exact.is_none() && !own_folders {
         return Err(NO_EXPORT_FOLDER.into());
     }
@@ -607,7 +607,7 @@ pub fn export_active(app: &mut LightcraftApp, p: &Value) -> Result<Value, String
     let after = app.session.after_export(&opts)?;
     let background = p.get("background").and_then(Value::as_bool).unwrap_or(false) && app.services.write_shared.is_some();
     let out = if background {
-        let items = lightcraft_engine::export::prepare_batch(&mut app.session, &ids, &opts)?;
+        let items = evolight_engine::export::prepare_batch(&mut app.session, &ids, &opts)?;
         crate::export_task::start(app, items, opts, to, after)?
     } else {
         let w = app.services.write.as_mut().ok_or("no writer")?;
@@ -663,7 +663,7 @@ pub(crate) fn check_gesture_numbers(method: &str, p: &Value) -> Result<(), Strin
 /// and the image rect therefore come from that pass; nothing is retargeted. A successful return
 /// has pushed the events onto `app.synthetic`; the app answers the request once the UI consumed
 /// them.
-pub(crate) fn gesture_events(app: &mut LightcraftApp, ctx: &egui::Context, method: &str, p: &Value) -> Result<GestureOutcome, String> {
+pub(crate) fn gesture_events(app: &mut EvoLightApp, ctx: &egui::Context, method: &str, p: &Value) -> Result<GestureOutcome, String> {
     check_gesture_numbers(method, p)?;
     let s = |k: &str| p.get(k).and_then(Value::as_str);
     let f = |k: &str| p.get(k).and_then(Value::as_f64);
@@ -855,7 +855,7 @@ pub(crate) fn gesture_events(app: &mut LightcraftApp, ctx: &egui::Context, metho
 /// protocol's JSON result. The destination is revalidated before encoding; a new path is written
 /// with create-new semantics (never replacing a file that appeared), and a missing encoder or
 /// writer is an error. `None` only reports the image size without writing.
-pub fn save_screenshot(app: &mut LightcraftApp, image: &egui::ColorImage, target: Option<&lightcraft_engine::originals::WriteTarget>) -> Value {
+pub fn save_screenshot(app: &mut EvoLightApp, image: &egui::ColorImage, target: Option<&evolight_engine::originals::WriteTarget>) -> Value {
     let [w, h] = image.size;
     let Some(target) = target else {
         return json!({"ok": true, "result": {"width": w, "height": h}});
@@ -868,7 +868,7 @@ pub fn save_screenshot(app: &mut LightcraftApp, image: &egui::ColorImage, target
     // Rgba8's buffer is the only extra full-image allocation while encoding (the PNG bytes are
     // the second transient; see MAX_SHOT_WORKING_SET_BYTES in `lib.rs`). Building it straight from
     // the `Color32` pixels avoids the former flat `Vec<u8>` copy of the same image.
-    let Some(img) = lightcraft_raster::Rgba8::from_pixels(w, h, image.pixels.iter().map(|c| c.to_array())) else {
+    let Some(img) = evolight_raster::Rgba8::from_pixels(w, h, image.pixels.iter().map(|c| c.to_array())) else {
         return json!({"ok": false, "error": "bad screenshot buffer"});
     };
     let Some(png) = app.services.png.as_ref() else { return json!({"ok": false, "error": "no encoder"}) };
@@ -897,7 +897,7 @@ pub fn save_screenshot(app: &mut LightcraftApp, image: &egui::ColorImage, target
 
 /// The preview cache's numbers for `ui.inspect` → `perf.previewCache`: what memory holds, and the
 /// disk cache's hits, misses and writes this session (notes 47 and 48: are built previews used?).
-fn preview_cache_json(app: &crate::LightcraftApp) -> serde_json::Value {
+fn preview_cache_json(app: &crate::EvoLightApp) -> serde_json::Value {
     use std::sync::atomic::Ordering;
     let (entries, bytes) = app.session.media.rendered.mem_usage();
     let disk = app.session.media.rendered.disk();

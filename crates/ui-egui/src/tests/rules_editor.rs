@@ -4,11 +4,11 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::rules::{FIELD_GROUPS, TOP_LEVEL_FIELDS};
+use evolight_catalog::rules::{FIELD_GROUPS, TOP_LEVEL_FIELDS};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -16,7 +16,7 @@ const SETTLE: Duration = Duration::from_secs(120);
 /// The rule editor holding `rules`, opened after a narrower dialog: the dialogs share one window,
 /// which keeps the width the last one left it at.
 fn editor(rules: serde_json::Value) -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     let r = h.request("engine.execute", json!({"command": "dialog.newSmartAlbum", "params": {}}), T);
     assert_eq!(r["ok"], true, "{r}");

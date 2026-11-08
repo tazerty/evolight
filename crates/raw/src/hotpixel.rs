@@ -169,7 +169,7 @@ impl RawImage {
             if limit.is_nan() || kept.len() as f64 > limit {
                 return 0;
             }
-            if std::env::var_os("LIGHTCRAFT_PROFILE").is_some() {
+            if std::env::var_os("EVOLIGHT_PROFILE").is_some() {
                 eprintln!(
                     "  hot pixels: noise σ² = {:.3}·L + {:.1} (σ at 0: {:.1}, at 1 %: {:.1}), {n_cand} candidates, {} real light",
                     noise.a,

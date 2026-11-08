@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::headless::Headless;
 use crate::pick::PickRequest;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -40,8 +40,8 @@ impl Drop for Scratch {
 fn write_png(path: &str, seed: u8) {
     let (w, h) = (24usize, 16usize);
     let data: Vec<[u8; 4]> = (0..w * h).map(|i| [(i % w * 9) as u8, (i / w * 13) as u8, seed, 255]).collect();
-    let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
-    let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: w, height: h, data };
+    let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
 }
@@ -56,8 +56,8 @@ fn services() -> Services {
 fn app(dir: &Scratch) -> Headless {
     write_png(&dir.path("trip/a.png"), 1);
     write_png(&dir.path("trip/b.png"), 2);
-    let session = lightcraft_engine::Session::new().with_fs();
-    let mut h = Headless::new(LightcraftApp::new(session, services()), [1300.0, 900.0], 1.0);
+    let session = evolight_engine::Session::new().with_fs();
+    let mut h = Headless::new(EvoLightApp::new(session, services()), [1300.0, 900.0], 1.0);
     for _ in 0..4 {
         h.step();
     }
@@ -73,8 +73,8 @@ type Asked = Arc<Mutex<Vec<(PickRequest, Sender<Vec<String>>)>>>;
 fn app_with_picker(dir: &Scratch) -> (Headless, Asked) {
     write_png(&dir.path("trip/a.png"), 1);
     write_png(&dir.path("trip/b.png"), 2);
-    let session = lightcraft_engine::Session::new().with_fs();
-    let mut app = LightcraftApp::new(session, services());
+    let session = evolight_engine::Session::new().with_fs();
+    let mut app = EvoLightApp::new(session, services());
     let asked: Asked = Default::default();
     let a = asked.clone();
     app.services.picker = Some(Box::new(move |req| {
@@ -102,7 +102,7 @@ fn answer_picker(asked: &Asked, paths: Vec<String>) {
 /// A library folder that can be chosen by Open Another…, made outside the no-library app.
 fn library_at(dir: &Scratch, rel: &str) -> String {
     let path = dir.path(rel);
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&path, false).unwrap();
     session.close_library().unwrap();
     path
@@ -121,9 +121,9 @@ fn drop_files(h: &mut Headless, paths: &[String], hover: bool) {
 fn app_with_library(dir: &Scratch) -> Headless {
     write_png(&dir.path("trip/a.png"), 1);
     write_png(&dir.path("trip/b.png"), 2);
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.path("library"), false).unwrap();
-    let mut h = Headless::new(LightcraftApp::new(session, services()), [1300.0, 900.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, services()), [1300.0, 900.0], 1.0);
     for _ in 0..4 {
         h.step();
     }
@@ -208,8 +208,8 @@ fn hovering_photos_says_they_will_be_reviewed_and_lets_go_when_they_leave() {
 fn hovering_presets_says_they_will_be_imported_as_presets() {
     let dir = Scratch::new("hover-presets");
     let mut h = app(&dir);
-    std::fs::write(dir.path("warm.lcpreset"), "{}").unwrap();
-    drop_files(&mut h, &[dir.path("warm.lcpreset")], true);
+    std::fs::write(dir.path("warm.evolightpreset"), "{}").unwrap();
+    drop_files(&mut h, &[dir.path("warm.evolightpreset")], true);
     assert!(overlay(&h));
     assert!(said(&h, "1 preset"), "{:?}", h.painted_text());
     assert!(!said(&h, "review"), "presets are not reviewed");
@@ -318,11 +318,11 @@ fn a_photo_drop_waits_behind_the_launch_list_over_an_open_library() {
 fn a_preset_drop_waits_behind_the_launch_list_over_an_open_library() {
     let dir = Scratch::new("chooser-preset");
     let mut h = app_with_library(&dir);
-    std::fs::write(dir.path("warm.lcpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
+    std::fs::write(dir.path("warm.evolightpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
         .unwrap();
     let before = user_presets(&h);
     show_launch_list(&mut h);
-    drop_files(&mut h, &[dir.path("warm.lcpreset")], false);
+    drop_files(&mut h, &[dir.path("warm.evolightpreset")], false);
     for _ in 0..10 {
         h.step();
     }
@@ -378,14 +378,14 @@ fn a_queued_photo_drop_survives_the_choosers_new_library_prompt_and_cancel() {
 #[test]
 fn a_drop_during_the_no_library_name_prompt_is_held_or_refused_after_cancel() {
     let dir = Scratch::new("newlib-prompt-drop");
-    std::fs::write(dir.path("warm.lcpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
+    std::fs::write(dir.path("warm.evolightpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
         .unwrap();
     let mut h = app(&dir);
     show_no_library_launch_list(&mut h);
     let r = h.request("ui.clickWidget", json!({"id": "button:libraryNew"}), T);
     assert_eq!(r["ok"], true, "{r}");
     assert!(h.step_until(T, |h| matches!(h.app.ui.dialog, Some(Dialog::TextPrompt { .. }))), "New Library asks for a name");
-    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.lcpreset")], false);
+    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.evolightpreset")], false);
     assert_eq!(h.app.dropped_files.len(), 2, "the drop waits behind the name prompt");
     assert_eq!(h.app.library_problem.as_ref().map(|p| p.pending_import.len()), Some(0), "nothing is held behind the prompt");
     let r = h.request("ui.clickWidget", json!({"id": "button:dialogCancel"}), T);
@@ -445,7 +445,7 @@ fn a_queued_photo_drop_survives_the_async_new_library_picker_and_imports_on_conf
 #[test]
 fn a_queued_drop_survives_the_async_new_library_picker_cancel_then_takes_the_no_library_path() {
     let dir = Scratch::new("newlib-async-cancel");
-    std::fs::write(dir.path("warm.lcpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
+    std::fs::write(dir.path("warm.evolightpreset"), r#"{"id": "user.warm", "name": "Warm", "group": "Test", "settings": {"light": {"exposure": 0.5}}}"#)
         .unwrap();
     let (mut h, asked) = app_with_picker(&dir);
     show_no_library_launch_list(&mut h);
@@ -455,7 +455,7 @@ fn a_queued_drop_survives_the_async_new_library_picker_cancel_then_takes_the_no_
     let r = h.request("ui.clickWidget", json!({"id": "button:dialogOk"}), T);
     assert_eq!(r["ok"], true, "{r}");
     assert!(h.step_until(T, |h| h.app.pending_picks.len() == 1), "the folder picker is up");
-    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.lcpreset")], false);
+    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.evolightpreset")], false);
     for _ in 0..10 {
         h.step();
     }
@@ -576,9 +576,9 @@ fn a_queued_drop_waits_for_a_dialog_opened_before_the_launch_list_closes() {
 fn a_drop_delivered_on_the_first_frame_waits_behind_the_startup_dialog() {
     let dir = Scratch::new("startup-drop");
     write_png(&dir.path("trip/a.png"), 1);
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.path("library"), false).unwrap();
-    let mut h = Headless::new(LightcraftApp::new(session, services()), [1300.0, 900.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, services()), [1300.0, 900.0], 1.0);
     // a window host on its first launch, with the drop riding the first frame's raw input
     h.app.headless_host = false;
     h.app.drop_pending = vec![dir.path("trip/a.png")];
@@ -691,7 +691,7 @@ fn a_queued_photo_drop_survives_the_async_open_library_picker_cancel() {
 #[test]
 fn a_model_drop_on_a_no_library_window_does_not_open_its_dialog_behind_it() {
     let dir = Scratch::new("model-window");
-    std::fs::write(dir.path("face.onnx"), lightcraft_faces::synthetic::tiny_embedder_model(512)).unwrap();
+    std::fs::write(dir.path("face.onnx"), evolight_faces::synthetic::tiny_embedder_model(512)).unwrap();
     for (tag, problem) in [
         ("error", crate::panels::library_problem::LibraryProblem::new(dir.path("Gone"), "not found")),
         ("chooser", crate::panels::library_problem::LibraryProblem::choose_later(&crate::state::AppSettings::default())),
@@ -718,7 +718,7 @@ fn a_model_drop_on_a_no_library_window_does_not_open_its_dialog_behind_it() {
 #[test]
 fn a_model_drop_waits_behind_the_launch_list_and_opens_after_keep() {
     let dir = Scratch::new("chooser-model");
-    std::fs::write(dir.path("face.onnx"), lightcraft_faces::synthetic::tiny_embedder_model(512)).unwrap();
+    std::fs::write(dir.path("face.onnx"), evolight_faces::synthetic::tiny_embedder_model(512)).unwrap();
     let mut h = app_with_library(&dir);
     h.app.session.face_models_dir = Some(std::path::PathBuf::from(dir.path("models")));
     show_launch_list(&mut h);
@@ -973,8 +973,8 @@ fn photos_dropped_with_no_library_open_wait_for_one() {
     let dir = Scratch::new("no-library");
     let mut h = app(&dir);
     h.app.library_problem = Some(crate::panels::library_problem::LibraryProblem::new(dir.path("Gone"), "not found"));
-    std::fs::write(dir.path("warm.lcpreset"), "{}").unwrap();
-    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.lcpreset")], true);
+    std::fs::write(dir.path("warm.evolightpreset"), "{}").unwrap();
+    drop_files(&mut h, &[dir.path("trip/a.png"), dir.path("warm.evolightpreset")], true);
     assert!(said(&h, "once a library is open"), "{:?}", h.painted_text());
     assert!(said(&h, "drop the presets again") && !said(&h, "1 preset"), "{:?}", h.painted_text());
     drop_files(&mut h, &[], true);
@@ -984,7 +984,7 @@ fn photos_dropped_with_no_library_open_wait_for_one() {
     assert_eq!(photos(&h), 0);
     // a preset belongs to a library: refused, not imported into the session the library replaces
     h.app.ui.toast = None;
-    drop_files(&mut h, &[dir.path("warm.lcpreset")], false);
+    drop_files(&mut h, &[dir.path("warm.evolightpreset")], false);
     let toast = h.app.ui.toast.as_ref().map(|t| t.0.clone()).unwrap_or_default();
     assert!(toast.contains("drop the presets again"), "{toast}");
 }
@@ -1010,7 +1010,7 @@ fn finish_mixed_drop_batch(h: &mut Headless, expected: &[String], direct: bool) 
         .catalog
         .photos()
         .map(|p| match &p.source {
-            lightcraft_catalog::Source::File { path } => path.clone(),
+            evolight_catalog::Source::File { path } => path.clone(),
             other => panic!("unexpected imported source: {other:?}"),
         })
         .collect::<Vec<_>>();
@@ -1215,7 +1215,7 @@ fn auto_import_waits_for_an_import_that_starts_during_its_listing() {
 /// Auto Import doesn't start one beside it.
 #[test]
 fn auto_import_waits_for_a_browse_that_starts_during_its_listing() {
-    use lightcraft_engine::import::{ImportCandidate, ScanOutput};
+    use evolight_engine::import::{ImportCandidate, ScanOutput};
     let dir = Scratch::new("auto-browse");
     let mut h = app(&dir);
     second_auto_import_listing(&mut h, &dir);

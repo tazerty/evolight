@@ -134,7 +134,7 @@ impl Progress {
 
 /// The loaded model, loading it first when it is not (kept for the next photo).
 pub(super) fn loaded(spec: &JobSpec) -> Result<Arc<dyn Model>, MakeError> {
-    if spec.manifest.id == lightcraft_denoise::builtin::ID {
+    if spec.manifest.id == evolight_denoise::builtin::ID {
         return Ok(Arc::new(BuiltinModel::new(&builtin_marker(&spec.onnx))));
     }
     if let Some(m) = spec.model.lock().unwrap_or_else(PoisonError::into_inner).clone() {
@@ -146,7 +146,7 @@ pub(super) fn loaded(spec: &JobSpec) -> Result<Arc<dyn Model>, MakeError> {
 }
 
 /// The cell `[(0,0), (1,0), (0,1), (1,1)]` colours of a Bayer mosaic and so its layout.
-fn layout_of(cfa: &lightcraft_raw::Cfa) -> Option<Layout> {
+fn layout_of(cfa: &evolight_raw::Cfa) -> Option<Layout> {
     Layout::from_cell([cfa.color_at(0, 0), cfa.color_at(1, 0), cfa.color_at(0, 1), cfa.color_at(1, 1)])
 }
 
@@ -169,16 +169,16 @@ pub(crate) fn make_product(spec: &JobSpec, progress: Option<&Progress>) -> Resul
     // the decode and the normalised mosaic wait their turn at the process-wide memory gate, as every decode does
     let (mosaic, layout) = {
         let _held = crate::memory::work_gate().acquire(bytes.len().saturating_mul(4));
-        if lightcraft_raw::probe(&bytes).is_none() {
+        if evolight_raw::probe(&bytes).is_none() {
             return Err(MakeError::Unsupported("not a raw file".into()));
         }
-        let raw = match lightcraft_raw::decode(&bytes) {
+        let raw = match evolight_raw::decode(&bytes) {
             Ok(r) => r,
-            Err(lightcraft_raw::RawError::Unsupported(why)) => return Err(MakeError::Unsupported(why)),
+            Err(evolight_raw::RawError::Unsupported(why)) => return Err(MakeError::Unsupported(why)),
             Err(e) => return Err(MakeError::Failed(e.to_string())),
         };
         drop(bytes);
-        if raw.cpp != 1 || !raw.cfa.as_ref().is_some_and(lightcraft_raw::Cfa::is_bayer) {
+        if raw.cpp != 1 || !raw.cfa.as_ref().is_some_and(evolight_raw::Cfa::is_bayer) {
             return Err(MakeError::Unsupported(
                 "only Bayer raw files can be denoised (this one has another sensor layout or is already demosaiced)".into(),
             ));
@@ -233,7 +233,7 @@ pub(crate) fn make_product(spec: &JobSpec, progress: Option<&Progress>) -> Resul
     }
     let ran = began.elapsed();
     product::write(&spec.product, &rgb, &spec.key).map_err(|e| MakeError::Failed(format!("could not save the denoised picture: {e}")))?;
-    if std::env::var_os("LIGHTCRAFT_PROFILE").is_some() {
+    if std::env::var_os("EVOLIGHT_PROFILE").is_some() {
         eprintln!(
             "[denoise] read + decode {:.0} ms, model (set-up, tiles, blend) {:.0} ms, write {:.0} ms",
             decoded.as_secs_f64() * 1e3,

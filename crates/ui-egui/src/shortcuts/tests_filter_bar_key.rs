@@ -1,18 +1,18 @@
 //! Backslash (\) shows / hides the Filter Bar in the library grids, as in Lightroom Classic's Library
 //! module; in Detail it keeps showing the original (Develop's Before / After key).
 use egui::{Key, Modifiers};
-use lightcraft_catalog::{Flag, Op, Photo, PhotoId, Source};
+use evolight_catalog::{Flag, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{BeforeAfter, ViewMode};
 
-fn app() -> lightcraft_engine::Result<LightcraftApp> {
-    let mut s = lightcraft_engine::Session::new();
+fn app() -> evolight_engine::Result<EvoLightApp> {
+    let mut s = evolight_engine::Session::new();
     for id in 1..=2 {
         let photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-filter-bar-key/{id}.jpg") },
+            Source::File { path: format!("/evolight-filter-bar-key/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,
@@ -23,10 +23,10 @@ fn app() -> lightcraft_engine::Result<LightcraftApp> {
     }
     s.execute("library.sort", &json!({"key": "fileName", "ascending": true}))?;
     s.execute("library.select", &json!({"ids": [1]}))?;
-    Ok(LightcraftApp::new(s, crate::Services { png: None, ..Default::default() }))
+    Ok(EvoLightApp::new(s, crate::Services { png: None, ..Default::default() }))
 }
 
-fn frame(app: &mut LightcraftApp, ctx: &egui::Context, key: Option<Key>, text: Option<&mut String>) {
+fn frame(app: &mut EvoLightApp, ctx: &egui::Context, key: Option<Key>, text: Option<&mut String>) {
     let events = key
         .map(|key| egui::Event::Key { key, physical_key: Some(key), pressed: true, repeat: false, modifiers: Modifiers::NONE })
         .into_iter()

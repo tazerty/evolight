@@ -6,13 +6,13 @@
 //! - **Remove** is Heal with an automatically chosen source: candidate offsets on rings around the
 //!   spot are scored by how well the source's surrounding annulus matches the target's.
 //! - **Fill** (content-aware) rebuilds the spot from patches of its surroundings instead of one
-//!   source: PatchMatch-based completion ([`lightcraft_inpaint::complete`]), coarse to fine, so the
+//!   source: PatchMatch-based completion ([`evolight_inpaint::complete`]), coarse to fine, so the
 //!   structure is chosen at a scale set by the spot's size (the same at preview and export size).
 //!   Deterministic; the source offset is ignored.
 
-use lightcraft_develop::{Spot, SpotMode};
-use lightcraft_geom::Point;
-use lightcraft_raster::Rgb32f;
+use evolight_develop::{Spot, SpotMode};
+use evolight_geom::Point;
+use evolight_raster::Rgb32f;
 
 use crate::geometry::Frame;
 
@@ -134,7 +134,7 @@ pub fn auto_source(img: &Rgb32f, target: (f32, f32), r: f32) -> (f32, f32) {
 pub fn pick_source(
     src: &Rgb32f,
     info: &crate::SourceInfo,
-    s: &lightcraft_develop::DevelopSettings,
+    s: &evolight_develop::DevelopSettings,
     spot: &Spot,
     avoid: Option<Point>,
 ) -> Option<Point> {
@@ -169,7 +169,7 @@ const MAX_DABS_CONSIDERED: usize = 200_000;
 /// search up to 4.2 radii around themselves. Growth that would pass [`MAX_SPOT_SPAN`] pixels is not
 /// done (the window comes back as asked; see [`window_for_reads_checked`] to know).
 pub fn window_for_reads(
-    s: &lightcraft_develop::DevelopSettings,
+    s: &evolight_develop::DevelopSettings,
     frame: &Frame,
     full_w: usize,
     full_h: usize,
@@ -183,7 +183,7 @@ pub fn window_for_reads(
 /// [`MAX_SPOT_SPAN`] pixels along an axis: a caller that can show something else (the loupe's
 /// whole-frame render) must, because the window alone would come out wrong.
 pub fn window_for_reads_checked(
-    s: &lightcraft_develop::DevelopSettings,
+    s: &evolight_develop::DevelopSettings,
     frame: &Frame,
     full_w: usize,
     full_h: usize,
@@ -192,13 +192,13 @@ pub fn window_for_reads_checked(
 ) -> Option<crate::PixelWindow> {
     let spots = &s.spots;
     // (with whether its mask's coordinates are on the photo before the warp)
-    let autos: Vec<(bool, &lightcraft_develop::BrushStroke)> = s
+    let autos: Vec<(bool, &evolight_develop::BrushStroke)> = s
         .masks
         .iter()
         .filter(|m| m.visible)
         .flat_map(|m| m.components.iter().map(move |c| (m.on_photo, c)))
         .filter_map(|(on, c)| match &c.shape {
-            lightcraft_develop::MaskShape::Brush { strokes } => Some(strokes.iter().map(move |st| (on, st))),
+            evolight_develop::MaskShape::Brush { strokes } => Some(strokes.iter().map(move |st| (on, st))),
             _ => None,
         })
         .flatten()
@@ -375,8 +375,8 @@ pub fn layout(spot: &Spot, frame: &Frame, w: usize, h: usize, ppl: f64) -> Optio
 fn fill_box(src: &mut [[f32; 3]], tgt: &[[f32; 3]], alpha: &[f32], bw: usize, bh: usize) {
     let hole: Vec<bool> = alpha.iter().map(|a| *a > 0.0).collect();
     let flat: Vec<f32> = tgt.iter().flatten().copied().collect();
-    let out = lightcraft_inpaint::complete(bw, bh, 3, &flat, &hole, &lightcraft_inpaint::CompleteParams::default())
-        .unwrap_or_else(|| lightcraft_inpaint::membrane_fill(bw, bh, 3, &flat, &hole));
+    let out = evolight_inpaint::complete(bw, bh, 3, &flat, &hole, &evolight_inpaint::CompleteParams::default())
+        .unwrap_or_else(|| evolight_inpaint::membrane_fill(bw, bh, 3, &flat, &hole));
     let (pixels, _) = out.as_chunks::<3>();
     for (d, v) in src.iter_mut().zip(pixels) {
         *d = *v;
@@ -417,9 +417,9 @@ pub fn apply(img: &mut Rgb32f, spots: &[Spot], frame: &Frame, ppl: f64) {
                 height: bh,
                 data: tgt.iter().zip(&src).zip(&outside).map(|((t, s), m)| [(t[0] - s[0]) * m, (t[1] - s[1]) * m, (t[2] - s[2]) * m]).collect(),
             };
-            let wts = lightcraft_raster::Plane { width: bw, height: bh, data: outside };
+            let wts = evolight_raster::Plane { width: bw, height: bh, data: outside };
             let sigma = (r * 0.6).max(1.0);
-            let (bd, bm) = (lightcraft_raster::blur::gaussian(&diff, sigma), lightcraft_raster::blur::gaussian(&wts, sigma));
+            let (bd, bm) = (evolight_raster::blur::gaussian(&diff, sigma), evolight_raster::blur::gaussian(&wts, sigma));
             Some(Rgb32f {
                 width: bw,
                 height: bh,
@@ -458,7 +458,7 @@ pub fn apply(img: &mut Rgb32f, spots: &[Spot], frame: &Frame, ppl: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_develop::DevelopSettings;
+    use evolight_develop::DevelopSettings;
 
     #[test]
     fn hard_edge_spots_at_zero_opacity_leave_every_pixel_unchanged() {
@@ -662,7 +662,7 @@ mod tests {
     #[test]
     fn a_window_grows_to_hold_an_auto_mask_stroke() {
         use crate::PixelWindow;
-        use lightcraft_develop::{BrushStroke, Mask, MaskComponent, MaskOp, MaskShape};
+        use evolight_develop::{BrushStroke, Mask, MaskComponent, MaskOp, MaskShape};
         let frame = Frame::new(4000, 3000, &DevelopSettings::default(), true);
         let ppl = frame.px_per_long(4000);
         let win = PixelWindow { x: 1000, y: 1000, w: 400, h: 300 };

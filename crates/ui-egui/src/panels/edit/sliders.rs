@@ -1,14 +1,14 @@
 use super::{
-    Align2, ControlSpec, DevelopSettings, Icon, LightcraftApp, PhotoId, Section, Sense, SliderOut, Tokens, Track, Value, controls, divider, json,
+    Align2, ControlSpec, DevelopSettings, Icon, EvoLightApp, PhotoId, Section, Sense, SliderOut, Tokens, Track, Value, controls, divider, json,
     pos2, register, section_header, slider, vec2,
 };
 
 /// Commit a slider interaction: begin → live updates → end, so a drag is one undo step.
 pub fn apply_slider_out(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     spec: &ControlSpec,
     out: SliderOut,
-    mut set: impl FnMut(&mut LightcraftApp, f64) -> Result<Value, String>,
+    mut set: impl FnMut(&mut EvoLightApp, f64) -> Result<Value, String>,
 ) {
     if out.drag_started && !out.reset {
         let _ = app.run("develop.beginInteraction", json!({"label": spec.label}));
@@ -23,7 +23,7 @@ pub fn apply_slider_out(
     }
 }
 
-pub(crate) fn control(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, id: &str, enabled: bool) {
+pub(crate) fn control(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, id: &str, enabled: bool) {
     let Some(spec) = controls::find(id) else { return };
     let v = controls::get(d, id).unwrap_or(spec.default);
     let out = slider(ui, spec, v, enabled, None);
@@ -67,12 +67,12 @@ pub(super) fn rel_to_k(r: f64) -> f64 {
 /// Browse…. Like the menu bar's menus, the dropdown and each submenu stay inside the window and
 /// scroll when their rows don't fit (issue #2059: a folder of many imported profiles ran past the
 /// window's bottom edge). `below` is the dropdown's bottom edge, which the menu hangs from.
-pub(super) fn profile_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, below: f32) {
+pub(super) fn profile_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, below: f32) {
     crate::menu_level::level(ui, 1, Some(below), |ui| profile_menu_rows(app, ui, d, below));
 }
 
-fn profile_menu_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, below: f32) {
-    use lightcraft_engine::presets::{PROFILES, profile_groups};
+fn profile_menu_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, below: f32) {
+    use evolight_engine::presets::{PROFILES, profile_groups};
     let t = Tokens::get(ui.ctx());
     ui.set_min_width(200.0);
     let cur = d.profile.id.as_str();
@@ -181,12 +181,12 @@ pub fn sub_title(ui: &mut egui::Ui, title: &str) {
 }
 
 pub(super) fn section(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     d: &DevelopSettings,
     id: &str,
     title: &str,
-    body: impl FnOnce(&mut LightcraftApp, &mut egui::Ui, &DevelopSettings),
+    body: impl FnOnce(&mut EvoLightApp, &mut egui::Ui, &DevelopSettings),
 ) {
     let open = app.ui.section_open(id);
     let (resp, toggled) = section_header(ui, id, title, open, Some(d.section_enabled(id)));
@@ -221,11 +221,11 @@ pub(super) fn section(
 /// The Light panel's HDR settings while HDR editing is on (the switch itself is the HDR button
 /// next to B&W): Visualize HDR range and the headroom limit. They slide open and shut with the
 /// histogram's change of layout; another photo shows its own at once.
-pub(super) fn hdr_row(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, id: PhotoId) {
+pub(super) fn hdr_row(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, id: PhotoId) {
     super::hdr_flow::drawer(ui, egui::Id::unique(("hdrSettings", id)), d.hdr.enabled, |ui| hdr_settings(app, ui, d));
 }
 
-fn hdr_settings(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings) {
+fn hdr_settings(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 4, bottom: 4 }).show(ui, |ui| {
         let mut v = app.ui.hdr_visualize;
         let r = ui.checkbox(&mut v, "Visualize HDR");
@@ -239,7 +239,7 @@ fn hdr_settings(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings)
 
 /// Quick Develop (grid with several photos selected): relative steps applied to every selected
 /// photo from its own value.
-pub(super) fn quick_develop(app: &mut LightcraftApp, ui: &mut egui::Ui, n: usize) {
+pub(super) fn quick_develop(app: &mut EvoLightApp, ui: &mut egui::Ui, n: usize) {
     let t = Tokens::get(ui.ctx());
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 0, bottom: 10 }).show(ui, |ui| {
         ui.label(egui::RichText::new(crate::i18n::tr_format!("Quick Develop · {n} photos", n = n)).color(t.text_label).size(12.5));
@@ -289,7 +289,7 @@ pub(super) fn quick_develop(app: &mut LightcraftApp, ui: &mut egui::Ui, n: usize
 /// The preview-only notice's Reload from Disk: re-read the photo's file (a raw a newer version can
 /// decode, whose drive was offline when the library opened) in the background; a toast says what
 /// came of it once it's done (`crate::reload`).
-pub(crate) fn reload_preview_only(app: &mut LightcraftApp, ctx: &egui::Context, id: PhotoId) {
+pub(crate) fn reload_preview_only(app: &mut EvoLightApp, ctx: &egui::Context, id: PhotoId) {
     match app.run("photo.reload", json!({"ids": [id.0]})) {
         Err(e) => app.toast_error(ctx, e),
         Ok(r) if r["background"] == true => {}

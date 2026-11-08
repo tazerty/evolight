@@ -1,7 +1,7 @@
-<!-- craft-house-rules:start core source=dde09ea31e2e457f5b4653a6e76f7cdf55944bdf sha256=540e6cea75d12d0710c3dca89658328e81e508ecef102446ca5bb95b7c0b92bb -->
+<!-- evo-house-rules:start core source=dde09ea31e2e457f5b4653a6e76f7cdf55944bdf sha256=540e6cea75d12d0710c3dca89658328e81e508ecef102446ca5bb95b7c0b92bb -->
 ## House rules
 
-These apply in every Craft repository. A later rule may be stricter, not weaker. The source is `standards/house-rules-core.md` in `storytold/craft-contrib`. Propose changes there, not in a copy.
+These apply in every Evo repository. A later rule may be stricter, not weaker. The source is `standards/house-rules-core.md` in `amont/evo-contrib`. Propose changes there, not in a copy.
 
 1. **A person is accountable.** Whoever runs an agent answers for what it opens and for its review comments.
 2. **Check, then claim.** Before writing code, read the issue comments, search pull requests for `#N` and the keywords, and check recent commits on `main`. Comment on the issue first. Release a claim you will not finish.
@@ -13,22 +13,22 @@ These apply in every Craft repository. A later rule may be stricter, not weaker.
 8. **`main` changes through a pull request.** Do not push to it. Branch protection enforces this. There is no exception.
 9. **Stop and ask only about** licensing outside the allowlist, publishing, releases, a new remote, secrets, spending money, destructive git, and anything else hard to undo. Otherwise keep working. `plan/` is a gitignored notebook, not rules. Without it, do not ask for it and do not stop.
 10. **Keep secrets and personal details out** of the repository, logs and requests.
-11. **CI stays shared.** Workflows call `storytold/craft-common-actions`. Do not change CI in a feature or fix pull request. If CI cannot cover a change, open an issue there.
+11. **CI stays shared.** Workflows call `amont/evo-common-actions`. Do not change CI in a feature or fix pull request. If CI cannot cover a change, open an issue there.
 12. **Guards say why.** A check that looks removable says what it prevents. Read that before changing it.
-13. **Instructions must be readable by everyone.** No notes about one machine, and no links to files a reader cannot open. `craftrules` is retired. Do not link to it.
+13. **Instructions must be readable by everyone.** No notes about one machine, and no links to files a reader cannot open. `evorules` is retired. Do not link to it.
 14. **Keep pull requests moving.** Concurrent pull requests are fine; unanswered actionable feedback is not. Respond in 7 days, a reminder at 14, closure eligible at 30, from when an actionable request waits on the author. Suggestions and unconfirmed bot findings do not start the clock. A fix, explanation or agreed plan resets it; unrelated activity does not. Waiting on a reviewer or maintainer pauses it and does not count against the author. A maintainer decides closure; it is never automatic. Reuse search results, do not poll, and stop at a rate limit.
 15. **No agent attribution.** A pull request does not say an agent wrote it. A repository rule may not require that.
-<!-- craft-house-rules:end -->
-<!-- craft-house-rules:start rust source=dde09ea31e2e457f5b4653a6e76f7cdf55944bdf sha256=387e0ccb4b49e567f60951d7d6fff7305054c89f43ad812b9993dc7c38528013 -->
-## Rust Craft repositories
+<!-- evo-house-rules:end -->
+<!-- evo-house-rules:start rust source=dde09ea31e2e457f5b4653a6e76f7cdf55944bdf sha256=387e0ccb4b49e567f60951d7d6fff7305054c89f43ad812b9993dc7c38528013 -->
+## Rust Evo repositories
 
-These apply to native Craft apps and to shared Rust libraries. Select them by repository type. A repository that merely contains some Rust does not take this block. Rules later in a repository's file may be stricter, but not weaker. The source is `standards/house-rules-rust.md` in [storytold/craft-contrib](https://github.com/storytold/craft-contrib).
+These apply to native Evo apps and to shared Rust libraries. Select them by repository type. A repository that merely contains some Rust does not take this block. Rules later in a repository's file may be stricter, but not weaker. The source is `standards/house-rules-rust.md` in [amont/evo-contrib](amont/evo-contrib).
 
 1. **Never crash.** Non-test code does not panic and has no `unsafe`, except where the repository file names an exception. Return errors, treat input as hostile, and bound recursion and allocations. New production crate roots copy the `deny` attribute from an existing crate: `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`, `clippy::unimplemented`, `clippy::todo`, `clippy::unreachable`. Every crash fix comes with a test that panicked before the fix.
 2. **Clean room.** Learn from observed behaviour and public specifications. Do not copy another product's code, assets, strings or artwork. Check a dependency's licence before adding it.
-3. **Assets and fonts.** Every asset is original or suitably licensed, and is recorded in `ATTRIBUTION.md` in the same change. Font files live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), not in the app repository.
-4. **Rust only for native Craft apps.** No handwritten JavaScript or TypeScript, and no Tauri, Electron or webview shell, in those apps. Shared tooling follows its documented technical scope and maintainer-approved exceptions. Craft PR Review's existing Tauri and TypeScript UI is one such exception. It does not relax this rule for native apps. Preserve any existing web build.
-5. **Time goes through `chrono`.** Do not hand-roll calendar conversion. For dates beyond what `chrono` can represent, follow [standards/time.md](https://github.com/storytold/craft-contrib/blob/main/standards/time.md).
+3. **Assets and fonts.** Every asset is original or suitably licensed, and is recorded in `ATTRIBUTION.md` in the same change. Font files live in [tazerty/evo-fonts](https://github.com/tazerty/evo-fonts), not in the app repository.
+4. **Rust only for native Evo apps.** No handwritten JavaScript or TypeScript, and no Tauri, Electron or webview shell, in those apps. Shared tooling follows its documented technical scope and maintainer-approved exceptions. Evo PR Review's existing Tauri and TypeScript UI is one such exception. It does not relax this rule for native apps. Preserve any existing web build.
+5. **Time goes through `chrono`.** Do not hand-roll calendar conversion. For dates beyond what `chrono` can represent, follow [standards/time.md](amont/evo-contrib/blob/main/standards/time.md).
 6. **Contributor credits.** Add or edit only your own person's entry in `contributors/people.toml`, and only after asking them. Never guess a name or hand-edit `contributors.json`.
 
 ## Licence allowlist
@@ -49,11 +49,11 @@ Dependencies and assets use SPDX identifiers. An expression is allowed when ever
 - `LicenseRef-Public-Domain`
 
 `LicenseRef-Storyteller-Trademark` is not in this list. It covers Storyteller brand marks only, where a repository already says so.
-<!-- craft-house-rules:end -->
+<!-- evo-house-rules:end -->
 
-# LightCraft — instructions for agents
+# EvoLight — instructions for agents
 
-LightCraft is a clean-room, open-source, pure-Rust photo library + non-destructive raw developer targeting Adobe Lightroom parity (and beyond). Native on macOS, Windows, Linux; web via WASM. Sibling of `../pdfcraft` (Acrobat), `../photocraft` (Photoshop), `../vectorcraft` (Illustrator) and `../filmcraft` (Premiere), with the same conventions.
+EvoLight is a clean-room, open-source, pure-Rust photo library + non-destructive raw developer targeting Adobe Lightroom parity (and beyond). Native on macOS, Windows, Linux; web via WASM. Sibling of `../evopdf` (Acrobat), `../evophoto` (Photoshop), `../evovector` (Illustrator) and `../evofilm` (Premiere), with the same conventions.
 
 ## Start every session here
 `plan/` is an optional gitignored notebook (status, execution notes, `plan/lightroom/`). Do not ask for it and do not stop when it is absent.
@@ -79,7 +79,7 @@ branches can still break each other (e.g. a new struct field vs. a new construct
 and often so a crash loses minutes, not hours.
 
 ## Never crash (outranks feature work)
-People trust LightCraft with their photo libraries and edits; a crash loses their work. A malformed raw/JPEG/XMP, a bad
+People trust EvoLight with their photo libraries and edits; a crash loses their work. A malformed raw/JPEG/XMP, a bad
 command, control or MCP argument, a corrupt catalog or settings file, or a full disk must produce an error the user (or
 agent) can act on, never a panic. Don't ship a feature by adding a panic path, and fix a crash before building on top
 of it.
@@ -131,25 +131,25 @@ of it.
 - **Never use any iconography, image, artwork, font, sound or other asset from Adobe products** (no Lightroom/Creative Cloud icons, no screenshots, no presets/profiles/LUTs, no UI bitmaps — not even as a temporary placeholder or "reference copy"). Observing Adobe's UI to imitate *layout and behaviour* is allowed; copying or tracing its assets is not.
 - **This includes Adobe's open-licensed assets**: no Source Sans/Serif/Code or Source Han fonts, no Adobe Fonts, no
   Adobe-published icon sets, sample photos, colour profiles or LUTs — even when OFL/MIT. The UI font is Inter (OFL);
-  Japanese and Chinese fonts come from craft-fonts (below). **One exception (maintainer decision, 2026-10-07): Noto
-  Sans/Serif CJK** (Google-branded, OFL, co-developed with Adobe as Source Han) is allowed via craft-fonts for Chinese
+  Japanese and Chinese fonts come from evo-fonts (below). **One exception (maintainer decision, 2026-10-07): Noto
+  Sans/Serif CJK** (Google-branded, OFL, co-developed with Adobe as Source Han) is allowed via evo-fonts for Chinese
   text, because nearly every OFL Chinese face derives from it. Use it unmodified under its OFL; this does not open the
   door to Source Han under Adobe's name or to any other Adobe asset.
 - Every asset in the repository must be one of: **our own original work** (e.g. icons drawn in code as vectors, procedurally generated demo photos), **public domain / CC0**, **Creative Commons** (CC-BY / CC-BY-SA with attribution honoured), **OFL** (fonts), or **permissive open-source** (MIT/Apache-2.0/BSD/ISC) — or contributed by a person who created the asset and licenses it openly.
-- **Exception: `docs/brand/`.** The ArtCraft name, wordmark and logos there are ArtCraft Team trademarks, not open source and not covered by LightCraft's MIT OR Apache-2.0 licence (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`); their terms are in `docs/brand/LICENSE-brand.txt`. Use them only unmodified and never redraw, recolour or derive from them.
+- **Exception: `docs/brand/`.** The Upstream name, wordmark and logos there are Upstream Team trademarks, not open source and not covered by EvoLight's MIT OR Apache-2.0 licence (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`); their terms are in `docs/brand/LICENSE-brand.txt`. Use them only unmodified and never redraw, recolour or derive from them.
 - **Every asset must have an entry in `assets/ATTRIBUTION.md`** (path, title, author/creator, source URL or "original work", licence, date added, modifications) and its licence text when required (e.g. `assets/fonts/OFL-*.txt`). Add the entry in the same commit as the asset. Assets without an attribution entry must not be committed.
-- **Fonts live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), never in this repo.** Don't commit
-  font files here (Inter, already in `assets/fonts/`, is the one exception); add new fonts to craft-fonts. LightCraft
-  uses it as the optional build input `CRAFT_FONTS_DIR`: `git clone https://github.com/storytold/craft-fonts ../craft-fonts`
-  then `CRAFT_FONTS_DIR=../craft-fonts cargo run -p lightcraft` (or any cargo/xtask command). `crates/engine/build.rs`
-  embeds the manifest's fonts as `lightcraft_engine::CRAFT_FONTS` (wasm32: BIZ UDPGothic Regular only); `cargo xtask web`
+- **Fonts live in [tazerty/evo-fonts](https://github.com/tazerty/evo-fonts), never in this repo.** Don't commit
+  font files here (Inter, already in `assets/fonts/`, is the one exception); add new fonts to evo-fonts. EvoLight
+  uses it as the optional build input `EVO_FONTS_DIR`: `git clone https://github.com/tazerty/evo-fonts ../evo-fonts`
+  then `EVO_FONTS_DIR=../evo-fonts cargo run -p evolight` (or any cargo/xtask command). `crates/engine/build.rs`
+  embeds the manifest's fonts as `evolight_engine::EVO_FONTS` (wasm32: BIZ UDPGothic Regular only); `cargo xtask web`
   ships Noto Sans CJK SC Regular as a separate asset loaded by the UI before startup. The UI
   (`theme::font_definitions`) and the export watermark renderer use CJK faces (picked by script) as fallbacks after Inter; the UI also falls back on the faces of other scripts (Thai, Arabic, …). Unset,
-  `CRAFT_FONTS` is empty: everything builds, tests and runs, but Chinese and Japanese text lack glyphs. Releases always build
-  with it (`release.yml`, `CRAFT_FONTS_REQUIRED=1`) and ship the fonts' OFL licences. Tests that need these fonts skip
+  `EVO_FONTS` is empty: everything builds, tests and runs, but Chinese and Japanese text lack glyphs. Releases always build
+  with it (`release.yml`, `EVO_FONTS_REQUIRED=1`) and ship the fonts' OFL licences. Tests that need these fonts skip
   without it; the FreeBSD CI job runs them with it.
 - Icons drawn in code (e.g. `crates/ui-egui/src/icons.rs`) are original work and are recorded in `assets/ATTRIBUTION.md` as such; do not trace them from Adobe icons.
-- Demo/test images: generated procedurally by `lightcraft-scenes`, or CC0 downloads kept in the gitignored `corpus/` with their source recorded. Screenshots of Adobe apps live only in the gitignored `plan/` and are never committed or published.
+- Demo/test images: generated procedurally by `evolight-scenes`, or CC0 downloads kept in the gitignored `corpus/` with their source recorded. Screenshots of Adobe apps live only in the gitignored `plan/` and are never committed or published.
 - **Enforced:** `cargo xtask assets` (in `ci`) fails when an image/icon/font/sound/video/raw/ICC/XMP file is not matched
   by a path pattern in the first column of `assets/ATTRIBUTION.md`, when a referenced licence file is missing, when a
   file name suggests Adobe material, or when an Adobe profile/template format (`.dcp`, `.lcp`, `.lrtemplate`, …) appears.
@@ -157,55 +157,55 @@ of it.
 - When in doubt about an asset's licence: don't use it.
 
 ## Running and looking at the app
-- `cargo run --release -p lightcraft -- --control 7980` opens the desktop app with the JSON-lines control server (see `docs/control-protocol.md`).
+- `cargo run --release -p evolight -- --control 7980` opens the desktop app with the JSON-lines control server (see `docs/control-protocol.md`).
 - **Never send OS-level synthetic input** (osascript/System Events keystrokes or clicks, `cliclick`, accessibility
-  automation): it goes to whatever window is frontmost — the user's terminal or other apps. Drive LightCraft only
+  automation): it goes to whatever window is frontmost — the user's terminal or other apps. Drive EvoLight only
   through its control channel (`ui.key`, `ui.pointer`, `ui.clickWidget`, `ui.menu.invoke`) or headless snapshots.
 - For UI work, **look at the result**: drive via the control channel and take `ui.screenshot`. Compare with
   `plan/lightroom/screenshots/` when available. Without that optional notebook, verify the result against the
   task's requirements, committed documentation and regression tests; do not request the notebook or block work.
 - **Unattended (display asleep/locked, CI, nightly runs): prefer headless snapshots** — no window needed:
-  `lightcraft-cli snapshot --demo --script tour.jsonl -o out.png --size 1600x1000` (control-protocol requests,
+  `evolight-cli snapshot --demo --script tour.jsonl -o out.png --size 1600x1000` (control-protocol requests,
   one per line; see `docs/control-protocol.md` → Headless rendering). In a running app use
   `ui.screenshot {"path": …, "headless": true}`; windowed screenshots fall back to headless after 2 s.
-- MCP: `lightcraft-cli mcp` (headless, `--demo` for the procedural library) or `lightcraft-cli mcp --connect` (drives
-  the running app). See `docs/mcp.md`. Quick non-UI checks: `lightcraft-cli render in.jpg -o out.jpg --set light.exposure=1`.
-- Export goes through `lightcraft_engine::export` (one encoder for app, CLI, MCP and web); UI-only commands live in
+- MCP: `evolight-cli mcp` (headless, `--demo` for the procedural library) or `evolight-cli mcp --connect` (drives
+  the running app). See `docs/mcp.md`. Quick non-UI checks: `evolight-cli render in.jpg -o out.jpg --set light.exposure=1`.
+- Export goes through `evolight_engine::export` (one encoder for app, CLI, MCP and web); UI-only commands live in
   `crates/ui-egui/src/menus.rs`.
 - Text boxes use `crates/ui-egui/src/widgets/text_field.rs` (`TextField`), not `egui::TextEdit`: it gives every field the
   Cut / Copy / Paste / Select All menu, Esc restoring the text, and reports how an edit ended. Give each a widget id
   that is unique on screen. Older fields still on `TextEdit` move over as they are touched.
 - Parallel agents: separate git worktrees and `CARGO_TARGET_DIR=target/agent-<name>`; each agent uses its **own control port** (pick one in 18000–19999, never the default 7980) and its own scratch subfolder (`<scratch>/<agent-name>/`) — never `rm -rf` shared paths; delete your target dir when done (disk is shared); keep every `Cargo.toml` valid at all times (the `crates/*` glob means one broken manifest breaks everyone).
 - Test corpora: `cargo xtask corpus --download` into `corpus/` (gitignored, CC0 only). Never commit media.
-- Shared real-file test corpora (Photoshop-authored PSDs, etc.) live in [`storytold/photocraft-corpus`](https://github.com/storytold/photocraft-corpus). Never commit large binary fixtures to this repo; fetch them pinned by commit and sha256-verified, as PhotoCraft does with `cargo xtask corpus`.
+- Shared real-file test corpora (Photoshop-authored PSDs, etc.) live in [`tazerty/evophoto-corpus`](https://github.com/tazerty/evophoto-corpus). Never commit large binary fixtures to this repo; fetch them pinned by commit and sha256-verified, as EvoPhoto does with `cargo xtask corpus`.
 
 ## Testing & performance (do this often)
 - Unit/property tests next to the code; end-to-end tests drive real binaries (`crates/mcp/tests/e2e.rs`,
-  `apps/lightcraft-cli/tests/`). New features need at least one test that would fail without them.
+  `apps/evolight-cli/tests/`). New features need at least one test that would fail without them.
 - **Run the app after every user-visible change**: launch with `--control 7980`, drive it with a JSON-lines script
   (`docs/showcase/run.py file.jsonl`), take `ui.screenshot`, and look at it. Check `ui.inspect` → `perf`.
 - **Benchmarks:** `cargo xtask bench` (24 MP raw from corpus; CPU and GPU columns) appends to `target/bench/history.jsonl`
   and flags CPU-time regressions > 20 % vs the previous run (`--strict` to fail). Run it before and after perf work.
-- **Measure, don't guess**: `LIGHTCRAFT_PROFILE=1` prints per-stage pipeline timings to stderr; time CLI renders
+- **Measure, don't guess**: `EVOLIGHT_PROFILE=1` prints per-stage pipeline timings to stderr; time CLI renders
   with `/usr/bin/time`. Timings may go in the optional `plan/` notebook. Budgets: slider update ≤ 16 ms (draft) / loupe
   ≤ 60 ms on ~2.5 MP; export ≤ 1 s per 24 MP JPEG.
-- Never commit media: test images are procedural (`lightcraft-scenes`) or CC0 downloads in the gitignored `corpus/`.
+- Never commit media: test images are procedural (`evolight-scenes`) or CC0 downloads in the gitignored `corpus/`.
 - **Flaky tests:** a test that fails, then passes on a rerun of the same commit, is flaky. Don't rerun until it
   passes and move on: open an issue with the failing log, and if it failed on two unrelated PRs, quarantine it with
   `#[ignore = "flaky: #<issue>"]` (a doctest: an `ignore` code fence and a comment naming the issue) in a PR of its
   own until the issue is fixed. Never quarantine a test that fails every time; fix the code or the test. A test that
   hangs is a failure too: under `cargo test`, libtest's "has been running for over 60 seconds" line names it; under
-  nextest (`LIGHTCRAFT_NEXTEST=1`), its `SLOW` lines do.
-- A test that can't run here (no GPU, corpus file, craft-fonts face, model) calls `lightcraft_testkit::skip!(Gpu, "why")`
+  nextest (`EVOLIGHT_NEXTEST=1`), its `SLOW` lines do.
+- A test that can't run here (no GPU, corpus file, evo-fonts face, model) calls `evolight_testkit::skip!(Gpu, "why")`
   before it returns, not a bare `eprintln!`. `cargo xtask ci` then lists the skips and the machine's GPU adapters and
   data, and writes `target/ci/report.json` and `target/ci/summary.md` (Markdown for a PR).
 
 ## Map of the code
 `geom`, `color`, `raster`, `tiff` (L0) → `raw`, `codecs`, `meta`, `develop` (L1) → `pipeline` → `catalog` → `engine`
-→ `ui-egui`, `mcp` (L5) → apps `lightcraft` (desktop), `lightcraft-cli` (render/commands/MCP). `scenes` generates demo
+→ `ui-egui`, `mcp` (L5) → apps `evolight` (desktop), `evolight-cli` (render/commands/MCP). `scenes` generates demo
 photos. `xtask` = tooling (`ci`, `layers`, `assets`, `parity`, `wasm`, `corpus`, `stats`); `testkit` = test helpers
 (dev-dependency only). `flake.nix` +
-`nix/package.nix` = the Nix package (`nix build` builds both binaries with the craft-fonts input, installs the
+`nix/package.nix` = the Nix package (`nix build` builds both binaries with the evo-fonts input, installs the
 desktop file/icons/AppStream metadata and runs `cargo test --workspace`; `nix develop` = dev shell). Community-maintained; CI only
 evaluates it (`.github/workflows/nix.yml`), so the build may lag behind the workspace; see README → Quick start.
 
@@ -225,7 +225,7 @@ evaluates it (`.github/workflows/nix.yml`), so the build may lag behind the work
   GitHub profiles). Never hand-edit `contributors.json`.
 
 ## CI workflows
-- Workflows in `.github/workflows/` call the shared workflows in [`storytold/craft-common-actions`](https://github.com/storytold/craft-common-actions) at `@main`, with their inputs and secrets. No other jobs: if no shared workflow does what's needed, it doesn't go here.
-- Don't add or change CI in a feature or fix PR. If the existing workflows can't build or test a change, link an existing craft-common-actions issue or PR, or open a new issue, or a PR only for a small fix that is safe for every app and does not increase CI time.
+- Workflows in `.github/workflows/` call the shared workflows in [`amont/evo-common-actions`](amont/evo-common-actions) at `@main`, with their inputs and secrets. No other jobs: if no shared workflow does what's needed, it doesn't go here.
+- Don't add or change CI in a feature or fix PR. If the existing workflows can't build or test a change, link an existing evo-common-actions issue or PR, or open a new issue, or a PR only for a small fix that is safe for every app and does not increase CI time.
 - `ci.yml` is the Linux gate, on every pull request. `ci-windows.yml` adds a Windows leg (clippy and tests of the crates with `cfg(windows)` code) when a pull request changes the paths it lists; add the `full-ci` label to run it on any other pull request. When you add `cfg(windows)` code in a new file, add the file to its `paths` in a CI PR.
-- Some workflow files here still run their own jobs. Don't add to them. Moving a job into craft-common-actions is its own task, never part of another PR, and the job stays here until a shared workflow runs it.
+- Some workflow files here still run their own jobs. Don't add to them. Moving a job into evo-common-actions is its own task, never part of another PR, and the job stays here until a shared workflow runs it.

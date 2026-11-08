@@ -1,6 +1,6 @@
-use super::{Align2, Icon, LightcraftApp, PhotoId, Rect, Sense, Tokens, header, json, padded, paint, pos2, register, text_button, vec2};
+use super::{Align2, Icon, EvoLightApp, PhotoId, Rect, Sense, Tokens, header, json, padded, paint, pos2, register, text_button, vec2};
 
-pub(super) fn versions(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn versions(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let Some(p) = app.session.catalog.photo(id).cloned() else { return };
     header(ui, "Versions");
     let t = Tokens::get(ui.ctx());
@@ -9,7 +9,7 @@ pub(super) fn versions(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) 
             let _ = app.run("version.create", json!({}));
         }
         ui.add_space(8.0);
-        // Named (made by you) and Auto (made by LightCraft) versions
+        // Named (made by you) and Auto (made by EvoLight) versions
         let tab_id = egui::Id::unique("versions-tab");
         let mut auto: bool = ui.data(|d| d.get_temp(tab_id)).unwrap_or(false);
         let named_n = p.versions.iter().filter(|v| !v.auto).count();
@@ -22,7 +22,7 @@ pub(super) fn versions(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) 
             ui.data_mut(|d| d.insert_temp(tab_id, auto));
         }
         ui.add_space(6.0);
-        let shown: Vec<(usize, &lightcraft_catalog::Version)> = p.versions.iter().enumerate().filter(|(_, v)| v.auto == auto).collect();
+        let shown: Vec<(usize, &evolight_catalog::Version)> = p.versions.iter().enumerate().filter(|(_, v)| v.auto == auto).collect();
         if shown.is_empty() {
             let msg = if auto { "No automatic versions." } else { "No versions yet. Create one to keep this look." };
             ui.label(egui::RichText::new(crate::i18n::tr(msg)).color(t.text_dim));
@@ -100,7 +100,7 @@ pub(super) fn short_time(iso: &str) -> String {
     if crate::i18n::language() != crate::i18n::Locale::En {
         return crate::i18n::display_time(iso);
     }
-    let long = lightcraft_catalog::dates::display_time(iso);
+    let long = evolight_catalog::dates::display_time(iso);
     // "September 30, 2026 at 12:00:00 PM" → month abbreviated, seconds dropped
     let (date, time) = long.split_once(" at ").map_or((long.as_str(), None), |(d, t)| (d, Some(t)));
     let date = match date.split_once(' ') {
@@ -130,7 +130,7 @@ pub(super) fn history_row(i: usize, cursor: Option<usize>) -> HistoryRow {
     }
 }
 
-pub(super) fn activity(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn activity(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let Some(p) = app.session.catalog.photo(id).cloned() else { return };
     header(ui, "History");
     let t = Tokens::get(ui.ctx());

@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 use egui::{Key, Modifiers};
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 /// The user's changes to the keymap: command id → shortcut (`""` = no shortcut). Saved with the
 /// app settings (`ui.json`); commands not listed keep their declared shortcut.
@@ -37,7 +37,7 @@ pub fn bindable() -> &'static [Bindable] {
             }
         }
         let ui_keys: Vec<(Modifiers, Key)> = v.iter().filter_map(|b| b.default.and_then(parse)).collect();
-        for c in lightcraft_engine::command_specs() {
+        for c in evolight_engine::command_specs() {
             if v.iter().any(|b| b.id == c.id) {
                 continue;
             }
@@ -145,7 +145,7 @@ pub fn reset(keymap: &mut Keymap, id: &str) -> Result<Vec<&'static str>, String>
 }
 
 /// `app.setShortcut {id, shortcut?, reset?}`: `shortcut` null or `""` removes it.
-pub fn set_shortcut(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn set_shortcut(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let id = p.get("id").and_then(Value::as_str).ok_or("missing id")?;
     let keymap = &mut app.ui.settings.keymap;
     let lost = if p.get("reset").and_then(Value::as_bool).unwrap_or(false) {
@@ -333,7 +333,7 @@ fn grid_key_command(keymap: &Keymap, grid: bool, fullscreen: bool, id: &'static 
 
 /// Content widgets keep keyboard ownership, including text fields and arrow-driven sliders.
 /// Dock chrome owns activation, traversal, resizing and cancellation; its other keys reach commands.
-fn keyboard_owned(app: &LightcraftApp, ctx: &egui::Context) -> bool {
+fn keyboard_owned(app: &EvoLightApp, ctx: &egui::Context) -> bool {
     if !ctx.egui_wants_keyboard_input() {
         // Escape drops egui focus before shortcuts run; keep the numeric edit's whole input batch.
         return ctx.input(|input| input.key_pressed(Key::Escape))
@@ -351,7 +351,7 @@ fn keyboard_owned(app: &LightcraftApp, ctx: &egui::Context) -> bool {
     }
     let chrome =
         app.ui.docking.as_ref().is_some_and(|workspace| {
-            craft_ui::docking::DockArea::new(egui::Id::unique("lightcraft-docking")).chrome_has_focus(ctx, &workspace.layout)
+            evo_ui::docking::DockArea::new(egui::Id::unique("evolight-docking")).chrome_has_focus(ctx, &workspace.layout)
         });
     if !chrome {
         return true;
@@ -366,7 +366,7 @@ fn keyboard_owned(app: &LightcraftApp, ctx: &egui::Context) -> bool {
 /// Dispatch the global shortcut pass. It yields while a dialog, prompt, blocking library window,
 /// text field, name edit or shortcut recording owns input, then fires saved command bindings,
 /// aliases and fixed photo keys, respecting native menu ownership and open popups.
-pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn handle(app: &mut EvoLightApp, ctx: &egui::Context) {
     // Space held over a tool ends when the key is up, whoever has the keyboard by then
     crate::space_hand::tick(app, ctx);
     if !matches!(app.ui.dialog, Some(crate::state::Dialog::Shortcuts)) {
@@ -416,7 +416,7 @@ pub fn handle(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// The keys pressed this frame: the commands to fire, the aliases (command and params) to run, and
 /// whether an unmodified H that no keymap assignment has claimed was pressed (the Masking panel's
 /// pin toggle, see `handle`).
-fn pressed_commands(app: &LightcraftApp, ctx: &egui::Context) -> (Vec<String>, Vec<(&'static str, serde_json::Value)>, bool) {
+fn pressed_commands(app: &EvoLightApp, ctx: &egui::Context) -> (Vec<String>, Vec<(&'static str, serde_json::Value)>, bool) {
     let mut fire: Vec<String> = Vec::new();
     // shortcuts the native menu bar handles (it consumes those key presses itself)
     let native = |sc: &str| app.native_shortcuts.contains(sc);
@@ -518,7 +518,7 @@ fn fixed_photo_keys(i: &egui::InputState, native: &dyn Fn(&str) -> bool, taken: 
 
 /// Rating/flag/label keys: in Compare/Survey they act on the active photo only; `advance` (Shift+key) or
 /// Auto Advance then moves on (next candidate in Compare, next photo elsewhere).
-fn cull(app: &mut LightcraftApp, id: &str, mut params: serde_json::Value, advance: bool) {
+fn cull(app: &mut EvoLightApp, id: &str, mut params: serde_json::Value, advance: bool) {
     use crate::panels::compare;
     compare::target_active(app, &mut params);
     let was = app.session.active();
@@ -529,7 +529,7 @@ fn cull(app: &mut LightcraftApp, id: &str, mut params: serde_json::Value, advanc
 }
 
 /// Run a fixed alias (a second key for a command).
-fn fire_alias(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, params: serde_json::Value) {
+fn fire_alias(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, params: serde_json::Value) {
     // a slideshow: Space pauses / resumes
     if id == "view.zoomToggle" && app.ui.slideshow.is_some() {
         if let Ok(v) = app.run("slideshow.togglePause", json!({})) {
@@ -559,8 +559,8 @@ fn fire_alias(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, params: se
 }
 
 /// The toast naming a flag.
-fn flag_toast(app: &mut LightcraftApp, ctx: &egui::Context, flag: lightcraft_catalog::Flag) {
-    use lightcraft_catalog::Flag;
+fn flag_toast(app: &mut EvoLightApp, ctx: &egui::Context, flag: evolight_catalog::Flag) {
+    use evolight_catalog::Flag;
     app.toast(
         ctx,
         crate::i18n::tr(match flag {
@@ -572,7 +572,7 @@ fn flag_toast(app: &mut LightcraftApp, ctx: &egui::Context, flag: lightcraft_cat
 }
 
 /// Run one fired command.
-fn fire_command(app: &mut LightcraftApp, ctx: &egui::Context, f: &str, rotate_fires: bool) {
+fn fire_command(app: &mut EvoLightApp, ctx: &egui::Context, f: &str, rotate_fires: bool) {
     // a slideshow: ←/→ step (a cut)
     if app.ui.slideshow.is_some() && matches!(f, "library.next" | "library.previous") {
         let _ = app.run(if f == "library.next" { "slideshow.next" } else { "slideshow.previous" }, json!({}));
@@ -600,9 +600,9 @@ fn fire_command(app: &mut LightcraftApp, ctx: &egui::Context, f: &str, rotate_fi
         app.toast(ctx, e);
     }
     match f {
-        "photo.pick" => flag_toast(app, ctx, lightcraft_catalog::Flag::Pick),
-        "photo.reject" => flag_toast(app, ctx, lightcraft_catalog::Flag::Reject),
-        "photo.unflag" => flag_toast(app, ctx, lightcraft_catalog::Flag::None),
+        "photo.pick" => flag_toast(app, ctx, evolight_catalog::Flag::Pick),
+        "photo.reject" => flag_toast(app, ctx, evolight_catalog::Flag::Reject),
+        "photo.unflag" => flag_toast(app, ctx, evolight_catalog::Flag::None),
         "edit.undo" => app.toast(ctx, crate::i18n::tr("Undo")),
         "edit.redo" => app.toast(ctx, crate::i18n::tr("Redo")),
         _ => {}
@@ -610,7 +610,7 @@ fn fire_command(app: &mut LightcraftApp, ctx: &egui::Context, f: &str, rotate_fi
 }
 
 /// Rating and colour label keys; whether `f` was one.
-fn fire_rating_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) -> bool {
+fn fire_rating_key(app: &mut EvoLightApp, ctx: &egui::Context, f: &str) -> bool {
     if let Some(rest) = f.strip_prefix("rate:") {
         let (n, adv) = rest.split_once(':').unwrap_or(("0", "0"));
         cull(app, "photo.rate", json!({"rating": n.parse::<u8>().unwrap_or(0)}), adv == "1");
@@ -631,7 +631,7 @@ fn fire_rating_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) -> boo
 }
 
 /// The keys of a grid or of Compare / Survey that move the active photo or the selection; whether `f` was one.
-fn fire_grid_key(app: &mut LightcraftApp, f: &str) -> bool {
+fn fire_grid_key(app: &mut EvoLightApp, f: &str) -> bool {
     use crate::panels::compare;
     if f == "panel.presets" && library_grid(app) {
         // Classic's Shift+P picks and advances in Library; keep the Presets binding elsewhere.
@@ -659,7 +659,7 @@ fn fire_grid_key(app: &mut LightcraftApp, f: &str) -> bool {
 
 /// Shift+← / Shift+→ in a grid: the neighbour of the active photo joins the selection and
 /// becomes the active one. At either end of the view the key does nothing.
-fn extend_selection(app: &mut LightcraftApp, step: i64) {
+fn extend_selection(app: &mut EvoLightApp, step: i64) {
     let vis = app.session.visible_cloned();
     let neighbour = app
         .session
@@ -675,7 +675,7 @@ fn extend_selection(app: &mut LightcraftApp, step: i64) {
 }
 
 /// The flag keys; whether `f` was one.
-fn fire_flag_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) -> bool {
+fn fire_flag_key(app: &mut EvoLightApp, ctx: &egui::Context, f: &str) -> bool {
     if matches!(f, "photo.cycleFlag" | "photo.increaseFlag" | "photo.decreaseFlag") {
         // `, ⌘↑, ⌘↓: step the flag; the toast names the active photo's new state (read before Auto Advance moves on)
         let active = app.session.active();
@@ -687,9 +687,9 @@ fn fire_flag_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) -> bool 
     } else if matches!(f, "photo.pick" | "photo.reject" | "photo.unflag") && app.ui.right != crate::state::RightPanel::Crop {
         cull(app, f, json!({}), false);
         let flag = match f {
-            "photo.pick" => lightcraft_catalog::Flag::Pick,
-            "photo.reject" => lightcraft_catalog::Flag::Reject,
-            _ => lightcraft_catalog::Flag::None,
+            "photo.pick" => evolight_catalog::Flag::Pick,
+            "photo.reject" => evolight_catalog::Flag::Reject,
+            _ => evolight_catalog::Flag::None,
         };
         flag_toast(app, ctx, flag);
         true
@@ -700,7 +700,7 @@ fn fire_flag_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) -> bool 
 
 /// Delete acts on what's being edited: the active mask in the Masking panel; never the photo while retouching (spots
 /// are removed from their own panel). Whether the key was used up.
-fn delete_key(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
+fn delete_key(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
     use crate::state::RightPanel as R;
     match app.ui.right {
         R::Masking => {
@@ -729,7 +729,7 @@ fn delete_key(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
 
 /// Delete removes the selected guide alone; with none selected it removes nothing (the photo itself is never deleted
 /// while the tool is open).
-fn delete_selected_guide(app: &mut LightcraftApp) {
+fn delete_selected_guide(app: &mut EvoLightApp) {
     let (Some((photo, i)), Some(active)) = (app.ui.selected_guide, app.session.active()) else { return };
     if photo == active.0
         && let Some(d) = app.session.develop_of(active)
@@ -742,7 +742,7 @@ fn delete_selected_guide(app: &mut LightcraftApp) {
 }
 
 /// B: the brush while editing; in the grids, add to the target album (Quick Collection). Whether the key was used up.
-fn brush_key(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
+fn brush_key(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
     if !library_grid(app) {
         return false;
     }
@@ -765,7 +765,7 @@ fn brush_key(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
 
 /// Keys that two bindings share, and that mean something only in one panel: whether `f` was used up (or ignored)
 /// here, so nothing else runs for it.
-fn context_key_skipped(app: &mut LightcraftApp, f: &str, rotate_fires: bool) -> bool {
+fn context_key_skipped(app: &mut EvoLightApp, f: &str, rotate_fires: bool) -> bool {
     use crate::state::RightPanel as R;
     let right = app.ui.right;
     match f {
@@ -805,7 +805,7 @@ fn context_key_skipped(app: &mut LightcraftApp, f: &str, rotate_fires: bool) -> 
 }
 
 /// Up / Down in the grids go to the cell above / below (the filmstrip steps one photo).
-fn up_down_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) {
+fn up_down_key(app: &mut EvoLightApp, ctx: &egui::Context, f: &str) {
     // over a slider the arrows nudge it (widgets::slider takes the key)
     let over_slider = ctx.pointer_hover_pos().is_some_and(|p| app.widgets.iter().any(|(id, r)| id.starts_with("slider:") && r.contains(p)));
     if over_slider {
@@ -822,7 +822,7 @@ fn up_down_key(app: &mut LightcraftApp, ctx: &egui::Context, f: &str) {
     }
 }
 
-pub(crate) fn library_grid(app: &LightcraftApp) -> bool {
+pub(crate) fn library_grid(app: &EvoLightApp) -> bool {
     matches!(app.ui.view, crate::state::ViewMode::PhotoGrid | crate::state::ViewMode::SquareGrid)
 }
 

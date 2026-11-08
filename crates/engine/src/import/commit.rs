@@ -173,7 +173,7 @@ fn run_transfer(t: Transfer, file_bytes: Option<&crate::merge::ByteReader>) -> P
 
 /// A trashed photo's file is not where the library had it (never on the web, where paths are
 /// storage keys, not files).
-fn trashed_file_is_gone(cat: &lightcraft_catalog::Catalog, id: PhotoId) -> bool {
+fn trashed_file_is_gone(cat: &evolight_catalog::Catalog, id: PhotoId) -> bool {
     !cfg!(target_arch = "wasm32")
         && match cat.photo(id).map(|p| &p.source) {
             Some(Source::File { path }) => !Path::new(path).exists(),
@@ -279,7 +279,7 @@ pub fn commit_prepared(s: &mut Session, opts: &ImportOptions, now: &str, prepare
                     crate::cmd::metadata::apply_to(&mut p.meta, &mp.fields);
                 }
                 for k in &opts.keywords {
-                    let k = lightcraft_catalog::keywords::clean(k);
+                    let k = evolight_catalog::keywords::clean(k);
                     if !k.is_empty() && !p.meta.keywords.iter().any(|x| x.eq_ignore_ascii_case(&k)) {
                         p.meta.keywords.push(k);
                     }
@@ -289,7 +289,7 @@ pub fn commit_prepared(s: &mut Session, opts: &ImportOptions, now: &str, prepare
                     let label = format!("Preset: {}", preset.name);
                     p.develop = d.clone();
                     p.edited = Some(now.clone());
-                    p.history.push(lightcraft_catalog::HistoryStep { label, settings: d });
+                    p.history.push(evolight_catalog::HistoryStep { label, settings: d });
                 }
                 // the batch-edit recipe goes on top of everything above (sidecar, camera default,
                 // preset): only the controls it names change, through the same specs the sliders use
@@ -297,12 +297,12 @@ pub fn commit_prepared(s: &mut Session, opts: &ImportOptions, now: &str, prepare
                     let mut d = (*p.develop).clone();
                     for (id, v) in &opts.recipe {
                         // (`ImportJob::new` refused any id `set` would not write, and `set` clamps to the range)
-                        lightcraft_develop::controls::set(&mut d, id, *v);
+                        evolight_develop::controls::set(&mut d, id, *v);
                     }
                     let d = std::sync::Arc::new(d);
                     p.develop = d.clone();
                     p.edited = Some(now.clone());
-                    p.history.push(lightcraft_catalog::HistoryStep { label: "Import adjustments".into(), settings: d });
+                    p.history.push(evolight_catalog::HistoryStep { label: "Import adjustments".into(), settings: d });
                 }
                 report.imported.push(id.0);
                 p.local = opts.local;
@@ -385,5 +385,5 @@ pub fn system_clock() -> String {
 
 /// Unix seconds → `YYYY-MM-DDTHH:MM:SS` (UTC), proleptic Gregorian.
 pub fn civil(secs: i64) -> String {
-    lightcraft_catalog::dates::civil(secs)
+    evolight_catalog::dates::civil(secs)
 }

@@ -1,11 +1,11 @@
 use super::dates::browse_all_photos;
 use super::rows::{INDENT_STEP, Row, out_of_sight, tree_open, tree_toggle};
-use super::{Icon, KeywordNode, LightcraftApp, json};
+use super::{Icon, KeywordNode, EvoLightApp, json};
 
 /// "Keywords": the library's keyword tree with photo counts (`a|b|c` keywords nest). A click
 /// filters the grid by the keyword (children included), the triangle opens a level, and the
 /// context menu renames, merges or deletes the keyword across the library.
-pub(super) fn keyword_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, nodes: &[KeywordNode], indent: f32) {
+pub(super) fn keyword_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, nodes: &[KeywordNode], indent: f32) {
     for n in nodes {
         // leaves (most keywords) have no open state to look up
         let open_id = (!n.children.is_empty()).then(|| egui::Id::unique(("kw-open", n.path.to_lowercase())));
@@ -21,7 +21,7 @@ pub(super) fn keyword_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, nodes: &[
 }
 
 /// One drawn row of [`keyword_rows`]; `open_id` and `open` are its triangle's when it has rows inside it.
-fn keyword_row(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &KeywordNode, id: &str, indent: f32, open_id: Option<egui::Id>, open: &mut bool) {
+fn keyword_row(app: &mut EvoLightApp, ui: &mut egui::Ui, n: &KeywordNode, id: &str, indent: f32, open_id: Option<egui::Id>, open: &mut bool) {
     let sel = app.session.filter.keyword.as_deref().is_some_and(|k| k.eq_ignore_ascii_case(&n.path));
     let resp = Row::new(id, Icon::Tag, &n.name).count(Some(n.count)).selected(sel).indent(indent).show(app, ui);
     if let Some(k) = open_id {

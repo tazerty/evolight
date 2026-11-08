@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::headless::Headless;
 use crate::panels::library_problem::{ALT_SECONDS, Launch, LibraryProblem, launch_plan};
 use crate::state::{AppSettings, LaunchLibrary};
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
@@ -25,11 +25,11 @@ fn temp(tag: &str) -> PathBuf {
 
 /// A library on disk at `dir` (written, then closed: as left by an earlier run).
 fn make_library(dir: &Path) -> String {
-    let mut s = lightcraft_engine::Session::new().with_fs();
+    let mut s = evolight_engine::Session::new().with_fs();
     s.open_library(dir, false).unwrap();
     s.close_library().unwrap();
     drop(s);
-    assert!(lightcraft_engine::library::is_library(dir));
+    assert!(evolight_engine::library::is_library(dir));
     dir.to_string_lossy().into_owned()
 }
 
@@ -50,7 +50,7 @@ fn path(s: &str) -> Option<PathBuf> {
     Some(PathBuf::from(s))
 }
 
-/// `--library`, then `LIGHTCRAFT_LIBRARY`, then the setting; `--memory` never asks. Only the
+/// `--library`, then `EVOLIGHT_LIBRARY`, then the setting; `--memory` never asks. Only the
 /// library remembered in Settings is `remembered` (issue #3239: a missing one is reported, not
 /// made anew), and not when it is the default location.
 #[test]
@@ -60,7 +60,7 @@ fn the_launch_plan_puts_the_flag_and_the_variable_before_the_setting() {
     let at_default = AppSettings { library_path: "/default".into(), ..AppSettings::default() };
     let fresh = AppSettings::default();
     let open = |dir: &str, alt_asks, remembered| Launch::Open { dir: path(dir), alt_asks, remembered };
-    // --library, then LIGHTCRAFT_LIBRARY, whatever the setting says; neither asks on Alt
+    // --library, then EVOLIGHT_LIBRARY, whatever the setting says; neither asks on Alt
     for s in [None, Some(&ask), Some(&last)] {
         assert_eq!(launch_plan(false, path("/flag"), path("/env"), s, path("/default")), open("/flag", false, false));
         assert_eq!(launch_plan(false, None, path("/env"), s, path("/default")), open("/env", false, false));
@@ -94,7 +94,7 @@ fn the_list_checks_each_library_and_selects_the_last_one() {
     let (gone, plain, file) =
         (dir.join("Gone").to_string_lossy().into_owned(), plain.to_string_lossy().into_owned(), file.to_string_lossy().into_owned());
     // another program has it open: listing doesn't take locks, so it is found when opened
-    let lock = lightcraft_catalog::LibraryLock::acquire(Path::new(&held_path), "another LightCraft").unwrap();
+    let lock = evolight_catalog::LibraryLock::acquire(Path::new(&held_path), "another EvoLight").unwrap();
 
     let mut settings = AppSettings {
         recent_libraries: vec![gone.clone(), held_path.clone(), a.clone(), plain.clone(), file.clone(), b.clone()],
@@ -109,7 +109,7 @@ fn the_list_checks_each_library_and_selects_the_last_one() {
     assert!(why[0].unwrap().contains("Not found"), "{why:?}");
     assert_eq!(why[1], None, "a lock is not probed: {why:?}");
     assert_eq!(why[2], None);
-    assert!(why[3].unwrap().contains("no LightCraft library"), "{why:?}");
+    assert!(why[3].unwrap().contains("no EvoLight library"), "{why:?}");
     assert!(why[4].unwrap().contains("not a library folder"), "{why:?}");
     assert_eq!(why[5], None);
     assert_eq!(c.selected, Some(5), "the last library opened");
@@ -152,14 +152,14 @@ fn snapshot(dir: &Path) -> std::collections::BTreeMap<PathBuf, (Option<Vec<u8>>,
     out
 }
 
-/// The bytes of the file `p`, or `None` for a lock file that a [`lightcraft_catalog::LibraryLock`]
+/// The bytes of the file `p`, or `None` for a lock file that a [`evolight_catalog::LibraryLock`]
 /// holds on Windows: there `LockFileEx` locks the file's bytes, and reading them through another
 /// handle fails with os error 33 (`ERROR_LOCK_VIOLATION`). Such a file is compared by its length
 /// and modification time only.
 fn contents(p: &Path) -> Option<Vec<u8>> {
     match std::fs::read(p) {
         Ok(bytes) => Some(bytes),
-        Err(e) if cfg!(windows) && e.raw_os_error() == Some(33) && p.file_name().is_some_and(|n| n == lightcraft_catalog::lock::LOCK) => None,
+        Err(e) if cfg!(windows) && e.raw_os_error() == Some(33) && p.file_name().is_some_and(|n| n == evolight_catalog::lock::LOCK) => None,
         Err(e) => panic!("{}: {e}", p.display()),
     }
 }
@@ -173,11 +173,11 @@ fn listing_the_libraries_leaves_every_folder_byte_identical() {
     let (free, held_path) = (make_library(&free), make_library(&held));
     // a library whose lock files were never made (copied over from elsewhere, say)
     let fresh_path = make_library(&fresh);
-    for f in [lightcraft_catalog::lock::LOCK, lightcraft_catalog::lock::OWNER] {
+    for f in [evolight_catalog::lock::LOCK, evolight_catalog::lock::OWNER] {
         let _ = std::fs::remove_file(fresh.join(f));
     }
     std::fs::create_dir_all(dir.join("Plain")).unwrap();
-    let lock = lightcraft_catalog::LibraryLock::acquire(Path::new(&held_path), "another LightCraft").unwrap();
+    let lock = evolight_catalog::LibraryLock::acquire(Path::new(&held_path), "another EvoLight").unwrap();
     let recent = vec![free.clone(), fresh_path.clone(), held_path.clone(), dir.join("Plain").to_string_lossy().into_owned()];
     let before = snapshot(&dir);
     // (mtime granularity: a write in the same instant would still change contents or add files)
@@ -190,24 +190,24 @@ fn listing_the_libraries_leaves_every_folder_byte_identical() {
     assert!(has(&h, "libraryRecent:2"));
     drop(h);
     assert_eq!(snapshot(&dir), before, "listing must not create or change any file");
-    assert!(!fresh.join(lightcraft_catalog::lock::LOCK).exists() && !fresh.join(lightcraft_catalog::lock::OWNER).exists());
+    assert!(!fresh.join(evolight_catalog::lock::LOCK).exists() && !fresh.join(evolight_catalog::lock::OWNER).exists());
     drop(lock);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// The app as the desktop host starts it with *Ask me*: no library open, the list showing.
 fn asking(recent: Vec<String>, last: &str, picked: Option<String>) -> Headless {
-    let session = lightcraft_engine::Session::new().with_fs();
-    // (an encoder for the screenshots LIGHTCRAFT_TEST_SHOTS asks for)
-    let png = |img: &lightcraft_raster::Rgba8| {
-        lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(img), &lightcraft_codecs::EncodeMeta::default()).unwrap_or_default()
+    let session = evolight_engine::Session::new().with_fs();
+    // (an encoder for the screenshots EVOLIGHT_TEST_SHOTS asks for)
+    let png = |img: &evolight_raster::Rgba8| {
+        evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(img), &evolight_codecs::EncodeMeta::default()).unwrap_or_default()
     };
     let services = Services {
         png: Some(Box::new(png)),
         write: Some(Box::new(|p: &str, b: &[u8]| std::fs::write(p, b).map_err(|e| e.to_string()))),
         ..Default::default()
     };
-    let mut app = LightcraftApp::new(session, services);
+    let mut app = EvoLightApp::new(session, services);
     app.ui.settings.recent_libraries = recent;
     app.ui.settings.library_path = last.to_string();
     app.ui.settings.at_launch = LaunchLibrary::Ask;
@@ -233,7 +233,7 @@ fn the_window_lists_the_libraries_and_opens_the_chosen_one() {
     }
     assert!(has(&h, "button:libraryQuit") && has(&h, "button:libraryForget"));
     assert!(!has(&h, "button:libraryRetry"), "not the failed-library window");
-    if let Some(p) = std::env::var_os("LIGHTCRAFT_TEST_SHOTS") {
+    if let Some(p) = std::env::var_os("EVOLIGHT_TEST_SHOTS") {
         let r = h.request("ui.screenshot", json!({"path": Path::new(&p).join("launch-list.png").to_string_lossy(), "headless": true}), T);
         assert_eq!(r["ok"], true, "{r}");
     }
@@ -270,12 +270,12 @@ fn return_opens_the_selected_library_and_a_failure_says_why() {
     let mut h = asking(vec![a.clone(), b.clone()], &b, None);
     assert_eq!(h.app.library_problem.as_ref().unwrap().chooser.as_ref().unwrap().selected, Some(1));
     // another program takes Beta after the window opened: Open says so and keeps the window
-    let lock = lightcraft_catalog::LibraryLock::acquire(Path::new(&b), "another LightCraft").unwrap();
+    let lock = evolight_catalog::LibraryLock::acquire(Path::new(&b), "another EvoLight").unwrap();
     h.request("ui.key", json!({"key": "Enter"}), T);
     settle(&mut h);
     assert!(h.app.session.library.is_none());
     let p = h.app.library_problem.as_ref().unwrap();
-    assert!(p.error.contains("already open in another LightCraft"), "who has it: {}", p.error);
+    assert!(p.error.contains("already open in another EvoLight"), "who has it: {}", p.error);
     assert!(p.chooser.as_ref().unwrap().libraries[1].unavailable.is_some(), "greyed out now");
     drop(lock);
     // ↑ to Alpha, Return: it opens
@@ -342,8 +342,8 @@ fn new_library_from_the_window_asks_for_a_name_and_the_list_returns_if_cancelled
     let a = make_library(&dir.join("Alpha"));
     let mut h = asking(vec![a.clone()], &a, Some(dir.to_string_lossy().into_owned()));
     // a photo given on the command line waits for the library chosen
-    let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
-    let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
+    let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     let photo = dir.join("a.png");
     std::fs::write(&photo, png).unwrap();
     h.app.library_problem.as_mut().unwrap().pending_import = vec![photo.to_string_lossy().into_owned()];
@@ -388,7 +388,7 @@ fn remove_from_list_forgets_one_library_and_deletes_nothing() {
     h.request("ui.clickWidget", json!({"id": "button:libraryForget"}), T);
     settle(&mut h);
     assert_eq!(h.app.ui.settings.recent_libraries, vec![a.clone()]);
-    assert!(lightcraft_engine::library::is_library(Path::new(&b)), "nothing is deleted on disk");
+    assert!(evolight_engine::library::is_library(Path::new(&b)), "nothing is deleted on disk");
     settle(&mut h);
     assert!(!has(&h, "libraryRecent:1"));
     drop(h);
@@ -396,7 +396,7 @@ fn remove_from_list_forgets_one_library_and_deletes_nothing() {
 }
 
 /// File ▸ Open Recent Library's items.
-fn open_recent(app: &LightcraftApp) -> Vec<crate::menubar::MenuNode> {
+fn open_recent(app: &EvoLightApp) -> Vec<crate::menubar::MenuNode> {
     use crate::menubar::MenuNode;
     let bar = crate::menubar::menu_bar(app);
     let file = &bar.iter().find(|(t, _)| t == "File").unwrap().1;
@@ -411,9 +411,9 @@ fn open_recent(app: &LightcraftApp) -> Vec<crate::menubar::MenuNode> {
 fn open_recent_library_and_the_command_remove_one_entry() {
     use crate::menubar::MenuNode;
     let dir = temp("menu");
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.join("first"), false).unwrap();
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     let (first, gone) = (dir.join("first").to_string_lossy().into_owned(), dir.join("gone").to_string_lossy().into_owned());
     app.ui.settings.recent_libraries = vec![first.clone(), gone.clone(), "/elsewhere/third".into()];
 
@@ -436,7 +436,7 @@ fn open_recent_library_and_the_command_remove_one_entry() {
     let list = app.run("app.recentLibraries", json!({"remove": first})).unwrap();
     // (no frame ran: nothing checked yet, so `exists` is not known; the command never looks itself)
     assert_eq!(list, json!([{"path": "/elsewhere/third", "name": "third", "exists": null, "checking": false, "open": false, "lastOpened": null}]));
-    assert!(app.session.library.is_some() && lightcraft_engine::library::is_library(&dir.join("first")));
+    assert!(app.session.library.is_some() && evolight_engine::library::is_library(&dir.join("first")));
     let e = app.run("app.recentLibraries", json!({"remove": first})).unwrap_err();
     assert!(e.contains("not in the recent libraries"), "{e}");
     let e = app.run("app.recentLibraries", json!({"remove": 3})).unwrap_err();
@@ -478,9 +478,9 @@ fn the_setting_and_the_open_times_are_kept_in_the_settings_file() {
 #[test]
 fn settings_choose_ask_me_and_opening_a_library_records_when() {
     let dir = temp("settings");
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.join("first"), false).unwrap();
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     app.services.pick_folder = Some(Box::new(|| None));
     app.ui.settings.recent_opened.insert("/forgotten".into(), "2020-01-01T00:00:00".into());
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
@@ -509,9 +509,9 @@ fn settings_choose_ask_me_and_opening_a_library_records_when() {
 /// The app as the host starts it with *Open the last library*: `first` open, Alt watched.
 fn opened_last(dir: &Path) -> (Headless, String, String) {
     let (first, second) = (make_library(&dir.join("first")), make_library(&dir.join("second")));
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&first, false).unwrap();
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     app.ui.settings.recent_libraries = vec![first.clone(), second.clone()];
     app.ui.settings.library_path = first.clone();
     app.alt_asks_for_library = true;
@@ -564,13 +564,13 @@ fn alt_held_as_the_window_appears_asks_once_over_the_last_library() {
 /// The Alt watch ends after the first seconds and needs the host to arm it.
 #[test]
 fn alt_is_only_watched_while_the_window_first_appears_and_when_armed() {
-    let frame = |app: &mut LightcraftApp, ctx: &egui::Context, time: f64, alt: bool| {
+    let frame = |app: &mut EvoLightApp, ctx: &egui::Context, time: f64, alt: bool| {
         let modifiers = if alt { egui::Modifiers::ALT } else { egui::Modifiers::NONE };
         let raw = egui::RawInput { time: Some(time), events: vec![egui::Event::ModifiersChanged(modifiers)], ..Default::default() };
         ctx.run_ui(raw, |ui| crate::panels::library_problem::logic(app, ui.ctx())).textures_delta.clear();
     };
     let new_app = |armed| {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::new(), Services::default());
         app.alt_asks_for_library = armed;
         app
     };
@@ -580,7 +580,7 @@ fn alt_is_only_watched_while_the_window_first_appears_and_when_armed() {
     assert!(!app.alt_asks_for_library);
     frame(&mut app, &ctx, ALT_SECONDS + 0.6, true);
     assert!(app.library_problem.is_none());
-    // not armed (--library, LIGHTCRAFT_LIBRARY, --memory, the browser)
+    // not armed (--library, EVOLIGHT_LIBRARY, --memory, the browser)
     let (mut app, ctx) = (new_app(false), egui::Context::default());
     frame(&mut app, &ctx, 0.1, true);
     assert!(app.library_problem.is_none());
@@ -629,7 +629,7 @@ fn a_slow_check_never_holds_the_launch_window() {
     let dir = temp("slow");
     let a = make_library(&dir.join("A"));
     let gone = dir.join("Gone").to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![gone.clone(), a.clone()];
     app.ui.settings.library_path = gone.clone();
     let (checks, gate, _) = slow_checks();
@@ -663,7 +663,7 @@ fn late_answers_keep_the_row_the_person_chose() {
     let dir = temp("touched");
     let a = make_library(&dir.join("A"));
     let gone = dir.join("Gone").to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![a.clone(), gone.clone()];
     app.ui.settings.library_path = a.clone();
     let (checks, gate, _) = slow_checks();
@@ -687,7 +687,7 @@ fn the_recent_menu_takes_its_answers_from_a_worker() {
     use crate::menubar::MenuNode;
     let dir = temp("menu-worker");
     let gone = dir.join("Gone").to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![gone.clone()];
     let (checks, gate, calls) = slow_checks();
     app.recent_checks = checks;
@@ -716,7 +716,7 @@ fn the_recent_menu_takes_its_answers_from_a_worker() {
 fn the_reasons_are_in_the_interface_language() {
     let dir = temp("lang");
     let gone = dir.join("Gone").to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.language = crate::i18n::Locale::Fr;
     app.ui.settings.recent_libraries = vec![gone.clone()];
     app.library_problem = Some(LibraryProblem::choose_later(&app.ui.settings));
@@ -744,7 +744,7 @@ fn one_hung_drive_doesnt_hold_the_other_libraries() {
     let gate = std::sync::Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
     let g = gate.clone();
     let h_path = hung.clone();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.recent_checks = crate::panels::library_problem::RecentChecks::with_check(move |p| {
         if p == h_path {
             let (lock, cv) = &*g;
@@ -770,7 +770,7 @@ fn one_hung_drive_doesnt_hold_the_other_libraries() {
 fn a_check_that_dies_doesnt_leave_the_list_waiting() {
     let dir = temp("dies");
     let a = make_library(&dir.join("A"));
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.recent_checks = crate::panels::library_problem::RecentChecks::with_check(|_| panic!("a check that dies"));
     app.ui.settings.recent_libraries = vec![a.clone()];
     app.library_problem = Some(LibraryProblem::choose_later(&app.ui.settings));
@@ -790,7 +790,7 @@ fn opening_a_library_clears_an_old_missing_answer() {
     use crate::menubar::MenuNode;
     let dir = temp("back");
     let a = make_library(&dir.join("A"));
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![a.clone()];
     app.recent_checks = crate::panels::library_problem::RecentChecks::with_check(|_| Some(crate::panels::library_problem::Unavailable::NotFound));
     let ctx = egui::Context::default();
@@ -816,7 +816,7 @@ fn a_failed_open_or_an_unreadable_catalog_doesnt_mark_a_library_missing() {
     use crate::menubar::MenuNode;
     let dir = temp("held");
     let held = make_library(&dir.join("Held"));
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![held.clone()];
     app.ui.settings.library_path = held.clone();
     app.library_problem = Some(LibraryProblem::choose_later(&app.ui.settings));
@@ -826,7 +826,7 @@ fn a_failed_open_or_an_unreadable_catalog_doesnt_mark_a_library_missing() {
     assert!(h.step_until(T, answered));
     assert_eq!(h.app.recent_checks.exists(&held), Some(true));
     // another program has it: Open from the launch window fails
-    let lock = lightcraft_catalog::LibraryLock::acquire(Path::new(&held), "another LightCraft").unwrap();
+    let lock = evolight_catalog::LibraryLock::acquire(Path::new(&held), "another EvoLight").unwrap();
     settle(&mut h);
     let r = h.request("ui.clickWidget", json!({"id": "button:libraryOpen"}), T);
     assert_eq!(r["ok"], true, "{r} {:?}", h.app.widgets.iter().map(|(w, _)| w.clone()).filter(|w| w.contains("library")).collect::<Vec<_>>());
@@ -857,8 +857,8 @@ fn photos_dropped_on_the_launch_list_go_into_the_library_chosen() {
     let dir = temp("drop");
     let a = make_library(&dir.join("Alpha"));
     let mut h = asking(vec![a.clone()], &a, None);
-    let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
-    let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
+    let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     let photo = dir.join("a.png");
     std::fs::write(&photo, png).unwrap();
     // frames with nothing dropped (the drop code runs every frame) hold nothing and say nothing
@@ -908,10 +908,10 @@ fn a_failed_lookup_doesnt_mark_a_recent_library_missing() {
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
     if std::fs::read_dir(&locked).is_ok() {
         // running as root (some CI containers): the mode bits don't stop it, so no lookup fails
-        lightcraft_testkit::skip!(System, "a folder with no permissions can still be read (running as root)");
+        evolight_testkit::skip!(System, "a folder with no permissions can still be read (running as root)");
         return;
     }
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.settings.recent_libraries = vec![inside.clone(), gone.clone()];
     let mut h = Headless::new(app, [900.0, 600.0], 1.0);
     let answered = h.step_until(T, |h| h.app.recent_checks.is_known(&inside) && h.app.recent_checks.is_known(&gone));
@@ -938,7 +938,7 @@ fn recent_libraries_are_checked_again_only_when_the_window_comes_back() {
     let gone = dir.join("Gone").to_string_lossy().into_owned();
     let (calls, gone_calls) = (std::sync::Arc::new(AtomicUsize::new(0)), std::sync::Arc::new(AtomicUsize::new(0)));
     let (c, g, gone_path) = (calls.clone(), gone_calls.clone(), gone.clone());
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.recent_checks = crate::panels::library_problem::RecentChecks::with_check(move |p| {
         if p == gone_path {
             g.fetch_add(1, Ordering::SeqCst);
@@ -989,7 +989,7 @@ fn found_again(multipass: bool) {
     let a = make_library(&dir.join("A"));
     let plugged = std::sync::Arc::new(AtomicBool::new(false));
     let p = plugged.clone();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.recent_checks = crate::panels::library_problem::RecentChecks::with_check(move |_| {
         (!p.load(Ordering::SeqCst)).then_some(crate::panels::library_problem::Unavailable::NotFound)
     })
@@ -1042,17 +1042,17 @@ fn try_again_on_a_missing_remembered_library_makes_nothing_in_an_empty_folder() 
     let mount = dir.join("Share");
     std::fs::create_dir_all(&mount).unwrap();
     let path = mount.to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.library_problem = Some(LibraryProblem { existing_only: true, ..LibraryProblem::new(path.clone(), "missing") });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     settle(&mut h);
     assert_eq!(h.request("ui.clickWidget", json!({"id": "button:libraryRetry"}), T)["ok"], true);
     settle(&mut h);
-    assert!(!lightcraft_engine::library::is_library(&mount), "no catalog is made in the empty folder");
+    assert!(!evolight_engine::library::is_library(&mount), "no catalog is made in the empty folder");
     assert_eq!(std::fs::read_dir(&mount).unwrap().count(), 0, "nothing is written there");
     assert!(h.app.session.library.is_none());
     let p = h.app.library_problem.as_ref().expect("the window stays");
-    assert_eq!(p.error, "There is no LightCraft library in this folder any more.");
+    assert_eq!(p.error, "There is no EvoLight library in this folder any more.");
     assert!(has(&h, "button:libraryRetry"));
     // the share is connected again: Try Again opens the library in it
     make_library(&mount);
@@ -1072,7 +1072,7 @@ fn try_again_says_why_the_remembered_library_is_missing_in_the_interface_languag
     let mount = dir.join("Share");
     std::fs::create_dir_all(&mount).unwrap();
     let path = mount.to_string_lossy().into_owned();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.ui.language = crate::i18n::Locale::De;
     app.library_problem = Some(LibraryProblem { existing_only: true, ..LibraryProblem::new(path, "missing") });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
@@ -1080,7 +1080,7 @@ fn try_again_says_why_the_remembered_library_is_missing_in_the_interface_languag
     assert_eq!(h.request("ui.clickWidget", json!({"id": "button:libraryRetry"}), T)["ok"], true);
     settle(&mut h);
     let error = h.app.library_problem.as_ref().map(|p| p.error.clone()).unwrap_or_default();
-    assert_eq!(error, "In diesem Ordner ist keine LightCraft-Bibliothek mehr.");
+    assert_eq!(error, "In diesem Ordner ist keine EvoLight-Bibliothek mehr.");
     std::fs::remove_dir(&mount).unwrap();
     assert_eq!(h.request("ui.clickWidget", json!({"id": "button:libraryRetry"}), T)["ok"], true);
     settle(&mut h);
@@ -1109,7 +1109,7 @@ fn try_again_on_a_remembered_library_it_may_not_read_says_so() {
     let before = names(&locked);
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
     let readable = std::fs::read_dir(&locked).is_ok();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
     app.library_problem = Some(LibraryProblem { existing_only: true, ..LibraryProblem::new(path, "missing") });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     settle(&mut h);
@@ -1123,7 +1123,7 @@ fn try_again_on_a_remembered_library_it_may_not_read_says_so() {
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
     if readable {
         let _ = std::fs::remove_dir_all(&dir);
-        lightcraft_testkit::skip!(System, "running as root: a folder with mode 000 is still readable");
+        evolight_testkit::skip!(System, "running as root: a folder with mode 000 is still readable");
         return;
     }
     assert!(error.starts_with("This folder can't be read:"), "{error}");

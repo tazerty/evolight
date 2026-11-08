@@ -1,4 +1,4 @@
-use super::{LightcraftApp, PhotoId, Tokens, divider, header, json, padded, register, slider, text_button};
+use super::{EvoLightApp, PhotoId, Tokens, divider, header, json, padded, register, slider, text_button};
 
 /// The aspect presets of the Crop panel: (menu label, `crop.aspect` value).
 const ASPECT_PRESETS: [(&str, &str); 10] = [
@@ -39,7 +39,7 @@ pub(super) fn aspect_label(aspect: Option<(u32, u32)>, original: Option<f64>) ->
 }
 
 /// "Custom" row of the aspect menu: two number fields and an Apply button (`crop.aspect` `[w, h]`).
-fn custom_aspect(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn custom_aspect(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let key = egui::Id::unique("crop-custom-aspect");
     let (mut w, mut h): (String, String) = ui.data_mut(|d| d.get_temp(key)).unwrap_or_else(|| ("3".into(), "2".into()));
     let mut apply = false;
@@ -59,7 +59,7 @@ fn custom_aspect(app: &mut LightcraftApp, ui: &mut egui::Ui) {
         // Accept `3`, `2.5` and `3,5`; anything else (zero, negative, text, huge) is ignored.
         let num = |t: &str| t.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0 && *v <= 1000.0);
         if let (Some(x), Some(y)) = (num(&w), num(&h))
-            && (1.0 / lightcraft_geom::MAX_RATIO..=lightcraft_geom::MAX_RATIO).contains(&(x / y))
+            && (1.0 / evolight_geom::MAX_RATIO..=evolight_geom::MAX_RATIO).contains(&(x / y))
         {
             let _ = app.run("crop.aspect", json!({"aspect": [x, y]}));
             ui.close();
@@ -68,7 +68,7 @@ fn custom_aspect(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     ui.data_mut(|d| d.insert_temp(key, (w, h)));
 }
 
-pub(super) fn crop(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn crop(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let d = app.session.develop_of(id).unwrap_or_default();
     header(ui, "Crop");
     padded(ui, |ui| {
@@ -121,7 +121,7 @@ pub(super) fn crop(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
             }
         });
     });
-    let ang = lightcraft_develop::controls::find("crop.angle").copied();
+    let ang = evolight_develop::controls::find("crop.angle").copied();
     if let Some(spec) = ang {
         let out = slider(ui, &spec, d.crop.geometry.angle, true, Some("Straighten"));
         crate::panels::edit::apply_slider_out(app, &spec, out, |app, v| app.run("crop.straighten", json!({"angle": v})));
@@ -213,7 +213,7 @@ pub(super) fn crop(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
     padded(ui, |ui| {
         ui.label(crate::i18n::tr("Upright"));
         {
-            use lightcraft_develop::Upright;
+            use evolight_develop::Upright;
             let modes = [
                 ("Off", Upright::Off, "off"),
                 ("Auto", Upright::Auto, "auto"),
@@ -230,10 +230,10 @@ pub(super) fn crop(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
                 app.ui.tool = if mode == Upright::Guided { "guidedUpright".into() } else { String::new() };
             }
         }
-        let guided = d.geometry.upright == lightcraft_develop::Upright::Guided;
+        let guided = d.geometry.upright == evolight_develop::Upright::Guided;
         ui.horizontal_wrapped(|ui| {
             if !guided
-                && d.geometry.upright != lightcraft_develop::Upright::Off
+                && d.geometry.upright != evolight_develop::Upright::Off
                 && text_button(ui, "uprightUpdate", crate::i18n::tr("Update"), false).clicked()
             {
                 let mode = serde_json::to_value(d.geometry.upright).unwrap_or_default();
@@ -265,14 +265,14 @@ pub(super) fn crop(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
             let _ = app.run("develop.merge", json!({"settings": {"geometry": {"constrain_crop": c}}, "label": "Constrain Crop"}));
         }
     });
-    for spec in lightcraft_develop::controls::in_section(lightcraft_develop::Section::Geometry).filter(|c| c.id != "crop.angle") {
-        let v = lightcraft_develop::controls::get(&d, spec.id).unwrap_or(spec.default);
+    for spec in evolight_develop::controls::in_section(evolight_develop::Section::Geometry).filter(|c| c.id != "crop.angle") {
+        let v = evolight_develop::controls::get(&d, spec.id).unwrap_or(spec.default);
         let out = slider(ui, spec, v, true, None);
         crate::panels::edit::apply_slider_out(app, spec, out, |app, v| app.run("develop.set", json!({"control": spec.id, "value": v})));
     }
 }
 
-pub(super) fn remove(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn remove(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let d = app.session.develop_of(id).unwrap_or_default();
     header(ui, "Remove");
     padded(ui, |ui| {
@@ -314,23 +314,23 @@ pub(super) fn remove(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         (app.ui.remove_size, app.ui.remove_feather, app.ui.remove_opacity) = (sp.size as f32, sp.feather as f32, sp.opacity as f32);
         divider(ui);
         let mode = match sp.mode {
-            lightcraft_develop::SpotMode::Heal => "Heal",
-            lightcraft_develop::SpotMode::Clone => "Clone",
-            lightcraft_develop::SpotMode::Remove => "Remove",
-            lightcraft_develop::SpotMode::Fill => "Content-Aware",
+            evolight_develop::SpotMode::Heal => "Heal",
+            evolight_develop::SpotMode::Clone => "Clone",
+            evolight_develop::SpotMode::Remove => "Remove",
+            evolight_develop::SpotMode::Fill => "Content-Aware",
         };
         crate::panels::edit::sub_title(ui, &crate::i18n::tr_format!("{mode} spot {} of {}", i + 1, d.spots.len(), mode = crate::i18n::tr(mode)));
     }
-    let plain = |id: &'static str, label: &'static str, min: f64, max: f64, default: f64| lightcraft_develop::ControlSpec {
+    let plain = |id: &'static str, label: &'static str, min: f64, max: f64, default: f64| evolight_develop::ControlSpec {
         id,
         label,
-        section: lightcraft_develop::Section::Detail,
+        section: evolight_develop::Section::Detail,
         min,
         max,
         default,
         step: 1.0,
         decimals: 0,
-        track: lightcraft_develop::Track::Plain,
+        track: evolight_develop::Track::Plain,
     };
     let sliders = [
         (plain("ui.removeSize", "Size", 1.0, 250.0, 20.0), "size", (app.ui.remove_size * 1000.0) as f64),
@@ -370,16 +370,16 @@ pub(super) fn remove(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
             app.ui.visualize_spots = v;
         }
     });
-    let spec = lightcraft_develop::ControlSpec {
+    let spec = evolight_develop::ControlSpec {
         id: "ui.spotsThreshold",
         label: "Threshold",
-        section: lightcraft_develop::Section::Detail,
+        section: evolight_develop::Section::Detail,
         min: 0.0,
         max: 100.0,
         default: 50.0,
         step: 1.0,
         decimals: 0,
-        track: lightcraft_develop::Track::Plain,
+        track: evolight_develop::Track::Plain,
     };
     let out = slider(ui, &spec, app.ui.spots_threshold as f64, app.ui.visualize_spots, None);
     if let Some(v) = out.value {
@@ -398,7 +398,7 @@ pub(super) fn remove(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
 
 /// Tool Overlay: when the spot and mask pins show on the photo (Auto / Always / Selected / Never;
 /// Shift+H steps through them). Remove and Masking panels.
-pub(crate) fn tool_overlay_options(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub(crate) fn tool_overlay_options(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     use crate::state::ToolOverlay;
     let t = Tokens::get(ui.ctx());
     ui.horizontal(|ui| {
@@ -418,7 +418,7 @@ pub(crate) fn tool_overlay_options(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     });
 }
 
-pub(super) fn red_eye(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn red_eye(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let d = app.session.develop_of(id).unwrap_or_default();
     header(ui, "Red Eye");
     padded(ui, |ui| {
@@ -456,8 +456,8 @@ pub(super) fn red_eye(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
     );
     for k in ["pupilSize", "darken"] {
         let cid = format!("redEye.{i}.{k}");
-        let Some(spec) = lightcraft_develop::controls::find(&cid) else { continue };
-        let v = lightcraft_develop::controls::get(&d, &cid).unwrap_or(spec.default);
+        let Some(spec) = evolight_develop::controls::find(&cid) else { continue };
+        let v = evolight_develop::controls::get(&d, &cid).unwrap_or(spec.default);
         let out = slider(ui, spec, v, true, None);
         crate::panels::edit::apply_slider_out(app, spec, out, |app, v| app.run("develop.set", json!({"control": cid, "value": v})));
     }

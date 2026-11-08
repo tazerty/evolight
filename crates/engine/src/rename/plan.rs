@@ -6,7 +6,7 @@ use super::{EngineError, HashMap, HashSet, Op, Path, PathBuf, Photo, PhotoId, Re
 
 /// The photos among `ids` a rename handles, in order: photos sharing one file (virtual copies)
 /// rename once. No file-system calls.
-pub fn rename_photos(cat: &lightcraft_catalog::Catalog, ids: &[PhotoId]) -> Vec<std::sync::Arc<Photo>> {
+pub fn rename_photos(cat: &evolight_catalog::Catalog, ids: &[PhotoId]) -> Vec<std::sync::Arc<Photo>> {
     let mut seen_paths: HashSet<String> = HashSet::new();
     ids.iter()
         .filter_map(|id| cat.photo(*id))

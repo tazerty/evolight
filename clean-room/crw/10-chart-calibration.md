@@ -5,18 +5,18 @@ These are its DNG-style matrices (`ColorMatrix1/2`, `ForwardMatrix1/2`), fitted 
 photographs of a ColorChecker Classic under two lights. They are in
 `crates/raw/src/chart_table.rs`. Measurements come from the maintainer's own captures (names,
 sizes and SHA-256 in `logs/chart-captures.tsv`; no image content recorded) and the chart's
-published reference colours (craft-libs `crates/crw/clean-room/sources.md`). Scripts and measurements are local-only, in
+published reference colours (evo-libs `crates/crw/clean-room/sources.md`). Scripts and measurements are local-only, in
 `plan/crw/chart/`.
 
 ## Captures
 
 | Set | Frames used | Light | Notes |
 |---|---:|---|---|
-| `SunlightColorCard/` | 20 of 22 | Direct afternoon sun, ISO 100 | Calibrite ColorChecker Classic (50th-anniversary edition, post-2014 formulation) leaning on a wall, filling most of the frame. Auto and Daylight white balance, a shutter bracket. Two frames dropped: a white-patch sample ≥ 3900 (clip ≈ 4000 at ISO 100, craft-libs `crates/crw/clean-room/04-color.md` §2). |
+| `SunlightColorCard/` | 20 of 22 | Direct afternoon sun, ISO 100 | Calibrite ColorChecker Classic (50th-anniversary edition, post-2014 formulation) leaning on a wall, filling most of the frame. Auto and Daylight white balance, a shutter bracket. Two frames dropped: a white-patch sample ≥ 3900 (clip ≈ 4000 at ISO 100, evo-libs `crates/crw/clean-room/04-color.md` §2). |
 | `TungstonColorChart/` 2696–2706 | 11 | One household tungsten bulb, ISO 100 | Chart flat on a wall, a shutter bracket. Brightest white patch 2657 of ~4000. |
 | `TungstonColorChart/` 2688–2691 | not used | Same bulb, 8 minutes earlier | Steady within the set, but its neutral reads ~3,040 K against ~2,900 K for the later set: the light changed (window light or bulb warm-up). The later, warmer and better-exposed set is used. |
 
-All 37 frames decode sample-exact against the black-box reference (`craft-crw`'s digest-pinned sample test, formerly `crw_oracle.rs` here).
+All 37 frames decode sample-exact against the black-box reference (`evo-crw`'s digest-pinned sample test, formerly `crw_oracle.rs` here).
 
 An earlier set on a ColorChecker-layout clone (Pixel Perfect "24 Standard Color Calibration
 Chart", 2026-10-15) was not used. The maker publishes no reference values, and its grey patches
@@ -41,7 +41,7 @@ from coloured inks.
 
 - The reference is X-Rite's published L\*a\*b\* (D50) for charts made after November 2014.
 - The model is a 3×3 matrix from white-balanced camera RGB to XYZ (D50), with neutral (1, 1, 1)
-  held exactly at the engine's D50 white (`lightcraft_color::D50`): the third column is D50
+  held exactly at the engine's D50 white (`evolight_color::D50`): the third column is D50
   minus the first two. That is a DNG `ForwardMatrix`.
 - **Chromaticity only.** Each prediction is scaled to the patch's reference luminance before
   the CIEDE2000 residual. In the sun the chart warped as it heated: the grey row's brightness
@@ -67,7 +67,7 @@ from coloured inks.
 ## Which illuminants
 
 The two lights' colour temperatures come from the camera's own white-balance presets
-(ColorBalance slots, craft-libs `crates/crw/clean-room/04-color.md` §3) at the temperatures Canon's manuals give them (Daylight
+(ColorBalance slots, evo-libs `crates/crw/clean-room/04-color.md` §3) at the temperatures Canon's manuals give them (Daylight
 5200 K, Tungsten 3200 K, Fluorescent 4000 K), interpolated in mired on ln(R/B): sun ~4,850 K,
 bulb ~2,900 K. They are filed under the nearest DNG illuminants the engine knows, **D50
 (5003 K) and Standard Illuminant A (2856 K)**, so `Camera` now carries its own illuminant

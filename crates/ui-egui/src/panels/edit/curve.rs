@@ -1,7 +1,7 @@
 use super::histogram::preview_histogram;
 use super::sliders::control;
 use super::{
-    Align2, Color32, DevelopSettings, Icon, LightcraftApp, Mesh, PARAM_AMOUNTS, ParametricCurve, PhotoId, Point, Pos2, Rect, RichText, Sense, Stroke,
+    Align2, Color32, DevelopSettings, Icon, EvoLightApp, Mesh, PARAM_AMOUNTS, ParametricCurve, PhotoId, Point, Pos2, Rect, RichText, Sense, Stroke,
     Tokens, Vertex, controls, hex, json, paint, pos2, register, text_button, vec2,
 };
 
@@ -9,7 +9,7 @@ use super::{
 
 /// A 256-point, peak-normalized display profile of the photo histogram.
 /// For HDR, only the SDR portion maps to a curve's input (0..1).
-fn curve_histogram_profile(h: &lightcraft_raster::Histogram, channel: &str) -> [f32; 256] {
+fn curve_histogram_profile(h: &evolight_raster::Histogram, channel: &str) -> [f32; 256] {
     let source = match channel {
         "red" => &h.r,
         "green" => &h.g,
@@ -30,7 +30,7 @@ fn curve_histogram_profile(h: &lightcraft_raster::Histogram, channel: &str) -> [
 
 /// Show the currently rendered photo's tonal distribution behind the editable
 /// curve, without requesting another render or blocking pointer interactions.
-fn draw_curve_histogram(p: &egui::Painter, r: Rect, h: &lightcraft_raster::Histogram, channel: &str) {
+fn draw_curve_histogram(p: &egui::Painter, r: Rect, h: &evolight_raster::Histogram, channel: &str) {
     let profile = curve_histogram_profile(h, channel);
     let color = match channel {
         "red" => hex("#dd3333"),
@@ -62,7 +62,7 @@ pub(crate) const CURVE_SAMPLES: i32 = 96;
 /// for this widget (released outside the window, over a popup, or on a frame the widget does not
 /// run). A dangling interaction would make every later edit a silent preview — Undo would then
 /// appear to do nothing at all. Returns whether the drag is over, so the caller clears its state.
-fn commit_interaction(app: &mut LightcraftApp, ui: &egui::Ui, dragging: bool, stopped: bool) -> bool {
+fn commit_interaction(app: &mut EvoLightApp, ui: &egui::Ui, dragging: bool, stopped: bool) -> bool {
     let released = ui.input(|i| i.pointer.any_released()) || !ui.input(|i| i.pointer.primary_down());
     if !dragging || !(stopped || released) {
         return false;
@@ -80,7 +80,7 @@ const PARAM_GRAB: f32 = 14.0;
 /// The whole gesture runs inside one `develop` interaction, so it is one undo step (Ctrl+Z takes the
 /// gesture back, not the last frame of it), and every write goes through `develop.set`, so the
 /// slider, the curve and what is drawn are the same state rather than three things kept in step.
-fn param_drag(app: &mut LightcraftApp, ui: &mut egui::Ui, r: Rect, resp: &egui::Response, d: &DevelopSettings) {
+fn param_drag(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect, resp: &egui::Response, d: &DevelopSettings) {
     if r.width() <= 1.0 || r.height() <= 1.0 {
         return;
     }
@@ -162,7 +162,7 @@ fn param_drag(app: &mut LightcraftApp, ui: &mut egui::Ui, r: Rect, resp: &egui::
     }
 }
 
-pub(super) fn curve_editor(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, d: &DevelopSettings) {
+pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, d: &DevelopSettings) {
     let t = Tokens::get(ui.ctx());
     // channel selector
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 6, bottom: 4 }).show(ui, |ui| {
@@ -268,7 +268,7 @@ pub(super) fn curve_editor(app: &mut LightcraftApp, ui: &mut egui::Ui, id: Photo
         if v.len() < 2 { vec![Point::new(0.0, 0.0), Point::new(1.0, 1.0)] } else { v }
     };
     let pts = pts_of(d);
-    let curve = lightcraft_color::spline::MonotoneCurve::new(&pts.iter().map(|q| (q.x, q.y)).collect::<Vec<_>>());
+    let curve = evolight_color::spline::MonotoneCurve::new(&pts.iter().map(|q| (q.x, q.y)).collect::<Vec<_>>());
     let color = match ch.as_str() {
         "red" => hex("#dd3333"),
         "green" => hex("#33bb55"),
@@ -393,8 +393,8 @@ pub(super) fn curve_editor(app: &mut LightcraftApp, ui: &mut egui::Ui, id: Photo
 }
 
 /// The row under the curve graph: point-curve presets and reset every curve.
-fn curve_footer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings) {
-    use lightcraft_engine::cmd::curves::{all_presets, matching_preset};
+fn curve_footer(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
+    use evolight_engine::cmd::curves::{all_presets, matching_preset};
     let t = Tokens::get(ui.ctx());
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 2, bottom: 4 }).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -461,7 +461,7 @@ fn curve_footer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings)
 }
 
 /// Right-click menu of the curve graph.
-fn curve_reset_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, ch: &str) {
+fn curve_reset_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, ch: &str) {
     let label = if ch == "parametric" {
         crate::i18n::tr("Reset Parametric Curve").to_string()
     } else {
@@ -491,7 +491,7 @@ fn channel_label(ch: &str) -> &'static str {
 }
 
 /// Toggle for a targeted-adjustment tool (`tool` = `tat:<target>`).
-fn tat_button(app: &mut LightcraftApp, ui: &mut egui::Ui, tool: &str, tip: &str) {
+fn tat_button(app: &mut EvoLightApp, ui: &mut egui::Ui, tool: &str, tip: &str) {
     let active = app.ui.tool == tool;
     let id = tool.replace(':', "-");
     if crate::widgets::icon_button(ui, &id, Icon::Target, vec2(26.0, 26.0), active, true, tip).clicked() {
@@ -502,7 +502,7 @@ fn tat_button(app: &mut LightcraftApp, ui: &mut egui::Ui, tool: &str, tip: &str)
 /// Turn targeted-adjustment tool `tool` off (`active`) or on. Turning it on says how to use and
 /// leave it: while it is on, dragging on the photo adjusts instead of zooming or panning, which is
 /// easy to miss when the button looks like a tab.
-pub(super) fn set_tat(app: &mut LightcraftApp, ctx: &egui::Context, tool: &str, active: bool) {
+pub(super) fn set_tat(app: &mut EvoLightApp, ctx: &egui::Context, tool: &str, active: bool) {
     if active {
         app.ui.tool.clear();
     } else {
@@ -517,8 +517,8 @@ mod curve_histogram_tests {
 
     #[test]
     fn curve_backdrop_tracks_luma_and_selected_channel() {
-        let img = lightcraft_raster::Rgba8::from_fn(64, 32, |x, _| if x < 32 { [32, 100, 32, 255] } else { [224, 100, 224, 255] });
-        let h = lightcraft_raster::Histogram::of_srgb8(&img);
+        let img = evolight_raster::Rgba8::from_fn(64, 32, |x, _| if x < 32 { [32, 100, 32, 255] } else { [224, 100, 224, 255] });
+        let h = evolight_raster::Histogram::of_srgb8(&img);
         let red = curve_histogram_profile(&h, "red");
         let green = curve_histogram_profile(&h, "green");
         let luma = curve_histogram_profile(&h, "master");
@@ -529,7 +529,7 @@ mod curve_histogram_tests {
 
     #[test]
     fn hdr_backdrop_uses_only_the_sdr_bins_and_never_overflows() {
-        let h = lightcraft_raster::Histogram::of_hdr(&[[0.1, 0.1, 0.1], [1.0, 1.0, 1.0], [8.0, 8.0, 8.0]], 4.0);
+        let h = evolight_raster::Histogram::of_hdr(&[[0.1, 0.1, 0.1], [1.0, 1.0, 1.0], [8.0, 8.0, 8.0]], 4.0);
         let values = curve_histogram_profile(&h, "parametric");
         assert!(values.iter().all(|v| v.is_finite() && (0.0..=1.0).contains(v)));
         assert!(values.iter().any(|v| *v > 0.0));

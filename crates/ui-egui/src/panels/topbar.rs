@@ -3,7 +3,7 @@
 use egui::{Align2, Rect, Sense, Stroke, StrokeKind, pos2, vec2};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::theme::Tokens;
 use crate::widgets::{icon_button, register};
@@ -12,14 +12,14 @@ use crate::widgets::{icon_button, register};
 /// double-click acts as the system setting says. Made before the bar's widgets so they win the click.
 fn window_handle(ui: &mut egui::Ui, bar: Rect) {
     register(ui, "region:titlebar", bar);
-    let resp = craft_window::title_bar::empty_area(ui, bar);
+    let resp = evo_window::title_bar::empty_area(ui, bar);
     crate::widgets::announce(&resp, crate::i18n::tr("Title bar"));
 }
 
 /// Draw the top bar: the titlebar drag area, the in-window menus when there is no native menu
 /// bar, sidebar and back/forward buttons, the centred search field, the filter button with its
 /// active count, and the right-side action icons.
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     // room for the traffic lights; in full screen they are gone, and the sidebar button sits as far
     // from the left edge as the Discord button from the right (12 margin + 4)
@@ -70,7 +70,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 }
 
 /// Sidebar toggle, back/forward and, without a native menu bar, the in-window menus.
-fn nav_buttons(app: &mut LightcraftApp, ui: &mut egui::Ui, search_left: f32) {
+fn nav_buttons(app: &mut EvoLightApp, ui: &mut egui::Ui, search_left: f32) {
     ui.horizontal_centered(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         if icon_button(ui, "sidebar", Icon::Sidebar, vec2(30.0, 30.0), app.ui.left_panel, true, crate::i18n::tr("Show/hide My Photos panel"))
@@ -93,7 +93,7 @@ fn nav_buttons(app: &mut LightcraftApp, ui: &mut egui::Ui, search_left: f32) {
 }
 
 /// The centred search field with its placeholder and focus ring.
-fn search_field(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, sr: Rect) {
+fn search_field(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, sr: Rect) {
     // search field (centred on the window)
     let id = crate::text_field::id("field:search");
     if std::mem::take(&mut app.ui.focus_search) {
@@ -132,7 +132,7 @@ fn search_field(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, sr: Rect
 }
 
 /// The filter icon beside the search field, with the active-filter badge.
-fn filter_button(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, sr: Rect) {
+fn filter_button(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, sr: Rect) {
     // filter icon right of the search field
     let fr = Rect::from_center_size(pos2(sr.right() + 22.0, sr.center().y), vec2(28.0, 28.0));
     let fresp = ui.interact(fr, egui::Id::unique("filter-btn"), Sense::click());
@@ -152,7 +152,7 @@ fn filter_button(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, sr: Rec
         },
     );
     // badge: how many filters are on, even with the filter bar closed
-    let active = lightcraft_engine::filter_chips(&app.session.filter, &app.session.catalog).len();
+    let active = evolight_engine::filter_chips(&app.session.filter, &app.session.catalog).len();
     if active > 0 {
         let c = fr.right_top() + vec2(-3.0, 8.0);
         ui.painter().circle_filled(c, 7.0, t.accent);
@@ -169,7 +169,7 @@ fn filter_button(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, sr: Rec
 }
 
 /// The right-side action icons; returns the x where the next icon would go.
-fn right_icons(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, full: Rect) -> f32 {
+fn right_icons(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, full: Rect) -> f32 {
     // right icons
     let mut x = full.right() - 18.0;
     // saving is failing: a warning shows until a save succeeds (nothing is shown otherwise)
@@ -226,7 +226,7 @@ fn right_icons(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, full: Rec
 }
 
 /// The appearance icon at `x`, with its theme-favourites menu.
-fn appearance_button(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, full: Rect, x: f32) {
+fn appearance_button(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, full: Rect, x: f32) {
     // Appearance Mode: a click steps Auto → Light → Dark → Auto; the icon shows the mode
     let (icon, mode) = appearance_icon(app.ui.settings.appearance_mode);
     let r = Rect::from_center_size(pos2(x, full.center().y), vec2(28.0, 28.0));
@@ -279,7 +279,7 @@ fn unsaved_tip(n: usize, e: &str) -> String {
     let s = crate::i18n::plural_s(n);
     let it = if n == 1 { "it" } else { "them" };
     crate::i18n::tr_format!(
-        "{n} change{} saved in memory but not written to disk: {e}\nLightCraft retries automatically; quitting now would lose {}.",
+        "{n} change{} saved in memory but not written to disk: {e}\nEvoLight retries automatically; quitting now would lose {}.",
         s,
         it,
         e = e,

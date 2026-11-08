@@ -9,7 +9,7 @@ use serde_json::json;
 use crate::headless::Headless;
 use crate::panels::library_problem::LibraryProblem;
 use crate::tests_fixtures::SyntheticLibrary;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
@@ -21,7 +21,7 @@ fn has(h: &Headless, id: &str) -> bool {
 /// `Foreground` area and must not be drawn above the prompt or consume its keys.
 #[test]
 fn a_notice_prompt_hides_the_library_problem_window_and_takes_its_keys() {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     h.app.library_problem = Some(LibraryProblem::new("/no/such/library", "a test error"));
     h.step();
@@ -45,7 +45,7 @@ fn a_notice_prompt_hides_the_library_problem_window_and_takes_its_keys() {
 /// `chooser_keys` at all.
 #[test]
 fn a_notice_prompt_over_the_launch_list_takes_escape_without_quitting_it() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.ui.settings.recent_libraries = vec!["/no/such/library-one".into(), "/no/such/library-two".into()];
     app.ui.settings.library_path = "/no/such/library-one".into();
     app.library_problem = Some(LibraryProblem::choose(&app.ui.settings));
@@ -80,19 +80,19 @@ fn unopenable_library_asks_instead_of_running_a_demo() {
     let _ = std::fs::remove_dir_all(&dir);
     let lib = dir.join("lib");
     std::fs::create_dir_all(&lib).unwrap();
-    let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
-    let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 3, 9, 255]; 64] };
+    let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     let photo = dir.join("a.png");
     std::fs::write(&photo, png).unwrap();
 
     // another program has the library open: the launch fails like the desktop host's would
-    let held = lightcraft_catalog::LibraryLock::acquire(&lib, "another LightCraft").unwrap();
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let held = evolight_catalog::LibraryLock::acquire(&lib, "another EvoLight").unwrap();
+    let mut session = evolight_engine::Session::new().with_fs();
     let err = session.open_library(&lib, true).unwrap_err().to_string();
-    let png = |img: &lightcraft_raster::Rgba8| {
-        lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(img), &lightcraft_codecs::EncodeMeta::default()).unwrap_or_default()
+    let png = |img: &evolight_raster::Rgba8| {
+        evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(img), &evolight_codecs::EncodeMeta::default()).unwrap_or_default()
     };
-    let mut app = LightcraftApp::new(
+    let mut app = EvoLightApp::new(
         session,
         Services {
             png: Some(Box::new(png)),
@@ -109,13 +109,13 @@ fn unopenable_library_asks_instead_of_running_a_demo() {
     for b in ["button:libraryRetry", "button:libraryChoose", "button:libraryTemporary", "button:libraryQuit"] {
         assert!(has(&h, b), "{b}");
     }
-    if let Some(p) = std::env::var_os("LIGHTCRAFT_TEST_SHOTS") {
+    if let Some(p) = std::env::var_os("EVOLIGHT_TEST_SHOTS") {
         let r = h.request("ui.screenshot", json!({"path": std::path::Path::new(&p).join("dialog.png").to_string_lossy(), "headless": true}), T);
         assert_eq!(r["ok"], true, "{r}");
     }
     let inspect = h.request("ui.inspect", json!({}), T);
     let p = &inspect["result"]["libraryProblem"];
-    assert!(p["error"].as_str().unwrap().contains("already open in another LightCraft"), "{p}");
+    assert!(p["error"].as_str().unwrap().contains("already open in another EvoLight"), "{p}");
     assert_eq!(p["temporarySession"], false);
 
     // still locked: Try Again keeps the window, with the error
@@ -136,7 +136,7 @@ fn unopenable_library_asks_instead_of_running_a_demo() {
     // imported on the import worker (issue #374: never synchronously on the UI thread)
     h.step_until(T, |h| h.app.import.is_none() && h.app.session.catalog.len() == 1);
     assert_eq!(h.app.session.catalog.len(), 1, "the command-line photo is imported into the temporary session");
-    if let Some(p) = std::env::var_os("LIGHTCRAFT_TEST_SHOTS") {
+    if let Some(p) = std::env::var_os("EVOLIGHT_TEST_SHOTS") {
         let r = h.request("ui.screenshot", json!({"path": std::path::Path::new(&p).join("banner.png").to_string_lossy(), "headless": true}), T);
         assert_eq!(r["ok"], true, "{r}");
     }
@@ -234,7 +234,7 @@ fn an_unrelated_open_dialog_does_not_own_the_launch_list_or_its_barrier() {
         ..Default::default()
     };
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 900.0],
         1.0,
     );
@@ -261,7 +261,7 @@ fn an_unrelated_open_dialog_does_not_own_the_launch_list_or_its_barrier() {
 /// it still quits from an empty list (the library chooser's long-standing behaviour).
 #[test]
 fn the_launch_list_still_quits_on_escape_without_a_notice() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.ui.settings.recent_libraries = vec!["/no/such/library-one".into(), "/no/such/library-two".into()];
     app.ui.settings.library_path = "/no/such/library-one".into();
     app.library_problem = Some(LibraryProblem::choose(&app.ui.settings));
@@ -279,7 +279,7 @@ fn the_launch_list_still_quits_on_escape_without_a_notice() {
 /// field swallow the same frame's host text before the new modal area has settled. The same
 /// sequence without the window is the positive control.
 fn creation_frame_drops_background_text(problem: LibraryProblem, button: &str) {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 760.0], 1.0);
     h.settle(T);
     let r = h.request("ui.clickWidget", json!({"id": "field:search"}), T);
@@ -324,7 +324,7 @@ fn library_error_and_chooser_creation_frames_drop_background_text() {
 /// exactly as `alt_at_launch` or a command drawn late in the frame can do.
 fn creation_after_raw_input_cancels_injected_text(problem: LibraryProblem) {
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 760.0],
         1.0,
     );
@@ -359,7 +359,7 @@ fn library_error_and_chooser_creation_after_raw_input_cancel_an_injected_gesture
 #[test]
 fn alt_launch_creation_after_raw_input_cancels_an_injected_gesture() {
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 760.0],
         1.0,
     );
@@ -411,7 +411,7 @@ fn a_held_background_press_is_released_when_a_library_window_appears_after_raw_i
 #[test]
 fn a_library_window_first_seen_after_begin_pass_drops_background_input() {
     let mut h =
-        Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }), [800.0, 600.0], 1.0);
+        Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }), [800.0, 600.0], 1.0);
     h.settle(T);
     let _ = pass_log(&mut h);
     let at = egui::pos2(30.0, 40.0);
@@ -451,7 +451,7 @@ fn a_library_window_first_seen_after_begin_pass_drops_background_input() {
 /// filter would not prove the private touch state this protects.
 fn touch_release_clears_egui_touch_state_when_the_library_window_appears_after_begin_pass(phase: egui::TouchPhase) {
     let mut h =
-        Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }), [800.0, 600.0], 1.0);
+        Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }), [800.0, 600.0], 1.0);
     h.settle(T);
     let at = egui::pos2(30.0, 40.0);
     let touch = |phase| egui::Event::Touch { device_id: egui::TouchDeviceId(1), id: egui::TouchId(1), phase, pos: at, force: None };
@@ -472,7 +472,7 @@ fn touch_end_and_cancel_clear_egui_touch_state_when_the_library_window_appears_a
     touch_release_clears_egui_touch_state_when_the_library_window_appears_after_begin_pass(egui::TouchPhase::Cancel);
 }
 
-fn select_first_photo(h: &mut Headless) -> lightcraft_catalog::PhotoId {
+fn select_first_photo(h: &mut Headless) -> evolight_catalog::PhotoId {
     let photo = h.app.session.visible_cloned()[0];
     let r = h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [photo.0]}}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -486,7 +486,7 @@ fn press_rating(h: &mut Headless, key: egui::Key) {
     }
 }
 
-fn rating(h: &Headless, photo: lightcraft_catalog::PhotoId) -> u8 {
+fn rating(h: &Headless, photo: evolight_catalog::PhotoId) -> u8 {
     h.app.session.catalog.photo(photo).expect("the selected photo").rating
 }
 
@@ -518,7 +518,7 @@ fn assert_shielded_return(h: &mut Headless, what: &str) {
 #[test]
 fn a_notice_dismissal_shields_the_library_windows_first_return_frame() {
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 760.0],
         1.0,
     );
@@ -563,7 +563,7 @@ fn a_notice_dismissal_shields_the_library_windows_first_return_frame() {
 #[test]
 fn a_library_window_created_under_a_notice_shields_the_first_frame_after_dismissal() {
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 760.0],
         1.0,
     );
@@ -600,8 +600,8 @@ fn closing_the_new_library_dialog_shields_the_launch_lists_first_return_frame() 
         ..Default::default()
     };
     let mut h = Headless::new(
-        LightcraftApp::new(
-            lightcraft_engine::Session::with_demo(),
+        EvoLightApp::new(
+            evolight_engine::Session::with_demo(),
             Services { png: None, pick_folder: Some(Box::new(|| -> Option<String> { None })), ..Default::default() },
         ),
         [1200.0, 760.0],
@@ -651,7 +651,7 @@ fn closing_the_new_library_dialog_shields_the_launch_lists_first_return_frame() 
 #[test]
 fn the_banner_reopen_shields_the_first_input_frame() {
     let mut h = Headless::new(
-        LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
+        EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() }),
         [1200.0, 760.0],
         1.0,
     );
@@ -701,8 +701,8 @@ fn clipboard_pastes_into_the_launch_lists_own_text_prompt() {
         ..Default::default()
     };
     let mut h = Headless::new(
-        LightcraftApp::new(
-            lightcraft_engine::Session::with_demo(),
+        EvoLightApp::new(
+            evolight_engine::Session::with_demo(),
             Services { png: None, pick_folder: Some(Box::new(|| -> Option<String> { None })), ..Default::default() },
         ),
         [1200.0, 760.0],
@@ -781,8 +781,8 @@ fn typing_reaches_the_launch_lists_own_new_library_prompt() {
         ..Default::default()
     };
     let mut h = Headless::new(
-        LightcraftApp::new(
-            lightcraft_engine::Session::with_demo(),
+        EvoLightApp::new(
+            evolight_engine::Session::with_demo(),
             Services { png: None, pick_folder: Some(Box::new(|| -> Option<String> { None })), ..Default::default() },
         ),
         [1200.0, 760.0],
@@ -810,12 +810,12 @@ fn typing_reaches_the_launch_lists_own_new_library_prompt() {
 /// imported once that import ends instead of being dropped.
 #[test]
 fn waiting_files_wait_for_a_running_import_instead_of_being_dropped() {
-    let dir = std::env::temp_dir().join(format!("lightcraft-waiting-import-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-waiting-import-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let png = |v: u8| {
-        let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[v, 3, 9, 255]; 64] };
-        lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap()
+        let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[v, 3, 9, 255]; 64] };
+        evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap()
     };
     // enough photos that the first import is still running two frames later
     let busy = dir.join("busy");
@@ -826,7 +826,7 @@ fn waiting_files_wait_for_a_running_import_instead_of_being_dropped() {
     let waiting = dir.join("waiting.png");
     std::fs::write(&waiting, png(200)).unwrap();
 
-    let app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     let lib = dir.join("lib");
     h.app.library_problem = Some(LibraryProblem {

@@ -12,9 +12,9 @@
 
 use std::collections::HashMap;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{DevelopSettings, WbMode};
-use lightcraft_pipeline::SourceInfo;
+use evolight_catalog::PhotoId;
+use evolight_develop::{DevelopSettings, WbMode};
+use evolight_pipeline::SourceInfo;
 
 use crate::Session;
 
@@ -49,7 +49,7 @@ pub(crate) fn synced_wb(
     auto: Option<(f64, f64)>,
     synced: &mut DevelopSettings,
 ) {
-    use lightcraft_pipeline::local::{effective_wb, normalize_wb};
+    use evolight_pipeline::local::{effective_wb, normalize_wb};
     let mut d = own.clone();
     normalize_wb(&mut d, oinfo);
     // A light preset with numbers of its own (`develop.wb {mode, tint}` on a photo on the
@@ -98,8 +98,8 @@ pub(crate) fn synced_wb(
         }
     }
     let (t, ti) = (d.wb.temp, d.wb.tint);
-    lightcraft_develop::controls::set(&mut d, "wb.temp", t);
-    lightcraft_develop::controls::set(&mut d, "wb.tint", ti);
+    evolight_develop::controls::set(&mut d, "wb.temp", t);
+    evolight_develop::controls::set(&mut d, "wb.tint", ti);
     synced.wb = d.wb;
 }
 
@@ -121,7 +121,7 @@ impl Session {
                 match src {
                     // with the facts its own decoder gave
                     Ok((src, info)) => {
-                        own.insert(x, lightcraft_pipeline::auto::auto_wb(&src, &info));
+                        own.insert(x, evolight_pipeline::auto::auto_wb(&src, &info));
                     }
                     Err(e) => log::warn!("Auto Sync: Auto white balance on photo {}: {e}", x.0),
                 }

@@ -1,11 +1,11 @@
 //! The left "My Photos" panel: library sources, albums tree, and date groups.
 
 use egui::{Align2, Rect, Sense, pos2, vec2};
-use lightcraft_catalog::{Album, AlbumId, FolderNode, KeywordNode};
-use lightcraft_engine::LibrarySource;
+use evolight_catalog::{Album, AlbumId, FolderNode, KeywordNode};
+use evolight_engine::LibrarySource;
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::sidebar::SidebarSection;
 use crate::theme::Tokens;
@@ -41,7 +41,7 @@ use sections::{SECTION_GAP, missing_count, pinned_header, section, section_drag,
 
 /// Draw the My Photos sidebar: title and open-library name, the scrollable sources, albums,
 /// folders and sections, with the section visibility menu on the title.
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let frame = egui::Frame::NONE.fill(t.chrome).stroke(egui::Stroke::new(1.0, t.divider));
     frame.show(ui, |ui| {

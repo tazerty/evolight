@@ -7,11 +7,11 @@ use egui::{Align2, RichText, vec2};
 
 use crate::theme::Tokens;
 use crate::widgets::WidgetHit;
-use crate::{LightcraftApp, QuitPrompt};
+use crate::{EvoLightApp, QuitPrompt};
 
 /// Collect the library's settings-file warnings (each is shown once), the no-GPU notice once the GPU device has
 /// been tried, and the low-disk notice (once per session).
-pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn logic(app: &mut EvoLightApp, ctx: &egui::Context) {
     let new = app.session.take_library_warnings();
     app.notices.extend(new);
     // a low-disk notice still queued from the library that was open before is not this one's
@@ -38,7 +38,7 @@ pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
             app.notices.push(text);
         }
     }
-    use lightcraft_engine::gpu;
+    use evolight_engine::gpu;
     if app.gpu_notice && app.gpu_applied == Some(true) && gpu::ready() {
         app.gpu_notice = false;
         if !gpu::available() {
@@ -55,20 +55,20 @@ fn disk_check_wait(running_for: Option<std::time::Duration>, next_in: Option<std
     match running_for {
         Some(d) if d < Duration::from_secs(5) => Duration::from_millis(250),
         Some(_) => Duration::from_secs(5),
-        None => next_in.unwrap_or(lightcraft_engine::disk_space::CHECK_EVERY),
+        None => next_in.unwrap_or(evolight_engine::disk_space::CHECK_EVERY),
     }
 }
 
 /// What to tell the user when GPU rendering is on (`enabled`) but the GPU could not be used for `reason`: only when no
 /// graphics adapter was found at all ("no GPU adapter among …", e.g. no Vulkan loader on Linux), which makes every
-/// render much slower without saying so. Nothing when it was turned off (preference, `LIGHTCRAFT_GPU`), a software
+/// render much slower without saying so. Nothing when it was turned off (preference, `EVOLIGHT_GPU`), a software
 /// adapter was skipped, or it failed later; Settings ▸ Performance and Help ▸ System Info show those.
 pub fn gpu_notice(reason: Option<&str>, enabled: bool) -> Option<String> {
     if !enabled || !reason?.starts_with("no GPU adapter") {
         return None;
     }
     let mut text =
-        crate::i18n::tr("No graphics processor found: LightCraft renders on the CPU, which is much slower. Details in Help → System Info.")
+        crate::i18n::tr("No graphics processor found: EvoLight renders on the CPU, which is much slower. Details in Help → System Info.")
             .to_string();
     if cfg!(target_os = "linux") {
         text.push(' ');
@@ -93,7 +93,7 @@ fn size_words(bytes: u64) -> String {
 
 /// What to tell the user when the drive holding the preview cache runs low: its free space, the
 /// cache's size, and where a limit can be set (the notice's button opens Settings ▸ Performance).
-pub fn disk_space_notice(alert: &lightcraft_engine::disk_space::LowDiskAlert) -> String {
+pub fn disk_space_notice(alert: &evolight_engine::disk_space::LowDiskAlert) -> String {
     let free = size_words(alert.space.available);
     let total = size_words(alert.space.total);
     let cache = size_words(alert.cache_bytes);
@@ -124,7 +124,7 @@ fn unsaved_message(n: usize, e: &str) -> String {
 /// The window may close now (`true`), or the quit prompt is shown (`false`). Running tasks that
 /// can be cancelled (an import, an export…) are asked about first; then changes that couldn't be
 /// written are retried — the log, then a snapshot of everything in memory.
-pub fn may_close(app: &mut LightcraftApp) -> bool {
+pub fn may_close(app: &mut EvoLightApp) -> bool {
     if app.quit_confirmed {
         return true;
     }
@@ -186,7 +186,7 @@ enum Choice {
 /// The dim area is `Order::Foreground`, so a settled egui pass routes pointer input to it before
 /// the main view or a `Middle` dialog. The control channel and raw keyboard/event handlers do not
 /// go through that hit test, however: they must consult this explicit barrier as well.
-pub(crate) fn prompt_layer(app: &LightcraftApp) -> Option<egui::LayerId> {
+pub(crate) fn prompt_layer(app: &EvoLightApp) -> Option<egui::LayerId> {
     let id = match (&app.quit_prompt, app.notices.is_empty()) {
         (Some(QuitPrompt::Tasks(_)), _) => "quit-tasks",
         (Some(QuitPrompt::Unsaved(_)), _) => "quit-unsaved",
@@ -197,14 +197,14 @@ pub(crate) fn prompt_layer(app: &LightcraftApp) -> Option<egui::LayerId> {
 }
 
 /// Whether a prompt is on screen and owns all pointer and keyboard input.
-pub fn blocks_input(app: &LightcraftApp) -> bool {
+pub fn blocks_input(app: &EvoLightApp) -> bool {
     prompt_layer(app).is_some()
 }
 
 /// Whether a registered automation target may receive input. While a prompt is up only its own
 /// Foreground window is interactive; the same barrier must hold before the first prompt layout
 /// settles, when egui has not yet made the new areas interactable.
-pub(crate) fn allows_target(app: &LightcraftApp, hit: Option<WidgetHit>) -> bool {
+pub(crate) fn allows_target(app: &EvoLightApp, hit: Option<WidgetHit>) -> bool {
     match prompt_layer(app) {
         None => true,
         Some(layer) => hit.is_some_and(|hit| hit.layer_id == layer),
@@ -222,7 +222,7 @@ struct PromptKey {
 
 /// Identity of the prompt currently owning input: its layer, text and, for the settings-notice
 /// queue, the number of notices remaining, including the one shown. `None` when no prompt is up.
-fn prompt_key(app: &LightcraftApp) -> Option<PromptKey> {
+fn prompt_key(app: &EvoLightApp) -> Option<PromptKey> {
     let (layer, text, queue_len) = match (&app.quit_prompt, app.notices.first()) {
         (Some(prompt), _) => (prompt_layer(app)?, prompt.text().to_string(), 0),
         (None, Some(text)) => (prompt_layer(app)?, text.clone(), app.notices.len()),
@@ -318,7 +318,7 @@ fn prompt_accesskit_allowed(request: &egui::accesskit::ActionRequest, ids: &[(St
 /// dropped while the prompt is open; End/Cancel always stays,
 /// including the creation/transition frames, because egui's private `touch_states` tracks the
 /// finger separately and dropping the release would leave it pressed after the prompt goes away.
-fn filter_prompt_events(app: &LightcraftApp, raw: &mut egui::RawInput) {
+fn filter_prompt_events(app: &EvoLightApp, raw: &mut egui::RawInput) {
     raw.events.retain(|event| prompt_allows_event(app, event));
 }
 
@@ -333,7 +333,7 @@ fn touch_release(event: &egui::Event) -> bool {
 /// for host input before `begin_pass` and for a synthetic batch after `raw_input_hook`; the control
 /// channel can therefore reject the exact gestures that the prompt barrier would drop, while an
 /// allowed prompt key, pointer action or targeted AccessKit action is still delivered.
-pub(crate) fn prompt_allows_event(app: &LightcraftApp, event: &egui::Event) -> bool {
+pub(crate) fn prompt_allows_event(app: &EvoLightApp, event: &egui::Event) -> bool {
     if app.notice_input.key.is_none() {
         return true;
     }
@@ -368,7 +368,7 @@ pub(crate) fn prompt_allows_event(app: &LightcraftApp, event: &egui::Event) -> b
 /// Restore the pointer state saved for the prompt just before it is drawn. The background has
 /// already drawn with no pointer; egui's `Response::clicked` still needs the pass's pointer events
 /// to turn the interaction snapshot into a click on a prompt button.
-pub(crate) fn restore_prompt_pointer(app: &LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn restore_prompt_pointer(app: &EvoLightApp, ctx: &egui::Context) {
     if let Some(pointer) = &app.notice_input.pointer {
         ctx.input_mut(|input| input.pointer = pointer.clone());
     }
@@ -385,13 +385,13 @@ pub(crate) fn hide_background_pointer(ctx: &egui::Context) {
 }
 
 /// Apply the prompt barrier after synthetic events have been appended to `raw`.
-pub(crate) fn filter_raw_input(app: &LightcraftApp, raw: &mut egui::RawInput) {
+pub(crate) fn filter_raw_input(app: &EvoLightApp, raw: &mut egui::RawInput) {
     filter_prompt_events(app, raw);
 }
 
 /// Note a prompt transition before egui sees the host input. Returns true when this host frame
 /// first sees a new prompt (its synthetic gestures must be canceled and its pointer state reset).
-pub(crate) fn prepare_raw_input(app: &mut LightcraftApp, ctx: &egui::Context, raw: &mut egui::RawInput) -> bool {
+pub(crate) fn prepare_raw_input(app: &mut EvoLightApp, ctx: &egui::Context, raw: &mut egui::RawInput) -> bool {
     let current = prompt_key(app);
     let started = current.is_some() && app.notice_input.key != current;
     if app.notice_input.key != current {
@@ -406,7 +406,7 @@ pub(crate) fn prepare_raw_input(app: &mut LightcraftApp, ctx: &egui::Context, ra
 /// frame's logic after `raw_input_hook` already ran; this captures its keys before panels read
 /// them, drops the rest, and reports whether the prompt was first discovered here (so its
 /// pre-existing gesture queue must be canceled). The draw pass itself uses [`shield_pass`].
-pub(crate) fn prepare_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
+pub(crate) fn prepare_ui_pass(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
     let current = prompt_key(app);
     let has_prompt = current.is_some();
     let started = has_prompt && app.notice_input.key != current;
@@ -503,14 +503,14 @@ pub(crate) fn prepare_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context) -> b
 /// Whether `draw_window` must render only the new prompt for this first pass. The second pass
 /// (after the discard) draws the whole window with empty raw input, so the new prompt's first
 /// frame cannot activate a panel underneath it.
-pub(crate) fn shield_pass(app: &LightcraftApp, ctx: &egui::Context) -> bool {
+pub(crate) fn shield_pass(app: &EvoLightApp, ctx: &egui::Context) -> bool {
     ctx.current_pass_index() == 0 && app.notice_input.transition && prompt_key(app).is_some()
 }
 
 /// A completed, nondiscarded pass has laid out and focused the prompt: input may reach it from the
 /// next host frame. A changed/dismissed prompt is reset here as well, so a queued next notice is
 /// treated as a new transition.
-pub(crate) fn finish_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn finish_ui_pass(app: &mut EvoLightApp, ctx: &egui::Context) {
     if ctx.will_discard() {
         return;
     }
@@ -614,7 +614,7 @@ fn window(ctx: &egui::Context, id: &str, title: &str, text: &str, buttons: &[(&s
 /// Draw the prompt owning input, if any, and act on its answer: quit-while-tasks cancels jobs
 /// and re-checks for unsaved changes; quit-with-unsaved retries, quits or cancels; a settings
 /// notice is removed when acknowledged. Returns without drawing when no prompt is up.
-pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
     if let Some(QuitPrompt::Tasks(text)) = app.quit_prompt.clone() {
         let buttons = [("quitAnyway", "Quit Anyway", Choice::QuitAnyway), ("quitCancel", "Cancel", Choice::Cancel)];
         let Some(i) = window(ctx, "quit-tasks", "Quit while tasks are running?", &text, &buttons, &mut app.notice_input) else {
@@ -700,7 +700,7 @@ mod tests {
     #[test]
     fn a_low_disk_notice_of_the_library_before_is_not_drawn() {
         let ctx = egui::Context::default();
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         let text = "Drive almost full".to_string();
         app.notices.push(text.clone());
         app.disk_notice = Some((app.session.library_generation().wrapping_add(1), text));
@@ -721,7 +721,7 @@ mod tests {
     /// (CodeRabbit on #3577: it asked for 250 ms passes for as long as the drive hung).
     #[test]
     fn a_hanging_free_space_read_is_looked_at_less_often() {
-        use lightcraft_engine::disk_space::{CHECK_EVERY, RETRY_AFTER};
+        use evolight_engine::disk_space::{CHECK_EVERY, RETRY_AFTER};
         use std::time::Duration;
         assert_eq!(super::disk_check_wait(Some(Duration::ZERO), None), Duration::from_millis(250));
         assert_eq!(super::disk_check_wait(Some(Duration::from_secs(60)), None), Duration::from_secs(5));
@@ -736,7 +736,7 @@ mod tests {
     /// touch state. No prompt means everything survives.
     #[test]
     fn a_settled_prompt_allows_its_keys_and_pointer_but_not_text_wheel_or_new_touches() {
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.notice_input.key = Some(PromptKey {
             layer: egui::LayerId::new(egui::Order::Foreground, egui::Id::unique("test-prompt")),
             text: "prompt".into(),
@@ -776,7 +776,7 @@ mod tests {
     /// leave the finger pressed after the prompt goes away.
     #[test]
     fn a_prompt_in_its_creation_frames_still_releases_touches() {
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.notice_input.key = Some(PromptKey {
             layer: egui::LayerId::new(egui::Order::Foreground, egui::Id::unique("test-prompt")),
             text: "prompt".into(),
@@ -799,7 +799,7 @@ mod tests {
     #[test]
     fn manual_prompt_dispatch_drops_all_accesskit_requests() {
         let ctx = egui::Context::default();
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.quit_prompt = Some(crate::QuitPrompt::Tasks("tasks".into()));
         app.notice_input.key = prompt_key(&app);
         app.notice_input.laid_out = true;
@@ -826,8 +826,8 @@ mod tests {
         assert_eq!(text.contains("nix develop"), cfg!(target_os = "linux"), "{text}");
         assert_eq!(gpu_notice(Some(none), false), None, "the preference is off");
         for reason in [
-            "disabled by LIGHTCRAFT_GPU=0",
-            "disabled by LIGHTCRAFT_GPU_BACKEND=off",
+            "disabled by EVOLIGHT_GPU=0",
+            "disabled by EVOLIGHT_GPU_BACKEND=off",
             "disabled by the GPU rendering preference (app.gpu)",
             "software adapter (llvmpipe (LLVM 19.1.7, 256 bits)) skipped: the CPU pipeline is faster",
             "stopped after a GPU failure: device lost",

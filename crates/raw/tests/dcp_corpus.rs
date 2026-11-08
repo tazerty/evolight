@@ -1,5 +1,5 @@
 //! A real camera profile: the Nikon D750 ColorChecker DCP dieli released under CC0
-//! (github.com/dieli/d750-lightcraft-colorchecker, pinned in `D750_COLORCHECKER`, xtask/src/main.rs;
+//! (github.com/dieli/d750-evolight-colorchecker, pinned in `D750_COLORCHECKER`, xtask/src/main.rs;
 //! `cargo xtask corpus --download` puts it in the gitignored `corpus/d750-colorchecker/`).
 //!
 //! Calibrite PROFILER made it from two chart shots: a dual-illuminant, matrix-only profile
@@ -9,17 +9,17 @@
 //! matrix) gives a usable camera transform, and that it develops the chart NEFs it was made from.
 //! Missing files are reported as skipped.
 
-use lightcraft_color::{Xy, cct};
-use lightcraft_raw::color::{camera_to_xyz_d50, camera_transform_of, illuminant_weight, xyz_to_camera};
-use lightcraft_raw::dcp::{DcpProfile, parse_dcp, write_dcp};
-use lightcraft_raw::{Mat3, decode};
+use evolight_color::{Xy, cct};
+use evolight_raw::color::{camera_to_xyz_d50, camera_transform_of, illuminant_weight, xyz_to_camera};
+use evolight_raw::dcp::{DcpProfile, parse_dcp, write_dcp};
+use evolight_raw::{Mat3, decode};
 use std::path::{Path, PathBuf};
 
 const PROFILE: &str = "profiles/20261016_NikonD750_DualIllumination_ColorCheckerPassport.dcp";
 const CHARTS: [&str; 2] = ["raw/chart-daylight_flash.NEF", "raw/chart-indoor.NEF"];
 
 fn set_dir() -> PathBuf {
-    std::env::var_os("LIGHTCRAFT_CORPUS")
+    std::env::var_os("EVOLIGHT_CORPUS")
         .map(PathBuf::from)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("d750-colorchecker")
@@ -29,7 +29,7 @@ fn read(rel: &str) -> Option<Vec<u8>> {
     let path = set_dir().join(rel);
     let bytes = std::fs::read(&path).ok();
     if bytes.is_none() {
-        lightcraft_testkit::skip!(Corpus, "{} absent (cargo xtask corpus --download)", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent (cargo xtask corpus --download)", path.display());
     }
     bytes
 }
@@ -107,13 +107,13 @@ fn the_matrix_only_path_inverts_the_colour_matrix_and_adapts_to_d50() {
     for k in [3200.0, 4500.0, 5500.0, 6500.0] {
         let white: Xy = cct::temp_tint_to_xy(k, 0.0);
         let to_d50 = camera_to_xyz_d50(c, white);
-        let expected = lightcraft_color::bradford(white, lightcraft_color::D50).mul(&xyz_to_camera(c, white).inverse().unwrap());
+        let expected = evolight_color::bradford(white, evolight_color::D50).mul(&xyz_to_camera(c, white).inverse().unwrap());
         assert!(max_diff(&to_d50, &expected) < 1e-9, "{k} K: no forward matrix, so XYZtoCamera⁻¹ then Bradford");
         // the camera's neutral under that white lands on D50
         let n = xyz_to_camera(c, white).apply(white.to_xyz());
         let xyz = to_d50.apply(n);
         let xy = Xy::from_xyz(xyz);
-        assert!((xy.x - lightcraft_color::D50.x).abs() < 1e-6 && (xy.y - lightcraft_color::D50.y).abs() < 1e-6, "{k} K → {xy:?}");
+        assert!((xy.x - evolight_color::D50.x).abs() < 1e-6 && (xy.y - evolight_color::D50.y).abs() < 1e-6, "{k} K → {xy:?}");
         // the transform the pipeline uses maps white-balanced (1, 1, 1) to white
         let t = camera_transform_of(c, white);
         assert!(!t.matrix_is_fallback);
@@ -136,10 +136,10 @@ fn the_d750_profile_takes_over_the_chart_nefs_colour() {
         // the camera's own white balance stays and reads as a white under the profile's matrices
         let mut with = raw.clone();
         with.color = color;
-        let white = lightcraft_raw::color::as_shot_white_xy(&with);
+        let white = evolight_raw::color::as_shot_white_xy(&with);
         let (k, tint) = cct::xy_to_temp_tint(white);
         assert!((2000.0..9000.0).contains(&k) && tint.abs() < 60.0, "{chart}: as-shot {k:.0} K, tint {tint:.1}");
-        let t = lightcraft_raw::color::camera_transform(&with, white);
+        let t = evolight_raw::color::camera_transform(&with, white);
         assert!(t.matrix.0.iter().flatten().all(|v| v.is_finite()), "{chart}: {t:?}");
         whites.push(k);
     }

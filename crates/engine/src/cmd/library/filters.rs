@@ -3,10 +3,10 @@ use super::{AlbumId, LibrarySource, PhotoId, Result, Session, Value, bad};
 /// `base` with a partial Filter (JSON) merged on top.
 /// `patch` merged onto `base`, its rules brought up to date (`RuleSet::upgrade`), unchecked (see
 /// [`merge_rules`]).
-fn merge_filter(base: &lightcraft_catalog::Filter, patch: &Value, c: &str) -> Result<lightcraft_catalog::Filter> {
+fn merge_filter(base: &evolight_catalog::Filter, patch: &Value, c: &str) -> Result<evolight_catalog::Filter> {
     let mut v = serde_json::to_value(base).unwrap_or_default();
-    lightcraft_develop::presets::deep_merge(&mut v, patch);
-    let mut f: lightcraft_catalog::Filter = serde_json::from_value(v).map_err(|e| bad(c, e.to_string()))?;
+    evolight_develop::presets::deep_merge(&mut v, patch);
+    let mut f: evolight_catalog::Filter = serde_json::from_value(v).map_err(|e| bad(c, e.to_string()))?;
     if let Some(rules) = f.rule_set.as_mut() {
         rules.upgrade();
     }
@@ -17,12 +17,12 @@ fn merge_filter(base: &lightcraft_catalog::Filter, patch: &Value, c: &str) -> Re
 /// `owner` is the smart album the rules are for, so testing an album that leads back to it is a
 /// problem too).
 pub(super) fn merge_rules(
-    base: &lightcraft_catalog::Filter,
+    base: &evolight_catalog::Filter,
     patch: &Value,
     c: &str,
-    cat: &lightcraft_catalog::Catalog,
+    cat: &evolight_catalog::Catalog,
     owner: Option<AlbumId>,
-) -> Result<lightcraft_catalog::Filter> {
+) -> Result<evolight_catalog::Filter> {
     let f = merge_filter(base, patch, c)?;
     // only rules this change sets are checked: one that stopped checking since (its album was
     // deleted) doesn't block editing the album's other settings
@@ -44,14 +44,14 @@ pub(super) fn merge_rules(
 pub(crate) fn covers_other_disks(s: &Session, path: &str, ids: &[PhotoId]) -> bool {
     ids.iter()
         .filter_map(|id| s.catalog.photo(*id))
-        .filter_map(|p| lightcraft_catalog::folders::volume_of(p))
-        .any(|v| v != "/" && !lightcraft_catalog::query::folder_within(path, &v))
+        .filter_map(|p| evolight_catalog::folders::volume_of(p))
+        .any(|v| v != "/" && !evolight_catalog::query::folder_within(path, &v))
 }
 
 /// The current view (source + filter) as smart-album rules. Viewing a smart album starts from
 /// its rules with the filter bar's settings on top.
-pub(super) fn view_rules(s: &Session) -> lightcraft_catalog::Filter {
-    use lightcraft_catalog::Filter;
+pub(super) fn view_rules(s: &Session) -> evolight_catalog::Filter {
+    use evolight_catalog::Filter;
     let smart = match s.source {
         LibrarySource::Album(a) => s.catalog.album(a).and_then(|a| a.smart.as_deref().cloned()),
         _ => None,
@@ -86,7 +86,7 @@ pub(super) fn view_rules(s: &Session) -> lightcraft_catalog::Filter {
 
 impl Session {
     /// The current view (source + filter) as smart-album rules (see `album.createSmart`).
-    pub fn view_rules(&self) -> lightcraft_catalog::Filter {
+    pub fn view_rules(&self) -> evolight_catalog::Filter {
         view_rules(self)
     }
 }

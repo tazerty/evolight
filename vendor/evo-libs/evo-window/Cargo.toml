@@ -1,0 +1,22 @@
+[package]
+name = "evo-window"
+description = "Decide who draws the window frame (the desktop or the app) so every Evo app gets the same titlebar and borders per desktop, make an app-drawn strip act as the title bar, and keep the window list, cascade placement and Window menu for apps with one window per document."
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "vendor/evo-libs"
+
+[features]
+egui = ["dep:egui", "dep:objc2", "dep:objc2-app-kit"]
+
+[dependencies]
+egui = { version = "0.37", default-features = false, optional = true }
+
+[target."cfg(any(target_os = \"linux\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
+wayland-client = { version = "0.31" }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+objc2 = { version = "0.6.4", default-features = false, features = ["std"], optional = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow"], optional = true }
+

@@ -7,10 +7,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use egui::{Align2, Color32, Rect, Sense, Stroke, StrokeKind, pos2, vec2};
-use lightcraft_catalog::{Catalog, ColorLabel, DateRun, Flag, GroupBy, PhotoId, SortKey, StackId};
+use evolight_catalog::{Catalog, ColorLabel, DateRun, Flag, GroupBy, PhotoId, SortKey, StackId};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::render::Slot;
 use crate::state::ViewMode;
@@ -50,7 +50,7 @@ pub struct GridStats {
     pub last_show: web_time::Duration,
 }
 
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t0 = web_time::Instant::now();
     show_inner(app, ui);
     app.caches.grid_stats.frames += 1;
@@ -69,7 +69,7 @@ type RunsKey = (u64, Option<SortKey>, GroupBy);
 const MAX_FOLLOWED: usize = 4096;
 
 /// What the grid derives from the visible photos, kept across frames. Everything is keyed by the
-/// session's visible-list generation ([`lightcraft_engine::Session::visible_shared`]), which
+/// session's visible-list generation ([`evolight_engine::Session::visible_shared`]), which
 /// changes whenever the list is recomputed (any catalog change: crops, orientation, dates, stacks;
 /// or another source, filter or sort) — so an unchanged frame neither copies nor hashes the ids.
 #[derive(Default)]
@@ -205,7 +205,7 @@ impl GridCache {
             Some((k, r)) if *k == key && self.read.as_ref().is_some_and(|read| read.shapes.is_some() == shaped) => r.clone(),
             _ => {
                 stats.view_builds += 1;
-                let dates = key.1.map(|sort| (sort, key.2)).filter(|(sort, by)| lightcraft_catalog::dates::groups_by_date(*sort, *by));
+                let dates = key.1.map(|sort| (sort, key.2)).filter(|(sort, by)| evolight_catalog::dates::groups_by_date(*sort, *by));
                 let read = match self.read.take() {
                     // (the same list, read at this revision)
                     Some(r) if Arc::ptr_eq(&r.ids, ids) && r.revision == cat.revision && r.dates == dates && r.shapes.is_some() == shaped => r,
@@ -216,7 +216,7 @@ impl GridCache {
                     Some(_) if !ids.is_empty() => {
                         let stacks = self.stacks(stats, cat, key.0);
                         let group = |i: usize, _: PhotoId| read.groups.get(i).and_then(|g| read.names.get(*g as usize)).map_or("", String::as_str);
-                        lightcraft_catalog::dates::date_runs_of(ids, &stacks, group)
+                        evolight_catalog::dates::date_runs_of(ids, &stacks, group)
                     }
                     _ => Vec::new(),
                 });
@@ -276,7 +276,7 @@ pub(crate) fn shape_of(cat: &Catalog, id: PhotoId) -> f32 {
     let p = cat.photo(id);
     let (w, h) = p.map(|p| (p.width.max(1) as f32, p.height.max(1) as f32)).unwrap_or((3.0, 2.0));
     let swap = p.is_some_and(|p| p.develop.orientation.swaps_axes());
-    let crop = p.map(|p| p.develop.crop.geometry.rect).unwrap_or(lightcraft_geom::Rect::UNIT);
+    let crop = p.map(|p| p.develop.crop.geometry.rect).unwrap_or(evolight_geom::Rect::UNIT);
     let (w, h) = if swap { (h, w) } else { (w, h) };
     (w * crop.width() as f32) / (h * crop.height() as f32).max(1e-3)
 }
@@ -290,16 +290,16 @@ pub fn rows_between(rows: &[GridRow], top: f32, bottom: f32) -> &[GridRow] {
     rest.get(..n).unwrap_or(&[])
 }
 
-fn show_inner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn show_inner(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let (generation, ids) = app.session.visible_shared();
     // header: source title + count
     let sel_n = app.session.selection.ids.len();
-    let chips = lightcraft_engine::filter_chips(&app.session.filter, &app.session.catalog);
+    let chips = evolight_engine::filter_chips(&app.session.filter, &app.session.catalog);
     let total = app.session.source_total();
     let counted = super::chips::count_text(ids.len(), total, !chips.is_empty());
     let cnt = if sel_n > 1 { crate::i18n::tr_format!("{sel_n} selected · {counted}", counted = counted, sel_n = sel_n) } else { counted };
-    match app.session.browse.clone().filter(|_| app.session.source == lightcraft_engine::LibrarySource::Folder) {
+    match app.session.browse.clone().filter(|_| app.session.source == evolight_engine::LibrarySource::Folder) {
         Some(b) => {
             let local = app.caches.grid.local(&app.session.catalog, &ids, generation);
             folder_header(app, ui, &b, &ids, local, &cnt);
@@ -343,7 +343,7 @@ fn show_inner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                 "No matching photos",
                 "A filter is hiding this view's photos: change it, or clear it (View → Clear Filters)",
             );
-        } else if app.session.source == lightcraft_engine::LibrarySource::Folder {
+        } else if app.session.source == evolight_engine::LibrarySource::Folder {
             super::empty_message(ui, ui.max_rect(), "No photos in this folder", "Turn on Include subfolders, or pick another folder under Local");
         } else if super::empty_library::shown(&app.session) {
             super::empty_library::show(app, ui, ui.max_rect());
@@ -361,8 +361,8 @@ fn show_inner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     let avail_w = ui.available_width() - 8.0;
     let by = resolve_group(app.session.sort.group, target);
     let group_key = match app.session.source {
-        lightcraft_engine::LibrarySource::RecentlyDeleted => None,
-        lightcraft_engine::LibrarySource::RecentlyAdded => Some(SortKey::ImportDate),
+        evolight_engine::LibrarySource::RecentlyDeleted => None,
+        evolight_engine::LibrarySource::RecentlyAdded => Some(SortKey::ImportDate),
         _ => Some(app.session.sort.key),
     };
     let runs_key = (generation, group_key, by);
@@ -466,9 +466,9 @@ fn show_inner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 /// the strip was not drawn on the previous pass (view switch, panel shown again). Otherwise the
 /// scroll position is the user's: time passing, finished renders, edits to the photo or a released
 /// scroll bar never move it (issue #11).
-pub(crate) fn follow_active(ctx: &egui::Context, key: egui::Id, active: Option<PhotoId>, source: lightcraft_engine::LibrarySource) -> bool {
+pub(crate) fn follow_active(ctx: &egui::Context, key: egui::Id, active: Option<PhotoId>, source: evolight_engine::LibrarySource) -> bool {
     let pass = ctx.cumulative_pass_nr();
-    let last: Option<(Option<PhotoId>, lightcraft_engine::LibrarySource, u64)> = ctx.data(|d| d.get_temp(key));
+    let last: Option<(Option<PhotoId>, evolight_engine::LibrarySource, u64)> = ctx.data(|d| d.get_temp(key));
     ctx.data_mut(|d| d.insert_temp(key, (active, source, pass)));
     match last {
         Some((was, where_, drawn)) => follow_changed(was, where_, drawn, active, source, pass),
@@ -480,10 +480,10 @@ pub(crate) fn follow_active(ctx: &egui::Context, key: egui::Id, active: Option<P
 /// sits in a different library source (another album) (#1142).
 pub(crate) fn follow_changed(
     was: Option<PhotoId>,
-    where_was: lightcraft_engine::LibrarySource,
+    where_was: evolight_engine::LibrarySource,
     drawn: u64,
     active: Option<PhotoId>,
-    source: lightcraft_engine::LibrarySource,
+    source: evolight_engine::LibrarySource,
     pass: u64,
 ) -> bool {
     was != active || where_was != source || drawn + 1 < pass
@@ -554,7 +554,7 @@ pub fn vertical_neighbor(lay: &GridLayout, i: usize, down: bool) -> Option<usize
 /// Up / Down in the grids: how many photos `library.up` / `library.down` move to reach the cell
 /// above / below the active one in the grid as last laid out; None when the grid isn't laid out
 /// for the current photos (the filmstrip then steps one photo).
-pub fn row_distance(app: &mut LightcraftApp, down: bool) -> Option<u64> {
+pub fn row_distance(app: &mut EvoLightApp, down: bool) -> Option<u64> {
     if !matches!(app.ui.view, ViewMode::PhotoGrid | ViewMode::SquareGrid) {
         return None;
     }
@@ -665,8 +665,8 @@ pub fn layout(aspects: &[f32], groups: &[(usize, usize)], avail_w: f32, target: 
 /// [`Tokens::ring_active`] with a 1 pt line in [`Tokens::ring_inner`] over its inner edge, against
 /// the photo (so the ring reads on a white photo and on a black one). The others are a single 1.5 pt line in
 /// [`Tokens::ring_selected`]; the two are told apart by weight, not by lightness alone.
-pub(crate) fn selection_ring(p: &egui::Painter, t: &Tokens, photo: Rect, state: lightcraft_engine::SelectionState) {
-    use lightcraft_engine::SelectionState;
+pub(crate) fn selection_ring(p: &egui::Painter, t: &Tokens, photo: Rect, state: evolight_engine::SelectionState) {
+    use evolight_engine::SelectionState;
     match state {
         SelectionState::Active => {
             // both on the same rect, so no seam opens between them at a fractional scale
@@ -682,7 +682,7 @@ pub(crate) fn selection_ring(p: &egui::Painter, t: &Tokens, photo: Rect, state: 
 
 /// A date header: "Wednesday, 30 September 2026 · 12 photos". Clicking it selects the group
 /// (Cmd/Shift: adds to the selection).
-fn group_header(app: &mut LightcraftApp, ui: &mut egui::Ui, run: &DateRun, ids: &[PhotoId], r: Rect, pinned: bool) {
+fn group_header(app: &mut EvoLightApp, ui: &mut egui::Ui, run: &DateRun, ids: &[PhotoId], r: Rect, pinned: bool) {
     let t = Tokens::get(ui.ctx());
     let resp = ui.interact(r, egui::Id::unique(("group-header", run.start, pinned)), Sense::click());
     // the header's name is the text it shows (date, then count), so Voice Control's "click Sunday" finds it
@@ -714,15 +714,15 @@ fn group_header(app: &mut LightcraftApp, ui: &mut egui::Ui, run: &DateRun, ids: 
 /// Request a grid/filmstrip thumbnail at `priority`. An unedited raw without a thumbnail texture
 /// gets its embedded camera preview, and the render of the raw behind it follows in the background
 /// — except where that render would only redraw what the embedded JPEG already shows (see
-/// [`lightcraft_engine::media::Session::embedded_thumb_is_final`]), which for a folder of raws on a
+/// [`evolight_engine::media::Session::embedded_thumb_is_final`]), which for a folder of raws on a
 /// network share is the difference between reading every file whole and reading a preview each.
-pub fn request_thumb(app: &mut LightcraftApp, id: PhotoId, size: usize, priority: u32) {
+pub fn request_thumb(app: &mut EvoLightApp, id: PhotoId, size: usize, priority: u32) {
     // A slider drag changes the photo every frame: its thumbnail follows once the drag ends, so its
     // renders (a raw decode the first time) don't compete with the loupe's drafts.
     if app.session.interaction.as_ref().is_some_and(|i| i.photo == id) && app.renderer.thumb(id).is_some() {
         return;
     }
-    let bucket = lightcraft_engine::media::thumb_bucket(size);
+    let bucket = evolight_engine::media::thumb_bucket(size);
     if let Some(photo) = app.session.catalog.photo(id)
         && app.renderer.thumb_current(photo, bucket, priority)
     {
@@ -775,7 +775,7 @@ pub fn request_thumb(app: &mut LightcraftApp, id: PhotoId, size: usize, priority
 
 /// Whether a photo's grid thumbnail is already the picture it should show, so the render of the raw
 /// behind it is skipped. `embedded_is_final` is the engine's answer
-/// ([`lightcraft_engine::media::Session::embedded_thumb_is_final`]: the photo is an unedited raw
+/// ([`evolight_engine::media::Session::embedded_thumb_is_final`]: the photo is an unedited raw
 /// whose camera JPEG the viewer is showing) and `from_embedded` says the stand-in actually came from
 /// the embedded preview rather than a cached render of the file.
 ///
@@ -789,13 +789,13 @@ pub(crate) fn skips_the_real_render(embedded_is_final: bool, from_embedded: bool
 /// Rendered thumbnails replacing embedded previews: after everything on screen.
 pub const BACKGROUND_THUMB_PRIORITY: u32 = 3;
 
-fn cell(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square: bool, onscreen: bool, ppp: f32) {
+fn cell(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square: bool, onscreen: bool, ppp: f32) {
     let t = Tokens::get(ui.ctx());
     let Some(photo) = app.session.catalog.photo(id).cloned() else { return };
     let resp = ui.interact(r, egui::Id::unique(("cell", id.0)), Sense::click_and_drag());
     register(ui, format!("thumb:{}", id.0), r);
     let state = app.session.selection.state_of(id);
-    let selected = state != lightcraft_engine::SelectionState::NotSelected;
+    let selected = state != evolight_engine::SelectionState::NotSelected;
     let spoken = cell_description(app, &photo);
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, selected, &spoken));
     let p = ui.painter();
@@ -822,15 +822,15 @@ fn cell(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square
     cell_interaction(app, ui, &resp, id, &photo);
 }
 
-pub(crate) fn cell_description(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) -> String {
+pub(crate) fn cell_description(app: &EvoLightApp, photo: &evolight_catalog::Photo) -> String {
     let mut spoken = photo.file_name.clone();
     if photo.rating > 0 {
         spoken.push_str(&crate::i18n::tr_format!(", {} star{}", photo.rating, if photo.rating == 1 { "" } else { "s" }));
     }
     match photo.flag {
-        lightcraft_catalog::Flag::Pick => spoken.push_str(crate::i18n::tr(", picked")),
-        lightcraft_catalog::Flag::Reject => spoken.push_str(crate::i18n::tr(", rejected")),
-        lightcraft_catalog::Flag::None => {}
+        evolight_catalog::Flag::Pick => spoken.push_str(crate::i18n::tr(", picked")),
+        evolight_catalog::Flag::Reject => spoken.push_str(crate::i18n::tr(", rejected")),
+        evolight_catalog::Flag::None => {}
     }
     if let Some(l) = photo.label {
         spoken.push_str(&crate::i18n::tr_format!(", {} label", crate::i18n::color_label(&app.session.catalog, l)));
@@ -838,7 +838,7 @@ pub(crate) fn cell_description(app: &LightcraftApp, photo: &lightcraft_catalog::
     spoken
 }
 
-fn paint_cell_thumbnail(app: &mut LightcraftApp, p: &egui::Painter, t: &Tokens, id: PhotoId, img_rect: Rect, flags: ThumbFlags) -> Rect {
+fn paint_cell_thumbnail(app: &mut EvoLightApp, p: &egui::Painter, t: &Tokens, id: PhotoId, img_rect: Rect, flags: ThumbFlags) -> Rect {
     let ThumbFlags { square, state, onscreen, ppp } = flags;
     let size = thumb_px(img_rect.width().max(img_rect.height()), ppp);
     request_thumb(app, id, size, if onscreen { 10 } else { 5 });
@@ -862,7 +862,7 @@ fn paint_cell_thumbnail(app: &mut LightcraftApp, p: &egui::Painter, t: &Tokens, 
     }
 }
 
-fn paint_cell_caption(app: &LightcraftApp, p: &egui::Painter, t: &Tokens, photo: &lightcraft_catalog::Photo, r: Rect, square: bool) {
+fn paint_cell_caption(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &evolight_catalog::Photo, r: Rect, square: bool) {
     if square && app.ui.show_filenames {
         let m = &photo.meta;
         let name = match app.ui.grid_info.as_str() {
@@ -900,7 +900,7 @@ fn photo_badge_bar(photo_rect: Rect) -> Rect {
     Rect::from_min_max(pos2(photo_rect.left(), (photo_rect.bottom() - 24.0).max(photo_rect.top())), photo_rect.right_bottom())
 }
 
-fn paint_cell_badges(app: &LightcraftApp, p: &egui::Painter, t: &Tokens, photo: &lightcraft_catalog::Photo, photo_rect: Rect, flags: BadgeFlags) {
+fn paint_cell_badges(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &evolight_catalog::Photo, photo_rect: Rect, flags: BadgeFlags) {
     let BadgeFlags { square, selected, hovered } = flags;
     let show_badges = match app.ui.settings.grid_badges {
         crate::state::GridBadges::Auto => hovered || selected || photo.rating > 0 || photo.flag != Flag::None || photo.label.is_some(),
@@ -968,7 +968,7 @@ fn paint_preview_pill(ui: &egui::Ui, p: &egui::Painter, t: &Tokens, id: PhotoId,
         .on_hover_text(crate::i18n::tr_format!("Preview only — {}", crate::widgets::preview_only_explanation(why)));
 }
 
-fn cell_interaction(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, id: PhotoId, photo: &lightcraft_catalog::Photo) {
+fn cell_interaction(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, id: PhotoId, photo: &evolight_catalog::Photo) {
     if let Some(k) = app.ui.keyword_painter.clone() {
         // painting: a click toggles the keyword on this photo
         if resp.hovered() {
@@ -1005,7 +1005,7 @@ fn cell_interaction(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Res
 
 struct ThumbFlags {
     square: bool,
-    state: lightcraft_engine::SelectionState,
+    state: evolight_engine::SelectionState,
     onscreen: bool,
     ppp: f32,
 }
@@ -1018,7 +1018,7 @@ struct BadgeFlags {
 
 /// The header of a Local folder view: the path as a breadcrumb (each part opens that folder),
 /// Include subfolders, Add to My Photos.
-fn folder_header(app: &mut LightcraftApp, ui: &mut egui::Ui, b: &lightcraft_engine::Browse, ids: &[PhotoId], local_n: usize, cnt: &str) -> Rect {
+fn folder_header(app: &mut EvoLightApp, ui: &mut egui::Ui, b: &evolight_engine::Browse, ids: &[PhotoId], local_n: usize, cnt: &str) -> Rect {
     let t = Tokens::get(ui.ctx());
     // The path/count and actions need independent rows. The frame reserves the actual height,
     // including any wrapped actions, so the grid below never paints under the header.
@@ -1088,7 +1088,7 @@ pub(crate) fn crumbs(path: &str) -> Vec<(&str, String)> {
     out
 }
 
-fn folder_breadcrumbs(app: &mut LightcraftApp, ui: &mut egui::Ui, path: &str) {
+fn folder_breadcrumbs(app: &mut EvoLightApp, ui: &mut egui::Ui, path: &str) {
     let t = Tokens::get(ui.ctx());
     ui.spacing_mut().item_spacing.x = 4.0;
     let crumbs = crumbs(path);
@@ -1131,7 +1131,7 @@ fn folder_breadcrumbs(app: &mut LightcraftApp, ui: &mut egui::Ui, path: &str) {
 
 /// A drag of photo `id` began (grid cell or filmstrip cell): the photos it carries are the selection,
 /// which this photo joins, or replaces when it wasn't part of it.
-pub(crate) fn begin_photo_drag(app: &mut LightcraftApp, id: PhotoId) {
+pub(crate) fn begin_photo_drag(app: &mut EvoLightApp, id: PhotoId) {
     if !app.session.selection.contains(id) {
         let _ = app.run("library.select", json!({"ids": [id.0]}));
     }
@@ -1147,7 +1147,7 @@ pub fn drag_hint(ctx: &egui::Context, text: String) {
     ctx.data_mut(|d| d.insert_temp(egui::Id::unique("drag-photos-hint"), (frame, text)));
 }
 
-pub fn drag_feedback(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn drag_feedback(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(ids) = &app.ui.dragging_photos else { return };
     let (released, down, pos) = ctx.input(|i| (i.pointer.primary_released(), i.pointer.primary_down(), i.pointer.latest_pos()));
     if released || !down {
@@ -1177,7 +1177,7 @@ pub use super::filterbar::label_color;
 
 /// Albums hold library photos (issue #684): true when `ids` are photos and all of them are
 /// browsed (Local) ones, which album views never show.
-pub fn local_only(app: &LightcraftApp, ids: &[PhotoId]) -> bool {
+pub fn local_only(app: &EvoLightApp, ids: &[PhotoId]) -> bool {
     !ids.is_empty() && ids.iter().all(|id| app.session.catalog.photo(*id).is_some_and(|p| p.local))
 }
 
@@ -1188,7 +1188,7 @@ pub fn albums_hint() -> String {
 
 /// Tell the user when an album command skipped Local photos of the selection (`skipped` in its
 /// result).
-pub fn toast_skipped(app: &mut LightcraftApp, ctx: &egui::Context, r: &serde_json::Value) {
+pub fn toast_skipped(app: &mut EvoLightApp, ctx: &egui::Context, r: &serde_json::Value) {
     if let Some(n) = r.get("skipped").and_then(serde_json::Value::as_u64).filter(|n| *n > 0) {
         app.toast(
             ctx,
@@ -1202,7 +1202,7 @@ pub fn toast_skipped(app: &mut LightcraftApp, ctx: &egui::Context, r: &serde_jso
 }
 
 /// "Set Color Label" items for the active photo, shared by context menus.
-pub fn label_menu(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn label_menu(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let current = app.session.active().and_then(|id| app.session.catalog.photo(id)).and_then(|p| p.label);
     if let Some(l) = label_items(app, ui, current, "photoLabel") {
         let mut params = json!({"label": label_param(l)});
@@ -1215,7 +1215,7 @@ pub fn label_menu(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 /// The colour label items of a menu (coloured dot + the label's name, then None and Edit Label
 /// Names…), `current` checked; each colour is widget `<widget>:<colour>` (`<widget>:none`) for
 /// the control channel. Returns the choice (`Some(None)`: None).
-pub fn label_items(app: &mut LightcraftApp, ui: &mut egui::Ui, current: Option<ColorLabel>, widget: &str) -> Option<Option<ColorLabel>> {
+pub fn label_items(app: &mut EvoLightApp, ui: &mut egui::Ui, current: Option<ColorLabel>, widget: &str) -> Option<Option<ColorLabel>> {
     let mut chosen = None;
     for l in ColorLabel::ALL {
         let name = crate::i18n::color_label(&app.session.catalog, l);
@@ -1248,7 +1248,7 @@ pub fn label_param(l: Option<ColorLabel>) -> String {
 
 /// Stack badge at the cell's top-left: the photo count on a collapsed stack's top, `i/n` on the
 /// members of an expanded stack. Clicking or double-clicking it expands/collapses the stack.
-pub fn stack_badge(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, sid: lightcraft_catalog::StackId, pos: usize, r: Rect, square: bool) {
+pub fn stack_badge(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, sid: evolight_catalog::StackId, pos: usize, r: Rect, square: bool) {
     let t = Tokens::get(ui.ctx());
     let Some(st) = app.session.catalog.stack(sid) else { return };
     let n = st.photos.len();
@@ -1280,13 +1280,13 @@ pub fn stack_badge(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, sid:
 
 /// A click on a stack badge (grid or filmstrip): expand / collapse that photo's stack, selected or
 /// not. The selection stays as it is (Compare keeps its pair).
-pub fn toggle_stack(app: &mut LightcraftApp, ctx: &egui::Context, id: PhotoId) {
+pub fn toggle_stack(app: &mut EvoLightApp, ctx: &egui::Context, id: PhotoId) {
     if let Err(e) = app.run("stack.toggle", json!({"ids": [id.0]})) {
         app.toast(ctx, e);
     }
 }
 
-pub fn context_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub fn context_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     context_menu_open_and_edit(app, ui, id);
     context_menu_rate(app, ui);
     context_menu_albums(app, ui, id);
@@ -1296,19 +1296,19 @@ pub fn context_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
     context_menu_delete(app, ui);
 }
 
-fn context_menu_open_and_edit(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+fn context_menu_open_and_edit(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     if !app.session.selection.contains(id) {
         let _ = app.run("library.select", json!({"ids": [id.0]}));
     }
     if ui.button(crate::i18n::tr("Open in Detail")).clicked() {
         let _ = app.run("view.detail", json!({}));
     }
-    // Photo ▸ Edit In: a copy with this photo's edits, opened in PhotoCraft or another editor
+    // Photo ▸ Edit In: a copy with this photo's edits, opened in EvoPhoto or another editor
     // (desktop only: the web can't start programs)
-    ui.add_enabled_ui(crate::menus::ui_enabled(app, "photo.editInPhotoCraft"), |ui| {
+    ui.add_enabled_ui(crate::menus::ui_enabled(app, "photo.editInEvoPhoto"), |ui| {
         crate::widgets::menu_button(ui, crate::i18n::tr("Edit In"), |ui| {
-            if ui.button(crate::i18n::tr("Edit in PhotoCraft")).clicked() {
-                let _ = app.run("photo.editInPhotoCraft", json!({}));
+            if ui.button(crate::i18n::tr("Edit in EvoPhoto")).clicked() {
+                let _ = app.run("photo.editInEvoPhoto", json!({}));
             }
             if ui.button(crate::i18n::tr("Edit in Other Editor")).clicked() {
                 let _ = app.run("photo.editInExternal", json!({}));
@@ -1325,7 +1325,7 @@ fn context_menu_open_and_edit(app: &mut LightcraftApp, ui: &mut egui::Ui, id: Ph
             }
         });
     });
-    let can_search = lightcraft_engine::cmd::similar::no_search_running(&app.session).is_ok();
+    let can_search = evolight_engine::cmd::similar::no_search_running(&app.session).is_ok();
     if ui.add_enabled(can_search, egui::Button::new(crate::i18n::tr("Find Similar Photos"))).clicked()
         && let Err(e) = app.run("library.findSimilar", json!({"id": id.0}))
     {
@@ -1343,7 +1343,7 @@ fn context_menu_open_and_edit(app: &mut LightcraftApp, ui: &mut egui::Ui, id: Ph
     ui.separator();
 }
 
-fn context_menu_rate(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn context_menu_rate(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     crate::widgets::menu_button(ui, crate::i18n::tr("Set Rating"), |ui| {
         for r in 0..=5 {
             if ui.button(if r == 0 { crate::i18n::tr("No Stars").to_string() } else { "★".repeat(r) }).clicked() {
@@ -1371,7 +1371,7 @@ fn context_menu_rate(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     }
 }
 
-fn context_menu_albums(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+fn context_menu_albums(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     if local_only(app, &app.session.selected()) {
         // albums hold library photos (issue #684): nothing here to add until they join My Photos
         let add = ui.add_enabled(false, egui::Button::new(crate::i18n::tr("Add to Album"))).on_disabled_hover_text(albums_hint());
@@ -1404,7 +1404,7 @@ fn context_menu_albums(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) 
         register(ui, "button:contextAddToAlbum", add.response.rect);
     }
     // in a (non-smart) album: take the selection out of it, or make this photo its cover
-    if let lightcraft_engine::LibrarySource::Album(aid) = app.session.source
+    if let evolight_engine::LibrarySource::Album(aid) = app.session.source
         && app.session.catalog.album(aid).is_some_and(|a| !a.folder && !a.is_smart())
     {
         if ui.button(crate::i18n::tr("Remove from Album")).clicked() {
@@ -1416,7 +1416,7 @@ fn context_menu_albums(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) 
     }
 }
 
-fn context_menu_file_actions(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn context_menu_file_actions(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     if ui.button(crate::i18n::tr("Rename…")).clicked() {
         let _ = app.run("dialog.rename", json!({}));
     }
@@ -1450,7 +1450,7 @@ fn context_menu_file_actions(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     }
 }
 
-fn context_menu_stack_and_edits(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+fn context_menu_stack_and_edits(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     crate::widgets::menu_button(ui, crate::i18n::tr("Stack"), |ui| {
         let stacked = app.session.catalog.stack_of(id).is_some();
         let several = app.session.selection.ids.len() > 1;
@@ -1504,10 +1504,10 @@ fn context_menu_stack_and_edits(app: &mut LightcraftApp, ui: &mut egui::Ui, id: 
     ui.separator();
 }
 
-fn context_menu_locate_and_export(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+fn context_menu_locate_and_export(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     // the original moved or its drive is gone: point the photo at the file again
     // (a cached answer, checked off the UI thread)
-    let missing = matches!(&app.session.catalog.photo(id).map(|p| p.source.clone()), Some(lightcraft_catalog::Source::File { path }) if app.session.media.availability.is_offline(path));
+    let missing = matches!(&app.session.catalog.photo(id).map(|p| p.source.clone()), Some(evolight_catalog::Source::File { path }) if app.session.media.availability.is_offline(path));
     if missing && ui.button(crate::i18n::tr("Locate Missing File…")).clicked() {
         let _ = app.run("photo.locate", json!({}));
     }
@@ -1544,7 +1544,7 @@ fn context_menu_locate_and_export(app: &mut LightcraftApp, ui: &mut egui::Ui, id
     ui.separator();
 }
 
-fn context_menu_delete(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn context_menu_delete(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     if crate::menubar::selection_deleted(app) {
         if ui.button(crate::i18n::tr("Restore")).clicked() {
             let _ = app.run("photo.restore", json!({}));
@@ -1568,8 +1568,8 @@ mod tests {
     #[test]
     fn the_same_photo_in_another_source_scrolls_into_view() {
         let id = PhotoId(3);
-        let all = lightcraft_engine::LibrarySource::All;
-        let album = lightcraft_engine::LibrarySource::Album(lightcraft_catalog::AlbumId(9));
+        let all = evolight_engine::LibrarySource::All;
+        let album = evolight_engine::LibrarySource::Album(evolight_catalog::AlbumId(9));
         assert!(!follow_changed(Some(id), all, 4, Some(id), all, 5));
         assert!(follow_changed(Some(id), all, 4, Some(id), album, 5));
     }

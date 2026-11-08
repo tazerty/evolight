@@ -1,18 +1,18 @@
 {
   "nodes": {
-    "craft-fonts": {
+    "evo-fonts": {
       "flake": false,
       "locked": {
         "lastModified": 1792808533,
         "narHash": "sha256-jZ3VBAJDofB6RvsS7GGV5lLT4xiShIjpz5XHBCD2oUc=",
         "owner": "storytold",
-        "repo": "craft-fonts",
+        "repo": "evo-fonts",
         "rev": "b076417b5880bd4154bd22f00695b1d28c6bea83",
         "type": "github"
       },
       "original": {
         "owner": "storytold",
-        "repo": "craft-fonts",
+        "repo": "evo-fonts",
         "rev": "b076417b5880bd4154bd22f00695b1d28c6bea83",
         "type": "github"
       }
@@ -35,7 +35,7 @@
     },
     "root": {
       "inputs": {
-        "craft-fonts": "craft-fonts",
+        "evo-fonts": "evo-fonts",
         "nixpkgs": "nixpkgs"
       }
     }

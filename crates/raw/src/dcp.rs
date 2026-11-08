@@ -4,7 +4,7 @@
 //! `UniqueCameraModel`, `ProfileName`, the colour/forward matrices and calibration illuminants, the
 //! hue/saturation map, look table and tone curve. Nothing here ships a profile.
 
-use lightcraft_tiff::{Ifd, ParseOptions, Tiff, tags as t};
+use evolight_tiff::{Ifd, ParseOptions, Tiff, tags as t};
 
 use crate::ColorData;
 use crate::dng::color_data;
@@ -118,13 +118,13 @@ pub fn parse_dcp(bytes: &[u8]) -> Result<DcpProfile, DcpError> {
 /// Write `p` as a `.dcp` file (little-endian): its name, camera, illuminants, matrices, hue/saturation
 /// map, look table, tone curve and baseline exposure offset.
 pub fn write_dcp(p: &DcpProfile) -> Result<Vec<u8>, DcpError> {
-    use lightcraft_tiff::writer::srational;
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
+    use evolight_tiff::writer::srational;
+    use evolight_tiff::{ByteOrder, IfdBuilder, TiffWriter, Value};
     let c = &p.color;
     let mut ifd = IfdBuilder::new();
     ifd.set(t::UNIQUE_CAMERA_MODEL, Value::Ascii(p.camera_model.clone()));
     ifd.set(t::PROFILE_NAME, Value::Ascii(p.name.clone()));
-    let mat = |m: &lightcraft_color::Mat3| Value::SRational(m.0.iter().flatten().map(|v| srational(*v)).collect());
+    let mat = |m: &evolight_color::Mat3| Value::SRational(m.0.iter().flatten().map(|v| srational(*v)).collect());
     for i in 0..2 {
         if let Some(m) = &c.color_matrix[i] {
             ifd.set([t::CALIBRATION_ILLUMINANT_1, t::CALIBRATION_ILLUMINANT_2][i], Value::Short(vec![c.illuminant[i]]));

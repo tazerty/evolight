@@ -497,7 +497,7 @@ mod tests {
             Some(DiskSpace { available: GB, total: 500 * GB })
         }));
         s.open_library(&dir, false).unwrap();
-        let disk = || s.media.rendered.disk().map(lightcraft_preview::DiskCache::known_size);
+        let disk = || s.media.rendered.disk().map(evolight_preview::DiskCache::known_size);
         assert_eq!(disk(), Some(None), "an on-disk library has a preview cache, not counted yet");
         release.send(()).unwrap();
         // no poll here: only the worker can count the cache

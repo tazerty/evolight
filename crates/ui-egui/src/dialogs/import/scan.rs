@@ -1,5 +1,5 @@
 use super::task::ImportTask;
-use super::{ImportDialog, LightcraftApp, Ordering, ScanInput, ScanOutput, ScanProgress, Value, json, scan_with};
+use super::{ImportDialog, EvoLightApp, Ordering, ScanInput, ScanOutput, ScanProgress, Value, json, scan_with};
 
 /// A folder scan running on a worker thread (a network share can take minutes to read; the
 /// window must keep answering meanwhile).
@@ -15,7 +15,7 @@ pub struct ScanTask {
     /// What is being scanned (the review's source).
     sources: Vec<String>,
     /// The scan's row in the activity stack (its ✕ and `activity.cancel` set `progress.cancel`).
-    guard: lightcraft_engine::activity::TaskGuard,
+    guard: evolight_engine::activity::TaskGuard,
     /// Browsing: the folder as the worker resolved it, once it has. The view shows it as given until then
     /// (resolving reads the disk, which a stalled network mount can block: never on this thread).
     resolved: Option<std::sync::mpsc::Receiver<String>>,
@@ -28,12 +28,12 @@ pub(crate) enum ScanEnd {
     Done(ScanOutput),
     /// Browsing stopped without a listing: the folder couldn't be listed (`failed`), or another folder was
     /// chosen. Never an empty listing, which the browse bookkeeping would take for every file gone.
-    Stopped { probes: std::collections::HashMap<String, lightcraft_engine::media::ProbeInfo>, failed: bool },
+    Stopped { probes: std::collections::HashMap<String, evolight_engine::media::ProbeInfo>, failed: bool },
 }
 
 impl ScanEnd {
     /// The probes this end hands back to the session.
-    fn into_probes(self) -> std::collections::HashMap<String, lightcraft_engine::media::ProbeInfo> {
+    fn into_probes(self) -> std::collections::HashMap<String, evolight_engine::media::ProbeInfo> {
         match self {
             ScanEnd::Done(out) => out.probes,
             ScanEnd::Stopped { probes, .. } => probes,
@@ -56,13 +56,13 @@ pub(crate) struct StoppingScans {
 /// What tells two probes of one file apart: a file that changed but kept its size has another content hash.
 type ProbeMark = (u64, Option<String>, Option<String>);
 
-fn mark(p: &lightcraft_engine::media::ProbeInfo) -> ProbeMark {
+fn mark(p: &evolight_engine::media::ProbeInfo) -> ProbeMark {
     (p.file_size, p.content_hash.clone(), p.file_modified.clone())
 }
 
 /// Stop the running scan (if any) without waiting for its worker: the scan is closed at once, and its
 /// channel is kept until the worker ends, so the probes it holds still come back ([`collect_stopped`]).
-fn stop_scan(app: &mut LightcraftApp) {
+fn stop_scan(app: &mut EvoLightApp) {
     if let Some(t) = app.scan.take() {
         t.progress.cancel.store(true, Ordering::Relaxed);
         let s = &mut app.scans_stopping;
@@ -75,7 +75,7 @@ fn stop_scan(app: &mut LightcraftApp) {
 /// the session got since a scan started is newer than that scan's and stays, except one that a scan stopped
 /// before it put back: a later scan read that file again, so its probe wins, whichever worker ends first
 /// (an older probe of a file changed at the same size would hand the copy check a stale content hash).
-fn collect_stopped(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn collect_stopped(app: &mut EvoLightApp, ctx: &egui::Context) {
     let probes = &mut app.session.import_probes;
     let StoppingScans { pending, from, .. } = &mut app.scans_stopping;
     pending.retain(|(seq, rx)| match rx.try_recv() {
@@ -104,14 +104,14 @@ fn collect_stopped(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// The activity row of a scan: the review's ("Scanning folder") or the Local view's ("Reading folder").
-fn scan_guard(app: &LightcraftApp, progress: &ScanProgress, browse: bool) -> lightcraft_engine::activity::TaskGuard {
+fn scan_guard(app: &EvoLightApp, progress: &ScanProgress, browse: bool) -> evolight_engine::activity::TaskGuard {
     let label = if browse { "Reading folder" } else { "Scanning folder" };
-    app.session.activity.start("scan", label, lightcraft_engine::activity::Cancel::Flag(progress.cancel.clone()))
+    app.session.activity.start("scan", label, evolight_engine::activity::Cancel::Flag(progress.cancel.clone()))
 }
 
 /// An import and a Synchronize Folder never run at once: each readies its files against the
 /// library as it was when it started, so both could add the same file.
-pub(crate) fn busy_synchronizing(app: &LightcraftApp) -> Result<(), String> {
+pub(crate) fn busy_synchronizing(app: &EvoLightApp) -> Result<(), String> {
     if app.sync_run.is_some() { Err(crate::i18n::tr("A folder is being synchronized").to_string()) } else { Ok(()) }
 }
 
@@ -120,7 +120,7 @@ pub(crate) fn busy_synchronizing(app: &LightcraftApp) -> Result<(), String> {
 /// shows up after that opens Import from Device once nothing else is open, and a card that is
 /// taken out and put back in asks again.
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn cards_seen(app: &mut LightcraftApp, now: Vec<lightcraft_engine::devices::Device>) {
+pub(crate) fn cards_seen(app: &mut EvoLightApp, now: Vec<evolight_engine::devices::Device>) {
     let Some(known) = app.ui.known_cards.as_mut() else {
         app.ui.known_cards = Some(now.into_iter().map(|d| d.root).collect());
         return;
@@ -138,7 +138,7 @@ pub(crate) fn cards_seen(app: &mut LightcraftApp, now: Vec<lightcraft_engine::de
 }
 
 /// Scan `paths` in the background, then open the review dialog (see [`poll_scan`]).
-pub fn open(app: &mut LightcraftApp, paths: Vec<String>) -> Result<Value, String> {
+pub fn open(app: &mut EvoLightApp, paths: Vec<String>) -> Result<Value, String> {
     if app.scan.is_some() {
         return Err("a scan is already running".into());
     }
@@ -166,11 +166,11 @@ pub fn open(app: &mut LightcraftApp, paths: Vec<String>) -> Result<Value, String
 /// once, the folder is listed and read on a worker thread (a network share can take minutes),
 /// and the photos then join the view in small batches under a progress window. A browse already
 /// running is replaced; the import review's scan is not.
-pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> Result<Value, String> {
+pub fn browse(app: &mut EvoLightApp, path: &str, subfolders: Option<bool>) -> Result<Value, String> {
     // one spelling for the view, the listing and the catalog's records: `a/lib/../outside` is `a/outside`. Taken out
     // by name here, without reading the disk (a link on a stalled network mount would freeze the window): the worker
     // resolves the folder, checks it is one, and the view takes its spelling when it says (see `poll_scan`)
-    let dir = lightcraft_engine::import::browse_spelling(std::path::Path::new(path)).map_err(|e| e.to_string())?;
+    let dir = evolight_engine::import::browse_spelling(std::path::Path::new(path)).map_err(|e| e.to_string())?;
     if app.scan.as_ref().is_some_and(|t| !t.browse) || app.import.as_ref().is_some_and(|t| !t.browse) {
         return Err("an import is running".into());
     }
@@ -182,14 +182,14 @@ pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> 
     let through_dotdot = std::path::Path::new(path).components().any(|c| c == std::path::Component::ParentDir);
     if running && !through_dotdot && app.session.browse.as_ref().is_some_and(|b| b.path == dir_s && b.subfolders == subfolders) {
         // already reading this folder: clicking it again must not restart the progress
-        app.session.source = lightcraft_engine::LibrarySource::Folder;
+        app.session.source = evolight_engine::LibrarySource::Folder;
         app.session.keep_active_in_view();
         return Ok(json!({"path": dir_s, "subfolders": subfolders, "scanning": true}));
     }
     stop_scan(app);
     app.import = None;
-    app.session.browse = Some(lightcraft_engine::Browse { path: dir_s.clone(), subfolders });
-    app.session.source = lightcraft_engine::LibrarySource::Folder;
+    app.session.browse = Some(evolight_engine::Browse { path: dir_s.clone(), subfolders });
+    app.session.source = evolight_engine::LibrarySource::Folder;
     // the photos the library already knows from this folder show at once: keep or pick the active one
     app.session.keep_active_in_view();
     let (mut input, _) = ScanInput::new(&mut app.session, std::slice::from_ref(&dir_s));
@@ -212,7 +212,7 @@ pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> 
         };
         let _ = resolved_tx.send(root.clone());
         // (never the library's own folder, which the import would otherwise read as photos)
-        let files = match lightcraft_engine::import::browse_files(&input, &root, subfolders) {
+        let files = match evolight_engine::import::browse_files(&input, &root, subfolders) {
             Ok(files) => files,
             Err(e) => {
                 // no listing is sent: the scan ends as failed, and no record is taken for a file gone
@@ -224,7 +224,7 @@ pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> 
         // Nothing is read here: the import that follows reads the files and adds them batch by
         // batch, first screen first, so the view fills while the rest is read (PERF-CULL-1).
         // Another folder chosen meanwhile (`p.cancel`) stops the ordering, and no listing is sent.
-        let Some(queue) = lightcraft_engine::import::browse_queue_until(&input, files.clone(), &sort, &p.cancel) else {
+        let Some(queue) = evolight_engine::import::browse_queue_until(&input, files.clone(), &sort, &p.cancel) else {
             let _ = tx.send(ScanEnd::Stopped { probes: input.take_probes(), failed: false });
             return;
         };
@@ -235,11 +235,11 @@ pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> 
         let queued: std::collections::HashSet<&String> = queue.iter().collect();
         let known: Vec<String> = files.iter().filter(|f| !queued.contains(f)).cloned().collect();
         let known =
-            known.into_iter().map(|path| lightcraft_engine::import::ImportCandidate { path, duplicate: Some("path".into()), ..Default::default() });
+            known.into_iter().map(|path| evolight_engine::import::ImportCandidate { path, duplicate: Some("path".into()), ..Default::default() });
         let candidates =
-            queue.iter().cloned().map(|path| lightcraft_engine::import::ImportCandidate { path, ..Default::default() }).chain(known).collect();
+            queue.iter().cloned().map(|path| evolight_engine::import::ImportCandidate { path, ..Default::default() }).chain(known).collect();
         // the probes of earlier scans go back to the session with the result, for the import that follows
-        let _ = tx.send(ScanEnd::Done(lightcraft_engine::import::ScanOutput {
+        let _ = tx.send(ScanEnd::Done(evolight_engine::import::ScanOutput {
             candidates,
             probes: input.take_probes(),
             truncated: false,
@@ -261,12 +261,12 @@ pub fn browse(app: &mut LightcraftApp, path: &str, subfolders: Option<bool>) -> 
     Ok(json!({"path": dir_s, "subfolders": subfolders, "scanning": true}))
 }
 
-/// The browsed folder `given` (the path as `browse` received it, not its [`lightcraft_engine::import::browse_spelling`])
-/// as [`lightcraft_engine::import::browse_path`] resolves it, checked to be a folder: on the browse worker, as it reads the disk.
+/// The browsed folder `given` (the path as `browse` received it, not its [`evolight_engine::import::browse_spelling`])
+/// as [`evolight_engine::import::browse_path`] resolves it, checked to be a folder: on the browse worker, as it reads the disk.
 fn resolve_browse_root(given: &str) -> Result<String, String> {
     #[cfg(test)]
     held_resolve(given);
-    let dir = lightcraft_engine::import::browse_path(std::path::Path::new(given)).map_err(|e| e.to_string())?;
+    let dir = evolight_engine::import::browse_path(std::path::Path::new(given)).map_err(|e| e.to_string())?;
     if !dir.is_dir() {
         return Err(format!("{given}: not a folder"));
     }
@@ -287,7 +287,7 @@ fn held_resolve(given: &str) {
 }
 
 /// Collect a finished scan and open the review (called every frame).
-pub fn poll_scan(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn poll_scan(app: &mut EvoLightApp, ctx: &egui::Context) {
     show_pending_review(app, ctx);
     collect_stopped(app, ctx);
     let Some(task) = app.scan.as_ref() else { return };
@@ -384,13 +384,13 @@ pub fn poll_scan(app: &mut LightcraftApp, ctx: &egui::Context) {
         .iter()
         .map(|c| {
             c.duplicate.is_some()
-                && c.existing.is_some_and(|id| app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).is_some_and(|p| p.deleted))
+                && c.existing.is_some_and(|id| app.session.catalog.photo(evolight_catalog::PhotoId(id)).is_some_and(|p| p.deleted))
         })
         .collect();
     d.set_trashed(trashed);
     d.copy = task.copy;
     // only an album the review offers (it may have been deleted while the scan ran)
-    d.album = task.album.filter(|id| app.session.catalog.album(lightcraft_catalog::AlbumId(*id)).is_some_and(|a| !a.folder && !a.is_smart()));
+    d.album = task.album.filter(|id| app.session.catalog.album(evolight_catalog::AlbumId(*id)).is_some_and(|a| !a.folder && !a.is_smart()));
     d.sources = task.sources;
     d.library = Some(app.session.library_generation());
     app.review_pending = Some(crate::state::Dialog::Import { opts: Box::new(d) });
@@ -400,7 +400,7 @@ pub fn poll_scan(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// Open the review of a finished scan once no other dialog is open (a face model's licence, Settings…
 /// opened while the scan ran stays), checked again shortly while it waits. A review whose library was
 /// closed meanwhile (Settings can open another) is dropped.
-fn show_pending_review(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn show_pending_review(app: &mut EvoLightApp, ctx: &egui::Context) {
     if app.review_pending.is_none() {
         return;
     }
@@ -419,19 +419,19 @@ fn show_pending_review(app: &mut LightcraftApp, ctx: &egui::Context) {
 
 /// Tests: a review scan that never ends while the returned value lives, so a drop meets it running.
 #[cfg(test)]
-pub(crate) fn stall_scan(app: &mut LightcraftApp) -> Box<dyn std::any::Any> {
+pub(crate) fn stall_scan(app: &mut EvoLightApp) -> Box<dyn std::any::Any> {
     stall_scan_of(app, false)
 }
 
 /// Tests: the same, for a Local folder browse scan (`browse`) instead of the review's scan.
 #[cfg(test)]
-pub(crate) fn stall_scan_of(app: &mut LightcraftApp, browse: bool) -> Box<dyn std::any::Any> {
+pub(crate) fn stall_scan_of(app: &mut EvoLightApp, browse: bool) -> Box<dyn std::any::Any> {
     Box::new(scan_by_hand(app, browse))
 }
 
 /// Tests: a scan whose worker is the test: what it sends through the returned channel is the scan's end.
 #[cfg(test)]
-pub(crate) fn scan_by_hand(app: &mut LightcraftApp, browse: bool) -> std::sync::mpsc::Sender<ScanEnd> {
+pub(crate) fn scan_by_hand(app: &mut EvoLightApp, browse: bool) -> std::sync::mpsc::Sender<ScanEnd> {
     let progress = std::sync::Arc::new(ScanProgress::default());
     let (tx, rx) = std::sync::mpsc::channel::<ScanEnd>();
     let guard = scan_guard(app, &progress, false);
@@ -442,7 +442,7 @@ pub(crate) fn scan_by_hand(app: &mut LightcraftApp, browse: bool) -> std::sync::
 /// Whether an import or any scan (the review's, or a Local folder browse) is running, or a finished scan's
 /// review waits for a dialog to close, which a drop of photos must not replace: `open` refuses while a scan
 /// runs, and a browse that finishes replaces `app.import`.
-pub fn running(app: &LightcraftApp) -> bool {
+pub fn running(app: &EvoLightApp) -> bool {
     app.import.is_some() || app.scan.is_some() || app.review_pending.is_some()
 }
 

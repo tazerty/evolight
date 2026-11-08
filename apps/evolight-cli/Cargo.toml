@@ -1,0 +1,42 @@
+[package]
+name = "evolight-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "EvoLight command-line tool: headless render, command listing and the MCP server"
+
+[[bin]]
+name = "evolight-cli"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+evolight-engine = { workspace = true }
+evolight-denoise = { workspace = true }
+evolight-sysmem = { workspace = true }
+evolight-mcp = { workspace = true }
+evolight-ui-egui = { workspace = true }
+evolight-codecs = { workspace = true }
+evolight-raster = { workspace = true }
+evolight-merge = { workspace = true }
+serde_json = { workspace = true }
+dhat = { workspace = true, optional = true }
+
+[dev-dependencies]
+evolight-testkit = { workspace = true }
+
+[features]
+default = ["denoise"]
+denoise = ["evolight-engine/denoise"]
+rawnind-model = ["denoise", "evolight-engine/rawnind-model"]
+# Heap profiling: `cargo run --release -p evolight-cli --features dhat-heap -- snapshot …` counts
+# every allocation (live/peak bytes in `library.memory` / `ui.inspect`) and writes dhat-heap.json
+# (open it in DHAT's viewer: allocation sites by bytes at the peak). Slows allocation-heavy work.
+dhat-heap = ["dep:dhat"]
+
+# Open HEIC/HEIF photos (the optional evolight-heif crate). Not default so distributors choose
+# it (HEVC patents); build with `--features heif` to include it.
+heif = ["evolight-codecs/heif"]

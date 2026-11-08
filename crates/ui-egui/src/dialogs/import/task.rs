@@ -1,14 +1,14 @@
 use super::scan::{busy_synchronizing, running};
-use super::{ImportDialog, ImportUprightMode, ImportWarning, ImportWarningCode, LightcraftApp, Ordering, Value, json, recipe_items};
+use super::{ImportDialog, ImportUprightMode, ImportWarning, ImportWarningCode, EvoLightApp, Ordering, Value, json, recipe_items};
 
 /// Files per batch in the browser build (each batch joins the catalog as it is ready, so the
-/// progress window updates); the desktop's worker uses [`lightcraft_engine::import::batch_size`].
+/// progress window updates); the desktop's worker uses [`evolight_engine::import::batch_size`].
 #[cfg(target_arch = "wasm32")]
 const BATCH: usize = 8;
 
 /// A running import (see the module docs). The file-system work — expanding folders, probing,
 /// reading sidecars, copying or placing files — runs on a worker thread
-/// ([`lightcraft_engine::import::ImportJob`]); each batch it readies is added to the catalog on the
+/// ([`evolight_engine::import::ImportJob`]); each batch it readies is added to the catalog on the
 /// UI thread between frames, so a slow drive never stalls the window.
 #[derive(Debug, Default)]
 pub struct ImportTask {
@@ -39,15 +39,15 @@ pub struct ImportTask {
     /// Auto Import (the watched folder): the selection stays as it is, a short toast when done.
     auto: bool,
     /// Auto Import: the selection to keep.
-    keep_selection: Option<lightcraft_engine::Selection>,
+    keep_selection: Option<evolight_engine::Selection>,
     /// The selection and source as the import last left them: a change between frames is the
     /// user choosing another photo or view, which the end of the import doesn't take away.
-    left: Option<(lightcraft_engine::Selection, lightcraft_engine::LibrarySource)>,
+    left: Option<(evolight_engine::Selection, evolight_engine::LibrarySource)>,
     /// The user chose another photo or view while the import ran.
     moved_on: bool,
     run: Option<ImportRun>,
     /// The import's row in the activity stack (its ✕ and `activity.cancel` set the run's cancel flag).
-    guard: Option<lightcraft_engine::activity::TaskGuard>,
+    guard: Option<evolight_engine::activity::TaskGuard>,
 }
 
 impl ImportTask {
@@ -77,9 +77,9 @@ impl ImportTask {
 /// slow drives) inline, one batch per frame.
 enum Runner {
     #[cfg(not(target_arch = "wasm32"))]
-    Thread(std::sync::mpsc::Receiver<lightcraft_engine::import::Prepared>),
+    Thread(std::sync::mpsc::Receiver<evolight_engine::import::Prepared>),
     #[cfg(target_arch = "wasm32")]
-    Inline { job: Box<lightcraft_engine::import::ImportJob>, queue: Vec<String>, files: Option<std::collections::VecDeque<String>> },
+    Inline { job: Box<evolight_engine::import::ImportJob>, queue: Vec<String>, files: Option<std::collections::VecDeque<String>> },
 }
 
 struct ImportRun {
@@ -87,7 +87,7 @@ struct ImportRun {
     cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     total: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     done: std::sync::Arc<std::sync::atomic::AtomicUsize>,
-    opts: lightcraft_engine::import::ImportOptions,
+    opts: evolight_engine::import::ImportOptions,
     now: String,
     album: Option<u64>,
     album_name: Option<String>,
@@ -108,7 +108,7 @@ impl Drop for ImportRun {
 
 impl ImportRun {
     fn start(
-        job: lightcraft_engine::import::ImportJob,
+        job: evolight_engine::import::ImportJob,
         queue: Vec<String>,
         album: Option<u64>,
         album_name: Option<String>,
@@ -123,7 +123,7 @@ impl ImportRun {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn spawn(
-        mut job: lightcraft_engine::import::ImportJob,
+        mut job: evolight_engine::import::ImportJob,
         queue: Vec<String>,
         cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
         ctx: &egui::Context,
@@ -132,11 +132,11 @@ impl ImportRun {
         let ctx = ctx.clone();
         let work = move || {
             let files = job.expand(&queue);
-            for chunk in files.chunks(lightcraft_engine::import::batch_size()) {
+            for chunk in files.chunks(evolight_engine::import::batch_size()) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
-                let prepared = match lightcraft_engine::guard::catch("import", || job.prepare_files(chunk.to_vec(), &cancel)) {
+                let prepared = match evolight_engine::guard::catch("import", || job.prepare_files(chunk.to_vec(), &cancel)) {
                     Ok(p) => p,
                     Err(_) => break, // logged; the files readied so far are added
                 };
@@ -154,7 +154,7 @@ impl ImportRun {
 
     #[cfg(target_arch = "wasm32")]
     fn spawn(
-        job: lightcraft_engine::import::ImportJob,
+        job: evolight_engine::import::ImportJob,
         queue: Vec<String>,
         _cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
         _ctx: &egui::Context,
@@ -163,7 +163,7 @@ impl ImportRun {
     }
 
     /// Readied batches (at most a few per frame). `None` once the worker is done.
-    fn next_batches(&mut self) -> Option<Vec<lightcraft_engine::import::Prepared>> {
+    fn next_batches(&mut self) -> Option<Vec<evolight_engine::import::Prepared>> {
         match &mut self.runner {
             #[cfg(not(target_arch = "wasm32"))]
             Runner::Thread(rx) => {
@@ -200,7 +200,7 @@ impl ImportRun {
 
 /// Start importing the dialog's checked files (the dialog's OK / `ui.dialog.confirm`). Refused while another
 /// import runs: replacing `app.import` would stop its worker.
-pub fn start(app: &mut LightcraftApp, d: &ImportDialog) -> Result<Value, String> {
+pub fn start(app: &mut EvoLightApp, d: &ImportDialog) -> Result<Value, String> {
     busy_synchronizing(app)?;
     if !d.in_library(app) {
         return Err("another library was opened since the photos were scanned: nothing was imported".into());
@@ -262,7 +262,7 @@ pub fn start(app: &mut LightcraftApp, d: &ImportDialog) -> Result<Value, String>
 }
 
 /// Start importing `paths` (files or folders) in the background, e.g. dropped on the window.
-pub fn start_paths(app: &mut LightcraftApp, paths: Vec<String>) -> Result<Value, String> {
+pub fn start_paths(app: &mut EvoLightApp, paths: Vec<String>) -> Result<Value, String> {
     busy_synchronizing(app)?;
     if running(app) {
         return Err(crate::i18n::tr("An import is running").to_string());
@@ -275,13 +275,13 @@ pub fn start_paths(app: &mut LightcraftApp, paths: Vec<String>) -> Result<Value,
 
 /// Advance the import in progress (called every frame): start its worker, then add the batches it
 /// has readied to the catalog.
-pub fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn tick(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(mut task) = app.import.take() else { return };
     if task.run.is_none() {
         let mut p = task.params.clone();
         p["paths"] = json!(task.queue);
-        let started = lightcraft_engine::cmd::library::import_params(&app.session, &p)
-            .and_then(|req| Ok((lightcraft_engine::import::ImportJob::new(&mut app.session, req.opts)?, req.album, req.album_name)))
+        let started = evolight_engine::cmd::library::import_params(&app.session, &p)
+            .and_then(|req| Ok((evolight_engine::import::ImportJob::new(&mut app.session, req.opts)?, req.album, req.album_name)))
             .map_err(|e| e.to_string())
             .and_then(|(job, album, name)| ImportRun::start(job, std::mem::take(&mut task.queue), album, name, ctx));
         if task.auto {
@@ -290,7 +290,7 @@ pub fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
         match started {
             Ok(run) => {
                 let label = if task.browse { "Reading folder" } else { "Importing" };
-                task.guard = Some(app.session.activity.start("import", label, lightcraft_engine::activity::Cancel::Flag(run.cancel.clone())));
+                task.guard = Some(app.session.activity.start("import", label, evolight_engine::activity::Cancel::Flag(run.cancel.clone())));
                 task.run = Some(run);
             }
             Err(e) => {
@@ -314,7 +314,7 @@ pub fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
             app.session.selection = sel.clone();
         }
         // a Local folder still on screen: its first photo becomes active once there is one (#1447)
-        if task.browse && app.session.source == lightcraft_engine::LibrarySource::Folder {
+        if task.browse && app.session.source == evolight_engine::LibrarySource::Folder {
             app.session.keep_active_in_view();
         }
     }
@@ -338,13 +338,13 @@ pub fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Add one readied batch to the catalog (an undo step merged into the import's at the end).
-fn commit_batch(app: &mut LightcraftApp, task: &mut ImportTask, prepared: lightcraft_engine::import::Prepared) {
+fn commit_batch(app: &mut EvoLightApp, task: &mut ImportTask, prepared: evolight_engine::import::Prepared) {
     let Some(run) = task.run.as_ref() else { return };
     let n = prepared.len();
     let (opts, now, album, album_name) = (&run.opts, run.now.as_str(), run.album, run.album_name.clone());
     let r = app.session.execute_fn("library.import", |s| {
-        let report = lightcraft_engine::import::commit_prepared(s, opts, now, prepared)?;
-        lightcraft_engine::cmd::library::import_batch_done(s, report, album, album_name.as_deref())
+        let report = evolight_engine::import::commit_prepared(s, opts, now, prepared)?;
+        evolight_engine::cmd::library::import_batch_done(s, report, album, album_name.as_deref())
     });
     match r {
         Ok(v) => {
@@ -443,7 +443,7 @@ fn undo_label(task: &ImportTask) -> String {
 
 /// The import is done (or cancelled): one undo step, show and select the first photo (unless the
 /// user chose another meanwhile), say what happened.
-fn finish(app: &mut LightcraftApp, ctx: &egui::Context, task: ImportTask) {
+fn finish(app: &mut EvoLightApp, ctx: &egui::Context, task: ImportTask) {
     let steps = app.session.undo.len().saturating_sub(task.undo0);
     app.session.merge_undo(steps, &undo_label(&task));
     if task.auto || task.browse {
@@ -453,7 +453,7 @@ fn finish(app: &mut LightcraftApp, ctx: &egui::Context, task: ImportTask) {
     if let Some(f) = task.first.filter(|_| !task.moved_on) {
         // a view the new photos aren't in (an album, Picks, a Local folder) would leave the active
         // photo off screen: show All Photos, as Lightroom shows the import's own collection (#1446)
-        if !app.session.visible().contains(&lightcraft_catalog::PhotoId(f)) {
+        if !app.session.visible().contains(&evolight_catalog::PhotoId(f)) {
             let _ = app.run("library.source", json!({"kind": "all"}));
         }
         let _ = app.run("library.select", json!({"ids": [f]}));
@@ -480,7 +480,7 @@ fn finish(app: &mut LightcraftApp, ctx: &egui::Context, task: ImportTask) {
 }
 
 /// The end of an automatic import or of one that only browses: a toast only when there is something to warn about.
-fn quiet_finish(app: &mut LightcraftApp, ctx: &egui::Context, task: &ImportTask) {
+fn quiet_finish(app: &mut EvoLightApp, ctx: &egui::Context, task: &ImportTask) {
     if !task.warnings.is_empty() {
         app.toast_for(ctx, xmp_warnings_text(&task.warnings), 8.0);
     } else if task.auto && task.imported > 0 {
@@ -491,7 +491,7 @@ fn quiet_finish(app: &mut LightcraftApp, ctx: &egui::Context, task: &ImportTask)
 }
 
 /// What an import did, in a sentence.
-fn import_summary(app: &LightcraftApp, task: &ImportTask) -> String {
+fn import_summary(app: &EvoLightApp, task: &ImportTask) -> String {
     let mut msg = if task.cancelled {
         crate::i18n::tr_format!("Import cancelled · {} photo{} added", task.imported, crate::i18n::plural_s(task.imported))
     } else if task.imported == 0 && task.restored > 0 {
@@ -522,9 +522,9 @@ fn import_summary(app: &LightcraftApp, task: &ImportTask) -> String {
 }
 
 /// The photos among `ids` that are in Recently Deleted (each once).
-fn deleted_of(app: &LightcraftApp, ids: &[u64]) -> Vec<u64> {
+fn deleted_of(app: &EvoLightApp, ids: &[u64]) -> Vec<u64> {
     let mut v: Vec<u64> =
-        ids.iter().copied().filter(|&id| app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).is_some_and(|p| p.deleted)).collect();
+        ids.iter().copied().filter(|&id| app.session.catalog.photo(evolight_catalog::PhotoId(id)).is_some_and(|p| p.deleted)).collect();
     v.sort_unstable();
     v.dedup();
     v
@@ -532,12 +532,12 @@ fn deleted_of(app: &LightcraftApp, ids: &[u64]) -> Vec<u64> {
 
 /// Select the library photos an import skipped as duplicates of, in Recently Deleted (side panel
 /// opened, with how to get them back) or in All Photos, and say so. `false` when there are none.
-fn show_existing(app: &mut LightcraftApp, ctx: &egui::Context, existing: &[u64]) -> bool {
+fn show_existing(app: &mut EvoLightApp, ctx: &egui::Context, existing: &[u64]) -> bool {
     let deleted = deleted_of(app, existing);
     let (kind, mut ids) = if deleted.is_empty() { ("all", existing.to_vec()) } else { ("recentlyDeleted", deleted) };
     ids.sort_unstable();
     ids.dedup();
-    ids.retain(|&id| app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).is_some());
+    ids.retain(|&id| app.session.catalog.photo(evolight_catalog::PhotoId(id)).is_some());
     if ids.is_empty() || app.run("library.source", json!({"kind": kind})).is_err() {
         return false;
     }

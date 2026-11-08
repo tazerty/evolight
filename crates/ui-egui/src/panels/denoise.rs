@@ -7,12 +7,12 @@
 
 use crate::i18n::{tr, tr_format};
 use egui::RichText;
-use lightcraft_catalog::PhotoId;
-use lightcraft_engine::denoise::PhotoState;
+use evolight_catalog::PhotoId;
+use evolight_engine::denoise::PhotoState;
 use serde_json::{Value, json};
 
 use super::settings::{check, choices, heading, hint};
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::theme::Tokens;
 use crate::widgets::register;
 
@@ -43,14 +43,14 @@ pub struct Ui {
 /// loupe and the thumbnails then render from it) or while one is being made (the progress).
 /// `pump_background` plus the UI-input half, for hosts/tests that have no phase split (the app's
 /// own `logic` and `ui_pass` keep them apart so a hidden tick never paces work from stale input).
-pub fn pump(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn pump(app: &mut EvoLightApp, ctx: &egui::Context) {
     let now = app.tick_now();
     pump_ui_input(app, ctx, now);
     pump_background(app, ctx, now);
 }
 
 /// The input-reading half: fresh pointer/key activity and its timestamp. UI phase only.
-pub fn pump_ui_input(app: &mut LightcraftApp, ctx: &egui::Context, now: f64) {
+pub fn pump_ui_input(app: &mut EvoLightApp, ctx: &egui::Context, now: f64) {
     let (working, moving) = ctx.input(|i| {
         let keys = i.events.iter().any(|e| matches!(e, egui::Event::Key { .. } | egui::Event::Text(_) | egui::Event::MouseWheel { .. }));
         (i.pointer.any_down() || keys, i.pointer.is_moving())
@@ -64,7 +64,7 @@ pub fn pump_ui_input(app: &mut LightcraftApp, ctx: &egui::Context, now: f64) {
 }
 
 /// Worker results and pacing on monotonic deadlines; safe in `logic`, including while hidden.
-pub fn pump_background(app: &mut LightcraftApp, ctx: &egui::Context, now: f64) {
+pub fn pump_background(app: &mut EvoLightApp, ctx: &egui::Context, now: f64) {
     watch_downloads(app, ctx);
     if now < app.caches.denoise.next_pump {
         return;
@@ -97,7 +97,7 @@ pub fn pump_background(app: &mut LightcraftApp, ctx: &egui::Context, now: f64) {
 }
 
 /// The engine's model list, re-read at most every [`REFRESH_SECS`], or at once after an action changed it.
-fn models(app: &mut LightcraftApp, _ctx: &egui::Context) -> Value {
+fn models(app: &mut EvoLightApp, _ctx: &egui::Context) -> Value {
     let now = app.tick_now();
     let epoch = app.caches.denoise.epoch;
     if let Some((e, at, v)) = &app.caches.denoise.list
@@ -113,7 +113,7 @@ fn models(app: &mut LightcraftApp, _ctx: &egui::Context) -> Value {
 
 /// Follows the downloads the user started: keeps redrawing while one runs (the progress bar), and says so when a
 /// model has been installed and is in use (the engine does all of that by itself).
-fn watch_downloads(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn watch_downloads(app: &mut EvoLightApp, ctx: &egui::Context) {
     if app.caches.denoise.dl_watch.is_empty() {
         return;
     }
@@ -142,7 +142,7 @@ fn watch_downloads(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Per-photo AI Denoise switch.
-pub fn detail_toggle(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, on: bool, applicable: bool) {
+pub fn detail_toggle(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, on: bool, applicable: bool) {
     let mut enabled = on;
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 6, bottom: 2 }).show(ui, |ui| {
         let r = ui.add_enabled(applicable, egui::Checkbox::new(&mut enabled, crate::i18n::tr("AI Denoise")));
@@ -171,7 +171,7 @@ pub(crate) fn settings_bar(ui: &mut egui::Ui, done: u64, total: u64, text: Strin
 }
 
 /// The line under the Denoise slider for the photo `id`, whose Amount is `amount`.
-pub fn detail_status(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, amount: f64) {
+pub fn detail_status(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, amount: f64) {
     let t = Tokens::get(ui.ctx());
     let state = app.session.denoise_photo_state(id);
     let pad = egui::Margin { left: 24, right: 22, top: 0, bottom: 6 };
@@ -236,7 +236,7 @@ pub fn detail_status(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, am
 }
 
 /// The Settings ▸ Denoise tab.
-pub fn settings_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub fn settings_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     let list = models(app, ui.ctx());
     heading(ui, t, "AI Denoise");
     if list["dir"].is_null() {
@@ -309,7 +309,7 @@ pub fn settings_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 /// What the cache holds, its limit, and what is being made.
-fn work_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &Value) {
+fn work_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, list: &Value) {
     let status = app.session.execute("denoise.status", &json!({})).unwrap_or(Value::Null);
     if status["enabled"] != true {
         return;
@@ -320,7 +320,7 @@ fn work_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &V
 }
 
 /// Where the work runs.
-fn speed_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
+fn speed_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
     heading(ui, t, "Speed");
     let current = list["runOn"].as_str().unwrap_or("auto").to_string();
     let mut run_on = current.as_str();
@@ -347,7 +347,7 @@ fn speed_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &
 }
 
 /// Whether photos are made as they are looked at, and the progress of what is being made.
-fn photos_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
+fn photos_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
     heading(ui, t, "Photos");
     let mut auto = list["auto"].as_bool().unwrap_or(true);
     if check(ui, "settings.denoiseAuto", &mut auto, "Make the denoised picture of the photos I am looking at") {
@@ -374,7 +374,7 @@ fn photos_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: 
 }
 
 /// "Denoising {photo}: {done} of {total} tiles", and how many photos wait.
-fn running_text(app: &LightcraftApp, status: &Value, done: u64, total: u64, queued: u64) -> String {
+fn running_text(app: &EvoLightApp, status: &Value, done: u64, total: u64, queued: u64) -> String {
     let name =
         status["running"]["photo"].as_u64().and_then(|p| app.session.catalog.photo(PhotoId(p)).map(|p| p.file_name.clone())).unwrap_or_default();
     tr_format!("Denoising {name}: {done} of {total} tiles{}", waiting_suffix(queued), name = name, done = done, total = total)
@@ -386,7 +386,7 @@ fn waiting_suffix(queued: u64) -> String {
 }
 
 /// What is being made now, or how many photos wait or are done.
-fn progress_line(app: &LightcraftApp, ui: &mut egui::Ui, t: &Tokens, status: &Value, running: Option<(u64, u64)>, queued: u64) {
+fn progress_line(app: &EvoLightApp, ui: &mut egui::Ui, t: &Tokens, status: &Value, running: Option<(u64, u64)>, queued: u64) {
     match running {
         Some((done, total)) => {
             let text = running_text(app, status, done, total, queued);
@@ -401,7 +401,7 @@ fn progress_line(app: &LightcraftApp, ui: &mut egui::Ui, t: &Tokens, status: &Va
 }
 
 /// The cache's contents and limit.
-fn cache_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
+fn cache_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, list: &Value, status: &Value) {
     heading(ui, t, "Cache");
     let (files, bytes) = (status["cache"]["files"].as_u64().unwrap_or(0), status["cache"]["bytes"].as_u64().unwrap_or(0));
     hint(
@@ -448,7 +448,7 @@ fn device_line(d: &Value, run_on: &str) -> String {
     }
 }
 
-fn model_row(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, m: &Value, dl: Option<&Value>, can_run: bool) {
+fn model_row(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, m: &Value, dl: Option<&Value>, can_run: bool) {
     let id = m["id"].as_str().unwrap_or("").to_string();
     let (installed, selected) = (m["installed"].as_bool() == Some(true), m["selected"].as_bool() == Some(true));
     let dl_state = if installed { None } else { dl.and_then(|d| d["state"].as_str()) };
@@ -577,7 +577,7 @@ fn model_row(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, m: &Value, 
 
 /// Pressing Download: the model's terms first, in the licence dialog. Accepting them starts the download;
 /// nothing is fetched before.
-fn open_download_dialog(app: &mut LightcraftApp, m: &Value) {
+fn open_download_dialog(app: &mut EvoLightApp, m: &Value) {
     let info = json!({
         "kind": "known",
         "domain": "denoise",
@@ -594,7 +594,7 @@ fn open_download_dialog(app: &mut LightcraftApp, m: &Value) {
 }
 
 /// The dialog's OK for a denoise model: start the download and watch it.
-pub fn install(app: &mut LightcraftApp, info: &Value, accepted: bool) -> Result<Value, String> {
+pub fn install(app: &mut EvoLightApp, info: &Value, accepted: bool) -> Result<Value, String> {
     if !accepted {
         return Err(tr("Tick the box to accept the model's terms first").into());
     }
@@ -613,9 +613,9 @@ pub fn install(app: &mut LightcraftApp, info: &Value, accepted: bool) -> Result<
 }
 
 /// What an engine error says, without the command it came from (the install job's errors read the same way).
-fn plain(e: &lightcraft_engine::EngineError) -> String {
+fn plain(e: &evolight_engine::EngineError) -> String {
     match e {
-        lightcraft_engine::EngineError::BadParams { msg, .. } => msg.clone(),
+        evolight_engine::EngineError::BadParams { msg, .. } => msg.clone(),
         other => other.to_string(),
     }
 }
@@ -628,7 +628,7 @@ fn count(n: u64, one: &str, many: &str) -> String {
 /// The pace to ask the denoise worker for: "light" when minimized, "normal" while unfocused,
 /// "pause" shortly after input, then "light"/"full"/"normal" according to move recency and
 /// whether the Denoise settings tab is being watched.
-pub(super) fn window_pace(app: &LightcraftApp, ctx: &egui::Context, now: f64, watching: bool) -> &'static str {
+pub(super) fn window_pace(app: &EvoLightApp, ctx: &egui::Context, now: f64, watching: bool) -> &'static str {
     let (focused, minimized) = ctx.input(|i| (i.raw.focused, i.viewport().minimized.unwrap_or(false)));
     pace_for(focused, minimized, now - app.caches.last_input, now - app.caches.last_move, watching)
 }
@@ -684,7 +684,7 @@ pub(super) fn licence_line(m: &Value) -> String {
     tr_format!("{name} · {terms}", name = tr(name), terms = tr(terms))
 }
 
-pub(super) fn open_page(app: &mut LightcraftApp, url: &str) {
+pub(super) fn open_page(app: &mut EvoLightApp, url: &str) {
     if let Some(f) = app.services.open_url.as_mut() {
         let _ = f(url);
     }
@@ -693,14 +693,14 @@ pub(super) fn open_page(app: &mut LightcraftApp, url: &str) {
 /// Draw the denoise model's terms dialog from the engine's model info: unsupported files show
 /// why; otherwise the name/size, download host, licence and provenance, an optional page link,
 /// and the acceptance checkbox in `accepted`.
-pub fn model_dialog(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, info: &Value, accepted: &mut bool) {
+pub fn model_dialog(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, info: &Value, accepted: &mut bool) {
     let kind = info["kind"].as_str().unwrap_or("unsupported");
     let file = info["fileName"].as_str().unwrap_or("");
     if kind == "unsupported" {
         ui.label(RichText::new(tr("This file cannot be used yet")).font(t.semibold(13.5)).color(t.caution));
         ui.add(
             egui::Label::new(
-                RichText::new(sentence(tr(info["reason"].as_str().unwrap_or("It is not a denoise model LightCraft understands"))))
+                RichText::new(sentence(tr(info["reason"].as_str().unwrap_or("It is not a denoise model EvoLight understands"))))
                     .color(t.text_label),
             )
             .wrap(),
@@ -723,7 +723,7 @@ pub fn model_dialog(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, info
         ui.add(
             egui::Label::new(
                 RichText::new(tr_format!(
-                    "Downloads from {host}. Once it has arrived and checked out, LightCraft installs it, {after}.",
+                    "Downloads from {host}. Once it has arrived and checked out, EvoLight installs it, {after}.",
                     host = host,
                     after = tr(after)
                 ))
@@ -744,7 +744,7 @@ pub fn model_dialog(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, info
     }
     if kind == "draft" {
         ui.add_space(2.0);
-        ui.label(RichText::new(tr("LightCraft does not know this model, so it assumed:")).color(t.text_label));
+        ui.label(RichText::new(tr("EvoLight does not know this model, so it assumed:")).color(t.text_label));
         for a in info["assumptions"].as_array().into_iter().flatten().filter_map(Value::as_str) {
             ui.add(egui::Label::new(RichText::new(tr_format!("•  {assumption}", assumption = tr(a))).font(t.font(12.0)).color(t.text_dim)).wrap());
         }
@@ -759,9 +759,9 @@ pub fn model_dialog(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, info
     ui.add_space(4.0);
     check(ui, "denoiseModel.accept", accepted, "I have read these terms and accept them for my own use");
     let closing = if download {
-        "Nothing is fetched until you accept. The model is kept on this computer only; LightCraft never uploads or shares it."
+        "Nothing is fetched until you accept. The model is kept on this computer only; EvoLight never uploads or shares it."
     } else {
-        "The model is kept on this computer only. LightCraft never uploads or shares it."
+        "The model is kept on this computer only. EvoLight never uploads or shares it."
     };
     ui.label(RichText::new(tr(closing)).font(t.font(11.5)).color(t.text_dim));
 }

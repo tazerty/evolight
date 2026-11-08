@@ -11,7 +11,7 @@
 use egui::{CursorIcon, Key, Rect, Sense};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{RightPanel, ViewMode};
 
 /// The longest Space press (s) that still toggles the zoom when it lets go without a click.
@@ -27,7 +27,7 @@ pub struct SpaceHand {
 }
 
 /// A tool on the photo takes the primary click and drag, so Space has to lend them to the view.
-pub(crate) fn tool_owns_pointer(app: &LightcraftApp) -> bool {
+pub(crate) fn tool_owns_pointer(app: &EvoLightApp) -> bool {
     // the full-screen preview shows no tool overlays, but a picker still takes its click there
     let panel = !app.ui.fullscreen && matches!(app.ui.right, RightPanel::Crop | RightPanel::Masking | RightPanel::Remove | RightPanel::RedEye);
     let picker = matches!(app.ui.tool.as_str(), "wbPicker" | "colorRange" | "pointColor") || app.ui.tool.starts_with("tat:");
@@ -36,7 +36,7 @@ pub(crate) fn tool_owns_pointer(app: &LightcraftApp) -> bool {
 
 /// Space went down (a fresh press, not a repeat). Over a tool the hand takes over until the key
 /// is up and the press does nothing else (true); otherwise false leaves it to Toggle Zoom.
-pub(crate) fn begin(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
+pub(crate) fn begin(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
     if !tool_owns_pointer(app) {
         return false;
     }
@@ -51,7 +51,7 @@ pub(crate) fn begin(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
 /// Runs every frame before the shortcuts: ends the hold once Space is up and a drag it started has
 /// ended, or at once when the tool closes or a dialog opens. A quick tap with no click toggles the
 /// zoom as it ends.
-pub(crate) fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn tick(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(mut hand) = app.space_hand else { return };
     let (held, pointer, pressed, now) = ctx.input(|i| (i.key_down(Key::Space), i.pointer.any_down(), i.pointer.any_pressed(), i.time));
     // a quick click can go down and up within one frame: no button is down then, but it pressed
@@ -72,7 +72,7 @@ pub(crate) fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// (the navigator stays above it), so it takes the click or the drag and they get neither: they
 /// still draw, without the pointer. `main` is the pane the photo `img` is laid out in; `before`
 /// the Before pane of a side-by-side or stacked view with its photo, where a press there acts.
-pub(crate) fn interact(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect, main: (Rect, Rect), before: Option<(Rect, Rect)>) {
+pub(crate) fn interact(app: &mut EvoLightApp, ui: &mut egui::Ui, canvas: Rect, main: (Rect, Rect), before: Option<(Rect, Rect)>) {
     if app.space_hand.is_none() {
         return;
     }

@@ -1,37 +1,37 @@
 [package]
-name = "lightcraft-engine"
+name = "evolight-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft engine: session, command registry, history, render jobs, view-models (L4)"
+description = "EvoLight engine: session, command registry, history, render jobs, view-models (L4)"
 
 [lints]
 workspace = true
 
 [dependencies]
 # Paths stored in a Lightroom catalog are followed only to local files or the catalog's share.
-craft-docpath = { workspace = true }
-lightcraft-geom = { workspace = true }
-lightcraft-color = { workspace = true }
-lightcraft-raster = { workspace = true }
-lightcraft-develop = { workspace = true }
-lightcraft-scenes = { workspace = true }
-lightcraft-pipeline = { workspace = true }
-lightcraft-gpu = { workspace = true }
-lightcraft-catalog = { workspace = true }
+evo-docpath = { workspace = true }
+evolight-geom = { workspace = true }
+evolight-color = { workspace = true }
+evolight-raster = { workspace = true }
+evolight-develop = { workspace = true }
+evolight-scenes = { workspace = true }
+evolight-pipeline = { workspace = true }
+evolight-gpu = { workspace = true }
+evolight-catalog = { workspace = true }
 web-time = { workspace = true }
-lightcraft-preview = { workspace = true }
-lightcraft-codecs = { workspace = true }
-lightcraft-raw = { workspace = true }
-lightcraft-denoise-core = { workspace = true }
-lightcraft-denoise = { workspace = true, optional = true }
-lightcraft-meta = { workspace = true }
-lightcraft-lensdb = { workspace = true }
-lightcraft-faces = { workspace = true }
+evolight-preview = { workspace = true }
+evolight-codecs = { workspace = true }
+evolight-raw = { workspace = true }
+evolight-denoise-core = { workspace = true }
+evolight-denoise = { workspace = true, optional = true }
+evolight-meta = { workspace = true }
+evolight-lensdb = { workspace = true }
+evolight-faces = { workspace = true }
 miniz_oxide = { workspace = true }
-lightcraft-merge = { workspace = true }
-lightcraft-geocode = { workspace = true }
-lightcraft-slideshow = { workspace = true }
+evolight-merge = { workspace = true }
+evolight-geocode = { workspace = true }
+evolight-slideshow = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -42,11 +42,11 @@ ab_glyph = { workspace = true }
 harfrust = { version = "0.13", default-features = false, features = ["std"] }
 unicode-normalization = "0.1"
 unicode-segmentation = "1.13"
-lightcraft-segment = { workspace = true, optional = true }
+evolight-segment = { workspace = true, optional = true }
 
 # model downloads run natively only (the web build fetches no models)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-lightcraft-fetch = { workspace = true }
+evolight-fetch = { workspace = true }
 # capture-time parsing for face recognition (native only)
 chrono = { workspace = true }
 # free space of the drive holding the preview cache (the low-disk alert; pure Rust: rustix / windows-sys)
@@ -54,16 +54,16 @@ fs4 = { workspace = true }
 
 [features]
 # AI masks with SAM 3 (Object / Describe). Off for the web and CLI builds.
-sam = ["dep:lightcraft-segment"]
-denoise = ["dep:lightcraft-denoise", "lightcraft-denoise/runtime", "lightcraft-gpu/denoise"]
-rawnind-model = ["denoise", "lightcraft-denoise/rawnind-model", "lightcraft-denoise-core/rawnind-model"]
+sam = ["dep:evolight-segment"]
+denoise = ["dep:evolight-denoise", "evolight-denoise/runtime", "evolight-gpu/denoise"]
+rawnind-model = ["denoise", "evolight-denoise/rawnind-model", "evolight-denoise-core/rawnind-model"]
 
 [dev-dependencies]
 # tests record why they skip (`cargo xtask ci` lists the skips)
-lightcraft-testkit = { workspace = true }
+evolight-testkit = { workspace = true }
 # HDR JPEG XL tests read the file's colour encoding
 jxl-oxide = { workspace = true }
 # Lossless synthetic HEIC files (the import test; decoded when the codecs' `heif` feature is on).
-lightcraft-heif = { workspace = true, features = ["testdata"] }
+evolight-heif = { workspace = true, features = ["testdata"] }
 libc = { workspace = true }
-lightcraft-tiff = { workspace = true }
+evolight-tiff = { workspace = true }

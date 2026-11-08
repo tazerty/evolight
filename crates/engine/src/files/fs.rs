@@ -4,10 +4,10 @@ use super::probe::probe_bytes;
 use super::{Arc, DenoiseSpec, FileLoader, FileProbe, Filter, PairLoader, ReducedLoader, fit};
 use crate::media::RawDecode;
 
-/// The file's first [`lightcraft_raw::PREVIEW_PREFIX`] bytes (or the whole file when it is shorter),
-/// which is what every format [`lightcraft_raw::bounded_preview`] covers keeps its pointer in.
+/// The file's first [`evolight_raw::PREVIEW_PREFIX`] bytes (or the whole file when it is shorter),
+/// which is what every format [`evolight_raw::bounded_preview`] covers keeps its pointer in.
 pub(super) fn read_prefix(file: &mut std::fs::File, path: &str, total: u64) -> Result<Vec<u8>, String> {
-    let len = lightcraft_raw::PREVIEW_PREFIX.min(usize::try_from(total).unwrap_or(usize::MAX));
+    let len = evolight_raw::PREVIEW_PREFIX.min(usize::try_from(total).unwrap_or(usize::MAX));
     read_prefix_at(file, path, len as u64)
 }
 
@@ -22,7 +22,7 @@ pub(super) fn read_prefix_at(file: &mut std::fs::File, path: &str, len: u64) -> 
 }
 
 /// The end of a Fuji RAF's preview block, from the two big-endian u32s every RAF header carries at
-/// 84 (offset) and 88 (length) — the same fields `lightcraft_raw`'s RAF reader uses, read here
+/// 84 (offset) and 88 (length) — the same fields `evolight_raw`'s RAF reader uses, read here
 /// without the rest of the file so the prefix can be made big enough first.
 pub(super) fn raf_preview_extent(prefix: &[u8]) -> Option<u64> {
     if !prefix.starts_with(b"FUJIFILMCCD-RAW") {
@@ -37,17 +37,17 @@ pub(super) fn raf_preview_extent(prefix: &[u8]) -> Option<u64> {
 /// [`embedded_preview_srgb`] for [`preview_window`], which does not re-read the container.
 /// `adobe_rgb`: the container declares the preview Adobe RGB ([`PreviewRead::adobe_rgb`]), applied
 /// as [`decode_raw_preview`] applies it. `None` when the bytes are not a decodable image.
-pub(super) fn quick_image_srgb(header: &[u8], window: &[u8], adobe_rgb: bool, max_edge: usize) -> Option<lightcraft_raster::Rgba8> {
+pub(super) fn quick_image_srgb(header: &[u8], window: &[u8], adobe_rgb: bool, max_edge: usize) -> Option<evolight_raster::Rgba8> {
     // a plain sRGB camera JPEG (nearly all of them) straight to 8-bit (PERF-CULL-3: 45 MP preview
     // of an EOS R5 C fitted to 2560 px, 194 → ~110 ms); anything else takes the general decode
     let edge = u32::try_from(max_edge).unwrap_or(u32::MAX);
-    if !adobe_rgb && let Ok(Some((image, orientation))) = lightcraft_codecs::decode_jpeg_srgb8_fit(window, edge, edge) {
+    if !adobe_rgb && let Ok(Some((image, orientation))) = evolight_codecs::decode_jpeg_srgb8_fit(window, edge, edge) {
         return Some(image.oriented(preview_orientation(header, orientation)));
     }
     let decoded = if adobe_rgb && window.starts_with(&[0xff, 0xd8]) {
-        lightcraft_codecs::decode_jpeg_with_fallback(window, fit_box(max_edge), lightcraft_codecs::NamedSpace::AdobeRgb)
+        evolight_codecs::decode_jpeg_with_fallback(window, fit_box(max_edge), evolight_codecs::NamedSpace::AdobeRgb)
     } else {
-        lightcraft_codecs::decode(window, fit_box(max_edge))
+        evolight_codecs::decode(window, fit_box(max_edge))
     };
     let mut d = decoded.ok()?;
     if d.image.width.max(d.image.height) > max_edge {

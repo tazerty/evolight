@@ -45,9 +45,9 @@ are in [`localization-zh-hans.md`](localization-zh-hans.md), [`localization-zh-h
    `LANGUAGE_COMMANDS` and `language_from_command` in `src/menus.rs`, and to the
    `language_commands_cover_every_language` test. Settings read the locale table; menus and
    the control channel share the language-command mapping.
-3. **Make sure the glyphs exist.** The script drives which craft-fonts faces the UI installs: a
+3. **Make sure the glyphs exist.** The script drives which evo-fonts faces the UI installs: a
    language whose script has no face in the build shows boxes (the test says so instead of failing).
-   Fonts live in [storytold/craft-fonts](https://github.com/storytold/craft-fonts), never here; a
+   Fonts live in [tazerty/evo-fonts](https://github.com/tazerty/evo-fonts), never here; a
    missing face is added there, not worked around in this repository. Sentence-cased messages go
    through `i18n::upper_first`, which leaves Georgian lowercase (upper-casing Mkhedruli would make
    Mtavruli).
@@ -87,9 +87,9 @@ tr_format!("Added {n} photo{} to “{}”", if n == 1 { "" } else { "s" }, album
 ## Testing and looking at it
 
 ```sh
-cargo test -p lightcraft-ui-egui i18n::tests                       # catalogs load, placeholders, switching
-CRAFT_FONTS_DIR=../craft-fonts cargo test -p lightcraft-ui-egui i18n::tests   # + glyph coverage
-cargo test -p lightcraft-ui-egui --lib -- --exact i18n::tests::translation_gaps_report --nocapture
+cargo test -p evolight-ui-egui i18n::tests                       # catalogs load, placeholders, switching
+EVO_FONTS_DIR=../evo-fonts cargo test -p evolight-ui-egui i18n::tests   # + glyph coverage
+cargo test -p evolight-ui-egui --lib -- --exact i18n::tests::translation_gaps_report --nocapture
 ```
 
 The tests fail on a broken catalog (malformed JSON, a repeated key, placeholders that differ from
@@ -100,11 +100,11 @@ or not some catalog has it yet: the report reads calls rustfmt wrapped over seve
 literal branches of `tr(if …)` and `tr(match …)`, and skips tests and comments. A string that
 reaches `tr` through a variable is listed only when it is a catalog key or in one of the label
 tables the report reads. It always passes, and `cargo xtask ci` prints it after its test step. The
-glyph tests are skipped without `CRAFT_FONTS_DIR` (there are no CJK faces to check then).
+glyph tests are skipped without `EVO_FONTS_DIR` (there are no CJK faces to check then).
 To look at a language, render it headless:
 
 ```sh
-LIGHTCRAFT_LANGUAGE=zh-hans lightcraft-cli snapshot --demo --script tour.jsonl -o out.png --size 1600x1000
+EVOLIGHT_LANGUAGE=zh-hans evolight-cli snapshot --demo --script tour.jsonl -o out.png --size 1600x1000
 ```
 
 or, with the app running (`--control 7980`), run the language command
@@ -113,7 +113,7 @@ or, with the app running (`--control 7980`), run the language command
 ## Language codes and settings
 
 The settings file stores the BCP-47 code, never the Rust variant name, so a language can be renamed
-in code without invalidating anyone's saved preference. `LIGHTCRAFT_LANGUAGE` accepts what a system
+in code without invalidating anyone's saved preference. `EVOLIGHT_LANGUAGE` accepts what a system
 locale looks like (`zh_Hans`, `zh-CN`, `en_US`, `ja_JP.UTF-8`) and falls back to the base language
 when a region has no dedicated entry.
 

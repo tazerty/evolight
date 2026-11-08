@@ -1,5 +1,5 @@
 //! Issue #891: File ▸ Open Library… given a Lightroom Classic catalog folder doesn't make a
-//! LightCraft library inside it. The library open now stays, and a dialog offers Import Lightroom
+//! EvoLight library inside it. The library open now stays, and a dialog offers Import Lightroom
 //! Catalog… with the catalog found, which asks where that `.lrcat` goes (#2672), then imports it.
 
 use std::time::Duration;
@@ -8,7 +8,7 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
@@ -34,7 +34,7 @@ struct Fx {
 fn setup() -> (Headless, Fx) {
     let dir = std::env::temp_dir().join(format!("lc-ui-openlrcat-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let lib = dir.join("LightCraft Library");
+    let lib = dir.join("EvoLight Library");
     let lr = dir.join("Lightroom");
     std::fs::create_dir_all(lr.join("Lightroom Catalog Previews.lrdata")).unwrap();
     std::fs::create_dir_all(lr.join("Lightroom Catalog.lrcat-data")).unwrap();
@@ -43,22 +43,22 @@ fn setup() -> (Headless, Fx) {
     std::fs::write(&lrcat, b"not really SQLite").unwrap();
     let before = names(&lr);
 
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&lib, true).unwrap();
     let photos = session.catalog.len();
     assert!(photos > 0);
     let picked = lr.to_string_lossy().to_string();
-    let png = |img: &lightcraft_raster::Rgba8| {
-        lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(img), &lightcraft_codecs::EncodeMeta::default()).unwrap_or_default()
+    let png = |img: &evolight_raster::Rgba8| {
+        evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(img), &evolight_codecs::EncodeMeta::default()).unwrap_or_default()
     };
     let services = Services {
         pick_folder: Some(Box::new(move || Some(picked.clone()))),
         png: Some(Box::new(png)),
         write: Some(Box::new(|p: &str, b: &[u8]| std::fs::write(p, b).map_err(|e| e.to_string()))),
-        write_new: Some(Box::new(lightcraft_engine::export::write_file_new)),
+        write_new: Some(Box::new(evolight_engine::export::write_file_new)),
         ..Default::default()
     };
-    let mut h = Headless::new(LightcraftApp::new(session, services), [1200.0, 800.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, services), [1200.0, 800.0], 1.0);
     h.step();
     (h, Fx { dir, lib, lr, lrcat, before, photos })
 }
@@ -82,7 +82,7 @@ fn offer_and_cancel(h: &mut Headless, fx: &Fx) {
     assert_eq!(h.app.session.library.as_ref().map(|l| l.dir.clone()), Some(lib.clone()));
     assert_eq!(h.app.session.catalog.len(), photos);
     assert_eq!(names(&lr), before);
-    if let Some(p) = std::env::var_os("LIGHTCRAFT_TEST_SHOTS") {
+    if let Some(p) = std::env::var_os("EVOLIGHT_TEST_SHOTS") {
         let r = h.request("ui.screenshot", json!({"path": std::path::Path::new(&p).join("prompt-891.png").to_string_lossy(), "headless": true}), T);
         assert_eq!(r["ok"], true, "{r}");
     }

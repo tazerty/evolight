@@ -1,8 +1,8 @@
 # XMP sidecars and interchange
 
-LightCraft keeps its catalog as the source of truth, and can also store each photo's metadata and develop settings in
-an XMP sidecar next to the original. Sidecars let edits travel with the files (backups, another LightCraft library,
-other tools), and let LightCraft pick up edits made elsewhere.
+EvoLight keeps its catalog as the source of truth, and can also store each photo's metadata and develop settings in
+an XMP sidecar next to the original. Sidecars let edits travel with the files (backups, another EvoLight library,
+other tools), and let EvoLight pick up edits made elsewhere.
 
 ## Sidecar files
 
@@ -28,7 +28,7 @@ What we write (standard namespaces, so other tools can read the metadata):
 | Location | `lc:location` |
 | Develop settings | `lc:settings` — our complete `DevelopSettings` as JSON (exact round trip, incl. masks, spots, crop and the rendering process; settings without `process` are V1, see [process-versions.md](process-versions.md)) |
 
-`lc:` is `http://ns.lightcraft.app/lc/1.0/`.
+`lc:` is `http://ns.evolight.app/lc/1.0/`.
 
 Reading merges into the catalog with the **sidecar winning** for every field it states; fields it doesn't state are
 kept. The one exception is the **capture time**: a valid time embedded in the file (EXIF/IPTC) wins. Invalid EXIF
@@ -72,20 +72,20 @@ short reads and I/O errors.
 A sidecar may already hold another application's data — e.g. its `crs:` develop settings and `xmpMM:History` — often
 the only copy of those edits outside that application's catalog. Saving never drops it:
 
-- LightCraft **owns** the properties in the table above: `xmp:Rating`, `xmp:Label`, `dc:title`, `dc:description`,
+- EvoLight **owns** the properties in the table above: `xmp:Rating`, `xmp:Label`, `dc:title`, `dc:description`,
   `dc:rights`, `dc:creator`, `dc:subject`, `lr:hierarchicalSubject`, `Iptc4xmpCore:Location`, `Iptc4xmpCore:AltTextAccessibility`,
   `Iptc4xmpCore:ExtDescrAccessibility`, `photoshop:City`/`State`/`Country`, `xmpRights:Marked`/`UsageTerms`/
-  `WebStatement` and everything in `lc:`. They are replaced on every save, and removed when LightCraft has no value
-  (clearing a title in LightCraft clears it in the file). All of them are read back on import, so the library starts
+  `WebStatement` and everything in `lc:`. They are replaced on every save, and removed when EvoLight has no value
+  (clearing a title in EvoLight clears it in the file). All of them are read back on import, so the library starts
   from what the sidecar said.
 - The **capture time** (`exif:DateTimeOriginal`, `photoshop:DateCreated`) and **GPS** (`exif:GPSLatitude`,
-  `exif:GPSLongitude`) are replaced only when LightCraft has a value; otherwise the file's stay.
+  `exif:GPSLongitude`) are replaced only when EvoLight has a value; otherwise the file's stay.
 - **Everything else is kept byte for byte**: other namespaces (`crs:`, `xmpMM:`, the rest of `lr:`, unknown
-  ones), `xmp:CreatorTool`, comments, the packet wrapper and padding. LightCraft's properties go into one
+  ones), `xmp:CreatorTool`, comments, the packet wrapper and padding. EvoLight's properties go into one
   `rdf:Description` of their own; owned properties written by another application (in attribute or element form) are
   removed from its description, which otherwise stays as it was.
 - Ownership follows the namespace URI, not the prefix spelling. A foreign namespace bound to `lc:` or `xmp:`
-  stays foreign: its properties are preserved and do not become LightCraft settings or ratings. Genuine namespace
+  stays foreign: its properties are preserved and do not become EvoLight settings or ratings. Genuine namespace
   aliases remain interchangeable, including namespace declarations containing XML character references.
 - A sidecar that can't be read as XMP (not well-formed, not UTF-8, no `rdf:RDF`) is first copied to
   `<name>.xmp.bak-<date><time>` (`-1`, `-2`… if taken — a backup is never overwritten), then replaced. A sidecar that
@@ -94,11 +94,11 @@ the only copy of those edits outside that application's catalog. Saving never dr
 Keywords are written the way Lightroom Classic and darktable write them, so other applications can search them: names
 in `dc:subject`, paths in `lr:hierarchicalSubject` (`keywords::to_file`; read back by `keywords::from_file`, which gives
 the same keywords). No export option applies to a sidecar, so no keyword is left out and no synonym added. Sidecars
-from LightCraft 0.13 and older have paths in `dc:subject`; they still read as paths, and the next save writes them this
+from EvoLight 0.13 and older have paths in `dc:subject`; they still read as paths, and the next save writes them this
 way.
 
-Limits: LightCraft doesn't write `crs:`: the other application's
-develop settings stay as that application left them, next to LightCraft's own (`lc:settings`, which LightCraft reads
+Limits: EvoLight doesn't write `crs:`: the other application's
+develop settings stay as that application left them, next to EvoLight's own (`lc:settings`, which EvoLight reads
 first).
 
 ## Shared names
@@ -114,12 +114,12 @@ with the raw or after it (issue #1905).
 
 ## Face regions (MWG)
 
-LightCraft reads face, pet, focus and barcode regions in the Metadata Working Group's region schema
+EvoLight reads face, pet, focus and barcode regions in the Metadata Working Group's region schema
 (`mwg-rs:Regions`, `http://www.metadataworkinggroup.com/schemas/regions/`), as Lightroom, digiKam, Picasa and others
 write them, from sidecars and from XMP embedded in the file. Named faces become people in the People view
 (LR-LIB-PEOPLE in [`parity-checklist.md`](parity-checklist.md)), and every region is drawn as a box in the loupe.
 
-- **Read only.** LightCraft never writes `mwg-rs:Regions`; saving a sidecar keeps another application's regions byte
+- **Read only.** EvoLight never writes `mwg-rs:Regions`; saving a sidecar keeps another application's regions byte
   for byte. Removing or resizing a box in the loupe changes the library only.
 - **Areas**: `stArea:x`/`y` are the box's centre, `w`/`h` its size, normalized to the photo (`stArea:unit="pixel"`
   areas are divided by `mwg-rs:AppliedToDimensions`, and dropped without it). Boxes are clipped to the photo; one
@@ -134,7 +134,7 @@ write them, from sidecars and from XMP embedded in the file. Named faces become 
   metadata states, and the orientation is found wherever the file keeps its Exif (WebP after the image data, for
   one). The exception is a raw with a sidecar that has no `mwg-rs:Regions`: its boxes come from the file and the size
   its Exif states decides, and with no such size they are taken as written. A square photo or size looks the same both
-  ways and is taken as written. Boxes follow LightCraft's own Rotate Left/Right and flips.
+  ways and is taken as written. Boxes follow EvoLight's own Rotate Left/Right and flips.
 - **Re-reading**: a sidecar that has `mwg-rs:Regions` — even with an empty list — replaces the photo's regions, so
   regions removed in another application go away here too. A sidecar without `mwg-rs:Regions` (an application that
   doesn't do regions) leaves the photo's regions as they are.
@@ -142,7 +142,7 @@ write them, from sidecars and from XMP embedded in the file. Named faces become 
 ## Reading `crs:` develop fields
 
 Many raw developers store edits as `crs:` properties (`http://ns.adobe.com/camera-raw-settings/1.0/`) in sidecars, in
-DNG files and in XMP presets. LightCraft reads the common ones and maps them to its own controls. We implemented this
+DNG files and in XMP presets. EvoLight reads the common ones and maps them to its own controls. We implemented this
 from the public XMP specification and by observing what each field does; no third-party code or preset files were used.
 Our pipeline renders differently, so **values carry over but the look is approximate**.
 
@@ -150,16 +150,16 @@ We read these fields; we never write them. Only fields in the packet are applied
 object that gets merged like a preset, so everything else keeps its current or default value. Packets marked
 `crs:AlreadyApplied="True"` are skipped, because those pixels already contain the edit. Only process-version 2012+ field
 names are read (e.g. `Exposure2012`, not the older `Exposure`). `crs:ProcessVersion` itself numbers the other
-application's renderer and is ignored: the photo keeps LightCraft's own process, the latest for a newly imported photo
+application's renderer and is ignored: the photo keeps EvoLight's own process, the latest for a newly imported photo
 ([process-versions.md](process-versions.md)).
 
-| `crs:` field(s) | LightCraft control | Notes |
+| `crs:` field(s) | EvoLight control | Notes |
 |---|---|---|
 | `Exposure2012` | `light.exposure` | EV, 1:1 |
 | `Contrast2012`, `Highlights2012`, `Shadows2012`, `Whites2012`, `Blacks2012` | `light.contrast` … `light.blacks` | −100..100, 1:1 |
 | `HDREditMode` | `hdr.enabled` | `1` / `True` = HDR editing on, `0` / `False` off |
 | `WhiteBalance` | `wb.mode` | `As Shot`, `Auto`, `Daylight`, `Cloudy`, `Shade`, `Tungsten`, `Fluorescent`, `Flash`; other names → custom |
-| `Temperature`, `Tint` | `wb.temp`, `wb.tint` (+ `wb.scale: kelvin`) | Kelvin / tint as written for raws with colour matrices — in the file (DNG) or measured for the camera (`lightcraft_raw::spectral`: ILCE-7M3, D850, EOS 5D Mark III…, issue #730) or read from its white-balance presets (`lightcraft_raw::kelvin_presets`: ILCA-99M2, ILCA-77M2…) — and for presets; the mapped settings say `"scale": "kelvin"` so the value stays Kelvin wherever it lands. Raws LightCraft develops relative to their as-shot look (ARW, NEF, RW2, RAF, CR3, CR2, PEF, SRW of other cameras: 6500 K / 0 means as shot) take the same mired shift from the packet's `AsShotTemperature` / `AsShotTint` instead; without that reference a custom Kelvin stays As Shot and is reported (`Temperature, Tint (custom white balance without AsShotTemperature: kept As Shot)`), because read on the relative scale it would be a large colour cast (issue #510). Note that LightCraft's Kelvin for a camera comes from its measured matrices, Lightroom's from Adobe's: the two scales differ (about 7–10 % on the ILCE-7M3), so the number is carried over, not the exact look |
+| `Temperature`, `Tint` | `wb.temp`, `wb.tint` (+ `wb.scale: kelvin`) | Kelvin / tint as written for raws with colour matrices — in the file (DNG) or measured for the camera (`evolight_raw::spectral`: ILCE-7M3, D850, EOS 5D Mark III…, issue #730) or read from its white-balance presets (`evolight_raw::kelvin_presets`: ILCA-99M2, ILCA-77M2…) — and for presets; the mapped settings say `"scale": "kelvin"` so the value stays Kelvin wherever it lands. Raws EvoLight develops relative to their as-shot look (ARW, NEF, RW2, RAF, CR3, CR2, PEF, SRW of other cameras: 6500 K / 0 means as shot) take the same mired shift from the packet's `AsShotTemperature` / `AsShotTint` instead; without that reference a custom Kelvin stays As Shot and is reported (`Temperature, Tint (custom white balance without AsShotTemperature: kept As Shot)`), because read on the relative scale it would be a large colour cast (issue #510). Note that EvoLight's Kelvin for a camera comes from its measured matrices, Lightroom's from Adobe's: the two scales differ (about 7–10 % on the ILCE-7M3), so the number is carried over, not the exact look |
 | `IncrementalTemperature`, `IncrementalTint` | `wb.temp`, `wb.tint` | rendered files: −100..100 on our relative scale (mired shift around 6500 K, same as the Temp slider); a rendered file with only `Temperature` shifts from `AsShotTemperature` like the raws above when it is present |
 | `Vibrance`, `Saturation` | `color.vibrance`, `color.saturation` | 1:1 |
 | `Texture`, `Clarity2012`, `Dehaze` | `effects.texture`, `effects.clarity`, `effects.dehaze` | 1:1 |
@@ -190,7 +190,7 @@ application's renderer and is ignored: the photo keeps LightCraft's own process,
 
 Values pass through our control specs, so anything outside our slider ranges gets clamped.
 
-`crs:CameraProfile` is kept as the selected name in the photo's import warning and the active profile is left as it is: the name carries no rendering data and never selects an Adobe profile. Import reports such a profile as not applied (colours may differ from Lightroom), except Lightroom's default profiles (`Adobe Standard`, `Adobe Color`), which every sidecar names and which LightCraft's own starting look stands in for.
+`crs:CameraProfile` is kept as the selected name in the photo's import warning and the active profile is left as it is: the name carries no rendering data and never selects an Adobe profile. Import reports such a profile as not applied (colours may differ from Lightroom), except Lightroom's default profiles (`Adobe Standard`, `Adobe Color`), which every sidecar names and which EvoLight's own starting look stands in for.
 
 **Profiles named by presets (`Look`, issue #1001).** A preset keeps the profile it names (`crs:Look`: `Name`, `Group`,
 `UUID`, `Amount`; in `.lrtemplate` files the `Look` table) as `profile.look` in its settings. When the user has imported
@@ -258,7 +258,7 @@ reads these into the Masking panel's Effect menu (`crates/engine/src/cmd/mask_ef
 |---|---|
 | Lightroom Classic `.lrtemplate` (`%APPDATA%\Adobe\Lightroom\Local Adjustment Presets`, `~/Library/Application Support/Adobe/Lightroom/Local Adjustment Presets`) | a Lua table with `type = "LocalizedAdjustmentPreset"`; `title` (else `internalName`, else the file name) → name; `value` holds the `Local*` field names in lower camel case: `exposure2012` → `LocalExposure2012`, mapped as in the table above (`exposure`, `contrast`, `clarity` are the older process version's; the 2012 fields win); `luminanceNoise` → Noise, `toningHue` / `toningSaturation` → Color |
 | Camera Raw local-correction `.xmp` (`CameraRaw/LocalCorrections`) | top-level `crs:Local*` properties (or, in a file with `crs:PresetType="Local"` without them, its first correction's); `crs:Name` → name, `crs:Group` → group. Develop presets (no `crs:Local*`) stay develop presets |
-| `.lceffect` | ours: `{"format": "lightcraft.maskEffects", "version": 2, "effects": [{name, adjust, group?, favorite?, fields?, with_amount?, brush?, extra?}]}` (a bare array or one effect also reads); `mask.exportEffects {path, names?, group?}` writes it |
+| `.lceffect` | ours: `{"format": "evolight.maskEffects", "version": 2, "effects": [{name, adjust, group?, favorite?, fields?, with_amount?, brush?, extra?}]}` (a bare array or one effect also reads); `mask.exportEffects {path, names?, group?}` writes it |
 | `.zip` | the presets above inside it; its folders give groups |
 
 Groups: a file's folder (relative to the imported folder; names that only say "local adjustment presets" don't count)
@@ -270,7 +270,7 @@ Enhancers*); presets without a number keep their folder's group. An earlier impo
 Same-named effects are replaced (a star is kept).
 
 Settings with no local slider here are listed per preset in `unmapped` (and the toast) and **kept** with the effect in
-`extra` (an `.lceffect` export carries them), but not applied: `grain` (Grain; LightCraft has no local grain),
+`extra` (an `.lceffect` export carries them), but not applied: `grain` (Grain; EvoLight has no local grain),
 `pointColors` (Point Color: `SrcHue/Sat/Lum`, `HueShift`, `SatScale`, `LumScale`, `RangeAmount`, `Hue/Sat/LumRange`
 `{LowerNone, LowerFull, UpperFull, UpperNone}`; there is global Point Color only), `toningLuminance`. Zero values aren't
 listed (`refineSaturation = 0` in most files). Lightroom keeps brush size, feather, flow and density per brush, not in
@@ -285,12 +285,12 @@ mask's kind: the next brush / linear / radial / … mask starts with it (`mask.t
 
 | | |
 |---|---|
-| Ours: `.lcpreset` | JSON `{"format": "lightcraft.preset", "version": 1, "presets": [{id, name, group, settings}]}`, where `settings` is a partial develop-settings object (only the groups the preset includes). A file can hold one preset or many, and every preset keeps its group. Import also accepts a bare preset object or an array of them. |
+| Ours: `.evolightpreset` | JSON `{"format": "evolight.preset", "version": 1, "presets": [{id, name, group, settings}]}`, where `settings` is a partial develop-settings object (only the groups the preset includes). A file can hold one preset or many, and every preset keeps its group. Import also accepts a bare preset object or an array of them. |
 | Export | `preset.export {path, ids?, group?}`: all user presets by default, or the given ids or one group. In the app: File ▸ Export Presets…, Presets panel ▸ ⋯ ▸ Export User Presets…, or right-click a group ▸ Export Group…. |
-| Import | `preset.import {paths, group?, dryRun?}`: files or folders (recursive): `.lcpreset`, `.xmp`, classic `.lrtemplate` (a Lua table: `value.settings` holds the same field names as `crs:`), photos that carry their edits in XMP ("DNG presets" from mobile apps; their crop, geometry and custom white balance are left out) and `.zip` bundles of any of these. Local adjustment (brush) presets — Lightroom Classic's `.lrtemplate` with `type = "LocalizedAdjustmentPreset"`, Camera Raw's local-correction `.xmp`, our `.lceffect`, also inside zips — become mask effects (`mask.effects`) instead (see *Local adjustment presets* below); the result lists them under `effects`, and divider presets under `effectDividers`. Presets in a folder (or a folder inside a zip) go to a group named after it, unless the file names its own group. The result lists, per preset, the settings that couldn't be carried over (`unmapped`, e.g. `CameraProfile`, a profile named by `Look` that isn't imported, local masks), and the app's toast names them; fields that only describe the preset or the photo (`Cluster`, `SortName`, `Description`, `SupportsAmount2`, `RequiresRGBTables`, `CropConstrainToWarp`, `OverrideLookVignette`, `AsShotTemperature` / `AsShotTint`, empty `PointColors` slots) aren't listed. Older (process version 2010) fields — `Exposure`, `Contrast`, `FillLight`, `HighlightRecovery`, `Shadows`, `Brightness`, `Clarity`, `ToneCurve` — are approximated with today's sliders when a preset has no 2012-era fields. Dropping preset files on the window imports them too. In the app: File ▸ Import Presets…, or Presets panel ▸ ⋯ ▸ Import Presets…. A preset that's already there (same name, group and settings) is skipped. If an id clashes, the import gets a fresh `user.*` id, and built-in presets are never replaced. |
+| Import | `preset.import {paths, group?, dryRun?}`: files or folders (recursive): `.evolightpreset`, `.xmp`, classic `.lrtemplate` (a Lua table: `value.settings` holds the same field names as `crs:`), photos that carry their edits in XMP ("DNG presets" from mobile apps; their crop, geometry and custom white balance are left out) and `.zip` bundles of any of these. Local adjustment (brush) presets — Lightroom Classic's `.lrtemplate` with `type = "LocalizedAdjustmentPreset"`, Camera Raw's local-correction `.xmp`, our `.lceffect`, also inside zips — become mask effects (`mask.effects`) instead (see *Local adjustment presets* below); the result lists them under `effects`, and divider presets under `effectDividers`. Presets in a folder (or a folder inside a zip) go to a group named after it, unless the file names its own group. The result lists, per preset, the settings that couldn't be carried over (`unmapped`, e.g. `CameraProfile`, a profile named by `Look` that isn't imported, local masks), and the app's toast names them; fields that only describe the preset or the photo (`Cluster`, `SortName`, `Description`, `SupportsAmount2`, `RequiresRGBTables`, `CropConstrainToWarp`, `OverrideLookVignette`, `AsShotTemperature` / `AsShotTint`, empty `PointColors` slots) aren't listed. Older (process version 2010) fields — `Exposure`, `Contrast`, `FillLight`, `HighlightRecovery`, `Shadows`, `Brightness`, `Clarity`, `ToneCurve` — are approximated with today's sliders when a preset has no 2012-era fields. Dropping preset files on the window imports them too. In the app: File ▸ Import Presets…, or Presets panel ▸ ⋯ ▸ Import Presets…. A preset that's already there (same name, group and settings) is skipped. If an id clashes, the import gets a fresh `user.*` id, and built-in presets are never replaced. |
 | XMP presets | Read with the `crs:` table above, with `crs:Name` as the name (falling back to the file name) and `crs:Group` as the group (falling back to "Imported Presets"). Only the fields the preset sets are included, so applying it leaves everything else alone and the Amount slider scales it like any other preset. We only read XMP presets; we don't write them. |
 
-LightCraft ships no third-party presets. Its built-in presets are its own values (`crates/engine/src/presets.rs`).
+EvoLight ships no third-party presets. Its built-in presets are its own values (`crates/engine/src/presets.rs`).
 
 ## Luminar looks (`.lmp`, `.mplumpack`)
 
@@ -337,5 +337,5 @@ profile without a `ProfileToneCurve` (most chart-made ones) keeps the photo's ow
 tone of the look fitted to its camera JPEG — so the
 photo's source is decoded again when its profile changes; rendered (non-raw) photos ignore it. Smart previews and the
 web build's render worker keep the file's own colour. A library on disk keeps a copy of each file in `Profiles/`;
-`profile.deleteCamera` (or `profile.deleteImported`) removes one. No profile ships with LightCraft, and the repository
-holds none: tests build theirs in memory (`lightcraft_raw::dcp::write_dcp`).
+`profile.deleteCamera` (or `profile.deleteImported`) removes one. No profile ships with EvoLight, and the repository
+holds none: tests build theirs in memory (`evolight_raw::dcp::write_dcp`).

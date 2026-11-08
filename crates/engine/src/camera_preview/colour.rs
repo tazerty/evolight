@@ -35,7 +35,7 @@ pub(crate) fn file_local_look(format: RawFormat) -> bool {
 
 /// The colour a raw starts from, first available first: the file's own colour matrices (DNG); a look fitted to the
 /// file's JPEG ([`fit_preview`]: with the camera profile for its model when there is one, else with colour fitted to
-/// this photo alone); the model's colour matrices from measured spectral sensitivities (`lightcraft_raw::spectral`);
+/// this photo alone); the model's colour matrices from measured spectral sensitivities (`evolight_raw::spectral`);
 /// the neutral fallback. The spectral matrices only stand in for the neutral fallback, so a photo whose JPEG fit is
 /// accepted renders as without them; when used they are written into `raw.color`. A photo whose JPEG is black and
 /// white (a monochrome picture style) has no colour to fit, but still gives its tone curve: with the camera profile's
@@ -49,7 +49,7 @@ pub(crate) fn starting_colour(
     raw: &mut RawImage,
     bytes: &[u8],
     lens: Option<&LensGeometry>,
-    embedded: Option<&lightcraft_develop::EmbeddedLens>,
+    embedded: Option<&evolight_develop::EmbeddedLens>,
 ) -> (Xy, CameraTransform, Option<CameraLook>) {
     let (xy, t, look) = starting_colour_with(
         raw,
@@ -71,7 +71,7 @@ pub(crate) fn starting_colour(
 }
 
 /// Whether the profile's tone curve is absent or the identity (within 0.005 over the range).
-fn identity_tone_curve(curve: Option<&lightcraft_raw::profile::ToneCurve>) -> bool {
+fn identity_tone_curve(curve: Option<&evolight_raw::profile::ToneCurve>) -> bool {
     curve.is_none_or(|c| {
         (0..=32).all(|i| {
             let x = i as f32 / 32.0;
@@ -99,8 +99,8 @@ pub(super) fn starting_colour_with(
     dark: impl FnOnce(&RawImage, &CameraTransform) -> Option<CameraLook>,
 ) -> (Xy, CameraTransform, Option<CameraLook>) {
     let start = |raw: &RawImage| {
-        let xy = lightcraft_raw::color::as_shot_white_xy(raw);
-        (xy, lightcraft_raw::color::camera_transform(raw, xy))
+        let xy = evolight_raw::color::as_shot_white_xy(raw);
+        (xy, evolight_raw::color::camera_transform(raw, xy))
     };
     let (xy, t) = start(raw);
     if !t.matrix_is_fallback {
@@ -110,10 +110,10 @@ pub(super) fn starting_colour_with(
     if let Some(look) = look {
         return (xy, t, Some(look));
     }
-    let (xy, t) = match raw.metadata.model.as_deref().and_then(|model| lightcraft_raw::spectral::find(raw.metadata.make.as_deref(), model)) {
+    let (xy, t) = match raw.metadata.model.as_deref().and_then(|model| evolight_raw::spectral::find(raw.metadata.make.as_deref(), model)) {
         Some(camera) => {
             camera.fill(&mut raw.color);
-            if lightcraft_pipeline::profiling() {
+            if evolight_pipeline::profiling() {
                 eprintln!("[profile] {:?} camera colour from spectral sensitivities: {} {}", raw.format, camera.make, camera.model);
             }
             start(raw)
@@ -129,13 +129,13 @@ pub(super) fn starting_colour_with(
 /// Merge, issue #965): without them a merge of CR2s, whose colour comes from a look fitted to their JPEG, rendered
 /// green and dark. `None` when the file has colour matrices of its own (a DNG keeps them).
 pub(crate) fn starting_colour_tags(raw: &mut RawImage, bytes: &[u8]) -> Option<ColorData> {
-    if lightcraft_raw::color::has_matrix(&raw.color) {
+    if evolight_raw::color::has_matrix(&raw.color) {
         return None;
     }
     // the white the source shows, decided before `starting_colour` may fill in measured matrices
     let scale = crate::files::WbScaleOf::new(raw.format, &raw.color, raw.wb_multipliers, &raw.metadata);
-    let white = scale.dng_white(&raw.color, lightcraft_raw::color::as_shot_white_xy(raw));
-    // (a merge frame arrives without its lens warp: `lightcraft_merge` removes it before calling)
+    let white = scale.dng_white(&raw.color, evolight_raw::color::as_shot_white_xy(raw));
+    // (a merge frame arrives without its lens warp: `evolight_merge` removes it before calling)
     let (_, t, look) = starting_colour(raw, bytes, None, None);
     dng_colour(&raw.color, &white, &t, look.as_ref())
 }
@@ -145,7 +145,7 @@ pub(crate) fn starting_colour_tags(raw: &mut RawImage, bytes: &[u8]) -> Option<C
 /// converters refused it). The lens corrections stay in the DNG; only the fit sees the raw without them, as when
 /// the photo opens.
 pub(crate) fn with_starting_colour(raw: &mut RawImage, bytes: &[u8]) {
-    if lightcraft_raw::color::has_matrix(&raw.color) {
+    if evolight_raw::color::has_matrix(&raw.color) {
         return;
     }
     let list3 = raw.opcodes.list3.clone();
@@ -183,7 +183,7 @@ pub(crate) fn dng_colour(tags: &ColorData, declared: &crate::files::DngWhite, t:
     let wb = t.wb.map(f64::from);
     let neutral = wb.map(|w| wb.iter().cloned().fold(f64::MAX, f64::min) / w);
     let (illuminant, color_matrix) = match declared {
-        crate::files::DngWhite::Matrices(c) if lightcraft_raw::color::has_matrix(c) => (c.illuminant, c.color_matrix),
+        crate::files::DngWhite::Matrices(c) if evolight_raw::color::has_matrix(c) => (c.illuminant, c.color_matrix),
         crate::files::DngWhite::Matrices(_) => ([21, 0], [Some(declaring(t.white_xy, neutral)?), None]),
         crate::files::DngWhite::At(xy) => ([21, 0], [Some(declaring(*xy, neutral)?), None]),
     };
@@ -213,7 +213,7 @@ pub(crate) fn dng_colour(tags: &ColorData, declared: &crate::files::DngWhite, t:
 /// An XYZ → camera colour matrix under which camera `neutral` is white `xy`: the generic camera model, scaled per
 /// channel. `None` when the model gives no positive neutral there.
 fn declaring(xy: Xy, neutral: [f64; 3]) -> Option<Mat3> {
-    let g = lightcraft_raw::color::xyz_to_camera(&ColorData::default(), xy);
+    let g = evolight_raw::color::xyz_to_camera(&ColorData::default(), xy);
     let n = g.apply(xy.to_xyz());
     if !n.iter().all(|v| v.is_finite() && *v > 1e-9) {
         return None;

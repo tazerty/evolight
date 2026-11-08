@@ -1,4 +1,4 @@
-//! Which wgpu backends LightCraft lets wgpu use — for its compute device and for the desktop
+//! Which wgpu backends EvoLight lets wgpu use — for its compute device and for the desktop
 //! window (eframe) — and the crash sentinel around device creation (issue #136).
 //!
 //! wgpu loads the system driver of *every* backend in the instance's set while it enumerates
@@ -8,11 +8,11 @@
 //! Vulkan (plus GL for the window when the build has it).
 //!
 //! Overrides, read once per process:
-//! - `LIGHTCRAFT_GPU_BACKEND` = `dx12` | `vulkan` | `metal` | `gl` (comma lists allowed), `auto`
+//! - `EVOLIGHT_GPU_BACKEND` = `dx12` | `vulkan` | `metal` | `gl` (comma lists allowed), `auto`
 //!   (the platform default), or `off` (no GPU compute; the window still needs one backend and
 //!   keeps the platform default);
 //! - else `WGPU_BACKEND` (wgpu's own variable, same names) for both the window and compute.
-//! - `LIGHTCRAFT_GPU_ADAPTER` = (part of) a graphics card's name, any case (`4070`): the card for
+//! - `EVOLIGHT_GPU_ADAPTER` = (part of) a graphics card's name, any case (`4070`): the card for
 //!   the compute devices — the render device, the denoise network's, the face detector's
 //!   ([`pick_adapter`]). The window stays on the card that drives the screen.
 //!
@@ -52,14 +52,14 @@ pub fn parse_backends(s: &str) -> Option<BackendChoice> {
     }
 }
 
-/// The choice from `LIGHTCRAFT_GPU_BACKEND` (`lightcraft`) or else `WGPU_BACKEND` (`wgpu`): the
+/// The choice from `EVOLIGHT_GPU_BACKEND` (`evolight`) or else `WGPU_BACKEND` (`wgpu`): the
 /// first one that parses wins; an unknown value is skipped (with a warning).
-pub fn choose(lightcraft: Option<&str>, wgpu: Option<&str>) -> BackendChoice {
-    for (name, v) in [("LIGHTCRAFT_GPU_BACKEND", lightcraft), ("WGPU_BACKEND", wgpu)] {
+pub fn choose(evolight: Option<&str>, wgpu: Option<&str>) -> BackendChoice {
+    for (name, v) in [("EVOLIGHT_GPU_BACKEND", evolight), ("WGPU_BACKEND", wgpu)] {
         let Some(v) = v else { continue };
         match parse_backends(v) {
             // WGPU_BACKEND is wgpu's variable: it selects backends, it never turns the GPU off
-            Some(BackendChoice::Off) if name == "WGPU_BACKEND" => log::warn!("gpu: WGPU_BACKEND={v} ignored (use LIGHTCRAFT_GPU_BACKEND=off)"),
+            Some(BackendChoice::Off) if name == "WGPU_BACKEND" => log::warn!("gpu: WGPU_BACKEND={v} ignored (use EVOLIGHT_GPU_BACKEND=off)"),
             Some(c) => return c,
             None => log::warn!("gpu: {name}={v} names no known backend; ignored"),
         }
@@ -104,13 +104,13 @@ pub fn resolve(choice: BackendChoice, default: Backends, compiled: Backends) -> 
 fn env_choice() -> BackendChoice {
     static C: std::sync::OnceLock<BackendChoice> = std::sync::OnceLock::new();
     *C.get_or_init(|| {
-        let lc = std::env::var("LIGHTCRAFT_GPU_BACKEND").ok();
+        let lc = std::env::var("EVOLIGHT_GPU_BACKEND").ok();
         let wg = std::env::var("WGPU_BACKEND").ok();
         choose(lc.as_deref(), wg.as_deref())
     })
 }
 
-/// The backends of the compute device (`None`: `LIGHTCRAFT_GPU_BACKEND=off`).
+/// The backends of the compute device (`None`: `EVOLIGHT_GPU_BACKEND=off`).
 pub fn compute_backends() -> Option<Backends> {
     resolve(env_choice(), default_compute_backends(std::env::consts::OS), wgpu::Instance::enabled_backend_features())
 }
@@ -130,10 +130,10 @@ pub fn window_backends() -> Backends {
 /// `WGPU_DX12_COMPILER` (`wgpu`, wgpu's own variable: `fxc`, `dxc`, `auto`…) names another.
 ///
 /// Issue #471: wgpu's default (`Auto`) loads whichever `dxcompiler.dll` the DLL search path finds
-/// first — LightCraft ships none, so it is some other program's (an SDK's, a folder on `PATH`). A
+/// first — EvoLight ships none, so it is some other program's (an SDK's, a folder on `PATH`). A
 /// copy without its `dxil.dll` beside it warns that the DXIL is unsigned; wgpu takes the warning for
 /// a compile error, its own validation pipelines fail, the device is lost and the window never
-/// opens. FXC is always there and compiles everything LightCraft's shaders need.
+/// opens. FXC is always there and compiles everything EvoLight's shaders need.
 pub fn dx12_compiler(env: Option<&str>) -> wgpu::Dx12Compiler {
     let Some(v) = env else { return wgpu::Dx12Compiler::Fxc };
     v.parse().unwrap_or_else(|e| {
@@ -142,7 +142,7 @@ pub fn dx12_compiler(env: Option<&str>) -> wgpu::Dx12Compiler {
     })
 }
 
-/// wgpu's backend options for every instance LightCraft creates — the window's and the compute
+/// wgpu's backend options for every instance EvoLight creates — the window's and the compute
 /// devices': wgpu's environment variables, with the DX12 compiler from [`dx12_compiler`].
 pub fn backend_options() -> wgpu::BackendOptions {
     let mut o = wgpu::BackendOptions::from_env_or_default();
@@ -150,12 +150,12 @@ pub fn backend_options() -> wgpu::BackendOptions {
     o
 }
 
-/// wgpu's instance flags for every instance LightCraft creates, from `flags` (wgpu's defaults with its
+/// wgpu's instance flags for every instance EvoLight creates, from `flags` (wgpu's defaults with its
 /// environment variables applied) without `VALIDATION_INDIRECT_CALL`, unless
 /// `WGPU_VALIDATION_INDIRECT_CALL` asks for it (any value but `0`). That validation builds an internal
 /// compute pipeline when each device is created; Intel Macs' Metal compiler fails on it ("Compiler
 /// encountered an internal error"), the device is lost and the window never opens (#250). It only
-/// guards indirect draws and dispatches, which neither LightCraft nor egui issue.
+/// guards indirect draws and dispatches, which neither EvoLight nor egui issue.
 pub fn instance_flags(flags: wgpu::InstanceFlags, env: Option<&str>) -> wgpu::InstanceFlags {
     if env.is_some_and(|v| v != "0") {
         flags | wgpu::InstanceFlags::VALIDATION_INDIRECT_CALL
@@ -169,10 +169,10 @@ pub fn instance_flags_from_env(flags: wgpu::InstanceFlags) -> wgpu::InstanceFlag
     instance_flags(flags, std::env::var("WGPU_VALIDATION_INDIRECT_CALL").ok().as_deref())
 }
 
-/// The graphics card `LIGHTCRAFT_GPU_ADAPTER` asks for: (part of) its name, trimmed and in lower
+/// The graphics card `EVOLIGHT_GPU_ADAPTER` asks for: (part of) its name, trimmed and in lower
 /// case; `None` when it is unset or blank.
 pub fn wanted_adapter() -> Option<String> {
-    wanted_adapter_from(std::env::var("LIGHTCRAFT_GPU_ADAPTER").ok().as_deref())
+    wanted_adapter_from(std::env::var("EVOLIGHT_GPU_ADAPTER").ok().as_deref())
 }
 
 /// [`wanted_adapter`] from the variable's value `env`.
@@ -215,7 +215,7 @@ pub fn kind_rank(kind: wgpu::DeviceType) -> u8 {
     }
 }
 
-/// What a `LIGHTCRAFT_GPU_ADAPTER` name picks among the candidates ([`choose_named_adapter`]).
+/// What a `EVOLIGHT_GPU_ADAPTER` name picks among the candidates ([`choose_named_adapter`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NamedChoice {
     /// The card used (the first of `matches`), `None`: the default choice.
@@ -246,11 +246,11 @@ pub fn named_choice_note(wanted: &str, choice: &NamedChoice, candidates: &[Candi
     let name = |i: &usize| candidates.get(*i).map_or("?", |c| c.name);
     let list = |v: &[usize]| v.iter().map(name).collect::<Vec<_>>().join(", ");
     match (choice.index, choice.matches.len()) {
-        (Some(i), 1) => (false, format!("gpu: LIGHTCRAFT_GPU_ADAPTER={wanted}: using {}", name(&i))),
+        (Some(i), 1) => (false, format!("gpu: EVOLIGHT_GPU_ADAPTER={wanted}: using {}", name(&i))),
         (Some(i), n) => (
             false,
             format!(
-                "gpu: LIGHTCRAFT_GPU_ADAPTER={wanted} matches {n} graphics cards ({}): using {} (a card's whole name first, then dedicated before built-in cards, then the system's order); give more of the name to pick another",
+                "gpu: EVOLIGHT_GPU_ADAPTER={wanted} matches {n} graphics cards ({}): using {} (a card's whole name first, then dedicated before built-in cards, then the system's order); give more of the name to pick another",
                 list(&choice.matches),
                 name(&i)
             ),
@@ -258,13 +258,13 @@ pub fn named_choice_note(wanted: &str, choice: &NamedChoice, candidates: &[Candi
         (None, _) if !choice.software.is_empty() => (
             true,
             format!(
-                "gpu: LIGHTCRAFT_GPU_ADAPTER={wanted} names only a software renderer ({}), never used: the processor is faster; using the default choice",
+                "gpu: EVOLIGHT_GPU_ADAPTER={wanted} names only a software renderer ({}), never used: the processor is faster; using the default choice",
                 list(&choice.software)
             ),
         ),
         (None, _) => {
             let all: Vec<&str> = candidates.iter().map(|c| c.name).collect();
-            (true, format!("gpu: LIGHTCRAFT_GPU_ADAPTER={wanted} names none of the graphics cards ({}); using the default choice", all.join(", ")))
+            (true, format!("gpu: EVOLIGHT_GPU_ADAPTER={wanted} names none of the graphics cards ({}); using the default choice", all.join(", ")))
         }
     }
 }
@@ -297,7 +297,7 @@ pub fn find_named_adapter<'a>(wanted: &str, adapters: impl IntoIterator<Item = (
 }
 
 /// The adapter for a compute device (the render device, the denoise network's, the face detector's)
-/// on `instance` with `backends`: the card `LIGHTCRAFT_GPU_ADAPTER` names, else the
+/// on `instance` with `backends`: the card `EVOLIGHT_GPU_ADAPTER` names, else the
 /// high-performance one. A name that matches no card is logged (once) and the high-performance one
 /// is used; never a panic. Each device makes its own instance and device on the card, so two
 /// devices never share a buffer, pipeline or queue.
@@ -325,7 +325,7 @@ pub fn pick_adapter_named(instance: &wgpu::Instance, backends: Backends, wanted:
 }
 
 /// Whether the render device may share the window's device (adapter `window_adapter`): yes unless
-/// `LIGHTCRAFT_GPU_ADAPTER` names another card, which then renders on a device of its own (the
+/// `EVOLIGHT_GPU_ADAPTER` names another card, which then renders on a device of its own (the
 /// window stays on the card that drives the screen; renders come back as pixels).
 pub fn may_adopt_window_device(window_adapter: &str) -> bool {
     may_adopt_window_device_for(wanted_adapter().as_deref(), window_adapter)
@@ -336,7 +336,7 @@ pub fn may_adopt_window_device_for(wanted: Option<&str>, window_adapter: &str) -
     wanted.is_none_or(|w| adapter_name_matches(w, window_adapter))
 }
 
-/// `LIGHTCRAFT_GPU_BACKEND=off`.
+/// `EVOLIGHT_GPU_BACKEND=off`.
 pub(crate) fn env_off() -> bool {
     env_choice() == BackendChoice::Off
 }
@@ -442,7 +442,7 @@ pub enum WindowRenderer {
 }
 
 impl WindowRenderer {
-    /// The name used in `LIGHTCRAFT_GPU_BACKEND`, the remembered-renderer file and the logs.
+    /// The name used in `EVOLIGHT_GPU_BACKEND`, the remembered-renderer file and the logs.
     pub fn name(self) -> &'static str {
         match self {
             WindowRenderer::Glow => "glow",
@@ -468,7 +468,7 @@ impl WindowRenderer {
     }
 }
 
-/// The renderer the environment forces for the window: `LIGHTCRAFT_GPU_BACKEND` (`app`), else
+/// The renderer the environment forces for the window: `EVOLIGHT_GPU_BACKEND` (`app`), else
 /// `WGPU_BACKEND` (`wgpu`), when it names exactly one renderer.
 pub fn forced_window_renderer(app: Option<&str>, wgpu: Option<&str>) -> Option<WindowRenderer> {
     app.and_then(WindowRenderer::parse).or_else(|| wgpu.and_then(WindowRenderer::parse))
@@ -555,12 +555,12 @@ mod tests {
     }
 
     #[test]
-    fn lightcraft_variable_wins_over_wgpu_backend() {
+    fn evolight_variable_wins_over_wgpu_backend() {
         assert_eq!(choose(None, None), BackendChoice::Auto);
         assert_eq!(choose(None, Some("dx12")), BackendChoice::Use(Backends::DX12));
         assert_eq!(choose(Some("vulkan"), Some("dx12")), BackendChoice::Use(Backends::VULKAN));
         assert_eq!(choose(Some("off"), Some("dx12")), BackendChoice::Off);
-        // unknown LightCraft value: WGPU_BACKEND still applies
+        // unknown EvoLight value: WGPU_BACKEND still applies
         assert_eq!(choose(Some("bogus"), Some("gl")), BackendChoice::Use(Backends::GL));
         // WGPU_BACKEND never turns the GPU off
         assert_eq!(choose(None, Some("off")), BackendChoice::Auto);
@@ -591,7 +591,7 @@ mod tests {
         }
     }
 
-    /// `LIGHTCRAFT_GPU_ADAPTER` picks a card by part of its name, any case; software adapters never.
+    /// `EVOLIGHT_GPU_ADAPTER` picks a card by part of its name, any case; software adapters never.
     #[test]
     fn gpu_adapter_variable_matches_part_of_the_card_name() {
         use wgpu::DeviceType::{Cpu, DiscreteGpu, IntegratedGpu};
@@ -640,7 +640,7 @@ mod tests {
         assert_eq!(one.index, Some(0));
         assert_eq!(
             named_choice_note("iris", &one, &laptop),
-            (false, "gpu: LIGHTCRAFT_GPU_ADAPTER=iris: using Intel(R) Iris(R) Xe Graphics".to_string())
+            (false, "gpu: EVOLIGHT_GPU_ADAPTER=iris: using Intel(R) Iris(R) Xe Graphics".to_string())
         );
         // a software renderer: never, and the warning says so
         let warp = choose_named_adapter("basic render", &laptop);
@@ -666,7 +666,7 @@ mod tests {
     /// line about it is logged once, not three times.
     #[test]
     fn a_choice_is_logged_once() {
-        let line = "gpu: LIGHTCRAFT_GPU_ADAPTER=test-only-name names none of the graphics cards (); using the default choice";
+        let line = "gpu: EVOLIGHT_GPU_ADAPTER=test-only-name names none of the graphics cards (); using the default choice";
         assert!(log_once(true, line));
         assert!(!log_once(true, line));
         assert!(!log_once(false, line));

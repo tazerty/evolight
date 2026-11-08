@@ -36,7 +36,7 @@ of the method, including the square-root and per-channel variants it replaced, i
 - Windowed 8-bit renders request extra surrounding pixels for the diffusion's spatial
   dependencies. The existing window/full-frame comparison retains its original tolerance.
 - The noise model belongs to the whole frame, not to the pixels a render holds
-  (`lightcraft_pipeline::colour_noise`). A frame larger than 12 × 12 tiles of 128 px is measured
+  (`evolight_pipeline::colour_noise`). A frame larger than 12 × 12 tiles of 128 px is measured
   on that grid of tiles spread over it (`nrc_joint::tiles`), resampled, tone-mapped, white-balanced and
   luminance-denoised like the frame (retouching and defringe are left out); a smaller frame
   rendered whole is measured on itself, a window of it on the whole frame. So a loupe window
@@ -50,13 +50,13 @@ of the method, including the square-root and per-channel variants it replaced, i
 ## Local checks
 
 ```sh
-cargo test --release -p lightcraft-pipeline --lib nrc_joint
-cargo test --release -p lightcraft-pipeline --lib probe_nrc -- --ignored --nocapture
-cargo test --release -p lightcraft-gpu --test equivalence
-LIGHTCRAFT_GPU=0 cargo run --release -p lightcraft-cli -- render INPUT.ARW -o OUTPUT.png --set detail.nrColor=100
+cargo test --release -p evolight-pipeline --lib nrc_joint
+cargo test --release -p evolight-pipeline --lib probe_nrc -- --ignored --nocapture
+cargo test --release -p evolight-gpu --test equivalence
+EVOLIGHT_GPU=0 cargo run --release -p evolight-cli -- render INPUT.ARW -o OUTPUT.png --set detail.nrColor=100
 ```
 
-`LIGHTCRAFT_PROFILE=1` prints the filter's steps and times and the fitted Y/R-Y/B-Y model.
+`EVOLIGHT_PROFILE=1` prints the filter's steps and times and the fitted Y/R-Y/B-Y model.
 
 The regression tests cover signed dark means, luminance, chroma-noise reduction, leaf/black and
 isoluminant edges, a two-pixel isoluminant line, structured highlights, spatially correlated noise,

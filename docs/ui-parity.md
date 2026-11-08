@@ -2,7 +2,7 @@
 
 > **Last reviewed:** 2026-10-11 · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6 · **Changes:** [revision history](#revision-history)
 
-How LightCraft's interaction compares with Lightroom's: views, panels, tools and handles, modifier
+How EvoLight's interaction compares with Lightroom's: views, panels, tools and handles, modifier
 keys, shortcuts, zoom, context menus and feel. Rows for individual menu items and shortcuts live in
 [parity-checklist.md](parity-checklist.md) (sections Y and Z, Classic keys); this page is the
 assessment and the notes that don't fit a row. Visual reference for agents: `plan/lightroom/`
@@ -20,7 +20,7 @@ assessment and the notes that don't fit a row. Visual reference for agents: `pla
 
 ## Assessment by area
 
-| Area | Target | LightCraft | Ready | Main gaps |
+| Area | Target | EvoLight | Ready | Main gaps |
 |---|---|---|---:|---|
 | Layout and views | Lightroom: grid / detail / edit; Classic: Library, Develop, Map, Book, Slideshow, Print, Web modules, filmstrip, panels | Lightroom-style single window: Photo Grid, Square Grid, Detail, Compare, Survey (≤ 48), Before / After, People, quick slideshow, second window, filmstrip | 75% | no Classic module switcher (by design) or output modules; dark theme only |
 | Develop panels and sliders | Light, Color, Effects, Detail, Optics, Geometry, Lens Blur, Calibration | every global slider; scrub, double-click reset, Alt-drag previews where implemented | 80% | Lens Blur, Calibration panel depth; slider feel (acceleration, fine Shift-drag) unmeasured |
@@ -77,11 +77,11 @@ auto-repeat used to flip the zoom back and forth (`crates/ui-egui/src/space_hand
 
 **Grid thumbnail size (KEYC-COMPARE):** Classic's `=` and `-` increase and decrease the Grid thumbnail size (same keys on macOS and Windows; `+` also works for the larger size here, as Shift+`=` or the keypad). They step the bottom-bar slider by 30 pt inside its 90–480 pt range, in Photo Grid, Square Grid and People only; Detail, Compare, Survey and Reference ignore them, and ⌘= / ⌘− stay Zoom In / Out. See [library shortcuts](library-shortcuts.md).
 
-**Add Keywords key (KEYC-METADATA):** `⌘K` (`Ctrl+K` on Windows and Linux) is Add Keywords (`panel.addKeywords`): it shows the Keywords panel, opens its Keywording section when that is folded shut, and puts the cursor in the Add keyword box; pressed again it leaves the panel open. With no photo selected the panel says "Select photos to give them keywords." and the key does not move the cursor. The shortcut list names the key only; what the key opens is LightCraft's choice. Covered by `crates/ui-egui/src/tests/keywording.rs`.
+**Add Keywords key (KEYC-METADATA):** `⌘K` (`Ctrl+K` on Windows and Linux) is Add Keywords (`panel.addKeywords`): it shows the Keywords panel, opens its Keywording section when that is folded shut, and puts the cursor in the Add keyword box; pressed again it leaves the panel open. With no photo selected the panel says "Select photos to give them keywords." and the key does not move the cursor. The shortcut list names the key only; what the key opens is EvoLight's choice. Covered by `crates/ui-egui/src/tests/keywording.rs`.
 
 **Library navigation keys (KEYC-COMPARE):** in Photo Grid and Square Grid, `Home` / `End` make the first / last photo of the view the active, selected one, and `Shift+Left` / `Shift+Right` add the previous / next photo of the view to the selection (the added photo becomes active; the keys never remove a photo from the selection, and do nothing at either end of the view). They wait in the other views, in the full-screen preview, while a text field or a dialog has the keyboard, and when you gave the key to a command; they are listed under Fixed keys in Help → Keyboard Shortcuts. `Cmd+O` (`Ctrl+O` on Windows and Linux) runs File → Open Library… ; View → Visualize HDR has no default key (`Shift+H` cycles the Tool Overlay, issue #224; `Cmd+Shift+H` stays the Histogram). Covered by `crates/ui-egui/src/tests/keymap.rs`; the macOS native menu path for `Cmd+O` is not exercised by the headless tests.
 
-**Keyword painter key (KEYC-METADATA):** `⌘⌥K` (`Ctrl+Alt+K` on Windows and Linux) is Photo → Enable Painting (`tool.enablePainting`): it paints the keyword in the Keywords panel's painter box, a second press stops painting, and with the box empty it opens the Keywords panel (the shortcut list does not say what a second press or an empty box does; stopping and opening the panel are LightCraft's choice). Covered by `crates/ui-egui/src/tests/keywording.rs`.
+**Keyword painter key (KEYC-METADATA):** `⌘⌥K` (`Ctrl+Alt+K` on Windows and Linux) is Photo → Enable Painting (`tool.enablePainting`): it paints the keyword in the Keywords panel's painter box, a second press stops painting, and with the box empty it opens the Keywords panel (the shortcut list does not say what a second press or an empty box does; stopping and opening the panel are EvoLight's choice). Covered by `crates/ui-egui/src/tests/keywording.rs`.
 
 **Keyword sets (KEYC-METADATA):** `⌥0` / `⌥⇧0` (`Alt+0` / `Alt+Shift+0` on Windows and Linux) make the next / previous keyword set current (`keyword.nextSet`, `keyword.previousSet`), in the Keyword Set menu's order: Recent Keywords, then the saved sets. After the last set comes Recent Keywords, and before Recent Keywords comes the last set (not documented by Adobe, our choice). `⌥1`–`⌥9` then apply the new set's keywords. Both keys can be reassigned in Help → Keyboard Shortcuts.
 

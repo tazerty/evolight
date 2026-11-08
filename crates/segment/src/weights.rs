@@ -1,7 +1,7 @@
 //! Safetensors weights read on demand.
 //!
 //! Tensors are read from the file when a module asks for them (positional reads, no memory
-//! map: `unsafe` stays in `lightcraft-sysmem`), so building only the point-prompt model never
+//! map: `unsafe` stays in `evolight-sysmem`), so building only the point-prompt model never
 //! touches the text encoder's bytes.
 
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ use candle_nn::var_builder::SimpleBackend;
 use crate::{Error, Result};
 
 struct Entry {
-    /// `Err`: the header's name for a dtype LightCraft doesn't read (Meta's original checkpoint
+    /// `Err`: the header's name for a dtype EvoLight doesn't read (Meta's original checkpoint
     /// stores its RoPE tables as C64); the tensor is listed, and reading it fails
     dtype: std::result::Result<DType, String>,
     shape: Vec<usize>,

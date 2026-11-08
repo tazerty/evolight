@@ -73,7 +73,7 @@ fn unsharp(w: usize, h: usize, src: &[[f32; 3]], target: SharpenFor, amount: Sha
     let box_pass = |inp: &[[f32; 3]], horizontal: bool| -> Vec<[f32; 3]> {
         let mut out = vec![[0.0; 3]; inp.len()];
         // rows in parallel: each output pixel is computed on its own, so the bits don't depend on the split
-        lightcraft_raster::par_rows(&mut out, w, |y, row| {
+        evolight_raster::par_rows(&mut out, w, |y, row| {
             for (x, o) in row.iter_mut().enumerate() {
                 let mut acc = [0.0f32; 3];
                 for d in -r..=r {
@@ -107,8 +107,8 @@ pub fn encode_with_metadata(img: &Rgba8, o: &ExportOptions, meta: Option<&Metada
     let img = finish_8bit(img, o);
     let space = o.effective_space();
     let profile = icc::write_named(named_space(space));
-    let exif = meta.map(lightcraft_meta::write_exif);
-    let xmp = meta.map(|m| lightcraft_meta::write_xmp(m, None));
+    let exif = meta.map(evolight_meta::write_exif);
+    let xmp = meta.map(|m| evolight_meta::write_xmp(m, None));
     let meta = EncodeMeta { icc: Some(&profile), exif: exif.as_deref(), xmp: xmp.as_deref(), ppi: Some(o.ppi) };
     // Opaque photo exports need no alpha channel (#1670). Keep real transparency for
     // callers of this encoder, and leave unrelated formats on their existing path.
@@ -130,7 +130,7 @@ pub fn encode_with_metadata(img: &Rgba8, o: &ExportOptions, meta: Option<&Metada
         ExportFormat::Psd => encode::encode_psd(&e, &meta),
         ExportFormat::Webp => encode::encode_webp_lossless(&e, &meta),
         ExportFormat::Avif => encode::encode_avif(&e, o.quality, 8, &meta),
-        ExportFormat::Jxl => lightcraft_codecs::encode_jxl(&e, &o.jxl(space, false), &meta),
+        ExportFormat::Jxl => evolight_codecs::encode_jxl(&e, &o.jxl(space, false), &meta),
         f @ (ExportFormat::Original | ExportFormat::Dng) => return Err(format!("{f:?} export does not encode pixels")),
         ExportFormat::RenderedDng => return Err("Render to DNG needs a float render".into()),
     };
@@ -138,7 +138,7 @@ pub fn encode_with_metadata(img: &Rgba8, o: &ExportOptions, meta: Option<&Metada
 }
 
 /// Apply the same file-size policy to ordinary JPEGs and complete HDR gain map JPEGs.
-fn encode_jpeg_with_limit(o: &ExportOptions, jpeg: impl Fn(u8) -> lightcraft_codecs::Result<Vec<u8>>) -> Result<Vec<u8>, String> {
+fn encode_jpeg_with_limit(o: &ExportOptions, jpeg: impl Fn(u8) -> evolight_codecs::Result<Vec<u8>>) -> Result<Vec<u8>, String> {
     let Some(kb) = o.limit_kb else { return jpeg(o.quality).map_err(|e| e.to_string()) };
     let limit = u64::from(kb) * 1024;
     let (mut lo, mut hi) = (1u8, o.quality.min(100));
@@ -192,7 +192,7 @@ fn finish_deep<'a>(img: &'a DeepImage, o: &ExportOptions) -> Cow<'a, DeepImage> 
 /// and the HDR rendition `hdr` (float linear, same space and size). The gain map is measured
 /// against the base as written, so its 8-bit rounding is handed back by the map.
 pub fn encode_gain_map_jpeg(sdr: &Rgba8, hdr: &DeepImage, o: &ExportOptions, meta: Option<&Metadata>) -> Result<Vec<u8>, String> {
-    use lightcraft_codecs::gainmap;
+    use evolight_codecs::gainmap;
     let base = finish_8bit(sdr, o);
     let hdr = finish_deep(hdr, o);
     let DeepSamples::F32(hv) = &hdr.samples else {
@@ -208,8 +208,8 @@ pub fn encode_gain_map_jpeg(sdr: &Rgba8, hdr: &DeepImage, o: &ExportOptions, met
     let hdr_lin: &[[f32; 3]] = hv.as_chunks::<3>().0;
     let (map, gm) = gainmap::compute(&sdr_lin, hdr_lin, w, h, space.luma(), &gainmap::GainMapOptions::default()).map_err(|e| e.to_string())?;
     let profile = icc::write_named(named_space(space));
-    let exif = meta.map(lightcraft_meta::write_exif);
-    let xmp = meta.map(|m| lightcraft_meta::write_xmp(m, None));
+    let exif = meta.map(evolight_meta::write_exif);
+    let xmp = meta.map(|m| evolight_meta::write_xmp(m, None));
     let em = EncodeMeta { icc: Some(&profile), exif: exif.as_deref(), xmp: xmp.as_deref(), ppi: Some(o.ppi) };
     let sub = if o.limit_kb.is_some() { ChromaSubsampling::S420 } else { ChromaSubsampling::S444 };
     encode_jpeg_with_limit(o, |q| gainmap::encode_jpeg(&EncodeImage::rgba8(&base), &map, &gm, q, sub, &em))
@@ -231,8 +231,8 @@ pub fn srgb8_in(space: OutputSpace, c: [u8; 3]) -> [u8; 3] {
     if space == OutputSpace::Srgb {
         return c;
     }
-    let lin = c.map(lightcraft_color::transfer::decode_srgb8);
-    let m = lightcraft_color::SRGB.to_space(&space.rgb_space()).to_f32();
+    let lin = c.map(evolight_color::transfer::decode_srgb8);
+    let m = evolight_color::SRGB.to_space(&space.rgb_space()).to_f32();
     let t = space.trc();
     std::array::from_fn(|i| {
         let v = m[i][0] * lin[0] + m[i][1] * lin[1] + m[i][2] * lin[2];
@@ -242,7 +242,7 @@ pub fn srgb8_in(space: OutputSpace, c: [u8; 3]) -> [u8; 3] {
 
 /// Encode a render according to `o`: its high-bit-depth samples when it has them (16-bit PNG/TIFF,
 /// 10-bit AVIF, 32-bit float linear TIFF), else its 8-bit image.
-pub fn encode_rendered(r: &lightcraft_pipeline::Rendered, o: &ExportOptions, meta: Option<&Metadata>) -> Result<Vec<u8>, String> {
+pub fn encode_rendered(r: &evolight_pipeline::Rendered, o: &ExportOptions, meta: Option<&Metadata>) -> Result<Vec<u8>, String> {
     match &r.deep {
         Some(d) if o.effective_depth() != OutputDepth::U8 => encode_deep(d, o, meta),
         _ => encode_with_metadata(&r.image, o, meta),
@@ -254,11 +254,11 @@ pub fn encode_deep(img: &DeepImage, o: &ExportOptions, meta: Option<&Metadata>) 
     let meta_src = meta;
     let img = finish_deep(img, o);
     let profile = match img.samples {
-        DeepSamples::F32(_) => icc::write_matrix_trc(&img.space.rgb_space(), &lightcraft_codecs::Trc::Linear),
+        DeepSamples::F32(_) => icc::write_matrix_trc(&img.space.rgb_space(), &evolight_codecs::Trc::Linear),
         DeepSamples::U16(_) => icc::write_named(named_space(img.space)),
     };
-    let exif = meta.map(lightcraft_meta::write_exif);
-    let xmp = meta.map(|m| lightcraft_meta::write_xmp(m, None));
+    let exif = meta.map(evolight_meta::write_exif);
+    let xmp = meta.map(|m| evolight_meta::write_xmp(m, None));
     let meta = EncodeMeta { icc: Some(&profile), exif: exif.as_deref(), xmp: xmp.as_deref(), ppi: Some(o.ppi) };
     let (w, h) = (img.width as u32, img.height as u32);
     let e = match &img.samples {
@@ -266,22 +266,22 @@ pub fn encode_deep(img: &DeepImage, o: &ExportOptions, meta: Option<&Metadata>) 
         DeepSamples::F32(v) => EncodeImage::new(w, h, 3, Samples::F32(v)),
     };
     let r = match (o.format, &img.samples) {
-        (ExportFormat::Png, DeepSamples::F32(v)) if img.space == OutputSpace::Rec2020 => lightcraft_codecs::encode_png_pq(w, h, v, &meta),
+        (ExportFormat::Png, DeepSamples::F32(v)) if img.space == OutputSpace::Rec2020 => evolight_codecs::encode_png_pq(w, h, v, &meta),
         (ExportFormat::Png, _) => encode::encode_png(&e, &meta),
         (ExportFormat::Tiff, _) => encode::encode_tiff(&e, o.tiff_compression, &meta),
         (ExportFormat::Psd, _) => encode::encode_psd(&e, &meta),
         (ExportFormat::RenderedDng, DeepSamples::F32(v)) => {
             let m = meta_src.cloned().unwrap_or_default();
-            return lightcraft_raw::write_rendered_dng(img.width, img.height, v, &img.space.rgb_space(), &m, xmp.clone()).map_err(|e| e.to_string());
+            return evolight_raw::write_rendered_dng(img.width, img.height, v, &img.space.rgb_space(), &m, xmp.clone()).map_err(|e| e.to_string());
         }
         (ExportFormat::Avif, DeepSamples::F32(v)) if img.space == OutputSpace::Rec2020 => {
-            lightcraft_codecs::encode_avif_hdr(w, h, v, o.quality, 8, &meta, o.hdr_transfer.codec())
+            evolight_codecs::encode_avif_hdr(w, h, v, o.quality, 8, &meta, o.hdr_transfer.codec())
         }
         (ExportFormat::Avif, _) => encode::encode_avif(&e, o.quality, 8, &meta),
         (ExportFormat::Jxl, DeepSamples::F32(_)) if img.space == OutputSpace::Rec2020 => {
-            lightcraft_codecs::encode_jxl(&e, &o.jxl(img.space, true), &meta)
+            evolight_codecs::encode_jxl(&e, &o.jxl(img.space, true), &meta)
         }
-        (ExportFormat::Jxl, DeepSamples::U16(_)) => lightcraft_codecs::encode_jxl(&e, &o.jxl(img.space, false), &meta),
+        (ExportFormat::Jxl, DeepSamples::U16(_)) => evolight_codecs::encode_jxl(&e, &o.jxl(img.space, false), &meta),
         (f, _) => return Err(format!("{f:?} export is 8-bit only")),
     };
     r.map_err(|e| e.to_string())
@@ -289,13 +289,13 @@ pub fn encode_deep(img: &DeepImage, o: &ExportOptions, meta: Option<&Metadata>) 
 
 /// Whether the export of `photo` under `o` leaves out its location (GPS and place names).
 /// (`photo` and `catalog` let library-level privacy rules add to the export option.)
-pub fn removes_location(_photo: &lightcraft_catalog::Photo, _catalog: &lightcraft_catalog::Catalog, o: &ExportOptions) -> bool {
+pub fn removes_location(_photo: &evolight_catalog::Photo, _catalog: &evolight_catalog::Catalog, o: &ExportOptions) -> bool {
     o.remove_location
 }
 
 /// The metadata to embed for `photo` under `o.metadata` / `o.remove_location`. `None` = embed nothing.
 /// Keywords follow the catalog's keyword list (`Catalog::export_keywords`).
-pub fn export_metadata(photo: &lightcraft_catalog::Photo, catalog: &lightcraft_catalog::Catalog, o: &ExportOptions) -> Option<Metadata> {
+pub fn export_metadata(photo: &evolight_catalog::Photo, catalog: &evolight_catalog::Catalog, o: &ExportOptions) -> Option<Metadata> {
     let m = &photo.meta;
     let text = |s: &str| (!s.trim().is_empty()).then(|| s.to_string());
     // copyright info (also under "copyright only"): notice, creator, status, usage terms, info URL
@@ -305,7 +305,7 @@ pub fn export_metadata(photo: &lightcraft_catalog::Photo, catalog: &lightcraft_c
         usage_terms: text(&m.usage_terms),
         copyright_url: text(&m.copyright_url),
         artist: text(&m.creator),
-        software: Some("LightCraft".into()),
+        software: Some("EvoLight".into()),
         ..Default::default()
     };
     match o.metadata {
@@ -329,7 +329,7 @@ pub fn export_metadata(photo: &lightcraft_catalog::Photo, catalog: &lightcraft_c
     out.capture_time = photo.captured.as_deref().and_then(DateTime::parse_iso);
     out.rating = (photo.rating > 0).then_some(photo.rating as i8);
     // Pixels are exported upright: orientation is baked in.
-    out.orientation = Some(lightcraft_meta::Orientation::Normal);
+    out.orientation = Some(evolight_meta::Orientation::Normal);
     if !o.remove_location {
         out.gps = m.gps.map(|(latitude, longitude)| Gps { latitude, longitude, altitude: None });
     }
@@ -342,7 +342,7 @@ pub fn export_metadata(photo: &lightcraft_catalog::Photo, catalog: &lightcraft_c
         out.lens_model = text(&m.lens);
         out.focal_length = m.focal_mm.map(f64::from);
         out.f_number = m.aperture.map(f64::from);
-        out.exposure_time = lightcraft_catalog::parse_shutter_seconds(&m.shutter);
+        out.exposure_time = evolight_catalog::parse_shutter_seconds(&m.shutter);
         out.iso = m.iso;
     }
     Some(out)

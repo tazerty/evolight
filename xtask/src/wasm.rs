@@ -12,7 +12,7 @@ fn wasm_set() -> Result<Vec<String>, String> {
             _ => false,
         })
         .map(|c| c.name)
-        .chain(std::iter::once("lightcraft-web".to_string()))
+        .chain(std::iter::once("evolight-web".to_string()))
         .collect())
 }
 

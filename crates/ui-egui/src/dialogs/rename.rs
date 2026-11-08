@@ -1,4 +1,4 @@
-use super::LightcraftApp;
+use super::EvoLightApp;
 
 /// Rows the Rename dialog previews.
 pub(super) const RENAME_PREVIEW_ROWS: usize = 6;
@@ -8,15 +8,15 @@ pub(super) const RENAME_PREVIEW_ROWS: usize = 6;
 /// rows are planned on a worker thread, and only when the template, start number, photos or
 /// catalog change — never once per frame.
 pub(crate) fn rename_preview(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ctx: &egui::Context,
     template: &str,
     start: usize,
-) -> (Option<Vec<lightcraft_engine::rename::RenamePlan>>, usize) {
+) -> (Option<Vec<evolight_engine::rename::RenamePlan>>, usize) {
     use std::hash::{Hash, Hasher};
-    type Rows = std::sync::Arc<std::sync::Mutex<Option<Vec<lightcraft_engine::rename::RenamePlan>>>>;
+    type Rows = std::sync::Arc<std::sync::Mutex<Option<Vec<evolight_engine::rename::RenamePlan>>>>;
     let ids = app.session.selected();
-    let photos = lightcraft_engine::rename::rename_photos(&app.session.catalog, &ids);
+    let photos = evolight_engine::rename::rename_photos(&app.session.catalog, &ids);
     let total = photos.len();
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (template, start, app.session.catalog.revision, &ids).hash(&mut h);
@@ -33,7 +33,7 @@ pub(crate) fn rename_preview(
     let (out, template, repaint) = (rows.clone(), template.to_string(), ctx.clone());
     let exists = app.session.media.availability.probe();
     let work = move || {
-        let plans = lightcraft_engine::rename::plan_rename_photos(&first, &template, start, &|f| exists(f));
+        let plans = evolight_engine::rename::plan_rename_photos(&first, &template, start, &|f| exists(f));
         *out.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(plans);
         repaint.request_repaint();
     };
@@ -55,7 +55,7 @@ pub(super) struct PersonRenamePlan {
 }
 
 /// What renaming `from` to `to` would do, using the same rules as `faces.renamePerson`.
-pub(super) fn person_rename_plan(cat: &lightcraft_catalog::Catalog, from: &str, to: &str) -> PersonRenamePlan {
+pub(super) fn person_rename_plan(cat: &evolight_catalog::Catalog, from: &str, to: &str) -> PersonRenamePlan {
     let to_trim = to.trim();
     if to_trim.is_empty() {
         return PersonRenamePlan { faces: 0, needs_merge: false, block: Some("Type a name") };
@@ -70,7 +70,7 @@ pub(super) fn person_rename_plan(cat: &lightcraft_catalog::Catalog, from: &str, 
     let mut needs_merge = false;
     if !from_key.is_empty() {
         for photo in cat.photos().filter(|p| p.in_library()) {
-            for region in photo.meta.regions.iter().filter(|r| r.kind == lightcraft_meta::RegionKind::Face) {
+            for region in photo.meta.regions.iter().filter(|r| r.kind == evolight_meta::RegionKind::Face) {
                 let Some(name) = region.name.as_deref().map(str::trim).filter(|n| !n.is_empty()) else { continue };
                 let key = name.to_lowercase();
                 if key == from_key {

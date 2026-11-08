@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-# Evora — configuration de cargo-deny pour l'artefact web (crate apps/lightcraft-web, cible wasm32).
+# Evora — configuration de cargo-deny pour l'artefact web (crate apps/evolight-web, cible wasm32).
 # L'amont n'a pas de deny.toml : celui-ci est minimal et ne relâche aucun niveau par défaut de
 # cargo-deny ; toute exception y est nommée, avec sa raison. Lancé par .github/workflows/evora-web.yml :
-#   cargo deny --manifest-path apps/lightcraft-web/Cargo.toml --config .github/evora/deny.toml --locked check advisories licenses sources
+#   cargo deny --manifest-path apps/evolight-web/Cargo.toml --config .github/evora/deny.toml --locked check advisories licenses sources
 
 [graph]
 # Le graphe de ce qui est réellement livré : la crate web pour la cible du navigateur, sans les
@@ -18,9 +18,9 @@ exclude-dev = true
 # sont que parce que .github/evora/advisory-guards.mjs prouve, à chaque exécution et juste avant
 # cargo-deny, que le chemin vulnérable n'est pas emprunté.
 ignore = [
-    { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38.4 (lightcraft-meta, lightcraft-lensdb) : seuls attributes() avec contrôle des doublons et try_get_attribute sont touchés ; tout appel est .attributes().with_checks(false) (garde advisory-guards.mjs). Correctif : quick-xml >= 0.41 dans les crates moteur, hors périmètre de ce fork" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38.4 (evolight-meta, evolight-lensdb) : seuls attributes() avec contrôle des doublons et try_get_attribute sont touchés ; tout appel est .attributes().with_checks(false) (garde advisory-guards.mjs). Correctif : quick-xml >= 0.41 dans les crates moteur, hors périmètre de ce fork" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.38.4 : seul NsReader est touché, et il n'est employé nulle part (garde advisory-guards.mjs). Correctif : quick-xml >= 0.41, hors périmètre" },
-    { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 non maintenu, sans version sûre publiée ; atteint par lightcraft-engine -> ab_glyph 0.2.32 -> owned_ttf_parser pour le filigrane d'export, qui n'analyse que des polices embarquées et épinglées (Inter, craft-fonts). Avis de maintenance, pas de vulnérabilité ; à réévaluer à chaque montée" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser 0.25.1 non maintenu, sans version sûre publiée ; atteint par evolight-engine -> ab_glyph 0.2.32 -> owned_ttf_parser pour le filigrane d'export, qui n'analyse que des polices embarquées et épinglées (Inter, evo-fonts). Avis de maintenance, pas de vulnérabilité ; à réévaluer à chaque montée" },
 ]
 
 [licenses]
@@ -45,7 +45,7 @@ exceptions = [
 ]
 
 [sources]
-# Seuls crates.io et la dépendance git épinglée de l'amont (storytold/craft-libs, révision du Cargo.lock).
+# Seuls crates.io et la dépendance git épinglée de l'amont (vendor/evo-libs, révision du Cargo.lock).
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

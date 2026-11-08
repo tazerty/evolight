@@ -1,4 +1,4 @@
-// The per-pixel stage: a straight port of `lightcraft_pipeline::finish` (keep in step with it).
+// The per-pixel stage: a straight port of `evolight_pipeline::finish` (keep in step with it).
 // Bindings: img (rgb, pre-exposure), log_l, base, clar, tex, dark, masks (NMASK planes, then the
 // blurred chromaticity when HAS_CHROMA), aux
 // (tone LUT | chroma curve | sRGB LUT | curve LUTs | mask terms | light operator tables), out (packed RGBA8; a float render:
@@ -69,7 +69,7 @@ fn curve(ch: u32, x: f32) -> f32 {
     return v;
 }
 
-// Process V4's calibrated Contrast, Blacks (`lightcraft_pipeline::light_v3`): operator `k`'s
+// Process V4's calibrated Contrast, Blacks (`evolight_pipeline::light_v3`): operator `k`'s
 // table (linear output over encoded v) at v (`Operator::eval`).
 fn light_eval(k: u32, v: f32) -> f32 {
     let o = pu(F_LIGHT_OFF) + k * LIGHT_N;

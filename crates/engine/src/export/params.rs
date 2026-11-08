@@ -596,7 +596,7 @@ impl ExportOptions {
 
     /// Output file name for photo `p` at 1-based position `seq` in a batch (the original's
     /// extension is kept for [`ExportFormat::Original`]).
-    pub fn file_name_for(&self, p: &lightcraft_catalog::Photo, seq: usize) -> String {
+    pub fn file_name_for(&self, p: &evolight_catalog::Photo, seq: usize) -> String {
         let base = if self.naming.trim().is_empty() { "{name}" } else { self.naming.as_str() };
         let n = seq + self.start_number.max(1) as usize - 1;
         let name = crate::rename::expand_tokens(base, p, n, 3);

@@ -3,23 +3,23 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::{Op, Stack, StackId};
+use evolight_catalog::{Op, Stack, StackId};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
 
 #[test]
 fn filmstrip_shows_a_cjk_file_name() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     let first = session.visible_cloned()[0];
     let source = session.catalog.photo(first).expect("demo photo").source.clone();
     // the name from #266: cutting it at byte 13 lands inside '限'
     session.catalog.apply(Op::SetFile { id: first, file_name: "202407層三限定訂閱圖(4).jpg".into(), source }).unwrap();
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail"}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -66,10 +66,10 @@ fn filmstrip_stack_badge_expands_and_collapses_the_stack() {
 #[test]
 fn the_filmstrip_marks_the_active_photo_heavier_than_the_other_selected_one() {
     use egui::epaint::Shape;
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     let ids = session.visible_cloned();
     let (a, b, c) = (ids[0], ids[1], ids[2]);
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     h.app.ui.settings.appearance_mode = crate::state::AppearanceMode::Light;
     let r = h.request("ui.set", json!({"view": "detail"}), T);
@@ -82,7 +82,7 @@ fn the_filmstrip_marks_the_active_photo_heavier_than_the_other_selected_one() {
     let active = h.app.session.selection.active.expect("active");
     let other = if active == a { b } else { a };
     let shapes = h.view.painted_shapes();
-    let strokes = |id: lightcraft_catalog::PhotoId| -> Vec<(f32, egui::Color32)> {
+    let strokes = |id: evolight_catalog::PhotoId| -> Vec<(f32, egui::Color32)> {
         let cell = h.app.widgets.iter().find(|(w, _)| *w == format!("film:{}", id.0)).map(|(_, r)| *r).expect("cell drawn");
         shapes
             .iter()

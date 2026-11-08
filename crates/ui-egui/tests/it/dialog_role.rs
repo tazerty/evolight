@@ -3,20 +3,20 @@
 use egui::accesskit::Role;
 use egui::vec2;
 use egui_kittest::{Harness, kittest::NodeT};
-use lightcraft_ui_egui::{LightcraftApp, Services};
+use evolight_ui_egui::{EvoLightApp, Services};
 
-fn harness() -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn harness() -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.headless_host = true;
     let mut builder = Harness::builder().with_size(vec2(1500.0, 950.0));
     // Settings lists each language by its own name, and some scripts (Georgian, the CJK
-    // languages) have glyphs only in the craft-fonts faces (releases always have them): without
+    // languages) have glyphs only in the evo-fonts faces (releases always have them): without
     // them the names are drawn as boxes, which this check of roles and titles doesn't need
-    if lightcraft_engine::CRAFT_FONTS.is_empty() {
+    if evolight_engine::EVO_FONTS.is_empty() {
         builder = builder.allow_missing_glyphs();
     }
     let mut h = builder.build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -27,7 +27,7 @@ fn harness() -> Harness<'static, LightcraftApp> {
 }
 
 /// `(role, title, modal)` of every window-like node in the tree.
-fn windows(h: &Harness<'_, LightcraftApp>) -> Vec<(Role, String, bool)> {
+fn windows(h: &Harness<'_, EvoLightApp>) -> Vec<(Role, String, bool)> {
     h.root()
         .children_recursive()
         .map(|n| n.accesskit_node())
@@ -65,7 +65,7 @@ fn settings_is_a_dialog_too() {
 #[test]
 fn the_quit_prompt_and_a_settings_notice_are_modal_alert_dialogs() {
     let mut h = harness();
-    h.state_mut().quit_prompt = Some(lightcraft_ui_egui::QuitPrompt::Tasks("1 task is still running: Import. Quitting stops it.".into()));
+    h.state_mut().quit_prompt = Some(evolight_ui_egui::QuitPrompt::Tasks("1 task is still running: Import. Quitting stops it.".into()));
     h.run_steps(6);
     let found = windows(&h);
     assert!(!found.is_empty(), "the quit prompt is in the tree");
@@ -85,7 +85,7 @@ fn the_quit_prompt_and_a_settings_notice_are_modal_alert_dialogs() {
 #[test]
 fn a_library_that_could_not_be_opened_is_a_modal_alert_dialog() {
     let mut h = harness();
-    h.state_mut().library_problem = Some(lightcraft_ui_egui::panels::library_problem::LibraryProblem::new("/no/such/library", "No catalog here."));
+    h.state_mut().library_problem = Some(evolight_ui_egui::panels::library_problem::LibraryProblem::new("/no/such/library", "No catalog here."));
     h.run_steps(6);
     let found = windows(&h);
     assert!(!found.is_empty(), "the library problem is in the tree");
@@ -95,7 +95,7 @@ fn a_library_that_could_not_be_opened_is_a_modal_alert_dialog() {
 }
 
 /// The description of every alert dialog in the tree.
-fn alert_descriptions(h: &Harness<'_, LightcraftApp>) -> Vec<String> {
+fn alert_descriptions(h: &Harness<'_, EvoLightApp>) -> Vec<String> {
     h.root()
         .children_recursive()
         .map(|n| n.accesskit_node())
@@ -107,12 +107,12 @@ fn alert_descriptions(h: &Harness<'_, LightcraftApp>) -> Vec<String> {
 #[test]
 fn an_alert_carries_what_it_says_as_its_description() {
     let mut h = harness();
-    h.state_mut().quit_prompt = Some(lightcraft_ui_egui::QuitPrompt::Tasks("1 task is still running: Import. Quitting stops it.".into()));
+    h.state_mut().quit_prompt = Some(evolight_ui_egui::QuitPrompt::Tasks("1 task is still running: Import. Quitting stops it.".into()));
     h.run_steps(6);
     let said = alert_descriptions(&h);
     assert!(said.iter().any(|d| d.contains("1 task is still running: Import")), "the quit prompt names the task: {said:?}");
     let mut h = harness();
-    h.state_mut().library_problem = Some(lightcraft_ui_egui::panels::library_problem::LibraryProblem::new("/no/such/library", "No catalog here."));
+    h.state_mut().library_problem = Some(evolight_ui_egui::panels::library_problem::LibraryProblem::new("/no/such/library", "No catalog here."));
     h.run_steps(6);
     let said = alert_descriptions(&h);
     assert!(

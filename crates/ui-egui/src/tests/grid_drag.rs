@@ -5,18 +5,18 @@
 use std::time::Duration;
 
 use egui::{Pos2, Rect};
-use lightcraft_catalog::AlbumId;
+use evolight_catalog::AlbumId;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 /// The demo library in the grid, the Albums section on the left.
 fn app() -> Headless {
-    let session = lightcraft_engine::Session::with_demo();
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1000.0], 1.0);
+    let session = evolight_engine::Session::with_demo();
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1000.0], 1.0);
     let r = h.request("ui.set", json!({"view": "photoGrid", "leftPanel": true, "sidebar": ["albums"]}), T);
     assert_eq!(r["ok"], true, "{r}");
     for _ in 0..6 {
@@ -120,7 +120,7 @@ fn a_right_button_release_over_a_keyword_row_does_not_tag_the_dragged_photos() {
     }
     let [a, ..] = three(&mut h);
     select(&mut h, &[a]);
-    let before = h.app.session.catalog.photo(lightcraft_catalog::PhotoId(a)).unwrap().meta.keywords.clone();
+    let before = h.app.session.catalog.photo(evolight_catalog::PhotoId(a)).unwrap().meta.keywords.clone();
     let row = widget(&h, "keywordRow:mountains").center();
     let from = widget(&h, &format!("thumb:{a}")).center();
     button(&mut h, from, egui::PointerButton::Primary, true);
@@ -129,6 +129,6 @@ fn a_right_button_release_over_a_keyword_row_does_not_tag_the_dragged_photos() {
     button(&mut h, row, egui::PointerButton::Secondary, true);
     button(&mut h, row, egui::PointerButton::Secondary, false);
     h.step();
-    assert_eq!(h.app.session.catalog.photo(lightcraft_catalog::PhotoId(a)).unwrap().meta.keywords, before, "a right-button release is not a drop");
+    assert_eq!(h.app.session.catalog.photo(evolight_catalog::PhotoId(a)).unwrap().meta.keywords, before, "a right-button release is not a drop");
     assert!(h.app.ui.dragging_photos.is_some(), "and the drag goes on");
 }

@@ -1,7 +1,7 @@
 //! AI masks: Object (clicks) and Describe (text) selections computed with SAM 3
-//! (`lightcraft-segment`, cargo feature `sam`; the desktop app enables it).
+//! (`evolight-segment`, cargo feature `sam`; the desktop app enables it).
 //!
-//! **Nothing requires the model.** It is not part of LightCraft (SAM License); the user
+//! **Nothing requires the model.** It is not part of EvoLight (SAM License); the user
 //! downloads it when they first use an AI mask and agree to (`segment.model.download`), or
 //! puts the files in the model folder themselves. Without it, AI mask requests fail with a
 //! clear "not installed" error; renders, exports and every other feature never touch it
@@ -22,9 +22,9 @@ mod worker;
 
 use std::path::PathBuf;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{MaskShape, SegMask};
-use lightcraft_geom::Point;
+use evolight_catalog::PhotoId;
+use evolight_develop::{MaskShape, SegMask};
+use evolight_geom::Point;
 
 use crate::Session;
 
@@ -32,7 +32,7 @@ use crate::Session;
 pub const INPUT_EDGE: usize = 1008;
 /// Download size of the model (`model.safetensors`; the tokenizer files add ~2 MB).
 pub const MODEL_BYTES: u64 = 3_439_938_512;
-/// The model's licence (not LightCraft's): shown before downloading.
+/// The model's licence (not EvoLight's): shown before downloading.
 pub const LICENSE_NAME: &str = "SAM License (Meta)";
 pub const LICENSE_URL: &str = "https://github.com/facebookresearch/sam3/blob/main/LICENSE";
 /// How errors about a missing model start (frontends decide on [`crate::ErrorKind::ModelMissing`], not on this text).
@@ -162,7 +162,7 @@ impl Segmenter {
 
     pub fn remote_endpoint(&self) -> Option<String> {
         #[cfg(feature = "sam")]
-        return lightcraft_segment::remote::configured();
+        return evolight_segment::remote::configured();
         #[cfg(not(feature = "sam"))]
         None
     }
@@ -171,7 +171,7 @@ impl Segmenter {
     pub fn installed(&self) -> bool {
         #[cfg(feature = "sam")]
         if let Some(dir) = &self.dir {
-            return lightcraft_segment::is_model_dir(dir);
+            return evolight_segment::is_model_dir(dir);
         }
         false
     }
@@ -236,8 +236,8 @@ impl Segmenter {
     pub fn mirrors(&self) -> Vec<String> {
         #[cfg(feature = "sam")]
         {
-            let env = std::env::var(lightcraft_segment::fetch::MIRRORS_ENV).ok();
-            lightcraft_segment::fetch::mirrors(env.as_deref(), self.mirrors_file.as_deref())
+            let env = std::env::var(evolight_segment::fetch::MIRRORS_ENV).ok();
+            evolight_segment::fetch::mirrors(env.as_deref(), self.mirrors_file.as_deref())
         }
         #[cfg(not(feature = "sam"))]
         Vec::new()
@@ -256,7 +256,7 @@ impl Segmenter {
             return Err(other("AI masks are not available in this build"));
         }
         #[cfg(feature = "sam")]
-        if lightcraft_segment::remote::configured().is_some() {
+        if evolight_segment::remote::configured().is_some() {
             return Ok(PathBuf::new());
         }
         let dir = self.dir.clone().ok_or_else(|| other("no folder is set for the SAM 3 model"))?;
@@ -269,7 +269,7 @@ impl Segmenter {
             format!("{NOT_INSTALLED} yet: it is downloading ({pct} %).")
         } else {
             format!(
-                "{NOT_INSTALLED}. Download it (about {:.1} GB, {LICENSE_NAME}) when LightCraft offers it, with `segment.model.download {{\"acknowledged\": true}}`, or put model.safetensors, vocab.json and merges.txt in {}.",
+                "{NOT_INSTALLED}. Download it (about {:.1} GB, {LICENSE_NAME}) when EvoLight offers it, with `segment.model.download {{\"acknowledged\": true}}`, or put model.safetensors, vocab.json and merges.txt in {}.",
                 MODEL_BYTES as f64 / 1e9,
                 dir.display()
             )
@@ -291,9 +291,9 @@ impl Segmenter {
         {
             let mirrors = self.mirrors();
             if mirrors.is_empty() {
-                return Err(lightcraft_segment::fetch::no_mirrors_message());
+                return Err(evolight_segment::fetch::no_mirrors_message());
             }
-            self.download.start(lightcraft_segment::fetch::SAM3_FILES, mirrors, dir, lightcraft_segment::fetch::options(), activity, "SAM 3")
+            self.download.start(evolight_segment::fetch::SAM3_FILES, mirrors, dir, evolight_segment::fetch::options(), activity, "SAM 3")
         }
         #[cfg(not(feature = "sam"))]
         {
@@ -381,7 +381,7 @@ impl Session {
     /// (clicks, stored selections) live on the photo before those (`Mask::on_photo`), so a
     /// selection stays on its content when they change, and changing them doesn't ask again.
     #[cfg_attr(not(feature = "sam"), allow(dead_code))]
-    pub(crate) fn segment_key(&self, id: PhotoId) -> Option<(u64, lightcraft_develop::DevelopSettings)> {
+    pub(crate) fn segment_key(&self, id: PhotoId) -> Option<(u64, evolight_develop::DevelopSettings)> {
         let p = self.catalog.photo(id)?;
         let mut d = (*p.develop).clone();
         d.masks.clear();
@@ -404,8 +404,8 @@ impl Session {
 
     /// Clicks (in normalized photo coordinates) for the model.
     #[cfg(feature = "sam")]
-    fn model_clicks(clicks: &[Click]) -> Vec<lightcraft_segment::Click> {
-        clicks.iter().map(|c| lightcraft_segment::Click { x: c.at.x as f32, y: c.at.y as f32, positive: c.include }).collect()
+    fn model_clicks(clicks: &[Click]) -> Vec<evolight_segment::Click> {
+        clicks.iter().map(|c| evolight_segment::Click { x: c.at.x as f32, y: c.at.y as f32, positive: c.include }).collect()
     }
 
     /// A worker request about photo `id` (the render job for its model input goes along; the
@@ -425,20 +425,20 @@ impl Session {
         if let Some(cur) = self.develop_of(id).filter(|d| d.masks.iter().any(|m| !m.on_photo)) {
             let mut on = (*cur).clone();
             self.attach_masks(id, &cur, &mut on);
-            self.apply_silent(lightcraft_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(on), label: "Masks".into(), edited: None })
+            self.apply_silent(evolight_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(on), label: "Masks".into(), edited: None })
                 .map_err(|e| e.to_string())?;
         }
         let (key, mut d) = self.segment_key(id).ok_or("no such photo")?;
         let p = self.catalog.photo(id).ok_or("no such photo")?.clone();
         let missing = match &p.source {
-            lightcraft_catalog::Source::File { path } if !std::path::Path::new(path).exists() => Some(path.clone()),
+            evolight_catalog::Source::File { path } if !std::path::Path::new(path).exists() => Some(path.clone()),
             _ => None,
         };
         let render = match region {
             None => self.preview_job(id, INPUT_EDGE, INPUT_EDGE, false, &d).ok_or("no such photo")?,
             Some(region) => {
                 d.crop.geometry =
-                    lightcraft_geom::CropGeometry { rect: lightcraft_geom::Rect::new(region[0], region[1], region[2], region[3]), angle: 0.0 };
+                    evolight_geom::CropGeometry { rect: evolight_geom::Rect::new(region[0], region[1], region[2], region[3]), angle: 0.0 };
                 d.crop.flip_h = false;
                 d.crop.flip_v = false;
                 d.geometry.constrain_crop = false;

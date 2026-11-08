@@ -11,7 +11,7 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex, PoisonError};
 
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde_json::{Value, json};
 
 use super::bad;
@@ -102,7 +102,7 @@ fn signature_of(content: &Content, cancel: &AtomicBool) -> Option<[f32; 64]> {
             return None;
         }
         crate::guard::catch("Find Similar", || {
-            crate::memory::in_background(|| source.load_source()).ok().map(|decoded| lightcraft_pipeline::cull::signature(&decoded.image))
+            crate::memory::in_background(|| source.load_source()).ok().map(|decoded| evolight_pipeline::cull::signature(&decoded.image))
         })
         .ok()
         .flatten()
@@ -166,7 +166,7 @@ pub fn apply(s: &mut Session, search: &Search) -> Result<Value> {
     let mut hits: Vec<(PhotoId, f32)> = Vec::new();
     for q in s.catalog.photos().filter(|q| q.in_library()) {
         if let Some(v) = s.signatures.get(&content_key(q)) {
-            let sim = lightcraft_pipeline::cull::similarity(&me, v);
+            let sim = evolight_pipeline::cull::similarity(&me, v);
             if sim >= search.min {
                 hits.push((q.id, sim.clamp(0.0, 1.0)));
             }
@@ -196,8 +196,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use lightcraft_catalog::{Op, Photo, Source};
-    use lightcraft_raster::Rgb32f;
+    use evolight_catalog::{Op, Photo, Source};
+    use evolight_raster::Rgb32f;
 
     use super::*;
 

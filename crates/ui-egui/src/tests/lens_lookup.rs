@@ -1,7 +1,7 @@
 //! Enable Lens Corrections looks up again only the photos it switched on (and selected photos that already had
 //! corrections on): with Auto Sync off the other selected photos are left alone.
 
-use lightcraft_engine::Session;
+use evolight_engine::Session;
 use serde_json::json;
 
 #[test]
@@ -31,10 +31,10 @@ fn ticking_lens_corrections_looks_up_only_the_photos_it_changed() {
 /// used the old one); the next frame looks the photos up again.
 #[test]
 fn a_database_reloaded_during_a_lookup_makes_its_results_stale() {
-    let app = crate::LightcraftApp::new(Session::with_demo(), crate::Services { png: None, ..Default::default() });
+    let app = crate::EvoLightApp::new(Session::with_demo(), crate::Services { png: None, ..Default::default() });
     let key = crate::lens_db::lookup_key(&app);
     assert_eq!(crate::lens_db::lookup_key(&app), key);
-    lightcraft_engine::lens_profiles::reload();
+    evolight_engine::lens_profiles::reload();
     assert_ne!(crate::lens_db::lookup_key(&app), key);
 }
 

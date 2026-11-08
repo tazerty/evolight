@@ -5,22 +5,22 @@
 //! LICENSE-brand.txt). Only the source repository, its documentation and its issue tracker remain.
 
 /// The app's id in its repository URL.
-pub const APP: &str = "lightcraft";
+pub const APP: &str = "evolight";
 /// This app's source repository.
-pub const GITHUB: &str = "https://github.com/storytold/lightcraft";
+pub const GITHUB: &str = "https://github.com/tazerty/evolight";
 
 /// (UI command id, menu label, URL) for each link, in Help-menu order.
 /// The user documentation (docs/ in the repository).
-pub const HELP: &str = "https://github.com/storytold/lightcraft/tree/main/docs";
+pub const HELP: &str = "https://github.com/tazerty/evolight/tree/main/docs";
 
 pub const LINKS: &[(&str, &str, &str)] = &[
-    ("app.help", "LightCraft Help", HELP),
-    ("app.github", "LightCraft on GitHub", GITHUB),
+    ("app.help", "EvoLight Help", HELP),
+    ("app.github", "EvoLight on GitHub", GITHUB),
     ("app.feedback", "Send Feedback…", FEEDBACK),
 ];
 
 /// Where feedback and bug reports go.
-pub const FEEDBACK: &str = "https://github.com/storytold/lightcraft/issues/new";
+pub const FEEDBACK: &str = "https://github.com/tazerty/evolight/issues/new";
 
 /// The URL behind a link command id.
 pub fn url_of(cmd: &str) -> Option<&'static str> {
@@ -28,7 +28,7 @@ pub fn url_of(cmd: &str) -> Option<&'static str> {
 }
 
 /// Open `url` in the user's browser (through the host's `open_url` service).
-pub fn open(app: &mut crate::LightcraftApp, url: &str) -> Result<serde_json::Value, String> {
+pub fn open(app: &mut crate::EvoLightApp, url: &str) -> Result<serde_json::Value, String> {
     let open = app.services.open_url.as_mut().ok_or("can't open links here")?;
     open(url)?;
     Ok(serde_json::json!({ "url": url }))
@@ -49,7 +49,7 @@ mod tests {
         // Evora (E1): no brand link survives in a modified build.
         for (id, label, url) in LINKS {
             let all = format!("{id} {label} {url}").to_lowercase();
-            assert!(!all.contains("artcraft") && !all.contains("discord"), "{id}");
+            assert!(!all.contains("upstream") && !all.contains("discord"), "{id}");
         }
     }
 }

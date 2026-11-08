@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use lightcraft_catalog::fault::{self, Step};
-use lightcraft_catalog::{Flag, PhotoId};
+use evolight_catalog::fault::{self, Step};
+use evolight_catalog::{Flag, PhotoId};
 use serde_json::json;
 
 use crate::Session;
@@ -124,12 +124,12 @@ fn every_change_made_during_a_slow_save_is_on_disk() {
                 // a copy of the files taken now (the next crash) holds everything
                 let copy = temp_dir("kept-copy");
                 std::fs::create_dir_all(&copy).unwrap();
-                for f in [lightcraft_catalog::journal::SNAPSHOT, lightcraft_catalog::journal::LOG] {
+                for f in [evolight_catalog::journal::SNAPSHOT, evolight_catalog::journal::LOG] {
                     if dir.join(f).exists() {
                         std::fs::copy(dir.join(f), copy.join(f)).unwrap();
                     }
                 }
-                let (_, c, _) = lightcraft_catalog::Journal::open(Box::new(lightcraft_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
+                let (_, c, _) = evolight_catalog::Journal::open(Box::new(evolight_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
                 assert_eq!(c.to_snapshot(), expect, "{how}");
                 let _ = std::fs::remove_dir_all(&copy);
             }
@@ -196,12 +196,12 @@ fn a_failed_write_is_reported_and_retried_never_dropped() {
     s.library.as_mut().unwrap().journal_mut().flush().unwrap();
     let copy = temp_dir("fail-copy");
     std::fs::create_dir_all(&copy).unwrap();
-    for f in [lightcraft_catalog::journal::SNAPSHOT, lightcraft_catalog::journal::LOG] {
+    for f in [evolight_catalog::journal::SNAPSHOT, evolight_catalog::journal::LOG] {
         if dir.join(f).exists() {
             std::fs::copy(dir.join(f), copy.join(f)).unwrap();
         }
     }
-    let (_, c, report) = lightcraft_catalog::Journal::open(Box::new(lightcraft_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
+    let (_, c, report) = evolight_catalog::Journal::open(Box::new(evolight_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
     assert!(report.damaged.is_none(), "{report:?}");
     assert_eq!(c.to_snapshot(), expect);
     let _ = std::fs::remove_dir_all(&copy);

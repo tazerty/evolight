@@ -88,7 +88,7 @@ fn warp_f64_results_are_bit_identical_to_the_pre_generic_formulas() {
     let mut r = Rng(42);
     for _ in 0..2000 {
         let wp = random_warp(&mut r);
-        let a = lightcraft_geom::Affine([
+        let a = evolight_geom::Affine([
             r.range(-2.0, 2.0),
             r.range(-2.0, 2.0),
             r.range(-2.0, 2.0),
@@ -129,7 +129,7 @@ fn interval_framing_encloses_every_f64_result() {
     let (mut decided, mut total) = (0, 0);
     for _ in 0..500 {
         let wp = random_warp(&mut r);
-        let a = lightcraft_geom::Affine([
+        let a = evolight_geom::Affine([
             r.range(0.5, 2.0),
             r.range(-0.2, 0.2),
             r.range(-0.2, 0.2),
@@ -389,7 +389,7 @@ fn warp_rectilinear2_interval_framing_encloses_every_f64_result() {
             stages.push(st);
         }
         let wp = chain(&stages);
-        let a = lightcraft_geom::Affine([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let a = evolight_geom::Affine([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
         for _ in 0..20 {
             let (x0, y0) = (r.range(0.0, 1.0) * wp.w, r.range(0.0, 1.0) * wp.h);
             let (bw, bh) = (r.range(0.0, 20.0), r.range(0.0, 20.0));

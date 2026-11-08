@@ -1,4 +1,4 @@
-//! The built-in denoiser's block-matching filter ([`lightcraft_denoise::bm3d`], which is the reference) on the GPU:
+//! The built-in denoiser's block-matching filter ([`evolight_denoise::bm3d`], which is the reference) on the GPU:
 //! three WGSL kernels (`wgsl/bm3d_*.wgsl`) that group alike blocks, filter each group's blocks together and put them
 //! back, run twice (a hard threshold, then a Wiener filter built from its result) in one command buffer per tile.
 //!
@@ -11,10 +11,10 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use bytemuck::{Pod, Zeroable};
-use lightcraft_denoise::bm3d::{self, Params};
-use lightcraft_denoise::builtin::Builtin;
-use lightcraft_denoise::nlm::hadamard;
-use lightcraft_denoise::run::{Error, TileRunner};
+use evolight_denoise::bm3d::{self, Params};
+use evolight_denoise::builtin::Builtin;
+use evolight_denoise::nlm::hadamard;
+use evolight_denoise::run::{Error, TileRunner};
 use wgpu::util::DeviceExt;
 
 use crate::nn::{CLOSING, Dev, TIMEOUT, dev, entry, mark_broken, pipeline, storage};
@@ -493,7 +493,7 @@ mod tests {
         match Bm3dGpu::new(p, t) {
             Ok(g) => Some(g),
             Err(e) => {
-                lightcraft_testkit::skip!(Gpu, "no GPU runner here ({e})");
+                evolight_testkit::skip!(Gpu, "no GPU runner here ({e})");
                 None
             }
         }

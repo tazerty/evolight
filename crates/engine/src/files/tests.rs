@@ -1,23 +1,23 @@
 /// Keywords from a file keep their hierarchy: the paths of `lr:hierarchicalSubject`, not the
-/// flat names of `dc:subject` that LightCraft's exports (and Lightroom Classic) write besides
+/// flat names of `dc:subject` that EvoLight's exports (and Lightroom Classic) write besides
 /// them; an exported `travel|Italy|Rome` comes back as itself.
 #[test]
 fn a_lens_without_a_name_is_shown_by_its_range() {
     // a Nikon DSLR raw: no LensModel, the range from the maker note
-    let m = lightcraft_meta::Metadata { lens_spec: Some([18.0, 135.0, 3.5, 5.6]), ..Default::default() };
+    let m = evolight_meta::Metadata { lens_spec: Some([18.0, 135.0, 3.5, 5.6]), ..Default::default() };
     assert_eq!(super::meta_of(&m).0.lens, "18.0-135.0 mm f/3.5-5.6");
-    let named = lightcraft_meta::Metadata {
+    let named = evolight_meta::Metadata {
         lens_model: Some("NIKKOR Z 24-70mm f/4 S".into()),
         lens_spec: Some([24.0, 70.0, 4.0, 4.0]),
         ..Default::default()
     };
     assert_eq!(super::meta_of(&named).0.lens, "NIKKOR Z 24-70mm f/4 S");
-    assert_eq!(super::meta_of(&lightcraft_meta::Metadata::default()).0.lens, "");
+    assert_eq!(super::meta_of(&evolight_meta::Metadata::default()).0.lens, "");
 }
 
 #[test]
 fn imported_keywords_keep_their_hierarchy() {
-    let m = lightcraft_meta::Metadata {
+    let m = evolight_meta::Metadata {
         keywords: vec!["Rome".into(), "Italy".into(), "travel".into(), "beach".into()],
         hierarchical_keywords: vec!["travel|Italy|Rome".into()],
         ..Default::default()
@@ -27,10 +27,10 @@ fn imported_keywords_keep_their_hierarchy() {
 
 #[test]
 fn psd_probe_reads_embedded_capture_time_gps_and_title() {
-    let capture = lightcraft_meta::DateTime::parse_iso("2023-05-14T14:40:39").unwrap();
-    let metadata = lightcraft_meta::Metadata {
+    let capture = evolight_meta::DateTime::parse_iso("2023-05-14T14:40:39").unwrap();
+    let metadata = evolight_meta::Metadata {
         capture_time: Some(capture),
-        gps: Some(lightcraft_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }),
+        gps: Some(evolight_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }),
         title: Some("PSD metadata".into()),
         ..Default::default()
     };
@@ -42,27 +42,27 @@ fn psd_probe_reads_embedded_capture_time_gps_and_title() {
 }
 
 use super::*;
-use lightcraft_codecs::{ChromaSubsampling, EncodeImage, EncodeMeta, Samples, encode_jpeg};
+use evolight_codecs::{ChromaSubsampling, EncodeImage, EncodeMeta, Samples, encode_jpeg};
 
 #[test]
 fn crw_probes_name_their_camera_from_the_ciff_records() {
     // no Exif in a CRW: the camera and capture time come from the decoder's records, and the catalog's camera
     // string decides the white-balance scale (the D60 has chart-measured matrices, the 10D none)
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
     for (name, camera, kelvin) in [("crw-canon-eos-d60.crw", "Canon Canon EOS D60", true), ("crw-canon-eos-10d-a.crw", "Canon Canon EOS 10D", false)]
     {
         let Ok(bytes) = std::fs::read(dir.join(name)) else {
-            lightcraft_testkit::skip!(Corpus, "{name} absent");
+            evolight_testkit::skip!(Corpus, "{name} absent");
             continue;
         };
-        assert!(lightcraft_meta::extract(&bytes).model.is_none(), "{name}: no Exif to read");
+        assert!(evolight_meta::extract(&bytes).model.is_none(), "{name}: no Exif to read");
         let info = probe_bytes(name, &bytes).unwrap();
         assert_eq!(info.meta.camera, camera, "{name}");
         assert!(info.captured.is_some(), "{name}");
-        assert_eq!(lightcraft_catalog::relative_wb_camera(&info.format, &info.meta.camera), !kelvin, "{name}");
+        assert_eq!(evolight_catalog::relative_wb_camera(&info.format, &info.meta.camera), !kelvin, "{name}");
         let (t, _) = info.as_shot_wb.unwrap();
         assert_eq!(t != 6500.0, kelvin, "{name}: {t}");
     }
@@ -74,16 +74,16 @@ fn crw_probes_name_their_camera_from_the_ciff_records() {
 /// format and camera string agrees.
 #[test]
 fn white_balance_scale_follows_the_files_matrices_then_the_cameras() {
-    use lightcraft_raw::{ColorData, RawFormat};
-    let meta = |make: &str, model: &str| lightcraft_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
+    use evolight_raw::{ColorData, RawFormat};
+    let meta = |make: &str, model: &str| evolight_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
     let mul = Some([2.2f32, 1.0, 1.6]);
-    let d65 = lightcraft_color::D65;
+    let d65 = evolight_color::D65;
     // a covered camera: Kelvin through the spectral matrices, near the daylight these multipliers describe
     let a7m3 = WbScaleOf::new(RawFormat::Arw, &ColorData::default(), mul, &meta("SONY", "ILCE-7M3"));
     assert!(!a7m3.own_matrix && !a7m3.relative && a7m3.legacy_relative && a7m3.scale_white.is_some());
     let (t, tint) = a7m3.as_shot(d65);
     assert!((3500.0..7000.0).contains(&t) && t != 6500.0 && tint.abs() < 30.0 && t.fract() == 0.0 && tint.fract() == 0.0, "{t} {tint}");
-    assert!(!lightcraft_catalog::relative_wb_camera("ARW", "SONY ILCE-7M3"));
+    assert!(!evolight_catalog::relative_wb_camera("ARW", "SONY ILCE-7M3"));
     // the same camera without multipliers: the scale is Kelvin still, the white falls back to the tags' (D65)
     let bare = WbScaleOf::new(RawFormat::Arw, &ColorData::default(), None, &meta("SONY", "ILCE-7M3"));
     assert!(bare.legacy_relative && bare.scale_white.is_none());
@@ -95,11 +95,11 @@ fn white_balance_scale_follows_the_files_matrices_then_the_cameras() {
     let a7m2 = WbScaleOf::new(RawFormat::Arw, &ColorData::default(), mul, &meta("SONY", "ILCE-7M2"));
     assert!(a7m2.relative && !a7m2.legacy_relative && a7m2.scale_white.is_none());
     assert_eq!(a7m2.as_shot(d65), (6500.0, 0.0));
-    assert!(lightcraft_catalog::relative_wb_camera("ARW", "SONY ILCE-7M2"));
+    assert!(evolight_catalog::relative_wb_camera("ARW", "SONY ILCE-7M2"));
     // a camera without matrices whose presets give the scale: Kelvin through them, Sony's daylight preset as
     // 5500 K or so; without presets in the file the scale is Kelvin still, the white the tags' (D65)
     let g = |r: f32, b: f32| [r / 1024.0, 1.0, b / 1024.0];
-    let presets = lightcraft_raw::kelvin_presets::KelvinPresets::new([
+    let presets = evolight_raw::kelvin_presets::KelvinPresets::new([
         (2500.0, g(1336.0, 3672.0)),
         (3200.0, g(1720.0, 2620.0)),
         (4500.0, g(2256.0, 1880.0)),
@@ -111,10 +111,10 @@ fn white_balance_scale_follows_the_files_matrices_then_the_cameras() {
     assert!(!a99m2.own_matrix && !a99m2.relative && a99m2.legacy_relative && a99m2.scale_white.is_some());
     let (t, tint) = a99m2.as_shot(d65);
     assert!((5000.0..6000.0).contains(&t) && tint.abs() < 10.0 && t.fract() == 0.0, "{t} {tint}");
-    assert!(!lightcraft_catalog::relative_wb_camera("ARW", "SONY ILCA-99M2"));
+    assert!(!evolight_catalog::relative_wb_camera("ARW", "SONY ILCA-99M2"));
     // a Canon body without matrices, through the presets its ColorData lists (PowerShot G1 X Mark III, a
     // Daylight shot with the camera's white balance shifted towards blue: below Daylight's 5651 K)
-    let canon = lightcraft_raw::kelvin_presets::KelvinPresets::from_unordered([
+    let canon = evolight_raw::kelvin_presets::KelvinPresets::from_unordered([
         (5651.0, g(1418.0, 1357.0)),
         (7505.0, g(1653.0, 1171.0)),
         (6594.0, g(1533.0, 1259.0)),
@@ -126,50 +126,50 @@ fn white_balance_scale_follows_the_files_matrices_then_the_cameras() {
     assert!(!g1x3.relative && g1x3.scale_white.is_some());
     let (t, tint) = g1x3.as_shot(d65);
     assert!((4300.0..5200.0).contains(&t) && tint.abs() < 10.0, "{t} {tint}");
-    assert!(!lightcraft_catalog::relative_wb_camera("CR2", "Canon Canon PowerShot G1 X Mark III"));
+    assert!(!evolight_catalog::relative_wb_camera("CR2", "Canon Canon PowerShot G1 X Mark III"));
     let bare = WbScaleOf::new(RawFormat::Arw, &ColorData::default(), mul, &meta("SONY", "ILCA-99M2"));
     assert!(bare.legacy_relative && bare.scale_white.is_none());
     // presets in a file of a camera not listed: relative, as the catalog decides from the camera alone
     let other = WbScaleOf::new(RawFormat::Arw, &with, mul, &meta("SONY", "ILCE-1"));
     assert!(other.relative && other.scale_white.is_none());
-    let unknown = WbScaleOf::new(RawFormat::Nef, &ColorData::default(), mul, &lightcraft_meta::Metadata::default());
+    let unknown = WbScaleOf::new(RawFormat::Nef, &ColorData::default(), mul, &evolight_meta::Metadata::default());
     assert!(unknown.relative && unknown.as_shot(d65) == (6500.0, 0.0));
     // CRW: no matrices in the file. The EOS D60 has chart-measured matrices: Kelvin through them, its multipliers
     // for the sun its D50 matrix was measured under reading as D50; another body stays relative, so its
     // JPEG-fitted look applies
     let d60 = WbScaleOf::new(RawFormat::Crw, &ColorData::default(), Some([2.362, 1.0, 1.298]), &meta("Canon", "Canon EOS D60"));
     assert!(!d60.own_matrix && !d60.relative && d60.legacy_relative && d60.scale_white.is_some());
-    let ((t, tint), (t50, tint50)) = (d60.as_shot(d65), xy_to_temp_tint(lightcraft_color::D50));
+    let ((t, tint), (t50, tint50)) = (d60.as_shot(d65), xy_to_temp_tint(evolight_color::D50));
     assert!((t - t50).abs() < 50.0 && (tint - tint50).abs() < 2.0, "{t} {tint} vs D50 {t50} {tint50}");
-    assert!(!lightcraft_catalog::relative_wb_camera("CRW", "Canon Canon EOS D60"));
+    assert!(!evolight_catalog::relative_wb_camera("CRW", "Canon Canon EOS D60"));
     let crw = WbScaleOf::new(RawFormat::Crw, &ColorData::default(), mul, &meta("Canon", "Canon EOS 10D"));
     assert!(crw.relative && !crw.legacy_relative && crw.scale_white.is_none());
-    assert!(lightcraft_catalog::relative_wb_camera("CRW", "Canon Canon EOS 10D"));
+    assert!(evolight_catalog::relative_wb_camera("CRW", "Canon Canon EOS 10D"));
     // a file with matrices of its own (DNG): absolute from them, no matter whose camera
-    let own = ColorData { illuminant: [21, 0], color_matrix: [Some(lightcraft_color::Mat3::IDENTITY), None], ..Default::default() };
+    let own = ColorData { illuminant: [21, 0], color_matrix: [Some(evolight_color::Mat3::IDENTITY), None], ..Default::default() };
     let dng = WbScaleOf::new(RawFormat::Dng, &own, mul, &meta("SONY", "ILCE-7M3"));
     assert!(dng.own_matrix && !dng.relative && !dng.legacy_relative && dng.scale_white.is_none());
-    let xy = lightcraft_color::cct::temp_tint_to_xy(4200.0, 12.0);
+    let xy = evolight_color::cct::temp_tint_to_xy(4200.0, 12.0);
     assert_eq!(dng.as_shot(xy), (4200.0, 12.0));
-    assert!(!lightcraft_catalog::relative_wb_camera("DNG", "SONY ILCE-7M3"));
+    assert!(!evolight_catalog::relative_wb_camera("DNG", "SONY ILCE-7M3"));
 }
 
 /// A Fujifilm X-Trans III body reads Kelvin through the neutral pair its RAF stores (issue #730); without the pair
 /// in the file, or on a body with matrices (X-T3), nothing changes.
 #[test]
 fn a_fujifilm_x_trans_iii_raf_reads_kelvin_through_its_neutral_pair() {
-    use lightcraft_raw::{ColorData, RawFormat};
-    let meta = |make: &str, model: &str| lightcraft_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
+    use evolight_raw::{ColorData, RawFormat};
+    let meta = |make: &str, model: &str| evolight_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
     let a = [366.0f32 / 302.0, 1.0, 866.0 / 302.0];
     let d65 = [646.0f32 / 302.0, 1.0, 498.0 / 302.0];
-    let pair = lightcraft_raw::kelvin_presets::KelvinPresets::from_neutral_pair(a, d65);
+    let pair = evolight_raw::kelvin_presets::KelvinPresets::from_neutral_pair(a, d65);
     assert!(pair.is_some());
     let with = ColorData { kelvin_presets: pair, ..Default::default() };
     let xt20 = WbScaleOf::new(RawFormat::Raf, &with, Some(d65), &meta("FUJIFILM", "X-T20"));
     assert!(!xt20.relative && xt20.scale_white.is_some());
-    let (t, tint) = xt20.as_shot(lightcraft_color::cct::temp_tint_to_xy(6500.0, 0.0));
+    let (t, tint) = xt20.as_shot(evolight_color::cct::temp_tint_to_xy(6500.0, 0.0));
     assert!((6000.0..7000.0).contains(&t) && tint.abs() < 25.0, "{t} {tint}");
-    assert!(!lightcraft_catalog::relative_wb_camera("RAF", "FUJIFILM X-T20"));
+    assert!(!evolight_catalog::relative_wb_camera("RAF", "FUJIFILM X-T20"));
     let bare = WbScaleOf::new(RawFormat::Raf, &ColorData::default(), Some(d65), &meta("FUJIFILM", "X-T20"));
     assert!(bare.scale_white.is_none());
 }
@@ -180,10 +180,10 @@ fn a_fujifilm_x_trans_iii_raf_reads_kelvin_through_its_neutral_pair() {
 /// opened at 6113–7307 K / +115 where the ARWs show 3932–5268 K / +7.
 #[test]
 fn a_merged_dng_shows_the_white_balance_its_source_shows() {
-    use lightcraft_raw::{ColorData, RawFormat};
-    let meta = |make: &str, model: &str| lightcraft_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
+    use evolight_raw::{ColorData, RawFormat};
+    let meta = |make: &str, model: &str| evolight_meta::Metadata { make: Some(make.into()), model: Some(model.into()), ..Default::default() };
     let g = |r: f32, b: f32| [r / 1024.0, 1.0, b / 1024.0];
-    let presets = lightcraft_raw::kelvin_presets::KelvinPresets::new([
+    let presets = evolight_raw::kelvin_presets::KelvinPresets::new([
         (2500.0, g(1336.0, 3672.0)),
         (3200.0, g(1720.0, 2620.0)),
         (4500.0, g(2256.0, 1880.0)),
@@ -198,13 +198,13 @@ fn a_merged_dng_shows_the_white_balance_its_source_shows() {
         (RawFormat::Rw2, ColorData::default(), [2.0, 1.0, 1.4], meta("Panasonic", "DC-G9")),
     ];
     for (format, color, mul, meta) in cases {
-        let own = lightcraft_raw::color::as_shot_white_of(&color, Some(mul));
+        let own = evolight_raw::color::as_shot_white_of(&color, Some(mul));
         let source = WbScaleOf::new(format, &color, Some(mul), &meta);
-        let t = lightcraft_raw::color::camera_transform_of(&color, own);
+        let t = evolight_raw::color::camera_transform_of(&color, own);
         let dng = crate::camera_preview::dng_colour(&color, &source.dng_white(&color, own), &t, None).unwrap();
         let merged = WbScaleOf::new(RawFormat::Dng, &dng, None, &meta);
         let shown = source.as_shot(own);
-        assert_eq!(merged.as_shot(lightcraft_raw::color::as_shot_white_of(&dng, None)), shown, "{:?}", meta.model);
+        assert_eq!(merged.as_shot(evolight_raw::color::as_shot_white_of(&dng, None)), shown, "{:?}", meta.model);
     }
 }
 
@@ -238,7 +238,7 @@ fn preview_loading_reads_only_the_header_and_the_jpeg() {
     let max_edge = 512;
 
     let (header, window, read) = preview_window(&path, max_edge).expect("the file reads").expect("it has a preview");
-    assert_eq!(header.len(), lightcraft_raw::PREVIEW_PREFIX, "the header prefix is bounded");
+    assert_eq!(header.len(), evolight_raw::PREVIEW_PREFIX, "the header prefix is bounded");
     assert!(read.header_path, "the header path is what answered");
     assert!(!read.planned, "a RAF pointer in the header needs no planner");
     assert_eq!(read.total, file.len() as u64);
@@ -281,7 +281,7 @@ fn tiff_with_preview_strip(strip: &[u8], tail: usize, what: Fixture) -> Vec<u8> 
 /// [`tiff_with_preview_strip`] that also keeps the `smaller` JPEGs in sub-IFDs of IFD0, as an ARW keeps its
 /// 1616 px preview beside the full-size one.
 fn tiff_with_preview_strips(strip: &[u8], smaller: &[&[u8]], tail: usize, what: Fixture) -> Vec<u8> {
-    use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
+    use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
     let mut preview = IfdBuilder::new();
     if what.dng {
         preview.set(t::DNG_VERSION, Value::Byte(vec![1, 4, 0, 0]));
@@ -414,9 +414,9 @@ fn preview_loading_declines_an_orientation_only_the_whole_file_shows() {
     std::fs::write(&path, &file).unwrap();
     let path = path.to_string_lossy().into_owned();
 
-    assert_eq!(lightcraft_meta::extract(&file).orientation, Some(Orientation::from_exif(6)), "the fixture states an orientation");
-    assert!(lightcraft_meta::extract(&file[..PLAN_PREFIX as usize]).orientation.is_none(), "which the bounded header cannot see");
-    assert!(lightcraft_meta::extract(&jpeg).orientation.is_none(), "and the preview JPEG carries none of its own");
+    assert_eq!(evolight_meta::extract(&file).orientation, Some(Orientation::from_exif(6)), "the fixture states an orientation");
+    assert!(evolight_meta::extract(&file[..PLAN_PREFIX as usize]).orientation.is_none(), "which the bounded header cannot see");
+    assert!(evolight_meta::extract(&jpeg).orientation.is_none(), "and the preview JPEG carries none of its own");
     assert!(preview_window(&path, usize::MAX).expect("the file reads").is_none(), "the whole-file path keeps it");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -428,7 +428,7 @@ fn preview_loading_declines_an_orientation_only_the_whole_file_shows() {
 /// that declares sRGB (what most bodies write) keeps the fast path as before.
 #[test]
 fn preview_loading_applies_a_container_colour_space() {
-    use lightcraft_raw::PreviewColorSpace;
+    use evolight_raw::PreviewColorSpace;
     let (w, h) = (48u32, 32u32);
     let rgb: Vec<u8> = (0..w * h * 3).map(|i| (i * 23 % 233) as u8).collect();
     let img = EncodeImage::new(w, h, 3, Samples::U8(&rgb));
@@ -438,7 +438,7 @@ fn preview_loading_applies_a_container_colour_space() {
     let path = path.to_string_lossy().into_owned();
 
     let adobe = tiff_with_preview_strip(&jpeg, 400_000, Fixture { sony: true, color_space: Some(0xFFFF), ..Default::default() });
-    assert_eq!(lightcraft_raw::embedded_preview_color_space(&adobe), Some(PreviewColorSpace::AdobeRgb), "the fixture declares Adobe RGB");
+    assert_eq!(evolight_raw::embedded_preview_color_space(&adobe), Some(PreviewColorSpace::AdobeRgb), "the fixture declares Adobe RGB");
     std::fs::write(&path, &adobe).unwrap();
     let (header, window, read) = preview_window(&path, usize::MAX).expect("the file reads").expect("the plan answers for Adobe RGB too");
     assert!(read.planned && read.adobe_rgb, "{read:?}");
@@ -450,7 +450,7 @@ fn preview_loading_applies_a_container_colour_space() {
     assert_ne!(plain.data, whole.data, "and it changes the pixels (the fixture's colours are saturated enough)");
 
     let srgb = tiff_with_preview_strip(&jpeg, 400_000, Fixture { sony: true, color_space: Some(1), ..Default::default() });
-    assert_eq!(lightcraft_raw::embedded_preview_color_space(&srgb), Some(PreviewColorSpace::Srgb), "the fixture declares sRGB");
+    assert_eq!(evolight_raw::embedded_preview_color_space(&srgb), Some(PreviewColorSpace::Srgb), "the fixture declares sRGB");
     std::fs::write(&path, &srgb).unwrap();
     let (_, window, read) = preview_window(&path, usize::MAX).expect("the file reads").expect("sRGB is what the JPEG-only decode assumes");
     assert!(read.planned && !read.adobe_rgb, "the plan still answers");
@@ -461,7 +461,7 @@ fn preview_loading_applies_a_container_colour_space() {
 /// in Lightroom, instead of grouping under "Unknown Date"; a dated one keeps its capture time.
 #[test]
 fn undated_files_take_the_file_date() {
-    let dir = std::env::temp_dir().join(format!("lightcraft-undated-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-undated-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let rgb = vec![128u8; 16 * 16 * 3];
     let img = EncodeImage::new(16, 16, 3, Samples::U8(&rgb));
@@ -477,7 +477,7 @@ fn undated_files_take_the_file_date() {
     assert_eq!(info.file_modified.as_deref(), Some(want.as_str()));
     let mut s = crate::Session::new().with_fs();
     let r = crate::import::import(&mut s, &[path], crate::import::ImportMode::Add).unwrap();
-    let id = lightcraft_catalog::PhotoId(r.imported[0]);
+    let id = evolight_catalog::PhotoId(r.imported[0]);
     assert_eq!(s.catalog.photo(id).unwrap().captured.as_deref(), Some(want.as_str()));
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -486,7 +486,7 @@ fn undated_files_take_the_file_date() {
 /// its path, then the system's words (a missing file, a folder).
 #[test]
 fn a_probe_of_a_file_that_cannot_be_read_names_the_path_and_the_cause() {
-    let dir = std::env::temp_dir().join(format!("lightcraft-probe-errors-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-probe-errors-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let (_, probe) = fs_hooks();
     for path in [dir.join("no-such-file.jpg"), dir.clone()] {
@@ -506,14 +506,14 @@ fn image_probe_reads_headers_like_the_decode_did() {
     let rgb: Vec<u8> = (0..w * h * 3).map(|i| (i * 7 % 251) as u8).collect();
     let img = EncodeImage::new(w, h, 3, Samples::U8(&rgb));
     for o in [None, Some(1), Some(6), Some(3), Some(8)] {
-        let exif = o.map(lightcraft_codecs::exif::minimal_exif);
+        let exif = o.map(evolight_codecs::exif::minimal_exif);
         let meta = EncodeMeta { exif: exif.as_deref(), ..Default::default() };
         let jpeg = encode_jpeg(&img, 90, ChromaSubsampling::S420, &meta).unwrap();
-        let png = lightcraft_codecs::encode_png(&img, &meta).unwrap();
+        let png = evolight_codecs::encode_png(&img, &meta).unwrap();
         for (name, bytes) in [("a.jpg", &jpeg), ("a.png", &png)] {
             let p = probe_bytes(name, bytes).unwrap();
             // what the probe computed from a decode before
-            let d = lightcraft_codecs::decode(bytes, lightcraft_codecs::DecodeOptions::fit(64, 64)).unwrap();
+            let d = evolight_codecs::decode(bytes, evolight_codecs::DecodeOptions::fit(64, 64)).unwrap();
             let swap = Orientation::from_exif(d.orientation).swaps_axes();
             let want = if swap { (d.source_height, d.source_width) } else { (d.source_width, d.source_height) };
             assert_eq!((p.width, p.height), want, "{name} {o:?}");
@@ -533,7 +533,7 @@ fn image_probe_reads_headers_like_the_decode_did() {
 #[test]
 fn transparent_png_develops_on_white() {
     let rgba = [200, 40, 40, 255, 0, 0, 0, 0];
-    let png = lightcraft_codecs::encode_png(&EncodeImage::new(2, 1, 4, Samples::U8(&rgba)), &EncodeMeta::default()).unwrap();
+    let png = evolight_codecs::encode_png(&EncodeImage::new(2, 1, 4, Samples::U8(&rgba)), &EncodeMeta::default()).unwrap();
     let (img, _) = load_bytes(&png, 64).unwrap();
     assert!(img.get(0, 0)[0] > 0.3 && img.get(0, 0)[1] < 0.1, "{:?}", img.get(0, 0));
     assert!(img.get(1, 0).iter().all(|&c| (c - 1.0).abs() < 1e-4), "{:?}", img.get(1, 0));
@@ -547,7 +547,7 @@ fn coarse_binning_keeps_specular_points_neutral() {
     let (w, h) = (256usize, 192usize);
     // grey after the file's white balance (as-shot neutral 0.5 : 1 : 0.7), brighter to the right
     let neutral = [0.5f32, 1.0, 0.7];
-    let cfa = lightcraft_raw::Cfa::bayer("RGGB").unwrap();
+    let cfa = evolight_raw::Cfa::bayer("RGGB").unwrap();
     let mut data: Vec<u16> = (0..w * h)
         .map(|i| {
             let (x, y) = (i % w, i / w);
@@ -562,7 +562,7 @@ fn coarse_binning_keeps_specular_points_neutral() {
         }
     }
     let bytes = crate::tests_xmp::synthetic_dng_of(w, h, "RGGB", data, None, Default::default());
-    let raw = lightcraft_raw::decode(&bytes).unwrap();
+    let raw = evolight_raw::decode(&bytes).unwrap();
     assert_eq!(bin_factor(&raw, 32), Some(8));
     let (img, _) = load_bytes(&bytes, 32).unwrap();
     assert_eq!((img.width, img.height), (32, 24));
@@ -572,17 +572,17 @@ fn coarse_binning_keeps_specular_points_neutral() {
 
 #[test]
 fn cached_denoise_uses_the_same_white_balance_profile_and_orientation_as_plain_raw() {
-    use lightcraft_denoise::product;
-    use lightcraft_raw::{DngWriteOptions, Method, Orientation, profile::HsvTable, write_dng};
+    use evolight_denoise::product;
+    use evolight_raw::{DngWriteOptions, Method, Orientation, profile::HsvTable, write_dng};
     let dir = crate::tests_xmp::temp_dir("denoise-color-finish");
     let fixture = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&fixture).unwrap();
+    let mut raw = evolight_raw::decode(&fixture).unwrap();
     raw.orientation = Orientation::Rotate90;
     raw.color.baseline_exposure = 0.5;
     raw.color.profile.look_table =
         Some(HsvTable { hue_divisions: 1, sat_divisions: 2, val_divisions: 1, data: vec![[23.0, 0.65, 0.8]; 2], srgb_value: false });
     let bytes = write_dng(&raw, &DngWriteOptions::default()).unwrap();
-    let decoded = lightcraft_raw::decode(&bytes).unwrap();
+    let decoded = evolight_raw::decode(&bytes).unwrap();
     assert!(decoded.color.profile.look_table.is_some());
     // A cache containing the ordinary demosaic must undergo the identical downstream finish.
     let camera_rgb = decoded.develop(Method::Ahd).unwrap();
@@ -647,23 +647,23 @@ fn patch_shift(a: &[f32], b: &[f32], w: usize, (x, y): (usize, usize), p: usize,
 
 #[test]
 fn corpus_a7cr_warp_keeps_coordinates_after_orientation_and_resizing() {
-    use lightcraft_geom::{Orientation, Point};
-    use lightcraft_pipeline::optics::Warp;
-    let root = std::env::var_os("LIGHTCRAFT_CORPUS")
+    use evolight_geom::{Orientation, Point};
+    use evolight_pipeline::optics::Warp;
+    let root = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"));
     for name in ["arw-sony-a7cr-compressed.arw", "arw-sony-a7cr-lossless-l.arw"] {
         let Ok(mut bytes) = std::fs::read(root.join("raw").join(name)) else { continue };
-        let off = lightcraft_raw::probe_info(&bytes).unwrap();
+        let off = evolight_raw::probe_info(&bytes).unwrap();
         assert!(embedded_lens(&off).is_none());
-        let tiff = lightcraft_tiff::Tiff::parse(&bytes).unwrap();
+        let tiff = evolight_tiff::Tiff::parse(&bytes).unwrap();
         let at = tiff.find(0x7036).unwrap().offset as usize;
         let mut enabled = Vec::new();
         tiff.order.put_u16(&mut enabled, 17);
         bytes[at..at + 2].copy_from_slice(&enabled);
-        let mut raw = lightcraft_raw::probe_info(&bytes).unwrap();
+        let mut raw = evolight_raw::probe_info(&bytes).unwrap();
         raw.orientation = Orientation::Normal;
-        let mut settings = lightcraft_develop::DevelopSettings::default();
+        let mut settings = evolight_develop::DevelopSettings::default();
         settings.optics.lens_profile = true;
         let base_lens = embedded_lens(&raw).unwrap();
         let base = Warp::from_settings(9504.0, 6336.0, &settings, Some(&base_lens));
@@ -694,12 +694,12 @@ fn corpus_a7cr_warp_keeps_coordinates_after_orientation_and_resizing() {
 /// lenses is far off. A file shot with the camera's correction off (DMC-GH1) carries no correction.
 #[test]
 fn corpus_rw2_distortion_matches_the_camera_jpeg() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
     let Ok(gh1) = std::fs::read(dir.join("rw2-panasonic-gh1.rw2")) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", dir.display());
+        evolight_testkit::skip!(Corpus, "{} absent", dir.display());
         return;
     };
     assert_eq!(probe_bytes("gh1.rw2", &gh1).unwrap().embedded_lens, None, "correction off: nothing to apply");
@@ -724,11 +724,11 @@ fn corpus_rw2_distortion_matches_the_camera_jpeg() {
         let (src, info) = load_bytes(&bytes, 2 * EDGE).unwrap();
         assert_eq!(info.lens, probed.embedded_lens, "{name}: probe and decode disagree");
         // Convert to DNG keeps it: the same correction, as the DNG's own `WarpRectilinear`
-        let dng = lightcraft_raw::write_dng(&lightcraft_raw::decode(&bytes).unwrap(), &Default::default()).unwrap();
+        let dng = evolight_raw::write_dng(&evolight_raw::decode(&bytes).unwrap(), &Default::default()).unwrap();
         assert_eq!(probe_bytes("x.dng", &dng).unwrap().embedded_lens, probed.embedded_lens, "{name}: lost in the DNG");
-        let mut s = lightcraft_develop::DevelopSettings::default();
-        let render = |s: &lightcraft_develop::DevelopSettings| {
-            lightcraft_pipeline::render(&src, &info, s, &lightcraft_pipeline::RenderRequest::fit(EDGE, EDGE)).image
+        let mut s = evolight_develop::DevelopSettings::default();
+        let render = |s: &evolight_develop::DevelopSettings| {
+            evolight_pipeline::render(&src, &info, s, &evolight_pipeline::RenderRequest::fit(EDGE, EDGE)).image
         };
         let before = render(&s);
         s.optics.lens_profile = true;
@@ -740,9 +740,9 @@ fn corpus_rw2_distortion_matches_the_camera_jpeg() {
         let (cw, ch) = (cam.width as f64, cam.height as f64);
         let (sw, sh) = if cw / ch > w as f64 / h as f64 { (ch * w as f64 / h as f64, ch) } else { (cw, cw * h as f64 / w as f64) };
         let cam = cam.crop(((cw - sw) / 2.0).round() as usize, ((ch - sh) / 2.0).round() as usize, sw.round() as usize, sh.round() as usize);
-        let cam = lightcraft_raster::resample::resize(&cam, w, h, Filter::Mitchell);
+        let cam = evolight_raster::resample::resize(&cam, w, h, Filter::Mitchell);
         let lin = |v: u8| (v as f32 / 255.0).powf(2.2);
-        let lum8 = |im: &lightcraft_raster::Rgba8, x: usize, y: usize| {
+        let lum8 = |im: &evolight_raster::Rgba8, x: usize, y: usize| {
             let p = im.data[y * im.width + x];
             0.3 * lin(p[0]) + 0.6 * lin(p[1]) + 0.1 * lin(p[2])
         };
@@ -807,8 +807,8 @@ fn cr3_with_corrupt_raw(w: u32, h: u32) -> Vec<u8> {
 #[test]
 fn corrupt_cr3_falls_back_to_embedded_preview() {
     let b = cr3_with_corrupt_raw(48, 32);
-    let err = lightcraft_raw::decode(&b).expect_err("the fixture's raw data is corrupt");
-    assert!(!matches!(err, lightcraft_raw::RawError::Unsupported(_)), "{err}");
+    let err = evolight_raw::decode(&b).expect_err("the fixture's raw data is corrupt");
+    assert!(!matches!(err, evolight_raw::RawError::Unsupported(_)), "{err}");
     let p = probe_bytes("x.cr3", &b).unwrap();
     assert_eq!((p.width, p.height, p.kind, p.format.as_str()), (48, 32, MediaKind::Raw, "CR3"));
     assert!(p.preview_only.is_some_and(|why| why.contains("CR3")));
@@ -825,9 +825,9 @@ fn corrupt_cr3_falls_back_to_embedded_preview() {
 /// applied when it's developed — Lightroom-converted DNGs rendered flat and muted without it.
 #[test]
 fn dng_profile_look_is_applied() {
-    use lightcraft_raw::profile::{HsvTable, ProfileLook, ToneCurve};
+    use evolight_raw::profile::{HsvTable, ProfileLook, ToneCurve};
     let plain = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&plain).unwrap();
+    let mut raw = evolight_raw::decode(&plain).unwrap();
     let sat = |img: &Rgb32f| {
         img.data.iter().map(|p| (p[0].max(p[1]).max(p[2]) - p[0].min(p[1]).min(p[2])) / p[0].max(p[1]).max(p[2]).max(1e-6)).sum::<f32>()
             / img.data.len() as f32
@@ -843,7 +843,7 @@ fn dng_profile_look_is_applied() {
         tone_curve: ToneCurve::from_tag(&[0.0, 0.0, 0.18, 0.3, 1.0, 1.0]),
         gain_table_map: None,
     };
-    let with = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+    let with = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
     let (after, info) = load_bytes(&with, 64).unwrap();
     assert!(sat(&after) < 1e-3, "saturation {} → {}", sat(&before), sat(&after));
     // a saturation-only map keeps brightness roughly (HSV value is kept in ProPhoto RGB)
@@ -856,7 +856,7 @@ fn dng_profile_look_is_applied() {
         look_table: Some(HsvTable { hue_divisions: 1, sat_divisions: 2, val_divisions: 1, data: vec![[0.0, 1.0, 0.5]; 2], srgb_value: false }),
         ..Default::default()
     };
-    let (dim, _) = load_bytes(&lightcraft_raw::write_dng(&raw, &Default::default()).unwrap(), 64).unwrap();
+    let (dim, _) = load_bytes(&evolight_raw::write_dng(&raw, &Default::default()).unwrap(), 64).unwrap();
     assert!((mean(&dim) / mean(&before) - 0.5).abs() < 0.02, "{} vs {}", mean(&dim), mean(&before));
 }
 
@@ -865,11 +865,11 @@ fn dng_profile_look_is_applied() {
 #[test]
 fn dng_preview_corrections_leave_the_render_source_uncorrected() {
     let plain = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&plain).unwrap();
-    raw.color.profile.tone_curve = lightcraft_raw::profile::ToneCurve::from_tag(&[0.0, 0.0, 0.18, 0.4, 1.0, 1.0]);
-    let before = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
-    raw.opcodes.list3 = vec![lightcraft_raw::Opcode::FixVignetteRadial { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: [0.5, 0.5] }];
-    let corrected = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+    let mut raw = evolight_raw::decode(&plain).unwrap();
+    raw.color.profile.tone_curve = evolight_raw::profile::ToneCurve::from_tag(&[0.0, 0.0, 0.18, 0.4, 1.0, 1.0]);
+    let before = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
+    raw.opcodes.list3 = vec![evolight_raw::Opcode::FixVignetteRadial { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: [0.5, 0.5] }];
+    let corrected = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
     let (before, expected) = load_bytes(&before, 64).unwrap();
     let (after, info) = load_bytes(&corrected, 64).unwrap();
     assert_eq!(before.data, after.data, "lens correction belongs to the pipeline");
@@ -881,8 +881,8 @@ fn dng_preview_corrections_leave_the_render_source_uncorrected() {
 /// The source pixels stay uncorrected, including when the file is rotated.
 #[test]
 fn dng_lens_corrected_preview_teaches_one_tone_without_baking_in_the_lens() {
-    use lightcraft_color::{REC2020, SRGB, luminance_2020, transfer::linear_to_srgb};
-    use lightcraft_raw::{Opcode, Orientation};
+    use evolight_color::{REC2020, SRGB, luminance_2020, transfer::linear_to_srgb};
+    use evolight_raw::{Opcode, Orientation};
     let (w, h) = (384usize, 256usize);
     let data = (0..w * h)
         .map(|i| {
@@ -897,20 +897,20 @@ fn dng_lens_corrected_preview_teaches_one_tone_without_baking_in_the_lens() {
         })
         .collect();
     let bytes = crate::tests_xmp::synthetic_dng_of(w, h, "RGGB", data, None, Default::default());
-    let mut raw = lightcraft_raw::decode(&bytes).unwrap();
-    raw.color = lightcraft_raw::ColorData {
+    let mut raw = evolight_raw::decode(&bytes).unwrap();
+    raw.color = evolight_raw::ColorData {
         illuminant: [21, 0],
         color_matrix: [Some(REC2020.from_xyz()), None],
         as_shot_neutral: Some([1.0; 3]),
         ..Default::default()
     };
-    let plain = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+    let plain = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
     raw.opcodes.list3 = vec![
         Opcode::FixVignetteRadial { k: [0.8, 0.0, 0.0, 0.0, 0.0], center: [0.5, 0.5] },
         Opcode::WarpRectilinear { planes: vec![[0.7, 0.2, 0.0, 0.0, 0.0, 0.0]], center: [0.5, 0.5] },
     ];
-    let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
-    let corrected = raw.develop(lightcraft_raw::Method::Bilinear).unwrap();
+    let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
+    let corrected = raw.develop(evolight_raw::Method::Bilinear).unwrap();
     let to_srgb = REC2020.to_space(&SRGB);
     let pixels: Vec<u8> = corrected
         .data
@@ -922,11 +922,11 @@ fn dng_lens_corrected_preview_teaches_one_tone_without_baking_in_the_lens() {
             to_srgb.apply_f32(p.map(|v| v * gain)).map(|v| (255.0 * linear_to_srgb(v).clamp(0.0, 1.0)).round() as u8)
         })
         .collect();
-    let image = lightcraft_codecs::EncodeImage::new(w as u32, h as u32, 3, lightcraft_codecs::Samples::U8(&pixels));
-    let jpeg = lightcraft_codecs::encode_jpeg(&image, 98, lightcraft_codecs::ChromaSubsampling::S444, &Default::default()).unwrap();
+    let image = evolight_codecs::EncodeImage::new(w as u32, h as u32, 3, evolight_codecs::Samples::U8(&pixels));
+    let jpeg = evolight_codecs::encode_jpeg(&image, 98, evolight_codecs::ChromaSubsampling::S444, &Default::default()).unwrap();
     for orientation in [Orientation::Normal, Orientation::Rotate90] {
         raw.orientation = orientation;
-        let mut file = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+        let mut file = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
         // Append a preview IFD to the little-endian DNG written above.
         let root = u32::from_le_bytes(file[4..8].try_into().unwrap()) as usize;
         let count = u16::from_le_bytes(file[root..root + 2].try_into().unwrap()) as usize;
@@ -954,8 +954,8 @@ fn dng_lens_corrected_preview_teaches_one_tone_without_baking_in_the_lens() {
 
 /// A look fitted to a camera's JPEG, as `camera_preview` makes them: its rows don't sum to one, so the camera's
 /// own white-balanced neutral comes out yellow (blue 12 % low).
-fn yellowing_look() -> lightcraft_color::Mat3 {
-    lightcraft_color::Mat3([[0.42, 0.548, 0.04], [0.246, 0.728, 0.033], [-0.247, 0.679, 0.447]])
+fn yellowing_look() -> evolight_color::Mat3 {
+    evolight_color::Mat3([[0.42, 0.548, 0.04], [0.246, 0.728, 0.033], [-0.247, 0.679, 0.447]])
 }
 
 /// A fitted camera look applied in lanes, on rows that aren't a whole number of them, gives the bits of the
@@ -963,7 +963,7 @@ fn yellowing_look() -> lightcraft_color::Mat3 {
 #[test]
 fn camera_look_in_lanes_matches_pixel_by_pixel() {
     let data = (0..72 * 5 * 5).map(|i| [((i * 37) % 61) as f32 - 30.0, 0.6 + ((i * 11) % 13) as f32 / 13.0, 1.0]).collect();
-    let table = lightcraft_raw::profile::HsvTable { hue_divisions: 72, sat_divisions: 5, val_divisions: 5, data, srgb_value: true };
+    let table = evolight_raw::profile::HsvTable { hue_divisions: 72, sat_divisions: 5, val_divisions: 5, data, srgb_value: true };
     let hue_sat = crate::camera_preview::HueSat::new(&table).unwrap();
     let colour = CameraColourModel { wb: [2.1, 1.0, 1.5], matrix: yellowing_look(), gain: 1.3, tables: None, hue_sat: Some(&hue_sat) };
     let special = [0.0, -0.0, -0.01, 1e-30, 0.3, 1.0, 5.0, 1e30, f32::INFINITY, f32::NAN];
@@ -985,7 +985,7 @@ fn camera_look_in_lanes_matches_pixel_by_pixel() {
 
 #[test]
 fn clipped_white_renders_neutral_through_the_colour_model() {
-    use lightcraft_color::{LUMA_2020, Mat3};
+    use evolight_color::{LUMA_2020, Mat3};
     let look = yellowing_look();
     let white = clipped_white(&look);
     let out = look.apply(white.map(f64::from));
@@ -1019,7 +1019,7 @@ fn clipped_white_renders_neutral_through_the_colour_model() {
 /// Highlights -100, or the issue's edit (Exposure -0.88, Highlights -75…), showed it.
 #[test]
 fn clipped_highlights_stay_neutral_when_darkened() {
-    use lightcraft_pipeline::{RenderRequest, render};
+    use evolight_pipeline::{RenderRequest, render};
     let wb = [2.4f32, 1.0, 1.6];
     let colour = CameraColourModel { wb, matrix: yellowing_look(), gain: 1.0, tables: None, hue_sat: None };
     // a grey wall (camera neutral) with a fully clipped light and a light clipped in green only
@@ -1036,10 +1036,10 @@ fn clipped_highlights_stay_neutral_when_darkened() {
     colour.rebuild_highlights(&mut img);
     colour.apply(&mut img);
     let info = SourceInfo { raw: true, ..Default::default() };
-    let mut issue = lightcraft_develop::DevelopSettings::default();
+    let mut issue = evolight_develop::DevelopSettings::default();
     let l = &mut issue.light;
     (l.exposure, l.contrast, l.highlights, l.shadows, l.whites, l.blacks) = (-0.88, 5.0, -75.0, 52.0, 6.0, -37.0);
-    let mut h100 = lightcraft_develop::DevelopSettings::default();
+    let mut h100 = evolight_develop::DevelopSettings::default();
     h100.light.highlights = -100.0;
     for (name, s) in [("Highlights -100", h100), ("#523's edit", issue)] {
         let out = render(&img, &info, &s, &RenderRequest::fit(96, 64)).image;
@@ -1055,9 +1055,9 @@ fn clipped_highlights_stay_neutral_when_darkened() {
 /// near black, rebuilt and rendered at Exposure -2. Returns the rendered colour of the middle row's last
 /// unclipped pixel and the next two, and the largest step between neighbouring pixels along that row.
 fn darkened_ramp(rows: std::ops::Range<usize>, height: usize) -> ([[u8; 4]; 3], u8) {
-    use lightcraft_pipeline::{RenderRequest, render};
+    use evolight_pipeline::{RenderRequest, render};
     let wb = [2.5f32, 1.0, 1.6];
-    let colour = CameraColourModel { wb, matrix: lightcraft_color::Mat3::IDENTITY, gain: 1.0, tables: None, hue_sat: None };
+    let colour = CameraColourModel { wb, matrix: evolight_color::Mat3::IDENTITY, gain: 1.0, tables: None, hue_sat: None };
     let w = 1600usize;
     let k = |x: usize| 0.8 + 0.55 * x as f32 / (w - 1) as f32;
     let sensor = Rgb32f::from_fn(w, height, |x, y| if rows.contains(&y) { [0.9 * k(x), k(x), 0.8 * k(x)].map(|v| v.min(1.0)) } else { [0.01; 3] });
@@ -1066,7 +1066,7 @@ fn darkened_ramp(rows: std::ops::Range<usize>, height: usize) -> ([[u8; 4]; 3], 
     let mut img = sensor.clone();
     colour.rebuild_highlights(&mut img);
     colour.apply(&mut img);
-    let mut s = lightcraft_develop::DevelopSettings::default();
+    let mut s = evolight_develop::DevelopSettings::default();
     s.light.exposure = -2.0;
     let out = render(&img, &SourceInfo { raw: true, ..Default::default() }, &s, &RenderRequest::fit(w, height)).image;
     let step = |x: usize| {
@@ -1112,9 +1112,9 @@ fn rendered_thin_line_is_continuous_where_the_first_channel_clips() {
 /// rendered colour on either side of where red clips on the band's middle row, and the largest step between
 /// neighbouring pixels along that row.
 fn second_clip(top: usize, strip: usize, band: usize) -> ([[u8; 4]; 2], u8) {
-    use lightcraft_pipeline::{RenderRequest, render};
+    use evolight_pipeline::{RenderRequest, render};
     let wb = [2.5f32, 1.0, 1.6];
-    let colour = CameraColourModel { wb, matrix: lightcraft_color::Mat3::IDENTITY, gain: 1.0, tables: None, hue_sat: None };
+    let colour = CameraColourModel { wb, matrix: evolight_color::Mat3::IDENTITY, gain: 1.0, tables: None, hue_sat: None };
     let (w, h) = (320usize, top + strip + band);
     let sensor = Rgb32f::from_fn(w, h, |x, y| {
         if y < top {
@@ -1130,7 +1130,7 @@ fn second_clip(top: usize, strip: usize, band: usize) -> ([[u8; 4]; 2], u8) {
     let mut img = sensor.clone();
     colour.rebuild_highlights(&mut img);
     colour.apply(&mut img);
-    let mut s = lightcraft_develop::DevelopSettings::default();
+    let mut s = evolight_develop::DevelopSettings::default();
     s.light.exposure = -2.0;
     let out = render(&img, &SourceInfo { raw: true, ..Default::default() }, &s, &RenderRequest::fit(w, h)).image;
     let step = |x: usize| {
@@ -1161,17 +1161,17 @@ fn rendered_colour_is_continuous_where_a_second_channel_clips() {
 /// on one side of the tree and a magenta one on the other (Highlights -100 or the issue's edit show them).
 #[test]
 fn corpus_clipped_sky_beside_a_tree_has_no_coloured_halo() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
     let Ok(bytes) = std::fs::read(dir.join("arw-sony-a7rm4-14bit-compressed.arw")) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", dir.display());
+        evolight_testkit::skip!(Corpus, "{} absent", dir.display());
         return;
     };
     let (img, _) = load_bytes(&bytes, 1600).unwrap();
     let (w, h) = (img.width, img.height);
-    let lum = |p: [f32; 3]| lightcraft_color::luminance_2020(p);
+    let lum = |p: [f32; 3]| evolight_color::luminance_2020(p);
     let chroma = |p: [f32; 3]| {
         let s = (p[0] + p[1] + p[2]).max(1e-6);
         [p[0] / s, p[2] / s]
@@ -1214,8 +1214,8 @@ fn corpus_clipped_sky_beside_a_tree_has_no_coloured_halo() {
 /// copy's samples are much brighter than the image's here, so a picture says which one it came from.
 #[test]
 fn exports_never_develop_a_dngs_reduced_copy() {
-    use lightcraft_tiff::tags::{self as t, photometric};
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
+    use evolight_tiff::tags::{self as t, photometric};
+    use evolight_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
     use serde_json::json;
     let linear = |subfile: u32, w: u32, h: u32, sample: u16| {
         let mut ifd = IfdBuilder::new();
@@ -1252,7 +1252,7 @@ fn exports_never_develop_a_dngs_reduced_copy() {
     ifd0.add_sub_ifd(linear(1, w / 2, h / 2, 24000));
     let bytes = TiffWriter::new(ByteOrder::Little, false).write(&[ifd0]).unwrap();
     let g = |img: &Rgb32f| img.data.iter().map(|p| p[1] as f64).sum::<f64>() / img.data.len().max(1) as f64;
-    let mean = |img: &lightcraft_raster::Rgba8| img.data.iter().map(|p| p[1] as f64).sum::<f64>() / img.data.len().max(1) as f64;
+    let mean = |img: &evolight_raster::Rgba8| img.data.iter().map(|p| p[1] as f64).sum::<f64>() / img.data.len().max(1) as f64;
 
     // the loaders: only the thumbnail's develops the copy, and only when it covers the size
     let (copy, _, used) = load_vec_reduced(bytes.clone(), 512, Default::default()).unwrap();
@@ -1267,8 +1267,8 @@ fn exports_never_develop_a_dngs_reduced_copy() {
     std::fs::write(&path, &bytes).unwrap();
     let mut s = crate::Session::new().with_fs();
     let r = s.execute("library.import", &json!({"paths": [path.to_string_lossy()]})).unwrap();
-    let id = lightcraft_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
-    let (space, depth) = (lightcraft_pipeline::OutputSpace::Srgb, lightcraft_pipeline::OutputDepth::U8);
+    let id = evolight_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
+    let (space, depth) = (evolight_pipeline::OutputSpace::Srgb, evolight_pipeline::OutputDepth::U8);
     // an export at a thumbnail's size, before any thumbnail
     assert_eq!(s.export_job(id, 64, 64, space, depth).unwrap().level, crate::media::SourceLevel::Thumb);
     let export = mean(&s.render_export(id, 64, 64, space, depth).unwrap().image);
@@ -1292,10 +1292,10 @@ fn exports_never_develop_a_dngs_reduced_copy() {
 /// heuristic would never look) is used; a matte with an unknown name is ignored.
 #[test]
 fn dng_sky_matte_drives_the_sky_mask() {
-    use lightcraft_develop::{DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape};
-    use lightcraft_pipeline::{RenderRequest, render};
-    use lightcraft_tiff::tags::{self as t, photometric};
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
+    use evolight_develop::{DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape};
+    use evolight_pipeline::{RenderRequest, render};
+    use evolight_tiff::tags::{self as t, photometric};
+    use evolight_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
     let (w, h) = (16u32, 8u32);
     let image = |ifd: &mut IfdBuilder, w: u32, h: u32, cpp: u16, bits: u16, data: Vec<u8>| {
         ifd.set(t::IMAGE_WIDTH, Value::Long(vec![w]));
@@ -1357,16 +1357,16 @@ fn dng_sky_matte_drives_the_sky_mask() {
 /// from the Bradford adaptation it replaces.
 #[test]
 fn dng_white_balance_uses_the_camera_colour_model() {
-    use lightcraft_pipeline::{RenderRequest, render};
+    use evolight_pipeline::{RenderRequest, render};
     let dng = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let raw = lightcraft_raw::decode(&dng).unwrap();
+    let raw = evolight_raw::decode(&dng).unwrap();
     let (img, info) = load_bytes(&dng, 64).unwrap();
     let cc = info.camera_color.as_ref().expect("a DNG with a colour matrix");
-    assert_eq!(cc.developed_for, lightcraft_raw::color::as_shot_white_xy(&raw));
+    assert_eq!(cc.developed_for, evolight_raw::color::as_shot_white_xy(&raw));
     assert!(cc.tags.profile.is_empty());
     assert_eq!(cc.tags.color_matrix, raw.color.color_matrix);
-    let mut s = lightcraft_develop::DevelopSettings::default();
-    (s.wb.mode, s.wb.temp, s.wb.tint) = (lightcraft_develop::WbMode::Custom, 3000.0, 20.0);
+    let mut s = evolight_develop::DevelopSettings::default();
+    (s.wb.mode, s.wb.temp, s.wb.tint) = (evolight_develop::WbMode::Custom, 3000.0, 20.0);
     let req = RenderRequest::fit(32, 32);
     let camera = render(&img, &info, &s, &req).image;
     let adapted = render(&img, &SourceInfo { camera_color: None, ..info.clone() }, &s, &req).image;
@@ -1378,10 +1378,10 @@ fn dng_white_balance_uses_the_camera_colour_model() {
 /// changes nothing.
 #[test]
 fn dng_gain_table_map_is_not_rendered() {
-    use lightcraft_raw::gaintable::GainTableMap;
+    use evolight_raw::gaintable::GainTableMap;
     let plain = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&plain).unwrap();
-    let (before, _) = load_bytes(&lightcraft_raw::write_dng(&raw, &Default::default()).unwrap(), 64).unwrap();
+    let mut raw = evolight_raw::decode(&plain).unwrap();
+    let (before, _) = load_bytes(&evolight_raw::write_dng(&raw, &Default::default()).unwrap(), 64).unwrap();
     raw.color.profile.gain_table_map = Some(GainTableMap {
         points_v: 1,
         points_h: 1,
@@ -1394,8 +1394,8 @@ fn dng_gain_table_map_is_not_rendered() {
         gamma: 1.0,
         gains: vec![2.0],
     });
-    let with_map = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
-    assert!(lightcraft_raw::decode(&with_map).unwrap().color.profile.gain_table_map.is_some(), "the map is kept");
+    let with_map = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
+    assert!(evolight_raw::decode(&with_map).unwrap().color.profile.gain_table_map.is_some(), "the map is kept");
     let (after, _) = load_bytes(&with_map, 64).unwrap();
     assert_eq!(before.data, after.data);
 }
@@ -1404,10 +1404,10 @@ fn dng_gain_table_map_is_not_rendered() {
 /// active area, whatever the photo's orientation), and only when it's on.
 #[test]
 fn dng_gain_table_map_renders_when_asked() {
-    use lightcraft_pipeline::{RenderRequest, render};
-    use lightcraft_raw::gaintable::GainTableMap;
+    use evolight_pipeline::{RenderRequest, render};
+    use evolight_raw::gaintable::GainTableMap;
     let plain = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&plain).unwrap();
+    let mut raw = evolight_raw::decode(&plain).unwrap();
     // ×1 at the active area's left edge rising to ×4 at its right edge, whatever the colour
     raw.color.profile.gain_table_map = Some(GainTableMap {
         points_v: 1,
@@ -1421,12 +1421,12 @@ fn dng_gain_table_map_renders_when_asked() {
         gamma: 1.0,
         gains: vec![1.0, 4.0],
     });
-    let with_map = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+    let with_map = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
     let (img, info) = load_bytes(&with_map, 64).unwrap();
     let (_, plain_info) = load_bytes(&plain, 64).unwrap();
     assert!(info.local_tone.is_some() && plain_info.local_tone.is_none());
     let req = RenderRequest::fit(64, 64);
-    let mut s = lightcraft_develop::DevelopSettings::default();
+    let mut s = evolight_develop::DevelopSettings::default();
     // (darker, so that ×4 never reaches white)
     s.light.exposure = -3.0;
     let off = render(&img, &info, &s, &req).image;
@@ -1435,13 +1435,13 @@ fn dng_gain_table_map_renders_when_asked() {
     assert!(s.to_json().to_string().contains("camera_local_tone"), "the option is part of the settings (and their hash)");
     let on = render(&img, &info, &s, &req).image;
     // brightness gained, per column: none at the left edge, most at the right
-    let column = |im: &lightcraft_raster::Rgba8, x: usize| (0..im.height).map(|y| im.data[y * im.width + x][1] as f32).sum::<f32>();
+    let column = |im: &evolight_raster::Rgba8, x: usize| (0..im.height).map(|y| im.data[y * im.width + x][1] as f32).sum::<f32>();
     let gain = |x: usize| column(&on, x) / column(&off, x).max(1.0);
     let last = on.width - 1;
     assert!((gain(0) - 1.0).abs() < 0.08, "left ×{}", gain(0));
     assert!(gain(last) > 1.4 && gain(last) > gain(last / 2) && gain(last / 2) > gain(0), "{} {} {}", gain(0), gain(last / 2), gain(last));
     // the photo turned upside down: the map follows the raw, so the brightened side swaps
-    s.orientation = lightcraft_geom::Orientation::Rotate180;
+    s.orientation = evolight_geom::Orientation::Rotate180;
     s.profile.camera_local_tone = false;
     let off = render(&img, &info, &s, &req).image;
     s.profile.camera_local_tone = true;
@@ -1450,7 +1450,7 @@ fn dng_gain_table_map_renders_when_asked() {
     assert!(gain(0) > 1.4 && (gain(last) - 1.0).abs() < 0.08, "rotated: {} … {}", gain(0), gain(last));
     // a rendered (non-raw) source never gets it
     let jpeg = SourceInfo { raw: false, ..info.clone() };
-    assert!(!lightcraft_pipeline::local_tone::enabled(&jpeg, &s));
+    assert!(!evolight_pipeline::local_tone::enabled(&jpeg, &s));
 }
 
 #[test]
@@ -1483,18 +1483,18 @@ fn unsupported_raw_imports_as_preview_only_and_survives_reopen() {
     let scan = s.execute("library.importPreview", &json!({"paths": [path.to_string_lossy()]})).unwrap();
     assert!(scan["candidates"][0]["previewOnly"].as_str().is_some_and(|w| !w.is_empty()), "{scan}");
     let r = s.execute("library.import", &json!({"paths": [path.to_string_lossy()]})).unwrap();
-    let id = lightcraft_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
+    let id = evolight_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
     let p = s.catalog.photo(id).unwrap().clone();
     let why = p.preview_only.clone().expect("marked preview only");
     assert!(why.to_uppercase().contains("CR3"), "the decoder's reason: {why}");
     // stamped with the version that decided it, so a later version rechecks it (#662)
-    assert_eq!(p.preview_checked, lightcraft_catalog::APP_VERSION);
+    assert_eq!(p.preview_checked, evolight_catalog::APP_VERSION);
     assert!(!p.preview_only_stale());
     assert_eq!(p.kind, MediaKind::Raw, "still a raw file (filters, Convert to DNG…)");
     assert!(!p.develops_raw());
     // rendered like the JPEG it is: relative white balance, display tone curve, no raw defaults
     assert_eq!(SourceInfo { native_long: None, ..crate::media::source_info(&p) }, SourceInfo::default());
-    assert_eq!(*p.develop, lightcraft_develop::DevelopSettings::default());
+    assert_eq!(*p.develop, evolight_develop::DevelopSettings::default());
     assert!(s.render_job(id, 48, 48, false, true).unwrap().run().rendered.is_ok());
     // agents see it
     let q = s.execute("catalog.query", &json!({"filter": {}})).unwrap();
@@ -1507,9 +1507,9 @@ fn unsupported_raw_imports_as_preview_only_and_survives_reopen() {
     let mut s = crate::Session::new().with_fs();
     s.open_library(&lib, false).unwrap();
     assert_eq!(s.catalog.photo(id).unwrap().preview_only.as_deref(), Some(why.as_str()));
-    assert_eq!(s.catalog.photo(id).unwrap().preview_checked, lightcraft_catalog::APP_VERSION);
+    assert_eq!(s.catalog.photo(id).unwrap().preview_checked, evolight_catalog::APP_VERSION);
     // the file decodes now (here: replaced by a DNG): Reload clears it, undo brings it back
-    std::fs::write(&path, crate::tests_xmp::synthetic_dng_with(None, lightcraft_meta::Metadata::default())).unwrap();
+    std::fs::write(&path, crate::tests_xmp::synthetic_dng_with(None, evolight_meta::Metadata::default())).unwrap();
     let r = s.execute("photo.reload", &json!({"ids": [id.0]})).unwrap();
     assert_eq!(r["reloaded"], json!([id.0]), "{r}");
     assert!(s.catalog.photo(id).unwrap().develops_raw());
@@ -1517,10 +1517,10 @@ fn unsupported_raw_imports_as_preview_only_and_survives_reopen() {
     assert!(crate::media::source_info(s.catalog.photo(id).unwrap()).raw);
     s.execute("edit.undo", &json!({})).unwrap();
     assert_eq!(s.catalog.photo(id).unwrap().preview_only.as_deref(), Some(why.as_str()));
-    assert_eq!(s.catalog.photo(id).unwrap().preview_checked, lightcraft_catalog::APP_VERSION);
+    assert_eq!(s.catalog.photo(id).unwrap().preview_checked, evolight_catalog::APP_VERSION);
     // relinking to a file that decodes clears it too
     let dng = files.join("DSC_0001.dng");
-    std::fs::write(&dng, crate::tests_xmp::synthetic_dng_with(None, lightcraft_meta::Metadata::default())).unwrap();
+    std::fs::write(&dng, crate::tests_xmp::synthetic_dng_with(None, evolight_meta::Metadata::default())).unwrap();
     s.execute("photo.relink", &json!({"id": id.0, "path": dng.to_string_lossy()})).unwrap();
     assert_eq!(s.catalog.photo(id).unwrap().preview_only, None);
     drop(s);
@@ -1530,7 +1530,7 @@ fn unsupported_raw_imports_as_preview_only_and_survives_reopen() {
 /// A raw whose TIFF shell holds only a small RGB image (IFD0) next to a private block, as Exif
 /// declares a picture 25x its size.
 fn tiff_shell(w: u32, h: u32, shell: bool) -> Vec<u8> {
-    use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
+    use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
     let mut ifd0 = IfdBuilder::new();
     ifd0.set(t::IMAGE_WIDTH, Value::Long(vec![w]));
     ifd0.set(t::IMAGE_LENGTH, Value::Long(vec![h]));
@@ -1567,11 +1567,11 @@ fn thumbnail_only_tiff_raw_is_preview_only_not_a_plain_image() {
     // the same pixels without the private block are a small ordinary image
     let plain = probe_bytes("small.tif", &tiff_shell(24, 16, false)).unwrap();
     assert_eq!((plain.kind, plain.preview_only, plain.width, plain.height), (MediaKind::Image, None, 24, 16));
-    assert!(lightcraft_raw::probe(&tiff_shell(24, 16, false)).is_none());
+    assert!(evolight_raw::probe(&tiff_shell(24, 16, false)).is_none());
 
     // TIFFs preserving camera Make tags (SONY, NIKON, etc.) are ordinary images, not raws (#281)
     for make in ["SONY", "NIKON CORPORATION", "PENTAX", "RICOH", "SAMSUNG"] {
-        use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
+        use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
         let mut ifd0 = IfdBuilder::new();
         ifd0.set(t::IMAGE_WIDTH, Value::Long(vec![24]));
         ifd0.set(t::IMAGE_LENGTH, Value::Long(vec![16]));
@@ -1615,7 +1615,7 @@ fn undecodable_container_with_a_preview_imports_as_preview_only() {
 /// holds the preview) imports as a raw shown from its preview, not as a greyscale image of the mosaic.
 #[test]
 fn uncompressed_leaf_mos_imports_as_a_preview_only_raw() {
-    use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
+    use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
     let px: Vec<u8> = (0..40 * 30).flat_map(|i| [(i % 251) as u8, 128, 200]).collect();
     let jpeg = encode_jpeg(&EncodeImage::new(40, 30, 3, Samples::U8(&px)), 90, ChromaSubsampling::S444, &EncodeMeta::default()).unwrap();
     let mos = |leaf_data: bool| {
@@ -1646,7 +1646,7 @@ fn uncompressed_leaf_mos_imports_as_a_preview_only_raw() {
 /// headers; loading it says what is wrong instead of naming a bare TIFF compression number.
 #[test]
 fn gopro_vc5_dng_imports_and_fails_to_load_with_a_clear_reason() {
-    use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
+    use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value, tags as t};
     let mut ifd = IfdBuilder::new();
     ifd.set(t::NEW_SUBFILE_TYPE, Value::Long(vec![0]));
     ifd.set(t::IMAGE_WIDTH, Value::Long(vec![32]));
@@ -1670,12 +1670,12 @@ fn gopro_vc5_dng_imports_and_fails_to_load_with_a_clear_reason() {
 /// CR3 keeps its own wording.
 #[test]
 fn decode_failures_of_recognised_raws_may_fall_back_to_the_preview() {
-    use lightcraft_raw::RawError;
+    use evolight_raw::RawError;
     let cr3 = b"\0\0\0\x18ftypcrx \0\0\0\x01";
     assert_eq!(preview_reason(b"x", RawError::Unsupported("x".into())), Ok("x".to_string()));
     assert!(preview_reason(b"x", RawError::Corrupt("bad strip".into())).is_ok_and(|w| w.contains("bad strip")));
     assert!(preview_reason(b"x", RawError::Limit("too big")).is_ok());
-    assert!(preview_reason(b"x", RawError::Tiff(lightcraft_tiff::TiffError::MissingTag(256))).is_ok());
+    assert!(preview_reason(b"x", RawError::Tiff(evolight_tiff::TiffError::MissingTag(256))).is_ok());
     assert!(preview_reason(b"x", RawError::NotRaw).is_err());
     assert!(preview_reason(cr3, RawError::Corrupt("bad".into())).is_ok_and(|w| w.starts_with("CR3 ")));
 }
@@ -1689,7 +1689,7 @@ fn quick_jobs_show_embedded_previews_then_cached_renders() {
     std::fs::write(&path, cr3_with_preview(96, 64)).unwrap();
     let mut s = crate::Session::new().with_fs();
     let r = s.execute("library.import", &serde_json::json!({"paths": [path.to_string_lossy()]})).unwrap();
-    let id = lightcraft_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
+    let id = evolight_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
     // loupe: an unedited raw opens on its embedded preview…
     let q = s.quick_view_job(id, 1600, true).unwrap().run();
     assert_eq!(q.quick, Some(QuickSource::Embedded));
@@ -1728,7 +1728,7 @@ fn a_quick_thumbnail_without_an_embedded_preview_renders_the_raw() {
     std::fs::write(&path, cr3_with_preview(96, 64)).unwrap();
     let mut s = crate::Session::new().with_fs();
     let r = s.execute("library.import", &serde_json::json!({"paths": [path.to_string_lossy()]})).unwrap();
-    let id = lightcraft_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
+    let id = evolight_catalog::PhotoId(r["imported"][0].as_u64().unwrap());
     s.media.preview_loader = Some(std::sync::Arc::new(|_: &str, _| None));
     let job = s.thumb_job(id, 128).unwrap();
     let q = s.quick_thumb_job(&job).unwrap().run();
@@ -1740,8 +1740,8 @@ fn a_quick_thumbnail_without_an_embedded_preview_renders_the_raw() {
 /// A Sony ARW of `model`: a 64 × 48 uncompressed 14-bit CFA strip in a SubIFD (as `crates/raw/tests/it/vendor_robust.rs`
 /// lays it out) whose IFD carries the full-frame 16–35 mm distortion table (tag 0x7037).
 fn sony_arw(model: &str) -> Vec<u8> {
-    use lightcraft_tiff::tags::{self as t, photometric};
-    use lightcraft_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
+    use evolight_tiff::tags::{self as t, photometric};
+    use evolight_tiff::{ByteOrder, IfdBuilder, ImageData, TiffWriter, Value};
     // 3:2, the aspect Sony's lens opcodes are limited to
     let (w, h) = (72u32, 48u32);
     let mut raw = IfdBuilder::new();
@@ -1774,7 +1774,7 @@ fn arw_with_lens_data_imports_with_profile_corrections_on() {
         let path = dir.join(format!("{model}.arw"));
         std::fs::write(&path, sony_arw(model)).unwrap();
         let r = s.execute("library.import", &serde_json::json!({"paths": [path.to_string_lossy()]})).unwrap();
-        let p = s.catalog.photo(lightcraft_catalog::PhotoId(r["imported"][0].as_u64().unwrap())).unwrap();
+        let p = s.catalog.photo(evolight_catalog::PhotoId(r["imported"][0].as_u64().unwrap())).unwrap();
         assert_eq!((p.format.as_str(), p.embedded_lens.is_some(), p.develop.optics.lens_profile), ("ARW", on, on), "{model}");
         assert!(!p.is_edited(), "{model}: as imported");
     }
@@ -1785,9 +1785,9 @@ fn arw_with_lens_data_imports_with_profile_corrections_on() {
 /// opcodes), off when it doesn't.
 #[test]
 fn rw2_and_dng_defaults_unchanged() {
-    use lightcraft_catalog::{Photo, PhotoId, Source};
+    use evolight_catalog::{Photo, PhotoId, Source};
     let s = crate::Session::new();
-    let lens = lightcraft_develop::EmbeddedLens { warp: Some(Default::default()), ..Default::default() };
+    let lens = evolight_develop::EmbeddedLens { warp: Some(Default::default()), ..Default::default() };
     for format in ["RW2", "DNG"] {
         for embedded in [None, Some(lens)] {
             let name = format!("x.{format}");
@@ -1805,7 +1805,7 @@ fn rw2_and_dng_defaults_unchanged() {
 /// correction off keeps it off.
 #[test]
 fn existing_photo_settings_are_not_rewritten() {
-    use lightcraft_catalog::{Op, PhotoId};
+    use evolight_catalog::{Op, PhotoId};
     let dir = std::env::temp_dir().join(format!("lc-arw-lens-existing-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let (lib, files) = (dir.join("lib"), dir.join("files"));
@@ -1852,14 +1852,14 @@ fn existing_photo_settings_are_not_rewritten() {
 /// 8-bit 255 within a stop.
 #[test]
 fn v5_extends_a_dng_tone_curve_past_white_in_stops() {
-    use lightcraft_color::transfer::linear_to_srgb;
-    use lightcraft_develop::{DevelopSettings, Process};
-    use lightcraft_pipeline::SourceInfo;
+    use evolight_color::transfer::linear_to_srgb;
+    use evolight_develop::{DevelopSettings, Process};
+    use evolight_pipeline::SourceInfo;
     let code = |curve: &[f64], process: Process, y: f32| {
-        let tone = lightcraft_raw::profile::ToneCurve::from_tag(curve).and_then(|c| super::dng_tone_curve(&c));
+        let tone = evolight_raw::profile::ToneCurve::from_tag(curve).and_then(|c| super::dng_tone_curve(&c));
         let info = SourceInfo { raw: true, camera_tone: Some(tone.expect("a valid curve")), ..SourceInfo::default() };
         let s = DevelopSettings { process: process.version(), ..DevelopSettings::default() };
-        let o = lightcraft_pipeline::finish::base_tone(&s, &info, 1.0).apply(y);
+        let o = evolight_pipeline::finish::base_tone(&s, &info, 1.0).apply(y);
         (linear_to_srgb(o.clamp(0.0, 1.0)) * 255.0).round()
     };
     let to_white = [0.0, 0.0, 0.03, 0.09, 0.18, 0.4, 0.5, 0.78, 1.0, 1.0];

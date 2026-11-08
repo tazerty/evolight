@@ -1,9 +1,9 @@
 [package]
-name = "lightcraft-film"
+name = "evolight-film"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft film-negative conversion: film base, levels in density space, film presets, colour and tone (L1)"
+description = "EvoLight film-negative conversion: film base, levels in density space, film presets, colour and tone (L1)"
 
 [lints]
 workspace = true

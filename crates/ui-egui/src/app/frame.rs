@@ -1,10 +1,10 @@
 use super::{
-    LightcraftApp, docking, drop_overlay, export_task, focus_scan, import, lightroom_import, merge, monotonic_ms, panels, pick, recheck, shortcuts,
+    EvoLightApp, docking, drop_overlay, export_task, focus_scan, import, lightroom_import, merge, monotonic_ms, panels, pick, recheck, shortcuts,
     slideshow_export, state, sync, tasks, theme, updates_ui, widgets,
 };
 use crate::startup;
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// Install/refresh fonts once and watch the device and availability caches. Setup, not input.
     pub(super) fn ensure_fonts(&mut self, ctx: &egui::Context) {
         if !self.styled {
@@ -13,7 +13,7 @@ impl LightcraftApp {
             Self::drop_legacy_panel_state(ctx);
             // File → Add from Device lists cards scanned in the background: show hot-plugs
             let repaint = ctx.clone();
-            lightcraft_engine::devices::on_change(move || repaint.request_repaint());
+            evolight_engine::devices::on_change(move || repaint.request_repaint());
             // "is the original there?" (grid, Info panel, Missing Photos) answers from a cache a
             // worker fills: a sleeping NAS or a dropped share never stalls a frame
             let repaint = ctx.clone();
@@ -119,8 +119,8 @@ impl LightcraftApp {
             {
                 self.ui.auto_import_at = now;
                 let listed = folder.clone();
-                let work = move || lightcraft_engine::cmd::library::list_auto_import_folder(&listed);
-                let done = move |app: &mut LightcraftApp, _ctx: &egui::Context, listing: Result<Vec<(String, u64)>, String>| {
+                let work = move || evolight_engine::cmd::library::list_auto_import_folder(&listed);
+                let done = move |app: &mut EvoLightApp, _ctx: &egui::Context, listing: Result<Vec<(String, u64)>, String>| {
                     // the watched folder changed while this one was listed: its result is for nothing on screen
                     if app.session.import_defaults.auto_folder.as_ref() != Some(&folder) {
                         return;
@@ -185,7 +185,7 @@ impl LightcraftApp {
                 self.toast_for(
                     ctx,
                     crate::i18n::tr_format!(
-                        "The XMP sidecars of {n} photos couldn't be written (is their folder offline?). LightCraft keeps trying.",
+                        "The XMP sidecars of {n} photos couldn't be written (is their folder offline?). EvoLight keeps trying.",
                         n = waiting
                     ),
                     8.0,
@@ -198,10 +198,10 @@ impl LightcraftApp {
         // Settings → Import: open the import review when a camera or card is connected
         #[cfg(not(target_arch = "wasm32"))]
         if self.session.import_defaults.show_on_card {
-            if let Some(now) = lightcraft_engine::devices::devices_scanned() {
+            if let Some(now) = evolight_engine::devices::devices_scanned() {
                 import::cards_seen(self, now);
             }
-            ctx.request_repaint_after(lightcraft_engine::devices::MAX_AGE);
+            ctx.request_repaint_after(evolight_engine::devices::MAX_AGE);
         } else {
             self.ui.known_cards = None;
         }
@@ -344,22 +344,22 @@ impl LightcraftApp {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.window_title()));
     }
 
-    /// "LightCraft — <library name>" (just "LightCraft" for a library that isn't saved).
+    /// "EvoLight — <library name>" (just "EvoLight" for a library that isn't saved).
     pub fn window_title(&self) -> String {
         match panels::settings::open_library_name(self) {
-            Some(name) => format!("LightCraft — {name}"),
-            None => "LightCraft".to_string(),
+            Some(name) => format!("EvoLight — {name}"),
+            None => "EvoLight".to_string(),
         }
     }
 
-    /// The browser page's title: "<file name>[ •] — LightCraft" for the active photo (• while
+    /// The browser page's title: "<file name>[ •] — EvoLight" for the active photo (• while
     /// `unsaved`: changes not yet written to storage), else the window title. The web build has no
     /// window for `ViewportCommand::Title`; a host embedding it reads this title to tell which
     /// document a drop opened and whether it is saved (issue #2397).
     pub fn page_title(&self, unsaved: bool) -> String {
         let dot = if unsaved { " •" } else { "" };
         match self.session.active().and_then(|id| self.session.catalog.photo(id)) {
-            Some(p) => format!("{}{dot} — LightCraft", p.file_name),
+            Some(p) => format!("{}{dot} — EvoLight", p.file_name),
             None => format!("{}{dot}", self.window_title()),
         }
     }
@@ -502,7 +502,7 @@ impl LightcraftApp {
         // AppKit moves the window on a drag anywhere in the title-bar band unless the window isn't
         // movable: it stops being movable while the pointer is on a bar control or a panel over it
         #[cfg(target_os = "macos")]
-        craft_window::title_bar::sync_movable(&ctx, &mut self.window_movable);
+        evo_window::title_bar::sync_movable(&ctx, &mut self.window_movable);
         if notice_blocks {
             // Keep the real press/release state for the next pass: an ordinary click spans host
             // frames, and resetting it above must only hide it from this pass's dialogs.

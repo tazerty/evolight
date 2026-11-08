@@ -4,26 +4,26 @@
 use egui::accesskit::Role;
 use egui::vec2;
 use egui_kittest::{Harness, kittest::NodeT};
-use lightcraft_ui_egui::{
-    LightcraftApp, Services,
+use evolight_ui_egui::{
+    EvoLightApp, Services,
     state::{RightPanel, ViewMode},
 };
 
-fn harness(view: ViewMode, right: RightPanel) -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn harness(view: ViewMode, right: RightPanel) -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     // a headless host never gains the first-run tour: its modal would take the Tab focus under test
     app.headless_host = true;
     app.ui.left_panel = true;
     app.ui.view = view;
     app.ui.right = right;
     let mut builder = Harness::builder().with_size(vec2(1500.0, 950.0));
-    // text such as "▸" in the Reference view's hint has its glyph only in the craft-fonts faces (releases
+    // text such as "▸" in the Reference view's hint has its glyph only in the evo-fonts faces (releases
     // always have them): without them it is drawn as a box, which this audit of names doesn't need
-    if lightcraft_engine::CRAFT_FONTS.is_empty() {
+    if evolight_engine::EVO_FONTS.is_empty() {
         builder = builder.allow_missing_glyphs();
     }
     let mut h = builder.build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -57,7 +57,7 @@ fn interactive(role: Role) -> bool {
 }
 
 /// Every problem found in the harness's current tree, one line each.
-fn audit(h: &Harness<'_, LightcraftApp>, place: &str) -> Vec<String> {
+fn audit(h: &Harness<'_, EvoLightApp>, place: &str) -> Vec<String> {
     let mut problems = Vec::new();
     let mut count = 0;
     for node in h.root().children_recursive() {
@@ -89,8 +89,8 @@ fn audit(h: &Harness<'_, LightcraftApp>, place: &str) -> Vec<String> {
 #[test]
 fn every_interactive_node_has_a_name_in_every_view_and_tool() {
     // said once per audit, not once per harness
-    if lightcraft_engine::CRAFT_FONTS.is_empty() {
-        lightcraft_testkit::skip!(Fonts, "built without CRAFT_FONTS_DIR: glyphs only craft-fonts has are drawn as boxes, not checked");
+    if evolight_engine::EVO_FONTS.is_empty() {
+        evolight_testkit::skip!(Fonts, "built without EVO_FONTS_DIR: glyphs only evo-fonts has are drawn as boxes, not checked");
     }
     let mut problems = Vec::new();
     for view in [ViewMode::PhotoGrid, ViewMode::SquareGrid, ViewMode::Detail, ViewMode::Compare, ViewMode::Survey, ViewMode::Reference] {
@@ -152,7 +152,7 @@ fn every_interactive_node_has_a_name_in_every_view_and_tool() {
     assert!(problems.is_empty(), "{} accessibility problems:\n{}", problems.len(), problems.join("\n"));
 }
 
-fn slider_value(h: &Harness<'_, LightcraftApp>, name: &str) -> Option<f64> {
+fn slider_value(h: &Harness<'_, EvoLightApp>, name: &str) -> Option<f64> {
     h.root()
         .children_recursive()
         .map(|n| n.accesskit_node())
@@ -281,7 +281,7 @@ fn a_slider_value_field_is_named_value_and_describes_how_to_use_it() {
 
 /// Whether a button named `name` has `help` as its accessible description (the menu bar has an
 /// "Edit" menu too, so the name alone doesn't pick the tool-strip button).
-fn button_described(h: &Harness<'_, LightcraftApp>, name: &str, help: &str) -> bool {
+fn button_described(h: &Harness<'_, EvoLightApp>, name: &str, help: &str) -> bool {
     h.root()
         .children_recursive()
         .map(|n| n.accesskit_node())
@@ -328,7 +328,7 @@ fn tool_strip_and_toolbar_buttons_are_named_by_label_with_the_shortcut_as_descri
 fn import_button_describes_its_shortcut_as_this_platform_writes_it() {
     let h = harness(ViewMode::PhotoGrid, RightPanel::Edit);
     let mac = h.ctx.os() == egui::os::OperatingSystem::Mac;
-    let sc = lightcraft_ui_egui::shortcuts::shortcut_of(&h.state().ui.settings.keymap, "file.addPhotos").expect("Import Photos… has a shortcut");
-    let help = lightcraft_ui_egui::menubar::shortcut_text(sc, mac);
+    let sc = evolight_ui_egui::shortcuts::shortcut_of(&h.state().ui.settings.keymap, "file.addPhotos").expect("Import Photos… has a shortcut");
+    let help = evolight_ui_egui::menubar::shortcut_text(sc, mac);
     assert!(button_described(&h, "Import Photos…", &help), "a button named \"Import Photos…\" describing {help:?}");
 }

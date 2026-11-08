@@ -1,10 +1,10 @@
 fn library() -> crate::headless::Headless {
-    use lightcraft_catalog::{Op, Photo, PhotoId, Source};
-    let mut session = lightcraft_engine::Session::new();
+    use evolight_catalog::{Op, Photo, PhotoId, Source};
+    let mut session = evolight_engine::Session::new();
     for id in 1..=4 {
         let photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-shortcuts/{id}.jpg") },
+            Source::File { path: format!("/evolight-shortcuts/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             100,
@@ -15,7 +15,7 @@ fn library() -> crate::headless::Headless {
     }
     session.execute("library.sort", &json!({"key": "fileName", "ascending": true})).unwrap();
     session.execute("library.select", &json!({"ids": [1]})).unwrap();
-    let app = LightcraftApp::new(session, crate::Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, crate::Services { png: None, ..Default::default() });
     let mut h = crate::headless::Headless::new(app, [1200.0, 800.0], 1.0);
     h.app.ui.view = crate::state::ViewMode::PhotoGrid;
     for _ in 0..3 {
@@ -38,7 +38,7 @@ fn select_only_active_chord(h: &mut crate::headless::Headless) {
 #[test]
 fn select_only_active_keeps_the_active_photo_and_the_edit_undo_step() {
     use crate::state::ViewMode;
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     for view in [ViewMode::PhotoGrid, ViewMode::SquareGrid, ViewMode::Detail] {
         let mut h = library();
         h.app.ui.view = view;
@@ -57,7 +57,7 @@ fn select_only_active_keeps_the_active_photo_and_the_edit_undo_step() {
 
 #[test]
 fn select_only_active_yields_to_a_focused_text_field() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut h = library();
     h.app.session.execute("library.select", &json!({"ids": [1, 2], "active": 2})).unwrap();
     let r = h.request("ui.clickWidget", json!({"id": "field:search"}), std::time::Duration::from_secs(20));
@@ -69,7 +69,7 @@ fn select_only_active_yields_to_a_focused_text_field() {
 
 #[test]
 fn select_only_active_follows_the_keymap() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut h = library();
     let both = vec![PhotoId(1), PhotoId(2)];
     h.app.session.execute("library.select", &json!({"ids": [1, 2], "active": 2})).unwrap();
@@ -99,7 +99,7 @@ fn select_only_active_without_active_photo_does_not_change_selection() {
 
 #[test]
 fn library_rating_labels_flags_and_undo() {
-    use lightcraft_catalog::{ColorLabel, Flag, PhotoId};
+    use evolight_catalog::{ColorLabel, Flag, PhotoId};
     for view in [crate::state::ViewMode::PhotoGrid, crate::state::ViewMode::SquareGrid] {
         let mut h = library();
         h.app.ui.view = view;
@@ -134,7 +134,7 @@ fn library_rating_labels_flags_and_undo() {
 /// key comes back once the entry is gone.
 #[test]
 fn a_saved_key_wins_over_another_commands_declared_key() {
-    use lightcraft_catalog::{Flag, PhotoId};
+    use evolight_catalog::{Flag, PhotoId};
     let mut h = library();
     h.app.ui.settings.keymap.insert("photo.increaseRating".into(), "P".into());
     assert_eq!(super::shortcut_of(&h.app.ui.settings.keymap, "photo.pick"), None);
@@ -160,7 +160,7 @@ fn a_saved_key_wins_over_another_commands_declared_key() {
 /// a declared shortcut on the same keys keep working.
 #[test]
 fn junk_keymap_entries_leave_aliases_ratings_and_declared_keys() {
-    use lightcraft_catalog::{Flag, PhotoId};
+    use evolight_catalog::{Flag, PhotoId};
     let mut h = library();
     for (id, sc) in [("no.suchCommand", "Shift+X"), ("no.otherCommand", "5"), ("no.thirdCommand", "P")] {
         h.app.ui.settings.keymap.insert(id.into(), sc.into());
@@ -228,7 +228,7 @@ fn classic_f8_shows_a_minimized_tools_window_and_keeps_its_mode() {
 
 #[test]
 fn shift_culling_keys_advance_exactly_once() {
-    use lightcraft_catalog::{ColorLabel, Flag, PhotoId};
+    use evolight_catalog::{ColorLabel, Flag, PhotoId};
     for auto in [false, true] {
         for (k, rating, label, flag) in [
             ("0", 0, None, Flag::Pick),
@@ -264,18 +264,18 @@ fn shift_pick_preserves_presets_outside_the_library_grids() {
     let mut h = library();
     h.app.ui.view = crate::state::ViewMode::SquareGrid;
     key(&mut h, "P", true);
-    assert_eq!(h.app.session.active(), Some(lightcraft_catalog::PhotoId(2)));
+    assert_eq!(h.app.session.active(), Some(evolight_catalog::PhotoId(2)));
     assert!(!h.app.ui.presets, "grid Shift+P must not open Presets");
     assert_eq!(h.app.ui.view, crate::state::ViewMode::SquareGrid);
     h.app.ui.view = crate::state::ViewMode::Detail;
     key(&mut h, "P", true);
     assert!(h.app.ui.presets);
-    assert_eq!(h.app.session.active(), Some(lightcraft_catalog::PhotoId(2)));
+    assert_eq!(h.app.session.active(), Some(evolight_catalog::PhotoId(2)));
 }
 
 #[test]
 fn shift_label_targets_only_candidate_in_compare() {
-    use lightcraft_catalog::{ColorLabel, PhotoId};
+    use evolight_catalog::{ColorLabel, PhotoId};
     let mut h = library();
     h.app.session.execute("library.select", &json!({"ids": [1, 2], "active": 1})).unwrap();
     crate::panels::compare::enter_compare(&mut h.app).unwrap();
@@ -287,7 +287,7 @@ fn shift_label_targets_only_candidate_in_compare() {
 
 #[test]
 fn plain_culling_keys_auto_advance_once() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     for k in ["0", "5", "6", "9", "P", "X", "U"] {
         let mut h = library();
         h.app.ui.auto_advance = true;
@@ -300,7 +300,7 @@ fn plain_culling_keys_auto_advance_once() {
 fn culling_keys_go_on_from_a_photo_that_leaves_the_filter() {
     // #2312: the filter shows one-star photos; taking photo 2's star off makes photo 3 active, once, with or
     // without Shift and Auto Advance, and → goes on from there instead of from the first photo
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let one_star = || {
         let mut h = library();
         h.app.session.execute("library.selectAll", &json!({})).unwrap();
@@ -330,7 +330,7 @@ fn culling_keys_go_on_from_a_photo_that_leaves_the_filter() {
 
 #[test]
 fn color_label_actions_show_feedback_only_after_success() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut h = library();
     for shift in [false, true] {
         for (k, name) in [("6", "Red"), ("7", "Yellow"), ("8", "Green"), ("9", "Blue")] {
@@ -363,7 +363,7 @@ fn color_label_actions_show_feedback_only_after_success() {
 
 #[test]
 fn shifted_number_punctuation_rates_and_advances() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut h = library();
     // A real winit event on a layout with Shift+1 = !, rather than ui.key's logical Num1.
     for pressed in [true, false] {
@@ -382,7 +382,7 @@ fn shifted_number_punctuation_rates_and_advances() {
 
 #[test]
 fn library_keys_yield_to_search_and_crop_context() {
-    use lightcraft_catalog::{Flag, PhotoId};
+    use evolight_catalog::{Flag, PhotoId};
     let mut h = library();
     let r = h.request("ui.clickWidget", json!({"id": "field:search"}), std::time::Duration::from_secs(20));
     assert_eq!(r["ok"], true, "{r}");
@@ -423,7 +423,7 @@ fn parses_shortcuts() {
             assert!(parse(sc).is_some(), "{id}: {sc}");
         }
     }
-    for c in lightcraft_engine::command_specs() {
+    for c in evolight_engine::command_specs() {
         if let Some(sc) = c.shortcut {
             assert!(parse(sc).is_some(), "{}: {sc}", c.id);
         }
@@ -435,7 +435,7 @@ fn aliases_parse_and_target_existing_commands() {
     let ui: Vec<&str> = crate::menus::ui_commands().map(|c| c.0).collect();
     for (sc, id, params) in ALIASES {
         assert!(parse(sc).is_some(), "{id}: {sc}");
-        assert!(ui.contains(id) || lightcraft_engine::find_command(id).is_some(), "alias {sc} → unknown command {id}");
+        assert!(ui.contains(id) || evolight_engine::find_command(id).is_some(), "alias {sc} → unknown command {id}");
         assert!(serde_json::from_str::<serde_json::Value>(params).is_ok(), "alias {sc}: bad params");
     }
 }
@@ -521,7 +521,7 @@ fn no_conflicting_bindings() {
         ui.push((parse(sc).unwrap(), format!("alias {id}")));
     }
     let mut engine: Vec<((Modifiers, Key), &str)> = Vec::new();
-    for c in lightcraft_engine::command_specs() {
+    for c in evolight_engine::command_specs() {
         if let Some(k) = c.shortcut.and_then(parse) {
             engine.push((k, c.id));
         }
@@ -546,7 +546,7 @@ fn no_conflicting_bindings() {
 mod issue1771 {
     use super::*;
     use crate::state::{Dialog, ViewMode};
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
 
     fn grid(view: ViewMode) -> crate::headless::Headless {
         let mut h = library();

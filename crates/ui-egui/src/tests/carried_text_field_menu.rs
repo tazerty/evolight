@@ -7,27 +7,27 @@ use egui::{Pos2, Rect};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: std::time::Duration = std::time::Duration::from_secs(10);
 const FIELD: &str = "field:search";
 
 /// Two photos in a fresh folder: the grid, and the search field of the top bar.
 fn app(tag: &str) -> (Headless, PathBuf) {
-    use lightcraft_catalog::{Op, Photo, Source};
+    use evolight_catalog::{Op, Photo, Source};
     let root = std::env::temp_dir().join(format!("lc-carried-field-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     for file in ["beach.png", "garden.png"] {
-        let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 120, 160, 255]; 64] };
-        let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+        let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 120, 160, 255]; 64] };
+        let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
         std::fs::write(root.join(file), png).unwrap();
         let id = session.catalog.alloc_photo_id();
         let p = Photo::new(id, Source::File { path: root.join(file).to_string_lossy().into() }, file, "PNG", 8, 8, "2026-01-01T10:00:00");
         session.catalog.apply(Op::AddPhoto { photo: Box::new(p) }).unwrap();
     }
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1600.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1600.0], 1.0);
     let r = h.request("ui.set", json!({"view": "photoGrid", "leftPanel": true}), T);
     assert_eq!(r["ok"], true, "{r}");
     for _ in 0..8 {

@@ -6,8 +6,8 @@
 //!    own noise), then the estimates against the truth, for the first version and the current one, at 0.03 (the dark
 //!    cells of a typical photo) and 0.18 (mid-grey).
 //!
-//!   LC_CORPUS=C:/.../corpus/raw LC_STRIDE=6 cargo test --release -p lightcraft-engine --test denoise_noise_estimate -- --ignored --nocapture
-use lightcraft_denoise_core::builtin::{NoiseProbe, estimate_noise_v1, estimate_noise_with};
+//!   LC_CORPUS=C:/.../corpus/raw LC_STRIDE=6 cargo test --release -p evolight-engine --test denoise_noise_estimate -- --ignored --nocapture
+use evolight_denoise_core::builtin::{NoiseProbe, estimate_noise_v1, estimate_noise_with};
 
 struct Rng(u64);
 
@@ -49,7 +49,7 @@ fn a_quantile_of_pure_noise_blocks_is_a_known_fraction_of_the_true_variance() {
 }
 
 /// The 2 x 2 colour-cell binning of a window of a normalised mosaic (halves its own noise), as the quality benchmark does.
-fn binned_crop(n: &lightcraft_raw::Normalized, side: usize) -> Option<(Vec<f32>, usize)> {
+fn binned_crop(n: &evolight_raw::Normalized, side: usize) -> Option<(Vec<f32>, usize)> {
     let side = side.min(n.width).min(n.height) & !3;
     if side < 512 {
         return None;
@@ -89,8 +89,8 @@ fn the_noise_estimate_follows_the_noise_added_to_many_different_pictures() {
     let mut used = 0;
     for path in files.iter().step_by(stride) {
         let Ok(bytes) = std::fs::read(path) else { continue };
-        let Ok(raw) = lightcraft_raw::decode(&bytes) else { continue };
-        if raw.cpp != 1 || !raw.cfa.as_ref().is_some_and(lightcraft_raw::Cfa::is_bayer) {
+        let Ok(raw) = evolight_raw::decode(&bytes) else { continue };
+        if raw.cpp != 1 || !raw.cfa.as_ref().is_some_and(evolight_raw::Cfa::is_bayer) {
             continue;
         }
         let Ok(n) = raw.normalized() else { continue };

@@ -1,20 +1,20 @@
 //! The Print dialog (File ▸ Print…): settings on the left, the pages drawn to scale on the right.
 //!
-//! Every change goes through a `print.*` command ([`lightcraft_engine::cmd`]); this file only draws
-//! the session's print ([`lightcraft_engine::Session::print`]) and turns pointer input into
+//! Every change goes through a `print.*` command ([`evolight_engine::cmd`]); this file only draws
+//! the session's print ([`evolight_engine::Session::print`]) and turns pointer input into
 //! commands: dragging a cell is `print.cell.move`, its corner handle `print.cell.resize`, with
 //! the guides' snapping done by the command. Widgets register under `print:*`, `button:print*`
 //! and `drag:print*` ids for the control channel and the headless tests.
 use egui::{Align2, Color32, Pos2, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
-use lightcraft_catalog::PhotoId;
-use lightcraft_engine::export::ExportOptions;
-use lightcraft_engine::print::compose::{self, place};
-use lightcraft_engine::print::layout::{self, Snap, Style, Unit};
-use lightcraft_engine::print::template::PrintSettings;
-use lightcraft_engine::print_color::{ManagedSpace, PrintColorSettings, PrintIntent, PrintMedia, PrintProfile, PrintSharpen};
+use evolight_catalog::PhotoId;
+use evolight_engine::export::ExportOptions;
+use evolight_engine::print::compose::{self, place};
+use evolight_engine::print::layout::{self, Snap, Style, Unit};
+use evolight_engine::print::template::PrintSettings;
+use evolight_engine::print_color::{ManagedSpace, PrintColorSettings, PrintIntent, PrintMedia, PrintProfile, PrintSharpen};
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::theme::Tokens;
 use crate::widgets::{register, text_button};
 
@@ -53,7 +53,7 @@ pub struct PrintUi {
     pub new_cell: Option<(f64, f64)>,
 }
 
-fn run(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, params: Value) -> Option<Value> {
+fn run(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, params: Value) -> Option<Value> {
     match app.run(id, params) {
         Ok(v) => Some(v),
         Err(e) => {
@@ -63,7 +63,7 @@ fn run(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, params: Value) ->
     }
 }
 
-fn patch(app: &mut LightcraftApp, ctx: &egui::Context, params: Value) {
+fn patch(app: &mut EvoLightApp, ctx: &egui::Context, params: Value) {
     run(app, ctx, "print.set", params);
 }
 
@@ -161,7 +161,7 @@ fn current_paper(paper: &str) -> &str {
 }
 
 /// The dialog's body: the settings column and the page preview side by side.
-pub fn body(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens) {
+pub fn body(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens) {
     let ctx = ui.ctx().clone();
     let screen = ctx.content_rect();
     let width = (screen.width() - 80.0).clamp(640.0, 1180.0);
@@ -197,7 +197,7 @@ pub fn body(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens) {
 }
 
 /// The print templates: save the settings as one, import, and the saved ones to apply, export and delete.
-fn templates_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi) {
+fn templates_section(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi) {
     let ctx = ui.ctx().clone();
     heading(ui, t, "Templates");
     ui.horizontal(|ui| {
@@ -226,8 +226,8 @@ fn templates_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut 
                     run(app, &ctx, "print.template.delete", json!({"name": name}));
                 }
                 if app.services.save_print_template.is_some() && text_button(ui, &format!("printTemplateExport-{i}"), "Export…", false).clicked() {
-                    let stem = lightcraft_engine::slide_template::file_stem(name).unwrap_or_else(|| "Print Template".into());
-                    let file = format!("{stem}.{}", lightcraft_engine::print::template::FILE_EXT);
+                    let stem = evolight_engine::slide_template::file_stem(name).unwrap_or_else(|| "Print Template".into());
+                    let file = format!("{stem}.{}", evolight_engine::print::template::FILE_EXT);
                     if let Some(path) = app.services.save_print_template.as_mut().and_then(|save| save(&file))
                         && let Some(r) = run(app, &ctx, "print.template.export", json!({"name": name, "path": path}))
                     {
@@ -245,7 +245,7 @@ fn templates_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut 
 }
 
 /// The image settings: zoom, rotation, border and stroke.
-fn image_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, st: &PrintSettings) {
+fn image_section(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, st: &PrintSettings) {
     let ctx = ui.ctx().clone();
     let l = &st.layout;
     let unit = st.guides.units;
@@ -287,7 +287,7 @@ fn image_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, st: &PrintSet
 }
 
 /// The Page panel: the background, and the Page Options or, on a package, Cut Guides.
-fn page_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, st: &PrintSettings) {
+fn page_section(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, st: &PrintSettings) {
     let ctx = ui.ctx().clone();
     heading(ui, t, "Page");
     row(ui, t, "Background", |ui| {
@@ -312,7 +312,7 @@ fn page_section(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, st: &PrintSett
     }
 }
 
-fn settings(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings, photos: usize) {
+fn settings(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings, photos: usize) {
     let ctx = ui.ctx().clone();
     let l = &st.layout;
     let unit = st.guides.units;
@@ -447,7 +447,7 @@ fn settings(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, 
     heading(ui, t, "Page Setup");
     row(ui, t, "Paper", |ui| {
         let current = current_paper(&l.page.paper);
-        let c = craft_ui::ComboBox::from_id_salt("printPaper").selected_text(paper_label(current)).show_ui(ui, |ui| {
+        let c = evo_ui::ComboBox::from_id_salt("printPaper").selected_text(paper_label(current)).show_ui(ui, |ui| {
             for name in layout::paper_names().chain(std::iter::once("custom")) {
                 if ui.selectable_label(current == name, paper_label(name)).clicked() {
                     patch(app, &ctx, json!({"layout": {"page": {"paper": name}}}));
@@ -502,7 +502,7 @@ fn settings(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, 
 }
 
 /// Send one colour setting of the print job (the rest stay as they are).
-fn patch_color(app: &mut LightcraftApp, ctx: &egui::Context, key: &str, value: Value) {
+fn patch_color(app: &mut EvoLightApp, ctx: &egui::Context, key: &str, value: Value) {
     patch(app, ctx, json!({"job": {"color": {(key): value}}}));
 }
 
@@ -511,7 +511,7 @@ fn to_value<V: serde::Serialize>(v: V) -> Value {
 }
 
 /// The Print Job panel's colour management, print adjustment, print sharpening and depth.
-fn print_job_color(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, color: &PrintColorSettings) {
+fn print_job_color(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, color: &PrintColorSettings) {
     let ctx = ui.ctx().clone();
     let managed = |space| PrintProfile::Managed { space };
     let shown = match &color.profile {
@@ -521,7 +521,7 @@ fn print_job_color(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, color: &Pri
     };
     let mut pick = false;
     row(ui, t, "Profile", |ui| {
-        let c = craft_ui::ComboBox::from_id_salt("print-profile").width(190.0).selected_text(shown.clone()).show_ui(ui, |ui| {
+        let c = evo_ui::ComboBox::from_id_salt("print-profile").width(190.0).selected_text(shown.clone()).show_ui(ui, |ui| {
             for (space, label) in [(ManagedSpace::Srgb, "Managed by Printer (sRGB)"), (ManagedSpace::AdobeRgb, "Managed by Printer (Adobe RGB)")] {
                 let r = ui.selectable_label(color.profile == managed(space), crate::i18n::tr(label));
                 register(ui, format!("item:printProfile-{}", to_value(space).as_str().unwrap_or_default()), r.rect);
@@ -590,7 +590,7 @@ fn trim(v: f64) -> String {
     s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
-fn add_cell(app: &mut LightcraftApp, ctx: &egui::Context, pu: &mut PrintUi, w: f64, h: f64) {
+fn add_cell(app: &mut EvoLightApp, ctx: &egui::Context, pu: &mut PrintUi, w: f64, h: f64) {
     if let Some(r) = run(app, ctx, "print.cell.add", json!({"width": w, "height": h})) {
         pu.selected = r["id"].as_u64().and_then(|v| u32::try_from(v).ok());
         pu.page = r["cell"]["page"].as_u64().unwrap_or(0) as usize;
@@ -612,7 +612,7 @@ impl Sheet {
     }
 }
 
-fn preview(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings, ids: &[PhotoId], pages: usize) {
+fn preview(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings, ids: &[PhotoId], pages: usize) {
     // room for the page buttons and, for a package, the selected cell's row (which may wrap)
     let footer = if st.layout.style.is_package() { 104.0 } else { 44.0 };
     let size = vec2(ui.available_width(), (ui.available_height() - footer).max(120.0));
@@ -716,7 +716,7 @@ fn press_origin(ui: &Ui, resp: &egui::Response) -> Pos2 {
 /// Draws and handles every cell of a package page, back to front.
 #[allow(clippy::too_many_arguments)]
 fn package_cells(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut Ui,
     painter: &egui::Painter,
     t: &Tokens,
@@ -801,7 +801,7 @@ fn package_cells(
 }
 
 /// The selected cell's numbers, its place in the stack and its photo.
-fn inspector(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings) {
+fn inspector(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi, st: &PrintSettings) {
     let ctx = ui.ctx().clone();
     let Some(cell) = pu.selected.and_then(|id| st.layout.cell(id)) else {
         ui.label(egui::RichText::new(crate::i18n::tr("Click a cell to move, resize or arrange it")).color(t.text_dim));
@@ -847,7 +847,7 @@ fn inspector(app: &mut LightcraftApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi,
 /// One cell on screen: the photo as it will print (fit or fill, turned, border, stroke).
 #[allow(clippy::too_many_arguments)]
 fn paint_cell(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     painter: &egui::Painter,
     t: &Tokens,
     st: &PrintSettings,
@@ -871,7 +871,7 @@ fn paint_cell(
     }
     // the photo's shape: its cropped size, or 3:2 for a placeholder
     let (nw, nh) = photo.and_then(|id| app.session.catalog.photo(id)).map_or((3.0, 2.0), |p| {
-        let (w, h) = lightcraft_engine::export::output_size(p, &ExportOptions::default());
+        let (w, h) = evolight_engine::export::output_size(p, &ExportOptions::default());
         (w as f64, h as f64)
     });
     let scale = 8.0; // sub-point resolution for the rounding in `place`

@@ -1,11 +1,11 @@
-use super::{Dialog, LightcraftApp, Value, json};
+use super::{Dialog, EvoLightApp, Value, json};
 
 /// The Delete key in an album: a normal album loses the selected photos (`album.removePhotos`),
 /// which stay in the library and their folder; a smart album keeps them (its rules decide) and
 /// says so. True when the key was handled here, false outside albums (then it deletes the photos
 /// from the library). Photo ▸ Delete Photo still deletes from the library everywhere.
-pub fn delete_in_album(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
-    let lightcraft_engine::LibrarySource::Album(aid) = app.session.source else { return false };
+pub fn delete_in_album(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
+    let evolight_engine::LibrarySource::Album(aid) = app.session.source else { return false };
     let Some(album) = app.session.catalog.album(aid) else { return false };
     if album.is_smart() {
         app.toast(ctx, crate::i18n::tr("Smart albums update automatically: change their rules, or use Photo ▸ Delete Photo"));
@@ -28,7 +28,7 @@ pub fn delete_in_album(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
 
 /// With Settings → General → "Confirm before deleting" on, open the confirmation dialog instead
 /// of deleting; true when it did (the dialog's OK runs `photo.delete`).
-pub fn confirm_delete(app: &mut LightcraftApp) -> bool {
+pub fn confirm_delete(app: &mut EvoLightApp) -> bool {
     if !app.ui.settings.confirm_delete {
         return false;
     }
@@ -53,7 +53,7 @@ pub fn reveal_label() -> &'static str {
 
 /// Help ▸ Open Log Folder: reveal the host's log file in the system file manager, so it can be
 /// attached to a report without hunting for the settings folder (#260).
-pub(super) fn open_log_folder(app: &mut LightcraftApp) -> Result<Value, String> {
+pub(super) fn open_log_folder(app: &mut EvoLightApp) -> Result<Value, String> {
     let path = app.services.log_file.clone().ok_or("this session keeps no log file")?;
     let reveal = app.services.reveal.as_mut().ok_or("not available here")?;
     reveal(&path)?;
@@ -61,10 +61,10 @@ pub(super) fn open_log_folder(app: &mut LightcraftApp) -> Result<Value, String> 
 }
 
 /// Reveal the active photo's original in the system file manager.
-pub(super) fn show_in_finder(app: &mut LightcraftApp) -> Result<Value, String> {
+pub(super) fn show_in_finder(app: &mut EvoLightApp) -> Result<Value, String> {
     let id = app.session.active().ok_or("no photo selected")?;
     let path = match app.session.catalog.photo(id).map(|p| p.source.clone()) {
-        Some(lightcraft_engine::catalog::Source::File { path }) => path,
+        Some(evolight_engine::catalog::Source::File { path }) => path,
         _ => return Err("this photo has no file (demo scene)".into()),
     };
     let reveal = app.services.reveal.as_mut().ok_or("not available here")?;
@@ -75,17 +75,17 @@ pub(super) fn show_in_finder(app: &mut LightcraftApp) -> Result<Value, String> {
 /// The folder the active photo was imported from, as the sidebar's Folders section counts it (a
 /// photo straight in a disk's root is in the root). `None` for a demo scene, a photo only browsed
 /// in Local or in Recently Deleted, and one on the startup disk's root, which has no row to show.
-fn photo_folder(app: &LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> Option<String> {
+fn photo_folder(app: &EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> Option<String> {
     let photo = id.or_else(|| app.session.active()).and_then(|id| app.session.catalog.photo(id)).filter(|p| p.in_library())?;
-    let lightcraft_engine::catalog::Source::File { path } = &photo.source else { return None };
+    let evolight_engine::catalog::Source::File { path } = &photo.source else { return None };
     let dir = path.rfind(['/', '\\']).and_then(|i| path.get(..i.max(1)))?;
-    (!lightcraft_catalog::folders::is_startup_disk(dir)).then(|| dir.to_string())
+    (!evolight_catalog::folders::is_startup_disk(dir)).then(|| dir.to_string())
 }
 
 /// Whether Show in Folders has a row to show for photo `id` (the active one when `None`): its
 /// folder must be a row of the tree, which stops `MAX_DEPTH` levels down. With no fresh tree to
 /// look in, the folder alone decides, and the command still checks.
-pub fn show_in_folders_enabled(app: &LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> bool {
+pub fn show_in_folders_enabled(app: &EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> bool {
     let Some(dir) = photo_folder(app, id) else { return false };
     app.caches.folder_tree_if_fresh(&app.session.catalog).is_none_or(|tree| crate::panels::left::folder_row_of(&tree, &dir).is_some())
 }
@@ -94,7 +94,7 @@ pub fn show_in_folders_enabled(app: &LightcraftApp, id: Option<lightcraft_catalo
 /// (the active one when `None`; the grid's menu passes the photo right-clicked) as a click on its
 /// row in the sidebar's Folders section does, and bring the row into view: the sidebar, the
 /// section and the folders above it open, and it scrolls there (`reveal_folder`).
-pub(super) fn show_in_folders(app: &mut LightcraftApp, id: Option<lightcraft_catalog::PhotoId>) -> Result<Value, String> {
+pub(super) fn show_in_folders(app: &mut EvoLightApp, id: Option<evolight_catalog::PhotoId>) -> Result<Value, String> {
     let dir = photo_folder(app, id).ok_or("this photo is not in a folder of the library")?;
     let tree = app.caches.folder_tree(&app.session.catalog);
     // the row's own spelling (forward slashes): what its click hands `library.source`, and its id
@@ -107,19 +107,19 @@ pub(super) fn show_in_folders(app: &mut LightcraftApp, id: Option<lightcraft_cat
 
 /// Photo ▸ Edit In: render a copy of each selected photo with its edits (stacked on its original)
 /// as Settings ▸ External Editing asks for that editor, then open them there. `p` may override the
-/// file (`format`, `colorSpace`, `bitDepth`) and the editor (`app`). PhotoCraft is checked first,
+/// file (`format`, `colorSpace`, `bitDepth`) and the editor (`app`). EvoPhoto is checked first,
 /// so a missing editor leaves no copy behind. Once the copies exist, an editor that won't open them
 /// is reported in the result's `failed` (and a toast), not as an error.
-pub(super) fn edit_in(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photocraft: bool) -> Result<Value, String> {
+pub(super) fn edit_in(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value, evophoto: bool) -> Result<Value, String> {
     // every way in (menu, shortcut, context menu, the control channel) says why nothing opened
-    edit_in_inner(app, ctx, p, photocraft).inspect_err(|e| app.toast(ctx, crate::i18n::tr_format!("Couldn't open the editor: {e}", e = e)))
+    edit_in_inner(app, ctx, p, evophoto).inspect_err(|e| app.toast(ctx, crate::i18n::tr_format!("Couldn't open the editor: {e}", e = e)))
 }
 
-fn edit_in_inner(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photocraft: bool) -> Result<Value, String> {
+fn edit_in_inner(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value, evophoto: bool) -> Result<Value, String> {
     let settings = &app.ui.settings;
-    let (file, configured) = if photocraft {
-        let path = settings.photocraft_path.trim();
-        (settings.photocraft_file, if path.is_empty() { crate::state::PHOTOCRAFT.to_string() } else { path.to_string() })
+    let (file, configured) = if evophoto {
+        let path = settings.evophoto_path.trim();
+        (settings.evophoto_file, if path.is_empty() { crate::state::EVOPHOTO.to_string() } else { path.to_string() })
     } else {
         (settings.external_file, settings.external_editor.clone())
     };
@@ -144,9 +144,9 @@ fn edit_in_inner(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value, photoc
         if let Some(id) = id {
             app.ui.external_edits.push(*id);
         }
-        // the copy is LightCraft's own render, but it goes through the same gate as any other
+        // the copy is EvoLight's own render, but it goes through the same gate as any other
         // path handed to the system opener (#2135)
-        match lightcraft_engine::open_path::openable(path, "") {
+        match evolight_engine::open_path::openable(path, "") {
             Err(e) => failed = Some(e),
             Ok(absolute) => {
                 if let Some(Err(e)) = app.services.open_with.as_mut().map(|f| f(&absolute, &editor)) {
@@ -183,7 +183,7 @@ const MAX_ORIGINALS: usize = 50;
 /// set in Settings ▸ External Editing, e.g. a raw developer. `p` may give `ids` and the editor
 /// (`app`). Demo photos and missing files are skipped and listed; when no photo has a file to
 /// open, it fails saying why.
-pub(super) fn open_original_in(app: &mut LightcraftApp, ctx: &egui::Context, p: &Value) -> Result<Value, String> {
+pub(super) fn open_original_in(app: &mut EvoLightApp, ctx: &egui::Context, p: &Value) -> Result<Value, String> {
     let r = open_originals(app, p);
     if let Err(e) = &r {
         app.toast(ctx, e.clone());
@@ -201,7 +201,7 @@ pub(super) fn open_original_in(app: &mut LightcraftApp, ctx: &egui::Context, p: 
     Ok(r)
 }
 
-fn open_originals(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn open_originals(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let mut ids = app.session.targets(p).map_err(|e| e.to_string())?;
     ids.dedup();
     if ids.is_empty() {
@@ -213,10 +213,10 @@ fn open_originals(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
     let mut files = Vec::new();
     let mut skipped = Vec::new();
     for id in ids {
-        // the path may come from an imported catalog: only a photo file LightCraft reads is
+        // the path may come from an imported catalog: only a photo file EvoLight reads is
         // handed to the opener, never a program (#2135)
         match app.session.catalog.photo(id).map(|ph| (ph.file_name.clone(), ph.source.clone())) {
-            Some((name, lightcraft_engine::catalog::Source::File { path })) => match lightcraft_engine::open_path::openable(&path, &name) {
+            Some((name, evolight_engine::catalog::Source::File { path })) => match evolight_engine::open_path::openable(&path, &name) {
                 Ok(absolute) => files.push((id, absolute)),
                 Err(reason) => skipped.push(json!({"id": id.0, "reason": reason})),
             },

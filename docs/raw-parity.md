@@ -32,7 +32,7 @@ rewrites [raw/coverage.tsv](raw/coverage.tsv) and prints the tables below; `--ch
 committed table is stale.
 
 Folder discovery, desktop file pickers, CLI and MCP share
-`lightcraft_engine::import::EXTENSIONS`. The list includes formats that may open only from an
+`evolight_engine::import::EXTENSIONS`. The list includes formats that may open only from an
 embedded preview or report a decoder error; an extension is not a promise of sensor decoding.
 The 2026-10-12 release CLI check of the public DSC-R1 SR2 and DSC-F828 SRF samples found the
 same photos and decode status through recursive and direct import. DSC-F828 moves from
@@ -46,7 +46,7 @@ unsupported to preview-only in the counts; sensor-decoding readiness is unchange
   version. The year a model was added is approximated from that Camera Raw major version.
 - **What we decode**: the decoders and their refusals in `crates/raw/src` (`lib.rs` routing, `vendor/*.rs`
   coding variants, `crx.rs` CRX limits, `orf.rs` / `srw.rs` compressed refusals), the import list
-  `lightcraft_engine::import::EXTENSIONS`, and `KNOWN_UNSUPPORTED` in `crates/raw/tests/it/corpus.rs`. Doc
+  `evolight_engine::import::EXTENSIONS`, and `KNOWN_UNSUPPORTED` in `crates/raw/tests/it/corpus.rs`. Doc
   claims were not used.
 - **Verified** means a real file from that body decoded from sensor data in: the corpus test over the
   `RAW_SAMPLES` manifest (`xtask/src/main.rs`, 105 CC0 files; bodies whose sample is in
@@ -63,7 +63,7 @@ unsupported to preview-only in the counts; sensor-decoding readiness is unchange
 - **2026-10-12 public sweep:** 30 further models on 40 CC0 files, independently downloaded and
   decoded on main `25ef65c8`; [raw/coverage-sweep.tsv](raw/coverage-sweep.tsv) records the URLs,
   SHA-256, dimensions, FNV-1a sensor hashes and render/reference luminance correlations (0.6801
-  to 0.9998). The hashes pin LightCraft's own output. The regression test is
+  to 0.9998). The hashes pin EvoLight's own output. The regression test is
   `crates/raw/tests/it/coverage_sweep_corpus.rs`; downloads are in `RAW_SAMPLES`. Ten references are
   embedded TIFF images; the rest are JPEGs. FFF TIFF previews are not display-ready and check
   image structure only. Eleven candidate models were excluded for identity, provenance or
@@ -141,9 +141,9 @@ checked (the per-model CC0 sweeps of October 2026).
 | CR3 | sRAW / mRAW | ⬜ | 4-plane Bayer only |
 | CR3 | HEIF / HDR PQ | ⬜ | HEVC tracks recognised, not decoded |
 | CR3 | dual-pixel raw | ⬜ | never substituted |
-| CRW | CIFF: EOS D30/D60/10D/300D, PowerShot G1/G6 | ✅ | clean-room derivation frozen in `craft-libs crates/crw/clean-room/02-crw-format.md`; 28 of 29 files pixel-exact vs a black-box reference (8 CC0 EOS, G1, G6, 18 private D60); as-shot WB from ColorBalance; EOS D60 colour matrices measured on a ColorChecker (Kelvin white balance) |
+| CRW | CIFF: EOS D30/D60/10D/300D, PowerShot G1/G6 | ✅ | clean-room derivation frozen in `evo-libs crates/crw/clean-room/02-crw-format.md`; 28 of 29 files pixel-exact vs a black-box reference (8 CC0 EOS, G1, G6, 18 private D60); as-shot WB from ColorBalance; EOS D60 colour matrices measured on a ColorChecker (Kelvin white balance) |
 | CRW | CIFF: PowerShot G2/G3/G4, Pro1, S-series | 🟡 | same decoder and tables; no sample file checked |
-| CRW | CIFF: PowerShot G5 | ⬜ | refused (entropy anomaly, `craft-libs crates/crw/clean-room/02-crw-format.md`); preview |
+| CRW | CIFF: PowerShot G5 | ⬜ | refused (entropy anomaly, `evo-libs crates/crw/clean-room/02-crw-format.md`); preview |
 | NEF | uncompressed, lossless, lossy type 1 / 2, lossy after split | ✅ | D5100, D7000, D7500, Z f corpus; ~60 NEFs by hand; #633; D4, D90, D5000, D600 and D610 image area measured against the camera JPEG (white level too for the D4, D90 and D5000) |
 | NEF | packed 14-bit stored under a compressed tag (Z 6II uncompressed) | ⬜ | #769; fix in PR #671 (not merged) |
 | NEF | High Efficiency / HE★ (JPEG XS) | ⬜ | named, preview (#193); needs a JPEG XS decoder |
@@ -194,7 +194,7 @@ They give the algorithm's shape; the full clean-room specification and derivatio
 
 ## Demosaic, levels, crops and lens metadata
 
-| Stage | Target | LightCraft | Status |
+| Stage | Target | EvoLight | Status |
 |---|---|---|---|
 | Bayer demosaic | Adobe's own, plus AI "Raw Details" | AHD (default; blends its horizontal and vertical candidates where neither is clearly more homogeneous, so flat noise doesn't become a maze), PPG, bilinear (`crates/raw/src/demosaic`) | 🟡 quality unmeasured against Lightroom; demosaics before white balance (#1328, PR #1463); no Raw Details |
 | X-Trans demosaic | ✅ | in-house edge-weighted directional | 🟡 unmeasured |
@@ -214,7 +214,7 @@ They give the algorithm's shape; the full clean-room specification and derivatio
 
 ## Colour
 
-| Item | Adobe | LightCraft |
+| Item | Adobe | EvoLight |
 |---|---|---|
 | Default profile per model | Adobe Standard for every model (1,500 profile names in the bundle) | the DNG's own matrices; else a pooled profile (**10 bundled**: EOS D60, ILCA-99M2, ILCE-7CR, ILCE-7M4, ILCE-7RM5, X-H2S, X-T4, Nikon Z 6II, Z 8 and D5300); else a guarded per-file fit to the camera's embedded JPEG; else spectral matrices (**52 models**, rawtoaces-data, and the bodies sharing their sensors: 6 Fujifilm bodies take the X-T3's (X-T30, X-T30 II, X-Pro3, X100V, X-E4, X-M5) and 2 take the X-T4's (X-S10, X-S20)) or chart-measured ones (**1 model**, the EOS D60); else a neutral matrix |
 | Camera Matching looks | 481 models (plus phone-maker looks) | none (the per-file JPEG fit imitates the camera's own look) |
@@ -243,7 +243,7 @@ essentials user (the default look is what they keep).
 
 ## Lens profiles
 
-| Item | Adobe | LightCraft |
+| Item | Adobe | EvoLight |
 |---|---|---|
 | Profile database | 3,635 profile files, 56 makers, auto-selected | **0** (Adobe LCPs never used; no database of our own) |
 | In-file corrections | ✅ | DNG opcodes (WarpRectilinear, FixVignetteRadial, GainMap…) applied; Panasonic / Leica RW2 distortion (79 photos, 13 bodies, 11 lenses); Sony tag 0x7037 distortion for the ILCE-7RM4A (2 lenses) and ILCE-7M3 (3 lenses), full-frame Bayer 3:2 ILCE-7CR files with correction Auto or forced Auto (3 lenses; see sony-lens-corrections.md for residuals and limits) the ILCE-7RM6 (3 lenses, 54 photos) and the APS-C ILCE-6700 (3 lenses, 145 photos; 0.73 px worst, with a measured Sigma 10–18 mm exception at 10–10.5 mm; `sony-ilce7rm6-lens-corrections.md`); Nikon NikonNEFInfo distortion (tag `0xc7d5`, about the sensor-shifted optical centre) for the Z 6II and Z f: F-mount lenses on the FTZ within 0.2 px of the camera JPEG, Z lenses within 0.5–1.5 px except the 24-70's wide end (7 px median; `docs/nikon-lens-corrections.md`) |
@@ -302,14 +302,14 @@ Beyond decoding:
 | 2026-10-26 | patch | Bundled camera profile count 5 → 9 (Nikon Z 6II, Z 8 and D5300, ILCE-7RM5); counts only |
 | 2026-10-23 | minor | Lens profiles: Sony ILCE-6700 (APS-C) in-file distortion through the ILCE-7RM6 conversion, knots spanning its own crop; lens score unchanged (~10%: one more body) |
 | 2026-10-25 | patch | CRW variant rows split by verification status (EOS and G1/G6 verified; G2/G3/G4/Pro1/S-series unverified; G5 preview); the CIFF heap walk is bounded by a per-file record budget, so a block of sub-heap records pointing back at their parent no longer hangs decode |
-| 2026-10-13 | minor | Canon CRW decoded (clean-room derivation, craft-libs `crates/crw/clean-room/`): EOS D30/D60/10D/300D, PowerShot G1/G6 verified pixel-exact (28 of 29 corpus files); G5 preview (entropy anomaly); as-shot WB from ColorBalance 0x10a9; 243 verified, 950 unverified, 217 preview; Canon bucket 76% (21% verified) |
+| 2026-10-13 | minor | Canon CRW decoded (clean-room derivation, evo-libs `crates/crw/clean-room/`): EOS D30/D60/10D/300D, PowerShot G1/G6 verified pixel-exact (28 of 29 corpus files); G5 preview (entropy anomaly); as-shot WB from ColorBalance 0x10a9; 243 verified, 950 unverified, 217 preview; Canon bucket 76% (21% verified) |
 | 2026-10-18 | patch | X-T30, X-T30 II, X-Pro3, X100V, X-S10 and X-E4 take the X-T3's spectral matrices (same 26.1 MP X-Trans CMOS 4 sensor): an X-T30 raw with a black-and-white (Acros) camera JPEG no longer opens in the muted neutral fallback |
 | 2026-10-16 | minor | Kelvin white balance from Canon CR2 `ColorData` presets (PowerShot G1 X Mark III) |
 | 2026-10-15 | minor | DNGs with a look table and no tone curve (Lightroom-written, Adobe Standard) fit their tone to the embedded preview, also Lightroom's 1024 px one: two lossy ILCE-7CM2 DNGs no longer render 0.8 EV dark and flat |
 | 2026-10-15 | minor | Lossy JPEG XL DNG tiles that declare a non-linear SDR transfer curve (sRGB, BT.709, DCI, gamma) decode with that curve restored instead of falling back to the embedded preview: Lightroom Classic 15.1 LinearRaw DNGs (Rec. 2100 primaries, sRGB curve; 2 private ILCE-7CM2 files) |
 | 2026-10-15 | minor | Hasselblad 3FR / FFF embedded previews: the uncompressed 8-bit RGB image, handed on as a baseline TIFF (checked on the CC0 H4D-40 FFF, 1217 × 913, and CFV 3FR, 218 × 218, upright through the file's orientation); counts unchanged |
 | 2026-10-15 | minor | Hasselblad 3FR / FFF get their own reader (`crates/raw/src/vendor/hasselblad.rs`): an FFF takes its colour matrix from the original 3FR header in tag `0xC51B` instead of developing with the neutral matrix; RGGB checked against the camera preview on the CC0 H4D-40 FFF and CFV 3FR; counts unchanged |
-| 2026-10-22 | patch | LR-PROF-IMPORT: a CC0 Nikon D750 ColorChecker profile (Calibrite PROFILER, matrix-only, Cool White Fluorescent + D55) and its chart NEFs are a pinned corpus (`D750_COLORCHECKER`); with it LightCraft develops the charts within mean ΔE2000 3.84 (flash) / 3.35 (indoor), max 7.77 / 5.24, of Lightroom Classic 15.6's renders; colour patches come out less saturated |
+| 2026-10-22 | patch | LR-PROF-IMPORT: a CC0 Nikon D750 ColorChecker profile (Calibrite PROFILER, matrix-only, Cool White Fluorescent + D55) and its chart NEFs are a pinned corpus (`D750_COLORCHECKER`); with it EvoLight develops the charts within mean ΔE2000 3.84 (flash) / 3.35 (indoor), max 7.77 / 5.24, of Lightroom Classic 15.6's renders; colour patches come out less saturated |
 | 2026-10-12 | minor | LR-PROF-IMPORT: the user's own DNG camera profiles (`.dcp`) import as camera profiles; none ship |
 | 2026-10-12 | minor | SR2/SRF folder discovery and shared CLI/MCP extensions; public DSC-R1 sensor import and DSC-F828 preview-only import agree with direct import. F828 reclassified as preview-only (219 preview, 37 unsupported in the current generated coverage); sensor-decoding scores unchanged |
 | 2026-10-14 | minor | Camera-coverage sweep (#1327): 30 models verified on 40 CC0 files (`coverage_sweep_corpus.rs`, `coverage-sweep.tsv`; `docs/raw/coverage.py` 515 → 545 verified rows); the counts above are not re-measured here. Sensor verification does not establish colour parity (#1277) |
@@ -341,4 +341,4 @@ Beyond decoding:
 | 2026-10-18 | minor | Minolta MRW decoded (`vendor/mrw.rs`): DiMAGE 7, 7Hi, A1, A2, A200 and Dynax / Maxxum 7D verified; 551 verified, 656 unverified, 201 preview (re-measured with `coverage.py`) |
 | 2026-10-23 | minor | AHD blends its horizontal and vertical candidates where their homogeneity is close, so flat noise no longer becomes a maze pattern; Bayer demosaic row notes the pre-white-balance demosaic (#1328); scores unchanged |
 | 2026-10-30 | patch | RAF camera look fitted on the vignetting-corrected sensor (`LOOK_VERSION` 13): renders were up to 0.3 EV too bright in midtones and 0.6 EV in shadows; X-S10 mean ΔE00 vs the camera JPEG 2.71 → 2.55 on 60 photos |
-| 2026-10-26 | minor | Canon CRW decoding moved to the shared craft-libs crate `craft-crw` (local path dependency until that branch merges); `vendor/crw.rs` is now the adapter onto `RawImage`, and the clean-room derivation record lives in craft-libs `crates/crw/clean-room/`; counts unchanged |
+| 2026-10-26 | minor | Canon CRW decoding moved to the shared evo-libs crate `evo-crw` (local path dependency until that branch merges); `vendor/crw.rs` is now the adapter onto `RawImage`, and the clean-room derivation record lives in evo-libs `crates/crw/clean-room/`; counts unchanged |

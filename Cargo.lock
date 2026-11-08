@@ -1182,98 +1182,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "craft-crw"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "craft-docpath"
-version = "0.1.0"
-
-[[package]]
-name = "craft-fonts-build"
-version = "0.1.0"
-
-[[package]]
-name = "craft-i18n"
-version = "0.1.0"
-dependencies = [
- "fixed_decimal",
- "icu_decimal",
- "icu_locale_core",
- "icu_locale_fallback",
- "icu_normalizer",
- "icu_plurals",
- "icu_properties",
- "icu_provider",
- "icu_provider_adapters",
- "icu_provider_blob",
- "log",
- "objc2-foundation 0.3.2",
- "sys-locale",
- "unicode-bidi",
- "windows-registry",
- "writeable",
-]
-
-[[package]]
-name = "craft-ui"
-version = "0.1.0"
-dependencies = [
- "craft-fonts-build",
- "craft-i18n",
- "egui",
- "epaint",
- "js-sys",
- "log",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "serde",
- "skrifa",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "craft-update"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dunce",
- "egui",
- "flate2",
- "getrandom 0.3.4",
- "image",
- "log",
- "plist",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "ureq",
- "verifysign",
- "winreg",
- "winsafe",
- "zip 9.1.3",
-]
-
-[[package]]
-name = "craft-window"
-version = "0.1.0"
-dependencies = [
- "egui",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "wayland-client",
-]
-
-[[package]]
 name = "crc32fast"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1941,6 +1849,614 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
+]
+
+[[package]]
+name = "evo-crw"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "evo-docpath"
+version = "0.1.0"
+
+[[package]]
+name = "evo-fonts-build"
+version = "0.1.0"
+
+[[package]]
+name = "evo-i18n"
+version = "0.1.0"
+dependencies = [
+ "fixed_decimal",
+ "icu_decimal",
+ "icu_locale_core",
+ "icu_locale_fallback",
+ "icu_normalizer",
+ "icu_plurals",
+ "icu_properties",
+ "icu_provider",
+ "icu_provider_adapters",
+ "icu_provider_blob",
+ "log",
+ "objc2-foundation 0.3.2",
+ "sys-locale",
+ "unicode-bidi",
+ "windows-registry",
+ "writeable",
+]
+
+[[package]]
+name = "evo-ui"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "epaint",
+ "evo-fonts-build",
+ "evo-i18n",
+ "js-sys",
+ "log",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "serde",
+ "skrifa",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "evo-update"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dunce",
+ "egui",
+ "flate2",
+ "getrandom 0.3.4",
+ "image",
+ "log",
+ "plist",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "ureq",
+ "verifysign",
+ "winreg",
+ "winsafe",
+ "zip 9.1.3",
+]
+
+[[package]]
+name = "evo-window"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "wayland-client",
+]
+
+[[package]]
+name = "evolight"
+version = "0.19.0"
+dependencies = [
+ "chrono",
+ "eframe",
+ "egui",
+ "evo-update",
+ "evolight-codecs",
+ "evolight-engine",
+ "evolight-raster",
+ "evolight-sysmem",
+ "evolight-testkit",
+ "evolight-ui-egui",
+ "evolight-wincolor",
+ "log",
+ "muda",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "pollster 1.0.1",
+ "raw-window-handle",
+ "rfd",
+ "serde_json",
+ "winit",
+ "winresource",
+ "zbus",
+]
+
+[[package]]
+name = "evolight-catalog"
+version = "0.19.0"
+dependencies = [
+ "chrono",
+ "crc32fast",
+ "dhat",
+ "evolight-develop",
+ "evolight-geom",
+ "evolight-meta",
+ "evolight-raw",
+ "evolight-testkit",
+ "log",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "web-time",
+ "winapi-util",
+]
+
+[[package]]
+name = "evolight-cli"
+version = "0.19.0"
+dependencies = [
+ "dhat",
+ "evolight-codecs",
+ "evolight-denoise",
+ "evolight-engine",
+ "evolight-mcp",
+ "evolight-merge",
+ "evolight-raster",
+ "evolight-sysmem",
+ "evolight-testkit",
+ "evolight-ui-egui",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-codecs"
+version = "0.19.0"
+dependencies = [
+ "avif-serialize",
+ "bytemuck",
+ "dhat",
+ "evolight-color",
+ "evolight-geom",
+ "evolight-heif",
+ "evolight-raster",
+ "evolight-testkit",
+ "image",
+ "image-webp",
+ "jixel",
+ "jpeg-decoder",
+ "jpeg-encoder",
+ "jxl-oxide",
+ "moxcms 0.9.1",
+ "png",
+ "proptest",
+ "rav1e",
+ "ravif",
+ "rayon",
+ "serde",
+ "thiserror 2.0.21",
+ "tiff",
+ "zune-core",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "evolight-color"
+version = "0.19.0"
+dependencies = [
+ "evolight-geom",
+ "proptest",
+ "serde",
+]
+
+[[package]]
+name = "evolight-denoise"
+version = "0.19.0"
+dependencies = [
+ "evolight-denoise-core",
+ "evolight-raster",
+ "faer-core",
+ "miniz_oxide 0.9.1",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "web-time",
+]
+
+[[package]]
+name = "evolight-denoise-core"
+version = "0.19.0"
+dependencies = [
+ "dhat",
+ "evolight-raster",
+ "miniz_oxide 0.9.1",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "web-time",
+]
+
+[[package]]
+name = "evolight-develop"
+version = "0.19.0"
+dependencies = [
+ "evolight-color",
+ "evolight-geom",
+ "miniz_oxide 0.9.1",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-engine"
+version = "0.19.0"
+dependencies = [
+ "ab_glyph",
+ "chrono",
+ "evo-docpath",
+ "evolight-catalog",
+ "evolight-codecs",
+ "evolight-color",
+ "evolight-denoise",
+ "evolight-denoise-core",
+ "evolight-develop",
+ "evolight-faces",
+ "evolight-fetch",
+ "evolight-geocode",
+ "evolight-geom",
+ "evolight-gpu",
+ "evolight-heif",
+ "evolight-lensdb",
+ "evolight-merge",
+ "evolight-meta",
+ "evolight-pipeline",
+ "evolight-preview",
+ "evolight-raster",
+ "evolight-raw",
+ "evolight-scenes",
+ "evolight-segment",
+ "evolight-slideshow",
+ "evolight-testkit",
+ "evolight-tiff",
+ "fs4",
+ "harfrust 0.13.3",
+ "jxl-oxide",
+ "libc",
+ "log",
+ "miniz_oxide 0.9.1",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "unicode-normalization",
+ "unicode-segmentation",
+ "web-time",
+]
+
+[[package]]
+name = "evolight-faces"
+version = "0.19.0"
+dependencies = [
+ "evolight-testkit",
+ "matrixmultiply",
+ "ndarray",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "web-time",
+]
+
+[[package]]
+name = "evolight-fetch"
+version = "0.19.0"
+dependencies = [
+ "log",
+ "rustls",
+ "rustls-rustcrypto",
+ "sha2",
+ "webpki-roots",
+]
+
+[[package]]
+name = "evolight-film"
+version = "0.19.0"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "evolight-geocode"
+version = "0.19.0"
+dependencies = [
+ "miniz_oxide 0.9.1",
+ "serde",
+]
+
+[[package]]
+name = "evolight-geom"
+version = "0.19.0"
+dependencies = [
+ "proptest",
+ "serde",
+]
+
+[[package]]
+name = "evolight-gpu"
+version = "0.19.0"
+dependencies = [
+ "bytemuck",
+ "evolight-color",
+ "evolight-denoise",
+ "evolight-develop",
+ "evolight-faces",
+ "evolight-geom",
+ "evolight-pipeline",
+ "evolight-raster",
+ "evolight-raw",
+ "evolight-scenes",
+ "evolight-testkit",
+ "log",
+ "pollster 1.0.1",
+ "wgpu",
+]
+
+[[package]]
+name = "evolight-heif"
+version = "0.19.0"
+dependencies = [
+ "heic-rs",
+ "rayon",
+]
+
+[[package]]
+name = "evolight-inpaint"
+version = "0.19.0"
+dependencies = [
+ "rayon",
+]
+
+[[package]]
+name = "evolight-lensdb"
+version = "0.19.0"
+dependencies = [
+ "evolight-develop",
+ "evolight-geom",
+ "quick-xml 0.41.0",
+]
+
+[[package]]
+name = "evolight-mcp"
+version = "0.19.0"
+dependencies = [
+ "evolight-codecs",
+ "evolight-engine",
+ "evolight-raster",
+ "log",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-merge"
+version = "0.19.0"
+dependencies = [
+ "evolight-codecs",
+ "evolight-color",
+ "evolight-geom",
+ "evolight-meta",
+ "evolight-raster",
+ "evolight-raw",
+ "evolight-scenes",
+ "rayon",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "evolight-meta"
+version = "0.19.0"
+dependencies = [
+ "chrono",
+ "evolight-geom",
+ "evolight-heif",
+ "evolight-tiff",
+ "proptest",
+ "quick-xml 0.41.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-pipeline"
+version = "0.19.0"
+dependencies = [
+ "dhat",
+ "evolight-color",
+ "evolight-develop",
+ "evolight-geom",
+ "evolight-inpaint",
+ "evolight-raster",
+ "evolight-raw",
+ "evolight-scenes",
+ "image",
+ "proptest",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-preview"
+version = "0.19.0"
+dependencies = [
+ "evolight-raster",
+ "jpeg-encoder",
+ "log",
+ "siphasher",
+ "zune-core",
+ "zune-jpeg",
+]
+
+[[package]]
+name = "evolight-raster"
+version = "0.19.0"
+dependencies = [
+ "evolight-color",
+ "evolight-geom",
+ "libc",
+ "proptest",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "evolight-raw"
+version = "0.19.0"
+dependencies = [
+ "chrono",
+ "dhat",
+ "evo-crw",
+ "evolight-color",
+ "evolight-geom",
+ "evolight-meta",
+ "evolight-raster",
+ "evolight-testkit",
+ "evolight-tiff",
+ "jpeg-encoder",
+ "jxl-oxide",
+ "miniz_oxide 0.9.1",
+ "proptest",
+ "rayon",
+ "serde",
+ "sha2",
+ "thiserror 2.0.21",
+ "zune-core",
+ "zune-jpeg",
+ "zune-jpegxl",
+]
+
+[[package]]
+name = "evolight-scenes"
+version = "0.19.0"
+dependencies = [
+ "evolight-color",
+ "evolight-raster",
+ "image",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "evolight-segment"
+version = "0.19.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+ "evolight-fetch",
+ "evolight-testkit",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "evolight-slideshow"
+version = "0.19.0"
+dependencies = [
+ "evolight-raster",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "evolight-sysmem"
+version = "0.19.0"
+
+[[package]]
+name = "evolight-testkit"
+version = "0.19.0"
+
+[[package]]
+name = "evolight-tiff"
+version = "0.19.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "evolight-ui-egui"
+version = "0.19.0"
+dependencies = [
+ "egui",
+ "egui_extras",
+ "egui_kittest",
+ "evo-ui",
+ "evo-update",
+ "evo-window",
+ "evolight-catalog",
+ "evolight-codecs",
+ "evolight-color",
+ "evolight-denoise",
+ "evolight-develop",
+ "evolight-engine",
+ "evolight-faces",
+ "evolight-geom",
+ "evolight-merge",
+ "evolight-meta",
+ "evolight-pipeline",
+ "evolight-preview",
+ "evolight-raster",
+ "evolight-slideshow",
+ "evolight-testkit",
+ "log",
+ "pollster 1.0.1",
+ "serde",
+ "serde_json",
+ "toml",
+ "web-time",
+]
+
+[[package]]
+name = "evolight-web"
+version = "0.19.0"
+dependencies = [
+ "crc32fast",
+ "eframe",
+ "egui",
+ "evolight-codecs",
+ "evolight-color",
+ "evolight-engine",
+ "evolight-preview",
+ "evolight-raster",
+ "evolight-raw",
+ "evolight-ui-egui",
+ "js-sys",
+ "log",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "evolight-wincolor"
+version = "0.19.0"
+dependencies = [
+ "evolight-testkit",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3576,522 +4092,6 @@ dependencies = [
  "libc",
  "plain",
  "redox_syscall 0.9.4",
-]
-
-[[package]]
-name = "lightcraft"
-version = "0.19.0"
-dependencies = [
- "chrono",
- "craft-update",
- "eframe",
- "egui",
- "lightcraft-codecs",
- "lightcraft-engine",
- "lightcraft-raster",
- "lightcraft-sysmem",
- "lightcraft-testkit",
- "lightcraft-ui-egui",
- "lightcraft-wincolor",
- "log",
- "muda",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-foundation 0.3.2",
- "pollster 1.0.1",
- "raw-window-handle",
- "rfd",
- "serde_json",
- "winit",
- "winresource",
- "zbus",
-]
-
-[[package]]
-name = "lightcraft-catalog"
-version = "0.19.0"
-dependencies = [
- "chrono",
- "crc32fast",
- "dhat",
- "lightcraft-develop",
- "lightcraft-geom",
- "lightcraft-meta",
- "lightcraft-raw",
- "lightcraft-testkit",
- "log",
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "web-time",
- "winapi-util",
-]
-
-[[package]]
-name = "lightcraft-cli"
-version = "0.19.0"
-dependencies = [
- "dhat",
- "lightcraft-codecs",
- "lightcraft-denoise",
- "lightcraft-engine",
- "lightcraft-mcp",
- "lightcraft-merge",
- "lightcraft-raster",
- "lightcraft-sysmem",
- "lightcraft-testkit",
- "lightcraft-ui-egui",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-codecs"
-version = "0.19.0"
-dependencies = [
- "avif-serialize",
- "bytemuck",
- "dhat",
- "image",
- "image-webp",
- "jixel",
- "jpeg-decoder",
- "jpeg-encoder",
- "jxl-oxide",
- "lightcraft-color",
- "lightcraft-geom",
- "lightcraft-heif",
- "lightcraft-raster",
- "lightcraft-testkit",
- "moxcms 0.9.1",
- "png",
- "proptest",
- "rav1e",
- "ravif",
- "rayon",
- "serde",
- "thiserror 2.0.21",
- "tiff",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
-name = "lightcraft-color"
-version = "0.19.0"
-dependencies = [
- "lightcraft-geom",
- "proptest",
- "serde",
-]
-
-[[package]]
-name = "lightcraft-denoise"
-version = "0.19.0"
-dependencies = [
- "faer-core",
- "lightcraft-denoise-core",
- "lightcraft-raster",
- "miniz_oxide 0.9.1",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "web-time",
-]
-
-[[package]]
-name = "lightcraft-denoise-core"
-version = "0.19.0"
-dependencies = [
- "dhat",
- "lightcraft-raster",
- "miniz_oxide 0.9.1",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "web-time",
-]
-
-[[package]]
-name = "lightcraft-develop"
-version = "0.19.0"
-dependencies = [
- "lightcraft-color",
- "lightcraft-geom",
- "miniz_oxide 0.9.1",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-engine"
-version = "0.19.0"
-dependencies = [
- "ab_glyph",
- "chrono",
- "craft-docpath",
- "fs4",
- "harfrust 0.13.3",
- "jxl-oxide",
- "libc",
- "lightcraft-catalog",
- "lightcraft-codecs",
- "lightcraft-color",
- "lightcraft-denoise",
- "lightcraft-denoise-core",
- "lightcraft-develop",
- "lightcraft-faces",
- "lightcraft-fetch",
- "lightcraft-geocode",
- "lightcraft-geom",
- "lightcraft-gpu",
- "lightcraft-heif",
- "lightcraft-lensdb",
- "lightcraft-merge",
- "lightcraft-meta",
- "lightcraft-pipeline",
- "lightcraft-preview",
- "lightcraft-raster",
- "lightcraft-raw",
- "lightcraft-scenes",
- "lightcraft-segment",
- "lightcraft-slideshow",
- "lightcraft-testkit",
- "lightcraft-tiff",
- "log",
- "miniz_oxide 0.9.1",
- "rayon",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "unicode-normalization",
- "unicode-segmentation",
- "web-time",
-]
-
-[[package]]
-name = "lightcraft-faces"
-version = "0.19.0"
-dependencies = [
- "lightcraft-testkit",
- "matrixmultiply",
- "ndarray",
- "proptest",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "web-time",
-]
-
-[[package]]
-name = "lightcraft-fetch"
-version = "0.19.0"
-dependencies = [
- "log",
- "rustls",
- "rustls-rustcrypto",
- "sha2",
- "webpki-roots",
-]
-
-[[package]]
-name = "lightcraft-film"
-version = "0.19.0"
-dependencies = [
- "libm",
-]
-
-[[package]]
-name = "lightcraft-geocode"
-version = "0.19.0"
-dependencies = [
- "miniz_oxide 0.9.1",
- "serde",
-]
-
-[[package]]
-name = "lightcraft-geom"
-version = "0.19.0"
-dependencies = [
- "proptest",
- "serde",
-]
-
-[[package]]
-name = "lightcraft-gpu"
-version = "0.19.0"
-dependencies = [
- "bytemuck",
- "lightcraft-color",
- "lightcraft-denoise",
- "lightcraft-develop",
- "lightcraft-faces",
- "lightcraft-geom",
- "lightcraft-pipeline",
- "lightcraft-raster",
- "lightcraft-raw",
- "lightcraft-scenes",
- "lightcraft-testkit",
- "log",
- "pollster 1.0.1",
- "wgpu",
-]
-
-[[package]]
-name = "lightcraft-heif"
-version = "0.19.0"
-dependencies = [
- "heic-rs",
- "rayon",
-]
-
-[[package]]
-name = "lightcraft-inpaint"
-version = "0.19.0"
-dependencies = [
- "rayon",
-]
-
-[[package]]
-name = "lightcraft-lensdb"
-version = "0.19.0"
-dependencies = [
- "lightcraft-develop",
- "lightcraft-geom",
- "quick-xml 0.41.0",
-]
-
-[[package]]
-name = "lightcraft-mcp"
-version = "0.19.0"
-dependencies = [
- "lightcraft-codecs",
- "lightcraft-engine",
- "lightcraft-raster",
- "log",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-merge"
-version = "0.19.0"
-dependencies = [
- "lightcraft-codecs",
- "lightcraft-color",
- "lightcraft-geom",
- "lightcraft-meta",
- "lightcraft-raster",
- "lightcraft-raw",
- "lightcraft-scenes",
- "rayon",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightcraft-meta"
-version = "0.19.0"
-dependencies = [
- "chrono",
- "lightcraft-geom",
- "lightcraft-heif",
- "lightcraft-tiff",
- "proptest",
- "quick-xml 0.41.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-pipeline"
-version = "0.19.0"
-dependencies = [
- "dhat",
- "image",
- "lightcraft-color",
- "lightcraft-develop",
- "lightcraft-geom",
- "lightcraft-inpaint",
- "lightcraft-raster",
- "lightcraft-raw",
- "lightcraft-scenes",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-preview"
-version = "0.19.0"
-dependencies = [
- "jpeg-encoder",
- "lightcraft-raster",
- "log",
- "siphasher",
- "zune-core",
- "zune-jpeg",
-]
-
-[[package]]
-name = "lightcraft-raster"
-version = "0.19.0"
-dependencies = [
- "libc",
- "lightcraft-color",
- "lightcraft-geom",
- "proptest",
- "rayon",
- "serde",
-]
-
-[[package]]
-name = "lightcraft-raw"
-version = "0.19.0"
-dependencies = [
- "chrono",
- "craft-crw",
- "dhat",
- "jpeg-encoder",
- "jxl-oxide",
- "lightcraft-color",
- "lightcraft-geom",
- "lightcraft-meta",
- "lightcraft-raster",
- "lightcraft-testkit",
- "lightcraft-tiff",
- "miniz_oxide 0.9.1",
- "proptest",
- "rayon",
- "serde",
- "sha2",
- "thiserror 2.0.21",
- "zune-core",
- "zune-jpeg",
- "zune-jpegxl",
-]
-
-[[package]]
-name = "lightcraft-scenes"
-version = "0.19.0"
-dependencies = [
- "image",
- "lightcraft-color",
- "lightcraft-raster",
- "rayon",
- "serde",
-]
-
-[[package]]
-name = "lightcraft-segment"
-version = "0.19.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "lightcraft-fetch",
- "lightcraft-testkit",
- "log",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightcraft-slideshow"
-version = "0.19.0"
-dependencies = [
- "lightcraft-raster",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "lightcraft-sysmem"
-version = "0.19.0"
-
-[[package]]
-name = "lightcraft-testkit"
-version = "0.19.0"
-
-[[package]]
-name = "lightcraft-tiff"
-version = "0.19.0"
-dependencies = [
- "proptest",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "lightcraft-ui-egui"
-version = "0.19.0"
-dependencies = [
- "craft-ui",
- "craft-update",
- "craft-window",
- "egui",
- "egui_extras",
- "egui_kittest",
- "lightcraft-catalog",
- "lightcraft-codecs",
- "lightcraft-color",
- "lightcraft-denoise",
- "lightcraft-develop",
- "lightcraft-engine",
- "lightcraft-faces",
- "lightcraft-geom",
- "lightcraft-merge",
- "lightcraft-meta",
- "lightcraft-pipeline",
- "lightcraft-preview",
- "lightcraft-raster",
- "lightcraft-slideshow",
- "lightcraft-testkit",
- "log",
- "pollster 1.0.1",
- "serde",
- "serde_json",
- "toml",
- "web-time",
-]
-
-[[package]]
-name = "lightcraft-web"
-version = "0.19.0"
-dependencies = [
- "crc32fast",
- "eframe",
- "egui",
- "js-sys",
- "lightcraft-codecs",
- "lightcraft-color",
- "lightcraft-engine",
- "lightcraft-preview",
- "lightcraft-raster",
- "lightcraft-raw",
- "lightcraft-ui-egui",
- "log",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "lightcraft-wincolor"
-version = "0.19.0"
-dependencies = [
- "lightcraft-testkit",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use super::geometry::CanvasMap;
 use super::masks::{pin, pins_live};
-use super::{Color32, DevelopSettings, Gesture, LightcraftApp, Point, Pos2, Rect, Stroke, ToolOverlay, json, register, vec2};
+use super::{Color32, DevelopSettings, Gesture, EvoLightApp, Point, Pos2, Rect, Stroke, ToolOverlay, json, register, vec2};
 
 // ------------------------------------------------------------------------ remove
 
@@ -8,7 +8,7 @@ use super::{Color32, DevelopSettings, Gesture, LightcraftApp, Point, Pos2, Rect,
 /// click a pin to select its spot, drag a target or source to move it, paint elsewhere to add one.
 /// The Tool Overlay mode (Shift+H) says which spots show; a hidden spot can't be grabbed, so a
 /// click there adds a new one.
-pub(super) fn remove_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
+pub(super) fn remove_overlay(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
     let long = (map.rect.width().max(map.rect.height())) as f64;
     let active = app.session.active_spot.filter(|i| *i < d.spots.len());
     let (mode, live) = (app.ui.tool_overlay, pins_live(app, resp, map));
@@ -138,7 +138,7 @@ pub(super) fn remove_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &
 /// Keyboard stand-ins for the Remove tool: each spot's target and source (an arrow press moves
 /// it a step, one undo step; Return selects the spot), and a placement point that the arrows move
 /// and Return turns into a new spot of the brush's size there. True when a spot was added.
-fn spot_keys(app: &mut LightcraftApp, ui: &mut egui::Ui, map: &CanvasMap, d: &DevelopSettings, grips: &[(usize, bool, Pos2, f32)]) -> bool {
+fn spot_keys(app: &mut EvoLightApp, ui: &mut egui::Ui, map: &CanvasMap, d: &DevelopSettings, grips: &[(usize, bool, Pos2, f32)]) -> bool {
     for &(spot, source, q, _) in grips {
         let at = map.norm(q);
         let name =
@@ -193,7 +193,7 @@ fn spot_keys(app: &mut LightcraftApp, ui: &mut egui::Ui, map: &CanvasMap, d: &De
 // ------------------------------------------------------------------------ red eye
 
 /// Red Eye tool: drag an ellipse over an eye (a new correction), click one to select it.
-pub(super) fn eye_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
+pub(super) fn eye_overlay(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
     // screen points per long-edge unit
     let o = map.screen(Point::new(0.0, 0.0));
     let (sx, sy) = (map.screen(Point::new(1.0, 0.0)).distance(o), map.screen(Point::new(0.0, 1.0)).distance(o));

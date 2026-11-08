@@ -2,7 +2,7 @@
 //!
 //! `vendor/crx` and the 5/3 synthesis in `vendor/crx_wavelet` are `pub(crate)`, so every property here
 //! wraps a synthetic CRX stream in a minimal CR3 container (ftyp + moov + a CRAW track with CMP1/CDI1)
-//! and calls [`lightcraft_raw::decode`]. The CRX entropy streams are produced by reference encoders in
+//! and calls [`evolight_raw::decode`]. The CRX entropy streams are produced by reference encoders in
 //! this file that mirror the documented coders (MED prediction, signed mapping, adaptive Rice, the
 //! MELCODE zero run, the QP map predictor — sources cited in `crates/raw/src/vendor/crx.rs`).
 //!
@@ -27,12 +27,12 @@
 //! The case budget is proptest's default (256 per property); the `PROPTEST_CASES` environment variable
 //! overrides it.
 
-use lightcraft_raw::{RawData, RawError, RawFormat, RawImage, decode, probe, probe_info};
+use evolight_raw::{RawData, RawError, RawFormat, RawImage, decode, probe, probe_info};
 use proptest::prelude::*;
 
 /// The header probe can't see what only the samples tell: a full CR3 decode adds the white headroom
 /// it found to `baseline_exposure`. Everything else must match.
-fn without_baseline(mut info: lightcraft_raw::RawInfo) -> lightcraft_raw::RawInfo {
+fn without_baseline(mut info: evolight_raw::RawInfo) -> evolight_raw::RawInfo {
     info.color.baseline_exposure = 0.0;
     info
 }

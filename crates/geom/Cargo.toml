@@ -1,9 +1,9 @@
 [package]
-name = "lightcraft-geom"
+name = "evolight-geom"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft geom (L0)"
+description = "EvoLight geom (L0)"
 
 [lints]
 workspace = true

@@ -2,10 +2,10 @@
 //! Keywords, Versions, Activity.
 
 use egui::{Align2, Rect, Sense, pos2, vec2};
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::state::RightPanel;
 use crate::theme::Tokens;
@@ -28,7 +28,7 @@ use info::info;
 pub(crate) use info::mixed_meta;
 use keywords::keywords;
 
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let frame = egui::Frame::NONE.fill(t.chrome).stroke(egui::Stroke::new(1.0, t.divider));
     frame.show(ui, |ui| {
@@ -123,14 +123,14 @@ pub fn header(ui: &mut egui::Ui, title: &str) {
 
 /// A panel title that folds its section shut and open again (`section:{id}`; kept in
 /// [`crate::state::UiState::folded_sections`]). Says whether the section is open.
-pub fn fold_header(app: &mut LightcraftApp, ui: &mut egui::Ui, id: &str, title: &str) -> bool {
+pub fn fold_header(app: &mut EvoLightApp, ui: &mut egui::Ui, id: &str, title: &str) -> bool {
     let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 46.0), Sense::click());
     let title = crate::i18n::tr(title);
     fold_title(app, ui, id, r, &resp, title)
 }
 
 /// [`fold_header`] for a title whose room is already taken (`r`, answering as `resp`).
-pub fn fold_title(app: &mut LightcraftApp, ui: &egui::Ui, id: &str, r: Rect, resp: &egui::Response, title: &str) -> bool {
+pub fn fold_title(app: &mut EvoLightApp, ui: &egui::Ui, id: &str, r: Rect, resp: &egui::Response, title: &str) -> bool {
     let t = Tokens::get(ui.ctx());
     let open = !app.ui.section_folded(id);
     crate::widgets::announce_disclosure(resp, true, open, title);

@@ -1,11 +1,11 @@
 //! What a `cargo xtask ci` run covered on this machine: the capability probe (OS, CPUs, RAM, GPU
-//! adapters per backend, corpus, craft-fonts), each step's result and time, and the tests that
+//! adapters per backend, corpus, evo-fonts), each step's result and time, and the tests that
 //! skipped for want of hardware or data. Written to `target/ci/report.json` and
 //! `target/ci/summary.md` (a block to paste into a PR) and printed after the CI summary.
 //!
-//! Tests record skips with `lightcraft_testkit::skip!`; each test step points
-//! `LIGHTCRAFT_SKIP_LOG` at `target/ci/skips-<step>.jsonl`. The GPU adapters come from the ignored
-//! `gpu_probe` test of `lightcraft-gpu` (xtask has no wgpu). Nothing here is sent anywhere.
+//! Tests record skips with `evolight_testkit::skip!`; each test step points
+//! `EVOLIGHT_SKIP_LOG` at `target/ci/skips-<step>.jsonl`. The GPU adapters come from the ignored
+//! `gpu_probe` test of `evolight-gpu` (xtask has no wgpu). Nothing here is sent anywhere.
 //!
 //! The report holds no host name, user name or absolute path: the workspace root and the home
 //! directory are cut from skip reasons.
@@ -20,8 +20,8 @@ use serde_json::{Value, json};
 /// Bumped when a field changes meaning.
 pub const SCHEMA: u64 = 1;
 
-/// The environment variable `lightcraft-testkit` appends skips to.
-pub const SKIP_LOG_ENV: &str = "LIGHTCRAFT_SKIP_LOG";
+/// The environment variable `evolight-testkit` appends skips to.
+pub const SKIP_LOG_ENV: &str = "EVOLIGHT_SKIP_LOG";
 
 /// `target/ci` under the workspace root (not `CARGO_TARGET_DIR`: one place to look, like
 /// `target/bench`).
@@ -102,22 +102,22 @@ pub fn toolchain() -> Option<String> {
     output(&std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into()), &["-V"], None)
 }
 
-/// Test data present: how many of the pinned raw samples, other corpus files, craft-fonts.
+/// Test data present: how many of the pinned raw samples, other corpus files, evo-fonts.
 pub fn data(root: &Path, pinned_raw: &[&str]) -> Value {
-    let corpus = std::env::var_os("LIGHTCRAFT_CORPUS").map(PathBuf::from).unwrap_or_else(|| root.join("corpus"));
+    let corpus = std::env::var_os("EVOLIGHT_CORPUS").map(PathBuf::from).unwrap_or_else(|| root.join("corpus"));
     let count = |sub: &str| -> usize { std::fs::read_dir(corpus.join(sub)).map(|d| d.flatten().filter(|e| e.path().is_file()).count()).unwrap_or(0) };
     let pinned = pinned_raw.iter().filter(|name| corpus.join("raw").join(name).is_file()).count();
-    let fonts = std::env::var_os("CRAFT_FONTS_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
+    let fonts = std::env::var_os("EVO_FONTS_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
     json!({
         "corpus": {
-            "custom_dir": std::env::var_os("LIGHTCRAFT_CORPUS").is_some(),
+            "custom_dir": std::env::var_os("EVOLIGHT_CORPUS").is_some(),
             "raw_pinned": pinned,
             "raw_pinned_total": pinned_raw.len(),
             "raw_files": count("raw"),
             "images": count("images"),
             "pngsuite": count("pngsuite"),
         },
-        "craft_fonts": {
+        "evo_fonts": {
             "set": fonts.is_some(),
             // crates/engine/build.rs embeds the fonts of `fonts/manifest.txt` (a relative dir may mean the root)
             "found": fonts.as_deref().is_some_and(|d| [d.to_path_buf(), root.join(d)].iter().any(|d| d.join("fonts/manifest.txt").is_file())),
@@ -283,7 +283,7 @@ fn hint(need: &str) -> &'static str {
     match need {
         "gpu" => "a hardware GPU adapter the pipeline accepts",
         "corpus" => "the corpus (`cargo xtask corpus --download`; some files are private)",
-        "fonts" => "craft-fonts (`CRAFT_FONTS_DIR`, see the README)",
+        "fonts" => "evo-fonts (`EVO_FONTS_DIR`, see the README)",
         "model" => "the model files the reasons name",
         "input" => "the input files the reasons name",
         "system" => "what the operating system provides",
@@ -381,10 +381,10 @@ fn data_line(report: &Value) -> String {
     let d = &report["capabilities"]["data"];
     let c = &d["corpus"];
     let n = |k: &str| c[k].as_u64().unwrap_or(0);
-    let fonts = match (d["craft_fonts"]["set"].as_bool(), d["craft_fonts"]["found"].as_bool()) {
-        (Some(true), Some(true)) => "CRAFT_FONTS_DIR set",
-        (Some(true), _) => "CRAFT_FONTS_DIR set but not found",
-        _ => "no CRAFT_FONTS_DIR",
+    let fonts = match (d["evo_fonts"]["set"].as_bool(), d["evo_fonts"]["found"].as_bool()) {
+        (Some(true), Some(true)) => "EVO_FONTS_DIR set",
+        (Some(true), _) => "EVO_FONTS_DIR set but not found",
+        _ => "no EVO_FONTS_DIR",
     };
     format!("corpus: {} of {} pinned raws, {} images, {} PngSuite files; {fonts}", n("raw_pinned"), n("raw_pinned_total"), n("images"), n("pngsuite"))
 }
@@ -451,7 +451,7 @@ pub fn summary_md(report: &Value) -> String {
     let mut s = String::new();
     let result = report["result"].as_str().unwrap_or("?");
     let command = report["command"].as_str().unwrap_or("cargo xtask ci");
-    let _ = writeln!(s, "<!-- lightcraft ci report, schema {SCHEMA} -->");
+    let _ = writeln!(s, "<!-- evolight ci report, schema {SCHEMA} -->");
     let _ = writeln!(s, "**`{command}`: {result}** at {}\n", commit_line(report));
     let _ = writeln!(s, "| | |\n|---|---|");
     let _ = writeln!(s, "| Machine | {} |", cell(&machine_line(report)));
@@ -512,10 +512,10 @@ mod tests {
 
     #[test]
     fn skips_are_read_per_step_deduplicated_and_cut_free_of_the_root() {
-        let root = Path::new("/work/lightcraft");
+        let root = Path::new("/work/evolight");
         let dir = tmp("skips");
         let gpu = r#"{"need":"gpu","reason":"no GPU adapter","test":"equivalence::camera_tone","binary":"it","location":"crates/gpu/tests/it/equivalence.rs:22"}"#;
-        let corpus = r#"{"need":"corpus","reason":"skip /work/lightcraft/crates/raw/../../corpus/raw absent","test":"corpus::decodes","binary":"it","location":"crates/raw/tests/it/corpus.rs:28"}"#;
+        let corpus = r#"{"need":"corpus","reason":"skip /work/evolight/crates/raw/../../corpus/raw absent","test":"corpus::decodes","binary":"it","location":"crates/raw/tests/it/corpus.rs:28"}"#;
         std::fs::write(dir.join("skips-heif.jsonl"), format!("{corpus}\n")).unwrap();
         std::fs::write(dir.join("skips-test.jsonl"), format!("{gpu}\n{corpus}\nnot json\n")).unwrap();
         std::fs::write(dir.join("other.jsonl"), format!("{gpu}\n")).unwrap();
@@ -541,11 +541,11 @@ mod tests {
         };
         assert_eq!(test_name(&skip("equivalence::camera_tone", "it", "crates/gpu/tests/it/equivalence.rs:22")), "gpu/it::equivalence::camera_tone");
         assert_eq!(
-            test_name(&skip("main", "it", "apps/lightcraft-cli/tests/it/cli.rs:9")),
-            "lightcraft-cli/it (apps/lightcraft-cli/tests/it/cli.rs:9)"
+            test_name(&skip("main", "it", "apps/evolight-cli/tests/it/cli.rs:9")),
+            "evolight-cli/it (apps/evolight-cli/tests/it/cli.rs:9)"
         );
         assert_eq!(test_name(&skip("memory", "memory", "crates/gpu/tests/memory.rs:12")), "memory::memory");
-        assert_eq!(test_name(&skip("tests::a", "lightcraft_engine", "crates/engine/src/tests.rs:3")), "lightcraft_engine::tests::a");
+        assert_eq!(test_name(&skip("tests::a", "evolight_engine", "crates/engine/src/tests.rs:3")), "evolight_engine::tests::a");
     }
 
     #[test]
@@ -597,7 +597,7 @@ mod tests {
             "result": "pass",
             "git": {"commit": "0123456789abcdef", "dirty": false},
             "machine": {"os": "windows", "arch": "x86_64", "cpus": 8, "ram_total_gb": 16},
-            "capabilities": {"gpu": gpu_all, "data": {"corpus": {"raw_pinned": 3, "raw_pinned_total": 30}, "craft_fonts": {"set": false}}},
+            "capabilities": {"gpu": gpu_all, "data": {"corpus": {"raw_pinned": 3, "raw_pinned_total": 30}, "evo_fonts": {"set": false}}},
             "steps": [{"name": "fmt", "status": "ok", "seconds": 1.25}, {"name": "test", "status": "ok", "seconds": 125.0}],
             "skips": [{"need": "gpu", "reason": "no GPU | adapter", "test": "memory", "binary": "memory", "location": "x.rs:1", "steps": ["test"]}],
         });

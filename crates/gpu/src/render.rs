@@ -1,23 +1,23 @@
 //! The GPU renderer: the CPU pipeline's stages, evaluated on the device where a kernel exists and
 //! on the CPU otherwise (per-stage hybrid). Stage results stay on the device and are cached per
-//! view exactly like [`lightcraft_pipeline::StageCache`] (same keys, see [`lightcraft_pipeline::Plan`]).
+//! view exactly like [`evolight_pipeline::StageCache`] (same keys, see [`evolight_pipeline::Plan`]).
 
 use std::sync::{Arc, Mutex};
 
-use lightcraft_develop::DevelopSettings;
-use lightcraft_geom::Orientation;
-use lightcraft_pipeline::finish::{FinishParams, FinishParamsInput, MASK_TERMS, mask_terms};
-use lightcraft_pipeline::geometry::SampleMode;
-use lightcraft_pipeline::local::plane_at;
-use lightcraft_pipeline::nrc_joint::JointNoise;
-use lightcraft_pipeline::{Plan, RenderRequest, Rendered, SourceInfo, local};
-use lightcraft_raster::resample::Filter;
-use lightcraft_raster::{Histogram, Plane, Rgb32f, Rgba8};
+use evolight_develop::DevelopSettings;
+use evolight_geom::Orientation;
+use evolight_pipeline::finish::{FinishParams, FinishParamsInput, MASK_TERMS, mask_terms};
+use evolight_pipeline::geometry::SampleMode;
+use evolight_pipeline::local::plane_at;
+use evolight_pipeline::nrc_joint::JointNoise;
+use evolight_pipeline::{Plan, RenderRequest, Rendered, SourceInfo, local};
+use evolight_raster::resample::Filter;
+use evolight_raster::{Histogram, Plane, Rgb32f, Rgba8};
 
 use crate::ctx::{Buf, FailKind, Gpu, fail, groups1, groups2};
 use crate::params::{DEEP_WRITTEN, Present, finish_block};
 
-/// Device-resident stages of one view, kept next to the CPU [`lightcraft_pipeline::StageCache`]
+/// Device-resident stages of one view, kept next to the CPU [`evolight_pipeline::StageCache`]
 /// (as its extension). Holds the last two output sizes, like the CPU cache.
 #[derive(Default)]
 pub struct GpuStages {
@@ -246,7 +246,7 @@ pub(crate) fn rgb_words(img: &Rgb32f) -> &[f32] {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Filters (twins of `lightcraft_raster::blur` / `resample` and `lightcraft_pipeline::local`)
+// Filters (twins of `evolight_raster::blur` / `resample` and `evolight_pipeline::local`)
 
 /// Rows each `box_v` thread slides its running sum over (at least; longer for large radii, so the
 /// priming sum stays a small share of the work).
@@ -262,9 +262,9 @@ fn box_pass(cx: &mut Cx<'_>, horizontal: bool, src: &Buf, dst: &Buf, (w, h): (us
 }
 
 /// Gaussian blur of a `w × h` image of `nc` interleaved channels: three box passes each way
-/// (`lightcraft_raster::blur::gaussian`).
+/// (`evolight_raster::blur::gaussian`).
 pub(crate) fn gaussian(cx: &mut Cx<'_>, src: &Buf, w: usize, h: usize, nc: usize, sigma: f32) -> Buf {
-    let Some(radii) = lightcraft_raster::blur::radii_for(sigma, w, h) else {
+    let Some(radii) = evolight_raster::blur::radii_for(sigma, w, h) else {
         return cx.copy(src);
     };
     let passes: Vec<(bool, usize)> = radii.iter().map(|r| (true, *r)).chain(radii.iter().map(|r| (false, *r))).filter(|p| p.1 > 0).collect();
@@ -282,9 +282,9 @@ pub(crate) fn gaussian(cx: &mut Cx<'_>, src: &Buf, w: usize, h: usize, nc: usize
     if last == 0 { a } else { b }
 }
 
-/// Exact Gaussian (`lightcraft_raster::blur::gaussian_taps`) of a one-channel plane.
+/// Exact Gaussian (`evolight_raster::blur::gaussian_taps`) of a one-channel plane.
 pub(crate) fn gaussian_fir(cx: &mut Cx<'_>, src: &Buf, w: usize, h: usize, sigma: f32) -> Buf {
-    let taps = lightcraft_raster::blur::gauss_taps(sigma);
+    let taps = evolight_raster::blur::gauss_taps(sigma);
     let taps_buf = cx.gpu.upload(&taps);
     let r = (taps.len() / 2) as u32;
     let (tmp, out) = (cx.gpu.buffer(w * h), cx.gpu.buffer(w * h));
@@ -294,9 +294,9 @@ pub(crate) fn gaussian_fir(cx: &mut Cx<'_>, src: &Buf, w: usize, h: usize, sigma
     out
 }
 
-/// Resample taps of `lightcraft_raster::resample::resize`, packed for the `resize_*` kernels.
+/// Resample taps of `evolight_raster::resample::resize`, packed for the `resize_*` kernels.
 fn taps(src: usize, dst: usize, filter: Filter) -> Vec<u32> {
-    let w = lightcraft_raster::resample::weights(src, dst, filter);
+    let w = evolight_raster::resample::weights(src, dst, filter);
     let mut t = Vec::with_capacity(dst * 3);
     let mut weights = Vec::new();
     let base = dst * 3;
@@ -308,7 +308,7 @@ fn taps(src: usize, dst: usize, filter: Filter) -> Vec<u32> {
     t
 }
 
-/// `lightcraft_raster::resample::resize` of an `nc`-channel image.
+/// `evolight_raster::resample::resize` of an `nc`-channel image.
 pub(crate) fn resize(cx: &mut Cx<'_>, src: &Buf, (sw, sh): (usize, usize), (dw, dh): (usize, usize), nc: usize, filter: Filter) -> Buf {
     let (dw, dh) = (dw.max(1), dh.max(1));
     if (sw, sh) == (dw, dh) {
@@ -429,16 +429,16 @@ pub(crate) fn orient_map(o: Orientation, w: usize, h: usize) -> [i32; 6] {
     t
 }
 
-fn affine_bits(a: &lightcraft_geom::Affine) -> [u32; 6] {
+fn affine_bits(a: &evolight_geom::Affine) -> [u32; 6] {
     a.0.map(|v| (v as f32).to_bits())
 }
 
 /// The `sample_warp` kernel's parameters (layout documented in `geom.wgsl`).
 fn warp_params(
-    wp: &lightcraft_pipeline::optics::Warp,
+    wp: &evolight_pipeline::optics::Warp,
     base: (usize, usize),
     out: (usize, usize),
-    o2t: &lightcraft_geom::Affine,
+    o2t: &evolight_geom::Affine,
     sx: f64,
     sy: f64,
 ) -> Vec<u32> {
@@ -446,7 +446,7 @@ fn warp_params(
     let mut p = vec![base.0 as u32, base.1 as u32, out.0 as u32, out.1 as u32];
     p.extend(affine_bits(o2t));
     p.extend([f(sx), f(sy), f(wp.w), f(wp.h)]);
-    let persp = wp.persp != lightcraft_geom::Homography::IDENTITY;
+    let persp = wp.persp != evolight_geom::Homography::IDENTITY;
     p.push(persp as u32);
     p.extend(wp.persp_inv.0.map(f));
     p.push(f(wp.k1));
@@ -519,19 +519,19 @@ pub(crate) fn source_uploads() -> u64 {
     SOURCE_UPLOADS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// The reference framing decision ([`Warp::covers`](lightcraft_pipeline::optics::Warp::covers)) for every
+/// The reference framing decision ([`Warp::covers`](evolight_pipeline::optics::Warp::covers)) for every
 /// output pixel, one bit per pixel, rows padded to 32-bit words. Blocks of 32 × [`COVER_ROWS`] pixels whose
 /// interval bounds place them clearly inside or outside the image are filled at once
-/// ([`Warp::block_coverage`](lightcraft_pipeline::optics::Warp::block_coverage), the same formulas evaluated
+/// ([`Warp::block_coverage`](evolight_pipeline::optics::Warp::block_coverage), the same formulas evaluated
 /// with outward-rounded intervals); only blocks near the image edge evaluate each pixel. Same bits as
 /// evaluating every pixel.
-fn coverage_mask(wp: &lightcraft_pipeline::optics::Warp, o2t: &lightcraft_geom::Affine, w: usize, h: usize) -> Vec<u32> {
+fn coverage_mask(wp: &evolight_pipeline::optics::Warp, o2t: &evolight_geom::Affine, w: usize, h: usize) -> Vec<u32> {
     let words = w.div_ceil(32);
     let mut coverage = vec![0u32; words * h];
     if words == 0 {
         return coverage;
     }
-    lightcraft_raster::par_rows(&mut coverage, words * COVER_ROWS, |band, rows| {
+    evolight_raster::par_rows(&mut coverage, words * COVER_ROWS, |band, rows| {
         let y0 = band * COVER_ROWS;
         let y1 = y0 + rows.len() / words;
         for word in 0..words {
@@ -570,7 +570,7 @@ fn sample(cx: &mut Cx<'_>, src: &Arc<Rgb32f>, src_buf: Arc<Buf>, plan: &Plan<'_>
         Some(d) => (Arc::new(resize(cx, &oriented, (sp.ow, sp.oh), d, 3, Filter::Mitchell)), d),
         None => (oriented, (sp.ow, sp.oh)),
     };
-    let mut affine = |xf: &lightcraft_geom::Affine| {
+    let mut affine = |xf: &evolight_geom::Affine| {
         let out = cx.gpu.buffer(w * h * 3);
         let mut p = vec![bw as u32, bh as u32, w as u32, h as u32];
         p.extend(affine_bits(xf));
@@ -581,7 +581,7 @@ fn sample(cx: &mut Cx<'_>, src: &Arc<Rgb32f>, src_buf: Arc<Buf>, plan: &Plan<'_>
         (SampleMode::Copy, _) => base,
         (SampleMode::Affine(xf), _) => affine(xf),
         // `sample_plan` plans a warp only when there is one; without it the same mapping is affine
-        (SampleMode::Warp(o2t), None) => affine(&(lightcraft_geom::Affine::scale(sp.sx, sp.sy) * *o2t)),
+        (SampleMode::Warp(o2t), None) => affine(&(evolight_geom::Affine::scale(sp.sx, sp.sy) * *o2t)),
         (SampleMode::Warp(o2t), Some(wp)) => {
             let out = cx.gpu.buffer(w * h * 3);
             let p = warp_params(wp, (bw, bh), (w, h), o2t, sp.sx, sp.sy);
@@ -607,7 +607,7 @@ struct Host {
 
 pub(crate) fn profiling() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("LIGHTCRAFT_PROFILE").is_some())
+    *ON.get_or_init(|| std::env::var_os("EVOLIGHT_PROFILE").is_some())
 }
 
 /// A finished render on the window's device, ready to draw: an `Rgba8Unorm` texture (the 8-bit
@@ -631,7 +631,7 @@ pub enum Output {
 /// spots grew), and the texture fits the device.
 fn can_display(gpu: &Gpu, plan: &Plan<'_>, req: &RenderRequest) -> bool {
     let max = gpu.device.limits().max_texture_dimension_2d as usize;
-    gpu.window && req.overlay == lightcraft_pipeline::Overlay::None && plan.keep.is_none() && plan.w <= max && plan.h <= max && plan.w * plan.h > 0
+    gpu.window && req.overlay == evolight_pipeline::Overlay::None && plan.keep.is_none() && plan.w <= max && plan.h <= max && plan.w * plan.h > 0
 }
 
 /// Render on `gpu`, reusing `stages` (if given); with `display`, into a texture when
@@ -650,7 +650,7 @@ pub fn render(
 ) -> Option<Output> {
     let _in_flight = InFlight::new();
     let mut t = profiling().then(std::time::Instant::now);
-    // Each stage is submitted on its own; under `LIGHTCRAFT_PROFILE` also waited for, so the
+    // Each stage is submitted on its own; under `EVOLIGHT_PROFILE` also waited for, so the
     // timings are real.
     let lap = |what: &str, t: &mut Option<std::time::Instant>, cx: &mut Cx<'_>| match t {
         Some(t) => {
@@ -661,7 +661,7 @@ pub fn render(
         }
         None => cx.flush(),
     };
-    let plan = lightcraft_pipeline::plan(src, info, s, req);
+    let plan = evolight_pipeline::plan(src, info, s, req);
     let (w, h) = (plan.w, plan.h);
     let Some(n) = w.checked_mul(h).filter(|n| n.checked_mul(12).is_some()) else {
         fail(FailKind::Limit, format!("{w}×{h} output is too large"));
@@ -714,7 +714,7 @@ pub fn render(
         Some((_, b)) => b,
         None => {
             if colour_noise.is_none() {
-                colour_noise = lightcraft_pipeline::colour_noise(src, info, &plan).map(|n| (plan.noise_key, n));
+                colour_noise = evolight_pipeline::colour_noise(src, info, &plan).map(|n| (plan.noise_key, n));
             }
             Arc::new(linear(&mut cx, &sampled, info, &plan, &mut host, colour_noise.as_ref().map(|c| &c.1)))
         }
@@ -753,7 +753,7 @@ pub fn render(
     // soft proofing as the CPU's `finish` sets it up (an output-device table never gets here: see `render`)
     fp.proof = req.proof.map(|pr| pr.params(req.space));
     // a float render is `finish_deep`: its samples are the output space's, whatever the display
-    let deep = req.depth != lightcraft_pipeline::OutputDepth::U8;
+    let deep = req.depth != evolight_pipeline::OutputDepth::U8;
     if let Some(d) = req.display.as_ref().filter(|_| !deep) {
         fp.for_display(d, req.proof);
     }
@@ -830,7 +830,7 @@ pub fn render(
     // The masks buffer holds each visible mask's alpha back-to-back in the same `list` order the
     // single-mask overlay uses, so read the whole buffer back in ONE GPU->CPU transfer and split it
     // on the CPU, instead of one synchronous readback per mask (which stalls the pipeline N times).
-    let all_overlay_alphas: Option<Vec<Plane>> = if matches!(req.overlay, lightcraft_pipeline::Overlay::AllMasks { .. }) {
+    let all_overlay_alphas: Option<Vec<Plane>> = if matches!(req.overlay, evolight_pipeline::Overlay::AllMasks { .. }) {
         masks.as_ref().map(|all| {
             let list: Vec<_> = s.masks.iter().filter(|m| m.visible && !m.components.is_empty()).collect();
             if list.is_empty() {
@@ -877,7 +877,7 @@ pub fn render(
         Err(m) => {
             let img = host.lin.get_or_insert_with(|| Arc::new(cx.read_rgb(&lin, w, h))).clone();
             let l = host.log_l.get_or_insert_with(|| Arc::new(cx.read_plane(&prep.log_l, w, h))).clone();
-            lightcraft_pipeline::masks::evaluate_one(m, &plan.frame, w, h, &img, &l, s.light.exposure as f32, plan.mattes.as_deref())
+            evolight_pipeline::masks::evaluate_one(m, &plan.frame, w, h, &img, &l, s.light.exposure as f32, plan.mattes.as_deref())
         }
     });
     // a sharpening view: the detail planes this render sharpened with
@@ -886,10 +886,10 @@ pub fn render(
             let l = host.log_l.get_or_insert_with(|| Arc::new(cx.read_plane(&prep.log_l, w, h))).clone();
             let band = if local::pixel_sharpen(&plan.settings) { &prep.sharpen } else { &prep.texture };
             let blur = band.as_deref().map(|b| cx.read_plane(b, w, h));
-            lightcraft_pipeline::visualize::sharpen_plane(req.overlay, &plan.settings, &l, blur.as_ref(), plan.px_per_long, plan.native_long as f64)
+            evolight_pipeline::visualize::sharpen_plane(req.overlay, &plan.settings, &l, blur.as_ref(), plan.px_per_long, plan.native_long as f64)
         })?
     });
-    lightcraft_pipeline::visualize::apply(&mut image, req.overlay, &plan, overlay_mask.as_ref(), all_overlay_alphas.as_deref());
+    evolight_pipeline::visualize::apply(&mut image, req.overlay, &plan, overlay_mask.as_ref(), all_overlay_alphas.as_deref());
     // spots grew the window the render worked on: cut it back to the request
     if let Some(k) = plan.keep {
         image = image.crop(k.x, k.y, k.w, k.h);
@@ -900,7 +900,7 @@ pub fn render(
 /// The finished float output `out` (three words per pixel) read back as the CPU's float render
 /// returns it, with the same checks as an 8-bit readback: every pixel written, not entirely black.
 fn read_deep(cx: &mut Cx<'_>, out: &Buf, plan: &Plan<'_>, req: &RenderRequest) -> Option<Rendered> {
-    use lightcraft_pipeline::{DeepImage, DeepSamples};
+    use evolight_pipeline::{DeepImage, DeepSamples};
     let (w, h) = (plan.w, plan.h);
     let n = w * h;
     let words: Vec<u32> = cx.read(out, 3 * n);
@@ -955,7 +955,7 @@ fn to_texture(cx: &mut Cx<'_>, out: &Buf, w: usize, h: usize) -> Option<(Display
         b
     });
     let texture = cx.gpu.device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("lightcraft view"),
+        label: Some("evolight view"),
         size: wgpu::Extent3d { width: w as u32, height: h as u32, depth_or_array_layers: 1 },
         mip_level_count: 1,
         sample_count: 1,
@@ -983,14 +983,14 @@ fn linear(cx: &mut Cx<'_>, sampled: &Buf, info: &SourceInfo, plan: &Plan<'_>, ho
     let (w, h) = (plan.w, plan.h);
     let n = w * h;
     let s = &*plan.settings;
-    let img = if lightcraft_pipeline::local_tone::enabled(info, s) {
+    let img = if evolight_pipeline::local_tone::enabled(info, s) {
         // the camera's local tone mapping (ProRAW gain table, off by default): the whole
         // scene-linear stage on the CPU
         let mut img = match host.sampled.take() {
             Some(i) => i,
             None => cx.read_rgb(sampled, w, h),
         };
-        lightcraft_pipeline::lin_cpu(&mut img, info, plan);
+        evolight_pipeline::lin_cpu(&mut img, info, plan);
         cx.gpu.upload(rgb_words(&img))
     } else {
         // `lin_cpu`'s order: white balance, defringe, spots, red eye
@@ -1016,7 +1016,7 @@ fn linear(cx: &mut Cx<'_>, sampled: &Buf, info: &SourceInfo, plan: &Plan<'_>, ho
 
 /// Defringe (`optics::defringe`) of the white-balanced image.
 fn defringe(cx: &mut Cx<'_>, img: Buf, plan: &Plan<'_>) -> Buf {
-    use lightcraft_pipeline::optics;
+    use evolight_pipeline::optics;
     let Some(dp) = optics::defringe_params(&plan.settings, plan.px_per_long / optics::DEFRINGE_REF_LONG) else { return img };
     let (w, h) = (plan.w, plan.h);
     let n = w * h;
@@ -1045,7 +1045,7 @@ fn defringe(cx: &mut Cx<'_>, img: Buf, plan: &Plan<'_>) -> Buf {
 /// Spot removal (`spots::apply`), spot by spot on `img` in place: each spot reads the image as
 /// the earlier ones left it.
 fn spots(cx: &mut Cx<'_>, img: Buf, plan: &Plan<'_>) -> Buf {
-    use lightcraft_pipeline::spots;
+    use evolight_pipeline::spots;
     let (w, h) = (plan.w, plan.h);
     for spot in &plan.settings.spots {
         let Some(l) = spots::layout(spot, &plan.frame, w, h, plan.px_per_long) else { continue };
@@ -1075,7 +1075,7 @@ fn spots(cx: &mut Cx<'_>, img: Buf, plan: &Plan<'_>) -> Buf {
 
 /// `spots::auto_source` on the device: every candidate scored at once, the 48 scores read back.
 fn auto_source(cx: &mut Cx<'_>, img: &Buf, w: usize, h: usize, target: (f32, f32), r: f32) -> (f32, f32) {
-    use lightcraft_pipeline::spots;
+    use evolight_pipeline::spots;
     let cands = spots::candidates(r);
     let mut data: Vec<f32> = cands.iter().flat_map(|d| [d.0, d.1]).collect();
     data.extend(spots::ring_dirs().iter().flat_map(|d| [d.0, d.1]));
@@ -1105,7 +1105,7 @@ fn histogram(cx: &mut Cx<'_>, out: &Buf, w: usize, region: (usize, usize, usize,
 }
 
 /// Noise reduction (`local::denoise`). `colour_noise`: the whole frame's noise model for the joint colour
-/// NR (`lightcraft_pipeline::colour_noise`); `None`: measured on `img`.
+/// NR (`evolight_pipeline::colour_noise`); `None`: measured on `img`.
 fn denoise(cx: &mut Cx<'_>, img: Buf, plan: &Plan<'_>, colour_noise: Option<&JointNoise>) -> Buf {
     let (w, h) = (plan.w, plan.h);
     let n = w * h;
@@ -1184,7 +1184,7 @@ fn band_budget_from(free: u64, pooled: u64, renders: usize) -> usize {
     free.saturating_add(pooled).saturating_sub(reserve) as usize
 }
 
-/// The joint colour noise reduction (`lightcraft_pipeline::nrc_joint`) on the GPU, the same steps as the
+/// The joint colour noise reduction (`evolight_pipeline::nrc_joint`) on the GPU, the same steps as the
 /// CPU: only the noise samples are read back (the noise model is fitted on the CPU, by the same code).
 /// Large images are filtered in horizontal bands whose halo covers every step's reach, so each kept pixel
 /// gets the whole-image result; the noise model is the whole image's, or `frame_noise` (the whole frame's,
@@ -1200,7 +1200,7 @@ fn color_nr_joint(
     amount: f32,
     frame_noise: Option<&JointNoise>,
 ) -> Option<Buf> {
-    use lightcraft_pipeline::nrc_joint;
+    use evolight_pipeline::nrc_joint;
     let strength = nrc_joint::strength(amount);
     let brake = nrc_joint::speck_brake(amount);
     if w < 3 || h < 3 {
@@ -1308,8 +1308,8 @@ fn joint_band(
     w: usize,
     b0: usize,
     bh: usize,
-    noise: &lightcraft_pipeline::nrc_joint::JointNoise,
-    brake: lightcraft_pipeline::nrc_joint::SpeckBrake,
+    noise: &evolight_pipeline::nrc_joint::JointNoise,
+    brake: evolight_pipeline::nrc_joint::SpeckBrake,
     plan: &[(usize, f32)],
 ) -> Buf {
     let n = w * bh;
@@ -1437,7 +1437,7 @@ const MAX_DABS: usize = 4096;
 
 /// The `shape` kernel's brush data for `dabs`: stroke records (12 words: dab offset, dab count,
 /// r, hard, flow, density, erase, bbox x0 y0 x1 y1, auto) then the dab centres.
-fn brush_aux(dabs: &[&lightcraft_pipeline::masks::BrushDabs], erase: bool) -> Vec<f32> {
+fn brush_aux(dabs: &[&evolight_pipeline::masks::BrushDabs], erase: bool) -> Vec<f32> {
     let mut aux = Vec::new();
     let mut off = 12 * dabs.len();
     for d in dabs {
@@ -1485,11 +1485,11 @@ fn guided_cross(cx: &mut Cx<'_>, guide: &Buf, p: &Buf, w: usize, h: usize, sigma
     q
 }
 
-/// Evaluate the masks (`lightcraft_pipeline::masks::evaluate`): their alpha planes (concatenated,
+/// Evaluate the masks (`evolight_pipeline::masks::evaluate`): their alpha planes (concatenated,
 /// followed by the blurred chromaticity when local Moiré / Noise need it) and their adjustment
 /// terms. Shapes without a kernel (Sky, Subject, …) run on the CPU.
 fn masks(cx: &mut Cx<'_>, lin: &Buf, prep: &Prep, plan: &Plan<'_>, host: &mut Host) -> (Option<Buf>, Vec<[f32; MASK_TERMS]>) {
-    use lightcraft_develop::{MaskOp, MaskShape};
+    use evolight_develop::{MaskOp, MaskShape};
     let s = &*plan.settings;
     let list: Vec<_> = s.masks.iter().filter(|m| m.visible && !m.components.is_empty()).collect();
     if list.is_empty() {
@@ -1549,9 +1549,9 @@ fn masks(cx: &mut Cx<'_>, lin: &Buf, prep: &Prep, plan: &Plan<'_>, host: &mut Ho
                     Some(2)
                 }
                 MaskShape::ColorRange { samples, refine } => {
-                    let tol = lightcraft_pipeline::masks::color_range_tolerance(*refine);
+                    let tol = evolight_pipeline::masks::color_range_tolerance(*refine);
                     // at most the CPU's samples (`MAX_COLOR_RANGE_SAMPLES`): cost is pixels x samples
-                    let samples = samples.iter().take(lightcraft_develop::MAX_COLOR_RANGE_SAMPLES);
+                    let samples = samples.iter().take(evolight_develop::MAX_COLOR_RANGE_SAMPLES);
                     p.extend([tol.to_bits(), ev.exp2().to_bits(), samples.len() as u32]);
                     aux.extend(samples.flat_map(|s| s.map(|v| v as f32)));
                     Some(3)
@@ -1565,7 +1565,7 @@ fn masks(cx: &mut Cx<'_>, lin: &Buf, prep: &Prep, plan: &Plan<'_>, host: &mut Ho
                     let dabs: Vec<_> = strokes
                         .iter()
                         .map(|st| {
-                            let d = lightcraft_pipeline::masks::brush_dabs_within(st, frame, w, h, room);
+                            let d = evolight_pipeline::masks::brush_dabs_within(st, frame, w, h, room);
                             room -= d.dabs.len().min(room);
                             d
                         })
@@ -1585,7 +1585,7 @@ fn masks(cx: &mut Cx<'_>, lin: &Buf, prep: &Prep, plan: &Plan<'_>, host: &mut Ho
                             let aux = cx.gpu.upload(&brush_aux(&[d], false));
                             cx.run("shape", &q, &[Some(lin), Some(&prep.log_l), Some(&aux), Some(&stroke), Some(&brush)], groups2(w, h, [16, 16]));
                             let refined = d.auto.then(|| {
-                                let (sigma, eps) = lightcraft_pipeline::masks::auto_refine(d.r);
+                                let (sigma, eps) = evolight_pipeline::masks::auto_refine(d.r);
                                 guided_cross(cx, &prep.log_l, &stroke, w, h, sigma, eps, Combine::Max)
                             });
                             let op = if d.erase { 2 } else { 1 };
@@ -1621,7 +1621,7 @@ fn masks(cx: &mut Cx<'_>, lin: &Buf, prep: &Prep, plan: &Plan<'_>, host: &mut Ho
                     // no kernel: evaluate on the CPU
                     let img = host.lin.get_or_insert_with(|| Arc::new(cx.read_rgb(lin, w, h))).clone();
                     let l = host.log_l.get_or_insert_with(|| Arc::new(cx.read_plane(&prep.log_l, w, h))).clone();
-                    let mut v = lightcraft_pipeline::masks::shape_alpha(&comp.shape, frame, w, h, &img, &l, ev, plan.mattes.as_deref());
+                    let mut v = evolight_pipeline::masks::shape_alpha(&comp.shape, frame, w, h, &img, &l, ev, plan.mattes.as_deref());
                     if comp.invert {
                         v.data.iter_mut().for_each(|x| *x = 1.0 - *x);
                     }
@@ -1679,11 +1679,11 @@ mod tests {
 
     #[test]
     fn coverage_mask_matches_per_pixel_decision() {
-        use lightcraft_develop::{EmbeddedLens, EmbeddedWarp};
+        use evolight_develop::{EmbeddedLens, EmbeddedWarp};
         let lens = EmbeddedLens {
             warp: Some(EmbeddedWarp {
                 planes: [[1.0, -0.03, 0.01, 0.0, 0.001, -0.002]; 3],
-                center: lightcraft_geom::Point::new(0.52, 0.48),
+                center: evolight_geom::Point::new(0.52, 0.48),
                 radius: 0.6,
             }),
             vignette: None,
@@ -1697,7 +1697,7 @@ mod tests {
         s.geometry.rotate = 3.0;
         for orientation in [Orientation::Normal, Orientation::Rotate270] {
             s.orientation = orientation;
-            let f = lightcraft_pipeline::geometry::Frame::with_lens(900, 600, &s, true, Some(&lens));
+            let f = evolight_pipeline::geometry::Frame::with_lens(900, 600, &s, true, Some(&lens));
             let wp = f.warp.as_ref().expect("warp");
             // widths that do and don't fill the last word; heights that do and don't fill the last band
             for (w, h) in [f.fit(700, 700), (333, 221), (64, 16), (1, 1)] {
@@ -1722,9 +1722,9 @@ mod tests {
     /// zero) and are decided per pixel, while blocks clear of it are filled at once.
     #[test]
     fn coverage_mask_with_the_horizon_in_view() {
-        use lightcraft_geom::{Affine, Homography};
+        use evolight_geom::{Affine, Homography};
         let (w, h) = (900, 600);
-        let mut wp = lightcraft_pipeline::optics::Warp::identity(w as f64, h as f64);
+        let mut wp = evolight_pipeline::optics::Warp::identity(w as f64, h as f64);
         // centred coordinates: v = (y − 300) / 450, denominator 2·v + m8, exactly 0 at y = 75.5
         let m8 = -((75.5 - 300.0) / 450.0 * 2.0);
         wp.persp_inv = Homography([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 2.0, m8]);
@@ -1746,13 +1746,13 @@ mod tests {
         assert!(covered > 0 && covered < w * h, "{covered} px covered");
     }
 
-    /// The blur against `lightcraft_raster::blur::gaussian`: widths that do and don't fill the last
+    /// The blur against `evolight_raster::blur::gaussian`: widths that do and don't fill the last
     /// workgroup, windows wider than the image, and 1, 2 (as two planes) and 3 channels.
     #[test]
     fn gaussian_matches_cpu() {
         // (creating the device writes the crash sentinel another test swaps out)
         let _serial = crate::DEVICE_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        use lightcraft_raster::blur;
+        use evolight_raster::blur;
         let Some(gpu) = crate::device() else { return };
         let _scope = crate::ctx::RenderScope::new(gpu);
         let v = |x: usize, y: usize, c: usize| ((x * 7 + y * 13 + c * 5) % 17) as f32 / 16.0 + if x % 61 < 3 { 2.0 } else { 0.0 };
@@ -1775,7 +1775,7 @@ mod tests {
         }
     }
 
-    /// Kernel timings on a 24 MP plane: `cargo test --release -p lightcraft-gpu -- --ignored --nocapture`.
+    /// Kernel timings on a 24 MP plane: `cargo test --release -p evolight-gpu -- --ignored --nocapture`.
     #[test]
     #[ignore]
     fn bench_kernels() {
@@ -1829,13 +1829,13 @@ mod tests {
             return;
         };
         let _scope = crate::ctx::RenderScope::new(gpu);
-        let img = lightcraft_scenes::demo_library()[3].render(640, 427);
+        let img = evolight_scenes::demo_library()[3].render(640, 427);
         let buf = gpu.upload(rgb_words(&img));
         let mut differ = Vec::new();
         for (tx, ty, r) in [(25.6, 213.0, 19.2), (320.0, 192.0, 19.2), (100.0, 50.0, 12.0), (600.0, 400.0, 25.0), (320.0, 213.0, 6.0)] {
             let mut cx = Cx::new(gpu);
             let g = auto_source(&mut cx, &buf, img.width, img.height, (tx, ty), r);
-            let c = lightcraft_pipeline::spots::auto_source(&img, (tx, ty), r);
+            let c = evolight_pipeline::spots::auto_source(&img, (tx, ty), r);
             if g != c {
                 differ.push(((tx, ty, r), g, c));
             }

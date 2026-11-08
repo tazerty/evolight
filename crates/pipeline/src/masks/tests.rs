@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_develop::{DevelopSettings, MaskComponent};
+use evolight_develop::{DevelopSettings, MaskComponent};
 
 fn frame(w: usize, h: usize) -> Frame {
     Frame::new(w, h, &DevelopSettings::default(), true)
@@ -36,7 +36,7 @@ fn stored_segmentations_render_at_any_size_and_follow_the_crop() {
     }
     // cropped to the right half: nothing left selected
     let mut d = DevelopSettings::default();
-    d.crop.geometry.rect = lightcraft_geom::Rect::from_center(Point::new(0.75, 0.5), 0.5, 1.0);
+    d.crop.geometry.rect = evolight_geom::Rect::from_center(Point::new(0.75, 0.5), 0.5, 1.0);
     let f = Frame::new(40, 20, &d, true);
     let shape = MaskShape::Prompt { text: "left".into(), seg: Some(seg), detail: vec![], edge: 0.0 };
     let a = shape_alpha(&shape, &f, 20, 20, &Rgb32f::new(20, 20), &Plane::new(20, 20), 0.0, None);
@@ -538,7 +538,7 @@ fn refine_edges_follows_the_photo() {
 /// sampled the way `mask.sampleColor` does (3×3 mean of the selection-space OkLab).
 #[test]
 fn color_range_keeps_to_the_sampled_colour() {
-    use lightcraft_color::{REC2020, SRGB, transfer::decode_srgb8};
+    use evolight_color::{REC2020, SRGB, transfer::decode_srgb8};
     let (w, h) = (120usize, 40usize);
     let m = SRGB.to_space(&REC2020);
     let patch = |rgb: [u8; 3]| m.apply_f32(rgb.map(decode_srgb8));
@@ -549,7 +549,7 @@ fn color_range_keeps_to_the_sampled_colour() {
     let mut sample = [0f64; 3];
     for y in 19..=21 {
         for x in 29..=31 {
-            let lab = lightcraft_color::perceptual::oklab_from_2020(tonemap_for_select(img.data[y * w + x]));
+            let lab = evolight_color::perceptual::oklab_from_2020(tonemap_for_select(img.data[y * w + x]));
             for k in 0..3 {
                 sample[k] += lab[k] as f64 / 9.0;
             }
@@ -597,7 +597,7 @@ fn sky_uses_the_sources_matte() {
     assert_eq!(shape_alpha(&MaskShape::Sky, &f, w, h, &img, &l, 0.0, Some(&hair)), heuristic);
     // rotated 90° clockwise, the source's left half is the top half; a preview and a larger
     // render agree
-    let s = lightcraft_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
+    let s = evolight_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
     let f = Frame::new(w, h, &s, true);
     for (ow, oh) in [(100, 200), (25, 50)] {
         let small = Rgb32f::filled(ow, oh, [0.5, 0.7, 1.4]);

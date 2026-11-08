@@ -2,7 +2,7 @@ use super::clock::{AppClock, monotonic_ms};
 use super::services::Services;
 use super::state::{GestureFrame, InjectedDrop, InjectedPress};
 use super::{
-    AiModel, Caches, CommandError, ControlRequest, ControlResponse, ErrorKind, GESTURE_TIMEOUT_MS, LightcraftApp, MAX_PENDING_GESTURES,
+    AiModel, Caches, CommandError, ControlRequest, ControlResponse, ErrorKind, GESTURE_TIMEOUT_MS, EvoLightApp, MAX_PENDING_GESTURES,
     MAX_PENDING_SHOTS, MAX_SHOT_BYTES, MAX_SHOT_TOTAL_BYTES, MAX_TEXTURE_SIDE, PendingGesture, PendingShot, Perf, Receiver, SCREEN_PROFILE,
     SCREENSHOT_FALLBACK_MS, SCREENSHOT_SETTLE_MS, SHOT_FORCE_BUSY_MS, SHOT_SETTLE_FRAMES, SHOT_SETTLE_MS, Sender, Session, ShotGeometry,
     TOAST_SECONDS, UiState, Value, docking, drop_overlay, export_task, focus_scan, frame_rate, headless, i18n, import, lightroom_import, menus,
@@ -20,7 +20,7 @@ pub(crate) use frame::import_tick_allowed;
 #[cfg(test)]
 pub(crate) use screenshot::shot_ready;
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// Build the app with default UI, renderer, cache and control state, and move AI segmentation
     /// to a worker so frames apply results instead of waiting.
     pub fn new(mut session: Session, services: Services) -> Self {
@@ -199,7 +199,7 @@ impl LightcraftApp {
         self.run_typed(id, params).map_err(|e| e.message)
     }
 
-    /// [`LightcraftApp::run`], keeping what kind of error a refusal is: for code that decides on it
+    /// [`EvoLightApp::run`], keeping what kind of error a refusal is: for code that decides on it
     /// (offer a model's download, treat a cancel as one) instead of reading the message.
     pub fn run_typed(&mut self, id: &str, params: Value) -> Result<Value, CommandError> {
         if let Some(r) = menus::run_ui_command(self, id, &params) {
@@ -211,7 +211,7 @@ impl LightcraftApp {
         let params = if id == "crop.aspect"
             && params.get("aspect").and_then(Value::as_str) == Some("toggle")
             && self.crop_tool_aspect().is_some()
-            && self.session.active().and_then(|id| self.session.develop_of(id)).is_some_and(|d| d.crop == lightcraft_develop::Crop::default())
+            && self.session.active().and_then(|id| self.session.develop_of(id)).is_some_and(|d| d.crop == evolight_develop::Crop::default())
         {
             serde_json::json!({"aspect": "free"})
         } else {
@@ -267,7 +267,7 @@ impl LightcraftApp {
         }
         if r.is_ok() && matches!(id, "photo.label" | "photo.clearLabel") {
             // Clear Color Label takes no colour: whatever `label` it is given, the photo's label is cleared
-            let label = params.get("label").and_then(Value::as_str).and_then(lightcraft_catalog::ColorLabel::parse).filter(|_| id == "photo.label");
+            let label = params.get("label").and_then(Value::as_str).and_then(evolight_catalog::ColorLabel::parse).filter(|_| id == "photo.label");
             let text = match label {
                 Some(label) => {
                     let name =
@@ -305,7 +305,7 @@ impl LightcraftApp {
     pub(crate) fn crop_tool_aspect(&self) -> Option<(u32, u32)> {
         let photo = self.session.active()?;
         let d = self.session.develop_of(photo)?;
-        if d.crop != lightcraft_develop::Crop::default() {
+        if d.crop != evolight_develop::Crop::default() {
             return d.crop.aspect;
         }
         // nothing chosen yet: locked to the photo's own shape, as Lightroom starts (#991); one
@@ -330,10 +330,10 @@ impl LightcraftApp {
 
     /// The box the crop tool shows on an untouched photo with a remembered ratio (issue #3029): fitted
     /// as `begin_crop` (and Return) will apply it, so the box matches the dropdown before any edit.
-    pub(crate) fn crop_tool_preview(&self) -> Option<lightcraft_geom::CropGeometry> {
+    pub(crate) fn crop_tool_preview(&self) -> Option<evolight_geom::CropGeometry> {
         let photo = self.session.active()?;
         let d = self.session.develop_of(photo)?;
-        if d.crop != lightcraft_develop::Crop::default() || !matches!(self.ui.crop_default_aspect, Some(Value::Array(_))) {
+        if d.crop != evolight_develop::Crop::default() || !matches!(self.ui.crop_default_aspect, Some(Value::Array(_))) {
             return None;
         }
         let (aw, ah) = self.crop_tool_aspect()?;
@@ -342,7 +342,7 @@ impl LightcraftApp {
         let (w, h) = if d.orientation.swaps_axes() { (h, w) } else { (w, h) };
         // turned like the photo's full-frame crop, as `crop.aspect` with `orientation: "crop"` does
         let (aw, ah) = if (aw >= ah) != (w >= h) { (ah, aw) } else { (aw, ah) };
-        Some(lightcraft_geom::crop_fit_angle(w, h, d.crop.geometry.angle, Some(f64::from(aw) / f64::from(ah.max(1)))))
+        Some(evolight_geom::crop_fit_angle(w, h, d.crop.geometry.angle, Some(f64::from(aw) / f64::from(ah.max(1)))))
     }
 
     /// Return on an untouched photo crops it to the remembered ratio's box the tool showed.
@@ -360,7 +360,7 @@ impl LightcraftApp {
         // nothing chosen yet: the photo's own shape, as `crop_tool_aspect` shows it
         let aspect = self.ui.crop_default_aspect.clone().unwrap_or_else(|| serde_json::json!("original"));
         if self.session.interaction.is_some()
-            && self.session.active().and_then(|id| self.session.develop_of(id)).is_some_and(|d| d.crop == lightcraft_develop::Crop::default())
+            && self.session.active().and_then(|id| self.session.develop_of(id)).is_some_and(|d| d.crop == evolight_develop::Crop::default())
             && aspect != serde_json::json!("free")
             // the remembered ratio, turned like the new photo's crop (as a named ratio is)
             && let Err(e) = self.session.execute("crop.aspect", &serde_json::json!({"aspect": aspect, "orientation": "crop"}))
@@ -441,7 +441,7 @@ impl LightcraftApp {
                 let t = self.tick_now();
                 self.ui.toast = Some((
                     crate::i18n::tr_format!(
-                        "{n} change{} saved in memory but not written to disk: {e} — LightCraft will retry",
+                        "{n} change{} saved in memory but not written to disk: {e} — EvoLight will retry",
                         if n == 1 { "" } else { "s" },
                         n = n,
                         e = e
@@ -483,7 +483,7 @@ impl LightcraftApp {
 
     /// Reverse geocoding: say how a place-names download ended (a failure stays readable, with what to do).
     fn place_names_outcome(&mut self, ctx: &egui::Context) {
-        use lightcraft_engine::cmd::geocode::DownloadOutcome;
+        use evolight_engine::cmd::geocode::DownloadOutcome;
         match self.session.place_names.take_outcome() {
             Some(DownloadOutcome::Done(_)) => self.toast(ctx, crate::i18n::tr("Place names downloaded")),
             Some(DownloadOutcome::Cancelled) => self.toast(ctx, crate::i18n::tr("Place names download cancelled")),
@@ -506,7 +506,7 @@ impl LightcraftApp {
         }
     }
 
-    /// Preparing photos in the background ([`lightcraft_engine::prep`]): the whole view's previews
+    /// Preparing photos in the background ([`evolight_engine::prep`]): the whole view's previews
     /// once the user is culling in the loupe, built from the photo on screen in the direction of travel.
     /// Advanced on every logic pass, the hidden ones too (a minimised window keeps preparing).
     fn background_prep(&mut self, ctx: &egui::Context) {
@@ -583,7 +583,7 @@ impl LightcraftApp {
     /// ([`ErrorKind::ModelMissing`]), not its words.
     pub fn ai_error(&mut self, ctx: &egui::Context, e: impl Into<CommandError>, then: Option<(&str, &str)>) {
         let e = e.into();
-        if lightcraft_engine::segment::Segmenter::AVAILABLE && e.kind == ErrorKind::ModelMissing(AiModel::Sam3) {
+        if evolight_engine::segment::Segmenter::AVAILABLE && e.kind == ErrorKind::ModelMissing(AiModel::Sam3) {
             self.offer_sam_download(then);
         } else {
             self.toast_error(ctx, e.message);
@@ -610,13 +610,13 @@ impl LightcraftApp {
     /// on other threads (export, denoise, the device warm-up). `false`: the deadline passed first
     /// (the host exits anyway). The app renders nothing afterwards.
     pub fn shutdown(&mut self, timeout: std::time::Duration) -> bool {
-        lightcraft_engine::gpu::begin_shutdown();
+        evolight_engine::gpu::begin_shutdown();
         #[cfg(not(target_arch = "wasm32"))]
         let t0 = std::time::Instant::now();
         let stopped = self.renderer.shutdown(timeout);
         #[cfg(not(target_arch = "wasm32"))]
         let timeout = timeout.saturating_sub(t0.elapsed());
-        let idle = lightcraft_engine::gpu::wait_idle(timeout);
+        let idle = evolight_engine::gpu::wait_idle(timeout);
         stopped && idle
     }
 
@@ -699,7 +699,7 @@ pub(crate) fn detect_summary(v: &Value) -> String {
 
 /// What to say when a SAM 3 download ended while its dialog was closed: the text, and whether it is
 /// shown as an error toast. A cancel is told by `cancelled`, not by the error's words.
-pub(crate) fn sam_download_ended(download: &lightcraft_engine::segment::DownloadStatus) -> Option<(String, bool)> {
+pub(crate) fn sam_download_ended(download: &evolight_engine::segment::DownloadStatus) -> Option<(String, bool)> {
     match &download.error {
         Some(_) if download.cancelled => {
             Some((crate::i18n::tr("SAM 3 download stopped: it resumes where it left off next time.").to_string(), false))

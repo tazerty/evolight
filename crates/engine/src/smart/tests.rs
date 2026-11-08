@@ -25,7 +25,7 @@ fn writable_probe_never_writes_through_a_planted_link() {
     std::fs::create_dir_all(&base).unwrap();
     let victim = base.join("victim");
     std::fs::write(&victim, b"keep").unwrap();
-    let probe = base.join(format!(".lightcraft-write-test-{}", std::process::id()));
+    let probe = base.join(format!(".evolight-write-test-{}", std::process::id()));
     std::os::unix::fs::symlink(&victim, &probe).unwrap();
     assert!(check_writable(&base).is_ok());
     assert_eq!(std::fs::read(&victim).unwrap(), b"keep");
@@ -82,7 +82,7 @@ fn damaged_proxies_are_invalid_and_never_kept_over_good_ones() {
     let (a, b) = (base.join("a"), base.join("b"));
     std::fs::create_dir_all(&a).unwrap();
     std::fs::create_dir_all(&b).unwrap();
-    let img = lightcraft_scenes::demo_library()[0].render(64, 40);
+    let img = evolight_scenes::demo_library()[0].render(64, 40);
     let good = encode(&img, None).unwrap();
     std::fs::write(a.join("1.lcsp"), &good).unwrap();
     assert!(is_valid(&a.join("1.lcsp")));
@@ -104,8 +104,8 @@ fn camera_tone_travels_with_the_proxy() {
         [x, 0.95 * (1.0 - (-2.7 * x).exp())]
     }))
     .unwrap();
-    let img = lightcraft_scenes::demo_library()[0].render(64, 40);
-    let info = lightcraft_pipeline::SourceInfo { raw: true, camera_tone: Some(tone), ..Default::default() };
+    let img = evolight_scenes::demo_library()[0].render(64, 40);
+    let info = evolight_pipeline::SourceInfo { raw: true, camera_tone: Some(tone), ..Default::default() };
     let bytes = encode(&img, Some(&info)).unwrap();
     assert_eq!(decode(&bytes).unwrap().1, Some(tone));
     let dir = temp("tone");
@@ -115,7 +115,7 @@ fn camera_tone_travels_with_the_proxy() {
     assert!(is_valid(&path));
     let loaded = load(&path).unwrap();
     assert_eq!(loaded.camera_tone, Some(tone));
-    let header = lightcraft_pipeline::SourceInfo { raw: true, ..Default::default() };
+    let header = evolight_pipeline::SourceInfo { raw: true, ..Default::default() };
     assert_eq!(loaded.info_or(header).camera_tone, Some(tone));
     // a hostile curve (reversing knots) is ignored, not trusted
     let nl = MAGIC.len() + bytes[MAGIC.len()..].iter().position(|b| *b == b'\n').unwrap();
@@ -133,7 +133,7 @@ fn camera_tone_travels_with_the_proxy() {
 
 #[test]
 fn facts_and_mattes_travel_with_the_proxy() {
-    let img = lightcraft_scenes::demo_library()[0].render(32, 20);
+    let img = evolight_scenes::demo_library()[0].render(32, 20);
     let mut mattes = Mattes::default();
     mattes.push(MatteKind::Sky, Image { width: 16, height: 10, data: vec![255; 160] });
     let info = SourceInfo {
@@ -168,7 +168,7 @@ fn facts_and_mattes_travel_with_the_proxy() {
 
 #[test]
 fn roundtrip_keeps_the_picture() {
-    let img = lightcraft_scenes::demo_library()[0].render(160, 100);
+    let img = evolight_scenes::demo_library()[0].render(160, 100);
     let (back, tone, _) = decode(&encode(&img, None).unwrap()).unwrap();
     assert_eq!((back.width, back.height), (img.width, img.height));
     assert!(tone.is_none());
@@ -189,7 +189,7 @@ fn roundtrip_keeps_the_picture() {
 /// enters what is measured. Built from a rendered demo scene so the dimensions and the flat
 /// row-major layout are the real ones.
 fn smooth_scene(w: usize, h: usize) -> Rgb32f {
-    let mut img = lightcraft_scenes::demo_library()[0].render(w, h);
+    let mut img = evolight_scenes::demo_library()[0].render(w, h);
     let (w, h) = (img.width.max(1), img.height.max(1));
     for (i, px) in img.data.iter_mut().enumerate() {
         let u = (i % w) as f32 / (w - 1).max(1) as f32;
@@ -253,10 +253,10 @@ fn encode_at_q92(img: &Rgb32f) -> Vec<u8> {
         })
         .collect();
     let rgba = Rgba8 { width: img.width, height: img.height, data };
-    let jpg = lightcraft_codecs::encode_jpeg(
-        &lightcraft_codecs::EncodeImage::rgba8(&rgba),
+    let jpg = evolight_codecs::encode_jpeg(
+        &evolight_codecs::EncodeImage::rgba8(&rgba),
         92,
-        lightcraft_codecs::ChromaSubsampling::S444,
+        evolight_codecs::ChromaSubsampling::S444,
         &Default::default(),
     )
     .unwrap();
@@ -337,7 +337,7 @@ fn a_smooth_proxy_keeps_the_scene_closer_than_the_old_quality() {
 #[test]
 fn a_proxy_from_an_older_encode_is_stale() {
     let dir = temp("encode-version");
-    let img = lightcraft_scenes::demo_library()[0].render(64, 40);
+    let img = evolight_scenes::demo_library()[0].render(64, 40);
     let bytes = encode(&img, None).unwrap();
     let path = dir.join("p.lcsp");
     std::fs::write(&path, &bytes).unwrap();

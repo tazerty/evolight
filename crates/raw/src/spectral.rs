@@ -13,7 +13,7 @@
 //! comes from Adobe or from a GPL raw decoder. Which colour a raw starts from is the engine's choice
 //! (`docs/camera-preview-colour.md`).
 use crate::ColorData;
-use lightcraft_color::{Mat3, Xy};
+use evolight_color::{Mat3, Xy};
 
 #[path = "chart_table.rs"]
 mod chart;
@@ -241,7 +241,7 @@ mod tests {
         let color = ColorData::default();
         // daylight-ish Sony multipliers: a white near the locus around 5000 K, not the generic model's wild tint
         let xy = as_shot_white_through(c, &color, Some([2.2, 1.0, 1.6])).unwrap();
-        let (t, tint) = lightcraft_color::cct::xy_to_temp_tint(xy);
+        let (t, tint) = evolight_color::cct::xy_to_temp_tint(xy);
         assert!((3500.0..7000.0).contains(&t) && tint.abs() < 30.0, "{t} {tint}");
         // the file's own tags are left alone
         assert_eq!(color, ColorData::default());
@@ -266,7 +266,7 @@ mod tests {
             // a forward matrix maps white-balanced white to D50 (DNG spec, chapter 6)
             for fm in &c.forward_matrix {
                 let w = fm.apply([1.0; 3]);
-                let d50 = lightcraft_color::D50.to_xyz();
+                let d50 = evolight_color::D50.to_xyz();
                 assert!((0..3).all(|i| (w[i] - d50[i]).abs() < 1e-4), "{} {w:?}", c.model);
             }
             assert!(c.illuminant.iter().all(|&i| crate::color::illuminant_temperature(i).is_some()), "{}", c.model);
@@ -285,7 +285,7 @@ mod tests {
         // land near the temperatures Canon names for them, on the locus
         let kelvin = |r: f32, b: f32| {
             let xy = as_shot_white_through(c, &ColorData::default(), Some([r, 1.0, b])).unwrap();
-            lightcraft_color::cct::xy_to_temp_tint(xy)
+            evolight_color::cct::xy_to_temp_tint(xy)
         };
         let (tungsten, tint) = kelvin(1.568, 1.918);
         assert!((2900.0..3500.0).contains(&tungsten) && tint.abs() < 15.0, "Tungsten {tungsten} {tint}");

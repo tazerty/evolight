@@ -9,7 +9,7 @@ mod view;
 pub use dialog::{Dialog, NameEdit, SyncCounts, default_preset_groups};
 pub use settings::{
     AppSettings, AppearanceMode, DarkTheme, EditFile, EditFormat, EditSpace, GridBadges, HOT_PIXEL_LIMIT_DEFAULT, HOT_PIXEL_LIMITS, KeywordChips,
-    LOUPE_EDGE_CEILING, LOUPE_EDGE_STEP, LaunchLibrary, LightTheme, LightroomImport, MIN_TEXTURE_SIDE, PHOTOCRAFT, PREVIEW_LIMITS, RECENT_LIBRARIES,
+    LOUPE_EDGE_CEILING, LOUPE_EDGE_STEP, LaunchLibrary, LightTheme, LightroomImport, MIN_TEXTURE_SIDE, EVOPHOTO, PREVIEW_LIMITS, RECENT_LIBRARIES,
     STANDARD_PREVIEW_EDGE, StartupView, WINDOW_FRAME_CEILING,
 };
 pub use view::{
@@ -41,7 +41,7 @@ pub struct UiState {
     #[serde(skip)]
     pub unsaved_seen: bool,
     /// Help ▸ Debug ▸ Frame Rate (`view.frameRate`): the frame-rate display
-    /// (`crate::frame_rate`). A debugging aid, never saved; `LIGHTCRAFT_FPS=1` starts with it on.
+    /// (`crate::frame_rate`). A debugging aid, never saved; `EVOLIGHT_FPS=1` starts with it on.
     #[serde(skip)]
     pub frame_rate: bool,
     pub view: ViewMode,
@@ -82,13 +82,13 @@ pub struct UiState {
     pub histogram: bool,
     /// Soft proofing (S in the loupe): render as `proof` would hold the photo.
     pub soft_proof: bool,
-    pub proof: lightcraft_engine::pipeline::Proof,
+    pub proof: evolight_engine::pipeline::Proof,
     /// Soft proofing against a printer / paper ICC profile: (file, name), the intent and Simulate
     /// Paper & Ink. With a profile, `proof.profile` names its table.
     #[serde(skip)]
     pub proof_profile: Option<(String, String)>,
     #[serde(skip)]
-    pub proof_intent: lightcraft_engine::proof::ProofIntent,
+    pub proof_intent: evolight_engine::proof::ProofIntent,
     pub proof_paper_ink: bool,
     /// Masking: show the selected mask as a rendered overlay (O), how (`MaskView` name, ⇧O cycles),
     /// in which colour and opacity (0..100, colour views), and whether pins are drawn.
@@ -186,7 +186,7 @@ pub struct UiState {
     #[serde(skip)]
     pub dragging_control: Option<String>,
     /// Alt (Option on macOS) is held this frame: a dragged Edit slider shows its temporary
-    /// preview ([`lightcraft_pipeline::Overlay::for_control`]).
+    /// preview ([`evolight_pipeline::Overlay::for_control`]).
     #[serde(skip)]
     pub alt_held: bool,
     pub search: String,
@@ -245,7 +245,7 @@ pub struct UiState {
     /// Colour grading wheels (shadows, midtones, highlights) hidden for viewing by their eye, and
     /// the photo that applies to: not an edit, and forgotten on moving to another photo or quitting.
     #[serde(skip)]
-    pub grading_hidden: Option<(lightcraft_catalog::PhotoId, [bool; 3])>,
+    pub grading_hidden: Option<(evolight_catalog::PhotoId, [bool; 3])>,
     /// Active on-canvas tool: "", "brush", "linear", "radial", "wbPicker", "straighten", "remove".
     pub tool: String,
     /// Guided Upright: the selected guide (photo id + index) while the tool is open. A Delete /
@@ -343,7 +343,7 @@ pub struct UiState {
     pub reference: Option<u64>,
     /// Transient toast text, expiry (seconds of app time), and optional colour-label styling.
     #[serde(skip)]
-    pub toast: Option<(String, f64, Option<lightcraft_catalog::ColorLabel>)>,
+    pub toast: Option<(String, f64, Option<evolight_catalog::ColorLabel>)>,
     /// The result of the last Find Missing Photos (it searches in the background).
     #[serde(skip)]
     pub last_find_missing: Option<serde_json::Value>,
@@ -367,7 +367,7 @@ pub struct UiState {
     pub lens_refreshed: Option<(u64, u64, u64)>,
     /// Photos to look up for a lens profile on the next frame (Enable Lens Corrections ticked without one).
     #[serde(skip)]
-    pub lens_lookup_ids: Vec<lightcraft_catalog::PhotoId>,
+    pub lens_lookup_ids: Vec<evolight_catalog::PhotoId>,
     #[serde(skip)]
     pub status: String,
     #[serde(skip)]
@@ -393,7 +393,7 @@ impl Default for UiState {
             language: crate::i18n::default_language(),
             preview_build_seen: None,
             unsaved_seen: false,
-            frame_rate: std::env::var("LIGHTCRAFT_FPS").is_ok_and(|v| matches!(v.trim(), "1" | "on" | "true" | "yes")),
+            frame_rate: std::env::var("EVOLIGHT_FPS").is_ok_and(|v| matches!(v.trim(), "1" | "on" | "true" | "yes")),
             luminance_map_restore: None,
             view: ViewMode::Detail,
             left_panel: false,
@@ -417,9 +417,9 @@ impl Default for UiState {
             show_clipping: false,
             histogram: true,
             soft_proof: false,
-            proof: lightcraft_engine::pipeline::Proof { dest_warning: false, ..Default::default() },
+            proof: evolight_engine::pipeline::Proof { dest_warning: false, ..Default::default() },
             proof_profile: None,
-            proof_intent: lightcraft_engine::proof::ProofIntent::Perceptual,
+            proof_intent: evolight_engine::proof::ProofIntent::Perceptual,
             proof_paper_ink: false,
             mask_overlay: true,
             mask_overlay_mode: "color".into(),
@@ -537,7 +537,7 @@ impl Default for UiState {
 
 impl UiState {
     /// Which colour grading wheels (shadows, midtones, highlights) are hidden for viewing `photo`.
-    pub fn grading_hidden_for(&self, photo: lightcraft_catalog::PhotoId) -> [bool; 3] {
+    pub fn grading_hidden_for(&self, photo: evolight_catalog::PhotoId) -> [bool; 3] {
         match self.grading_hidden {
             Some((p, h)) if p == photo => h,
             _ => [false; 3],
@@ -545,7 +545,7 @@ impl UiState {
     }
 
     /// Show or hide colour grading wheel `i` (0 shadows, 1 midtones, 2 highlights) on `photo`.
-    pub fn set_grading_hidden(&mut self, photo: lightcraft_catalog::PhotoId, i: usize, hidden: bool) {
+    pub fn set_grading_hidden(&mut self, photo: evolight_catalog::PhotoId, i: usize, hidden: bool) {
         let mut h = self.grading_hidden_for(photo);
         if let Some(slot) = h.get_mut(i) {
             *slot = hidden;
@@ -648,7 +648,7 @@ fn lenient_ids<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<String>, D:
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct GestureFrame {
     pub(crate) view: crate::state::ViewMode,
-    pub(crate) active: Option<lightcraft_catalog::PhotoId>,
+    pub(crate) active: Option<evolight_catalog::PhotoId>,
     pub(crate) library: u64,
     pub(crate) dialog: Option<std::mem::Discriminant<crate::state::Dialog>>,
     pub(crate) left_panel: bool,

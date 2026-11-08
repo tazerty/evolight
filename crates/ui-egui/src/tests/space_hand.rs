@@ -8,13 +8,13 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::{RightPanel, Zoom};
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 fn detail(panel: Option<&str>) -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     app.ui.settings.gpu = false;
     // Space and click zoom go straight to the ratio, not to the camera's focus point
     app.ui.settings.zoom_to_focus = false;
@@ -68,7 +68,7 @@ fn click(h: &mut Headless, (x, y): (f32, f32)) {
     pointer(h, json!([{"kind": "down", "x": x, "y": y}, {"kind": "up", "x": x, "y": y}]));
 }
 
-fn develop(h: &Headless) -> lightcraft_develop::DevelopSettings {
+fn develop(h: &Headless) -> evolight_develop::DevelopSettings {
     let id = h.app.session.active().expect("active photo");
     (*h.app.session.develop_of(id).unwrap_or_default()).clone()
 }

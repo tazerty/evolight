@@ -76,7 +76,7 @@ fn without_a_window_a_drag_drafts_at_the_canvas_size() {
 // Given a slider drag, the GPU renders it at full size and the CPU a smaller draft (#330)
 #[test]
 fn a_drag_shrinks_the_draft_only_on_the_cpu() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut gpu = DragScale::default();
     assert_eq!(gpu.scale(None, true, None, 0.0), None, "no drag, no draft");
     assert_eq!(gpu.scale(Some((PhotoId(1), "Exposure")), true, None, 0.0), Some(1.0));
@@ -88,7 +88,7 @@ fn a_drag_shrinks_the_draft_only_on_the_cpu() {
 // resolution never jumps in the middle of a drag
 #[test]
 fn a_drag_keeps_its_draft_size_until_it_ends() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     assert_eq!(d.scale(drag, false, None, 0.0), Some(CPU_DRAFT_SCALE));
@@ -100,7 +100,7 @@ fn a_drag_keeps_its_draft_size_until_it_ends() {
 }
 
 /// One whole drag of `drag` at full size whose drafts all take `ms` to show, ending at `now`.
-fn timed_drag(d: &mut DragScale, drag: Option<(lightcraft_catalog::PhotoId, &str)>, ms: f64, now: f64) -> Option<f32> {
+fn timed_drag(d: &mut DragScale, drag: Option<(evolight_catalog::PhotoId, &str)>, ms: f64, now: f64) -> Option<f32> {
     let scale = d.scale(drag, true, None, now);
     for key in 1..=6 {
         d.observe(key, ms, None);
@@ -114,7 +114,7 @@ fn timed_drag(d: &mut DragScale, drag: Option<(lightcraft_catalog::PhotoId, &str
 // that photo drafts small; once could be a busy moment. Other controls and photos keep full size
 #[test]
 fn a_drag_over_budget_twice_drafts_small_the_next_time() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let exposure = Some((PhotoId(1), "Exposure"));
     assert_eq!(d.scale(exposure, true, Some(7), 0.0), Some(1.0));
@@ -136,7 +136,7 @@ fn a_drag_over_budget_twice_drafts_small_the_next_time() {
 // again; a slow retry doubles the wait (up to its cap), a fast one forgets the verdict
 #[test]
 fn a_slow_verdict_expires_and_is_retried() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     timed_drag(&mut d, drag, 25.0, 0.0);
@@ -162,7 +162,7 @@ fn a_slow_verdict_expires_and_is_retried() {
 // the two sizes); one clearly over does
 #[test]
 fn only_a_drag_clearly_over_budget_counts() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     for t in 0..4 {
@@ -178,7 +178,7 @@ fn only_a_drag_clearly_over_budget_counts() {
 // Given one slow drag while the machine was busy, then fast ones, the slider keeps full size
 #[test]
 fn a_busy_moment_doesnt_make_a_slider_draft_small() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     timed_drag(&mut d, drag, 40.0, 0.0);
@@ -193,7 +193,7 @@ fn a_busy_moment_doesnt_make_a_slider_draft_small() {
 // can't read tries full size
 #[test]
 fn a_hostile_clock_never_panics() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     timed_drag(&mut d, drag, 25.0, 100.0);
@@ -211,7 +211,7 @@ fn a_hostile_clock_never_panics() {
 // slow), the next drag stays at full size
 #[test]
 fn a_drag_within_budget_stays_full_size() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     d.scale(drag, true, None, 0.0);
@@ -232,7 +232,7 @@ fn a_drag_within_budget_stays_full_size() {
 // as over budget: a render time alone said 231 of 234 drafts fit while none showed in 16 ms
 #[test]
 fn a_drafts_time_includes_the_frame_that_shows_it() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     for _ in 0..2 {
@@ -265,7 +265,7 @@ fn a_drafts_time_includes_the_frame_that_shows_it() {
 // clearing them all would bring back a slow full-size drag for every pair
 #[test]
 fn a_full_slow_set_forgets_only_the_oldest_drag() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     for photo in 0..=VERDICTS_KEPT as u64 {
         d.remember_slow(PhotoId(photo), "Exposure");
@@ -285,7 +285,7 @@ fn a_full_slow_set_forgets_only_the_oldest_drag() {
 // drags, since one slow drag only makes the pair suspect
 #[test]
 fn a_hidden_windows_frame_times_dont_mark_a_drag_slow() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     for t in 0..2u32 {
@@ -303,7 +303,7 @@ fn a_hidden_windows_frame_times_dont_mark_a_drag_slow() {
 // such drag, the next starts small
 #[test]
 fn a_drag_far_over_budget_drafts_small_before_it_ends() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut d = DragScale::default();
     let drag = Some((PhotoId(1), "Exposure"));
     assert_eq!(d.scale(drag, true, None, 0.0), Some(1.0));
@@ -435,7 +435,7 @@ fn a_drag_at_fit_does_not_switch_the_window_on() {
 // Given a pinch from fit to 400 %, the sizes of the first frame hold until the gesture is quiet
 #[test]
 fn a_pinch_holds_the_render_sizes() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let (fit, zoomed) = (plan(&auto(), sizes(1400.0, 1400.0, 6000)), plan(&auto(), sizes(24000.0, 1400.0, 6000)));
     assert_ne!(fit, zoomed);
     let mut hold = SizeHold::default();
@@ -457,7 +457,7 @@ fn a_pinch_holds_the_render_sizes() {
 // Given a pinch, the display-fit size holds like the render sizes and is retaken after it
 #[test]
 fn a_pinch_holds_the_display_fit_size() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let (fit, zoomed) = (plan(&auto(), sizes(1400.0, 1400.0, 6000)), plan(&auto(), sizes(24000.0, 1400.0, 6000)));
     let mut hold = SizeHold::default();
     let p = PhotoId(1);
@@ -485,7 +485,7 @@ fn a_pinch_holds_the_display_fit_size() {
 // The plan and display fit become fresh on the exact quiet deadline, in the same frame.
 #[test]
 fn the_display_fit_and_plan_release_at_the_exact_deadline() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let mut hold = SizeHold::default();
     let photo = PhotoId(1);
     let fit = LoupePlan { main_edge: 800, window_edge: None };
@@ -507,7 +507,7 @@ fn the_display_fit_and_plan_release_at_the_exact_deadline() {
 // Given another photo, the held sizes are forgotten
 #[test]
 fn another_photo_is_planned_afresh() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let (fit, zoomed) = (plan(&auto(), sizes(1400.0, 1400.0, 6000)), plan(&auto(), sizes(24000.0, 1400.0, 6000)));
     let mut hold = SizeHold::default();
     hold.apply(PhotoId(1), 0.0, false, fit);
@@ -607,7 +607,7 @@ fn the_margin_grows_with_the_zoom_up_to_a_cap() {
 // Given a tile rendered for other settings, another photo or another zoom, it is not drawn
 #[test]
 fn a_tile_is_drawn_only_while_it_shows_what_the_loupe_shows() {
-    use lightcraft_catalog::PhotoId;
+    use evolight_catalog::PhotoId;
     let v =
         RegionView { photo: PhotoId(1), before: false, key: 7, full: (6000, 4000), window: PixelWindow { x: 0, y: 0, w: 256, h: 256 }, settings: 11 };
     assert!(v.is_current(PhotoId(1), (6000, 4000), 11, false));

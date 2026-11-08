@@ -1,4 +1,4 @@
-//! Minolta / Konica Minolta MRW: a block container (see [`lightcraft_meta::mrw`]) around a 12-bit Bayer mosaic.
+//! Minolta / Konica Minolta MRW: a block container (see [`evolight_meta::mrw`]) around a 12-bit Bayer mosaic.
 //!
 //! Sources: the public prose description of the MRW layout (Dalibor Jelínek's MRW notes) and our own black-box
 //! analysis of the eight CC0 MRW samples on raw.pixls.us (DiMAGE 7, 7Hi, A1, A2, A200, Dynax / Maxxum / ALPHA-7
@@ -24,8 +24,8 @@
 //! - `TTW` is a TIFF with IFD0 (orientation), Exif and the maker note; the preview JPEG sits in it with its first
 //!   byte overwritten (see `preview::scan_for_jpeg`).
 use crate::{BlackLevel, Cfa, ColorData, Mode, OpcodeLists, RawData, RawError, RawFormat, RawImage, Rect, Result, unpack};
-use lightcraft_geom::Orientation;
-use lightcraft_tiff::{Tiff, tags as t};
+use evolight_geom::Orientation;
+use evolight_tiff::{Tiff, tags as t};
 
 /// Storage method codes in `PRD`.
 const PACKED_12: u8 = 0x59;
@@ -65,7 +65,7 @@ fn prd(b: &[u8]) -> Result<Prd> {
 }
 
 pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
-    let m = lightcraft_meta::mrw::parse(bytes).ok_or_else(|| RawError::Corrupt("Mrw block header".into()))?;
+    let m = evolight_meta::mrw::parse(bytes).ok_or_else(|| RawError::Corrupt("Mrw block header".into()))?;
     let p = prd(m.block(b"PRD").ok_or_else(|| RawError::Unsupported("Mrw file without a PRD block".into()))?)?;
     let (w, h) = p.sensor;
     let n = w.checked_mul(h).filter(|n| *n <= crate::MAX_SAMPLES).ok_or(RawError::Limit("image too large"))?;
@@ -80,7 +80,7 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
         if p.packed {
             unpack::unpack_msb(src, 12, &mut d);
         } else {
-            unpack::read_u16s(src, lightcraft_tiff::ByteOrder::Big, &mut d);
+            unpack::read_u16s(src, evolight_tiff::ByteOrder::Big, &mut d);
             for v in &mut d {
                 *v = (*v).min(4095);
             }
@@ -92,7 +92,7 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     };
     let wb = m.block(b"WBG").and_then(|b| wb_from(b, &cfa));
     let tiff = m.block(b"TTW").and_then(|b| Tiff::parse(b).ok());
-    let mut metadata = tiff.as_ref().map(lightcraft_meta::from_tiff).unwrap_or_default();
+    let mut metadata = tiff.as_ref().map(evolight_meta::from_tiff).unwrap_or_default();
     metadata.width = Some(p.image.0 as u32);
     metadata.height = Some(p.image.1 as u32);
     let orientation = tiff.as_ref().and_then(|t| t.ifds.first()).and_then(|i| i.u16(t::ORIENTATION)).unwrap_or(1);
@@ -154,10 +154,10 @@ pub(crate) mod tests {
         for v in wbg {
             wb.extend_from_slice(&v.to_be_bytes());
         }
-        let mut ifd0 = lightcraft_tiff::IfdBuilder::new();
-        ifd0.set(t::MAKE, lightcraft_tiff::Value::Ascii("Minolta Co., Ltd.".into()));
-        ifd0.set(t::ORIENTATION, lightcraft_tiff::Value::Short(vec![6]));
-        let ttw = lightcraft_tiff::TiffWriter::default().write(&[ifd0]).unwrap();
+        let mut ifd0 = evolight_tiff::IfdBuilder::new();
+        ifd0.set(t::MAKE, evolight_tiff::Value::Ascii("Minolta Co., Ltd.".into()));
+        ifd0.set(t::ORIENTATION, evolight_tiff::Value::Short(vec![6]));
+        let ttw = evolight_tiff::TiffWriter::default().write(&[ifd0]).unwrap();
         let mut body = Vec::new();
         for (name, data) in [(b"PRD", &prd), (b"WBG", &wb), (b"TTW", &ttw)] {
             body.push(0);

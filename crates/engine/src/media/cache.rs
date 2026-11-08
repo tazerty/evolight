@@ -194,11 +194,11 @@ impl MediaCache {
         match level {
             SourceLevel::Thumb => self.thumbs.get(&id).cloned(),
             SourceLevel::Preview => self.previews.iter_mut().find(|e| e.0 == id).map(|e| {
-                e.2 = lightcraft_preview::next_tick();
+                e.2 = evolight_preview::next_tick();
                 e.1.clone()
             }),
             SourceLevel::Full => self.full.iter_mut().find(|e| e.0 == id).map(|e| {
-                e.2 = lightcraft_preview::next_tick();
+                e.2 = evolight_preview::next_tick();
                 e.1.clone()
             }),
         }
@@ -228,12 +228,12 @@ impl MediaCache {
 
     /// A decoded source with what the decoder reported about it (tests: photos of another as-shot white).
     #[cfg(test)]
-    pub(crate) fn insert_with_info(&mut self, id: PhotoId, level: SourceLevel, img: Arc<Rgb32f>, info: lightcraft_pipeline::SourceInfo) {
+    pub(crate) fn insert_with_info(&mut self, id: PhotoId, level: SourceLevel, img: Arc<Rgb32f>, info: evolight_pipeline::SourceInfo) {
         self.insert_source(id, level, DecodedSource::new(img, Some(info)));
     }
 
     pub(crate) fn insert_source(&mut self, id: PhotoId, level: SourceLevel, img: DecodedSource) {
-        let tick = lightcraft_preview::next_tick();
+        let tick = evolight_preview::next_tick();
         match level {
             SourceLevel::Thumb => {
                 let cost = img.bytes();
@@ -417,7 +417,7 @@ impl MediaCache {
         match origin {
             Source::Demo { scene } => {
                 if self.scenes.is_empty() {
-                    self.scenes = lightcraft_scenes::demo_library();
+                    self.scenes = evolight_scenes::demo_library();
                 }
                 match self.scenes.iter().find(|s| s.id == *scene) {
                     Some(s) => SourceRef::Demo { scene: Box::new(s.clone()), max_edge },

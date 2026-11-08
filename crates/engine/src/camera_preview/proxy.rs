@@ -91,12 +91,12 @@ pub(super) fn proxies(
     size: usize,
     min_fraction: f64,
     lens: Option<&LensGeometry>,
-    embedded: Option<&lightcraft_develop::EmbeddedLens>,
+    embedded: Option<&evolight_develop::EmbeddedLens>,
 ) -> Option<(Rgb32f, Rgb32f, Vec<bool>)> {
     let edge = (2 * size).max(384) as u32;
     let decoded = crate::files::decode_raw_preview(
         bytes,
-        lightcraft_codecs::DecodeOptions { max_size: Some((edge, edge)), max_pixels: FIT_PREVIEW_MAX_PIXELS },
+        evolight_codecs::DecodeOptions { max_size: Some((edge, edge)), max_pixels: FIT_PREVIEW_MAX_PIXELS },
         None,
     )?;
     let (a, crop) = (raw.active_area, raw.crop.clipped(raw.active_area.width, raw.active_area.height));
@@ -169,7 +169,7 @@ pub(super) fn proxies(
 /// The camera JPEG at exactly the sensor proxy's size, so the two pair pixel for pixel. Fitting it
 /// into the proxy's box instead keeps its own aspect, which can round a pixel short: an ILCE-7RM4's
 /// 1616×1080 preview, decoded at 384×257, fits a 192×128 proxy as 191×128, and `collect_pairs`
-/// then rejected every file `lightcraft-cli calibrate` was given. `proxies` has already checked
+/// then rejected every file `evolight-cli calibrate` was given. `proxies` has already checked
 /// that the aspects agree within 2 %.
 pub(super) fn reference_at(reference: &Rgb32f, sensor: &Rgb32f) -> Rgb32f {
     resize(reference, sensor.width, sensor.height, Filter::Box)
@@ -293,7 +293,7 @@ pub(super) fn estimate_cr3_framing(sensor: &Rgb32f, reference: &Rgb32f) -> Optio
     if best.0 < 0.9 || best.0 < before + 0.04 || held_after < 0.9 || held_after < held_before + 0.04 {
         return None;
     }
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!("[profile] CR3 JPEG framing {:?}, held-out edge agreement {held_before:.4} -> {held_after:.4}", best.1);
     }
     Some(best.1)
@@ -318,10 +318,10 @@ fn align_cr3_framing(sensor: Rgb32f, clipped: Rgb32f, reference: &Rgb32f) -> (Rg
 /// baseline exposure) → its camera JPEG (linear Rec.2020). `None` for formats with their own
 /// colour matrices, other files or unusable previews.
 pub(crate) fn profile_pairs(raw: &RawImage, bytes: &[u8], lens: Option<&LensGeometry>) -> Option<Vec<([f64; 3], [f64; 3])>> {
-    if !file_local_look(raw.format) || lightcraft_raw::color::has_matrix(&raw.color) {
+    if !file_local_look(raw.format) || evolight_raw::color::has_matrix(&raw.color) {
         return None;
     }
-    let transform = lightcraft_raw::color::camera_transform(raw, lightcraft_raw::color::as_shot_white_xy(raw));
+    let transform = evolight_raw::color::camera_transform(raw, evolight_raw::color::as_shot_white_xy(raw));
     let (sensor, reference, clipped) = proxies(raw, bytes, &transform, PROFILE_PROXY, 0.0, lens, None)?;
     let to_camera = transform.matrix.inverse()?;
     // clipped sensor pixels don't record the scene's colour (see `fit_look`)
@@ -338,7 +338,7 @@ pub(crate) fn fit_profile(pairs: &[([f64; 3], [f64; 3])]) -> Option<(Mat3, Optio
 }
 
 /// A raw's lens-correction warp, as its camera applied it to the embedded JPEG: the first `WarpRectilinear` of
-/// `OpcodeList3` (its green plane; the in-file corrections LightCraft reads have no tangential terms). `None` without
+/// `OpcodeList3` (its green plane; the in-file corrections EvoLight reads have no tangential terms). `None` without
 /// one, or for a DNG 1.6 `WarpRectilinear2` chain (phone DNGs, which carry colour matrices and are not fitted).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct LensGeometry {
@@ -348,9 +348,9 @@ pub(crate) struct LensGeometry {
     pub(super) center: [f64; 2],
 }
 
-pub(crate) fn lens_geometry(list3: &[lightcraft_raw::Opcode]) -> Option<LensGeometry> {
-    use lightcraft_raw::Opcode;
-    let ops: Vec<&Opcode> = lightcraft_raw::opcodes::applied_ops(list3).collect();
+pub(crate) fn lens_geometry(list3: &[evolight_raw::Opcode]) -> Option<LensGeometry> {
+    use evolight_raw::Opcode;
+    let ops: Vec<&Opcode> = evolight_raw::opcodes::applied_ops(list3).collect();
     if ops.iter().any(|op| matches!(op, Opcode::WarpRectilinear2 { .. })) {
         return None;
     }
@@ -408,7 +408,7 @@ pub(super) fn alignment(a: &Rgb32f, b: &Rgb32f) -> f64 {
 pub(super) fn into_lens_geometry(img: &Rgb32f, raw: &RawImage, k: usize, lens: &LensGeometry) -> Option<Rgb32f> {
     let a = raw.active_area;
     let c = raw.crop.clipped(a.width, a.height);
-    let c = if c.width < k || c.height < k { lightcraft_raw::Rect::new(0, 0, a.width, a.height) } else { c };
+    let c = if c.width < k || c.height < k { evolight_raw::Rect::new(0, 0, a.width, a.height) } else { c };
     let (w, h) = (img.width, img.height);
     if k == 0 || w != c.width / k || h != c.height / k || w == 0 || h == 0 || a.width < 2 || a.height < 2 {
         return None;
@@ -441,7 +441,7 @@ pub(super) fn sensor_proxy(raw: &RawImage, k: usize, edge: usize) -> Option<Rgb3
         Some(sensor) => sensor,
         // Lens opcodes cannot be applied to a binned mosaic: they are defined at full resolution.
         None if (raw.cpp == 3 && raw.cfa.is_none()) || (raw.format == RawFormat::Dng && !raw.opcodes.list3.is_empty()) => {
-            fit(&raw.develop(lightcraft_raw::Method::Bilinear).ok()?, edge, edge, Filter::Box)
+            fit(&raw.develop(evolight_raw::Method::Bilinear).ok()?, edge, edge, Filter::Box)
         }
         None => return None,
     })

@@ -39,7 +39,7 @@ pub(super) fn monochrome_look(
     bytes: &[u8],
     transform: &CameraTransform,
     lens: Option<&LensGeometry>,
-    embedded: Option<&lightcraft_develop::EmbeddedLens>,
+    embedded: Option<&evolight_develop::EmbeddedLens>,
 ) -> Option<CameraLook> {
     if !file_local_look(raw.format) {
         return None;
@@ -49,12 +49,12 @@ pub(super) fn monochrome_look(
         return None;
     }
     // Sony's Dynamic Range Optimizer brightens a B/W JPEG as much as a colour one
-    let dro = lightcraft_raw::embedded_preview_dynamic_range_optimized(bytes) == Some(true);
+    let dro = evolight_raw::embedded_preview_dynamic_range_optimized(bytes) == Some(true);
     let unclipped = without_clipped(&sensor, &clipped);
     let bright = HighlightCheck { pairs: highlights(&sensor, &reference), dro, grey: true };
     let look = fit_tone_only_with(unclipped.as_ref().unwrap_or(&sensor), &reference, None, &bright)?;
     let look = if dro { with_dro_off_tone(look) } else { look };
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] {:?} camera look from a black-and-white JPEG: tone {:?}, {} colour, DRO tone replaced {dro}",
             raw.format,
@@ -164,7 +164,7 @@ fn fit_tone_only_pairs(
     let kind = if dark { "near-black scene" } else { "black-and-white JPEG" };
     let related = rank_correlation_ties(pairs);
     if related < PARTIAL_MIN_RANK_CORRELATION {
-        if lightcraft_pipeline::profiling() {
+        if evolight_pipeline::profiling() {
             eprintln!("[profile] camera look from a {kind}: luminance rank correlation {related:.3}, not the same picture");
         }
         return None;
@@ -199,7 +199,7 @@ fn fit_tone_only_pairs(
         after_encoded += (encoded(toned) - encoded(target)).powi(2);
         samples += 1;
     }
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] camera look from a {kind}: holdout luminance RMS {:.5} -> {:.5} ({samples} pixels{})",
             (before / samples.max(1) as f64).sqrt(),

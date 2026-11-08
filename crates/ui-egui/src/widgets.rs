@@ -3,14 +3,14 @@
 //! ([`register`]) so the control channel can find and click it by name.
 
 use egui::{Align2, Color32, CornerRadius, Rect, Response, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
-use lightcraft_develop::{ControlSpec, Track};
+use evolight_develop::{ControlSpec, Track};
 
 use crate::icons::{Icon, paint};
 use crate::theme::Tokens;
 
 /// Standard dropdown chevrons, including settings, import/export and rule editors.
-pub fn combo_box(id: impl egui::AsIdSalt) -> craft_ui::ComboBox<'static> {
-    craft_ui::ComboBox::from_id_salt(id)
+pub fn combo_box(id: impl egui::AsIdSalt) -> evo_ui::ComboBox<'static> {
+    evo_ui::ComboBox::from_id_salt(id)
         .icon(|ui, rect, visuals, _| {
             paint(ui.painter(), Rect::from_center_size(rect.center(), vec2(16.0, 16.0)), Icon::ChevronDown, visuals.fg_stroke.color);
         })
@@ -226,12 +226,12 @@ pub fn preview_only_variant(reason: &str) -> &str {
 pub fn preview_only_explanation(reason: &str) -> String {
     if reason.starts_with("Nikon High Efficiency NEF (") {
         return crate::i18n::tr(
-            "Nikon High Efficiency NEF (HE / HE★) uses intoPIX TicoRAW compression. LightCraft does not currently have a license for this codec, so only the camera's embedded JPEG preview is available, not the raw sensor data. To edit raw data, shoot Lossless compressed NEF or convert existing HE files to DNG using a licensed converter.",
+            "Nikon High Efficiency NEF (HE / HE★) uses intoPIX TicoRAW compression. EvoLight does not currently have a license for this codec, so only the camera's embedded JPEG preview is available, not the raw sensor data. To edit raw data, shoot Lossless compressed NEF or convert existing HE files to DNG using a licensed converter.",
         )
         .to_string();
     }
     crate::i18n::tr_format!(
-        "LightCraft can't decode this raw variant yet ({}). You're editing the camera's embedded JPEG preview, which already includes the camera's picture style (e.g. Monochrome) and white balance.",
+        "EvoLight can't decode this raw variant yet ({}). You're editing the camera's embedded JPEG preview, which already includes the camera's picture style (e.g. Monochrome) and white balance.",
         preview_only_variant(reason)
     )
 }
@@ -1114,7 +1114,7 @@ mod tests {
         let spec = |id, min, max, step| ControlSpec {
             id,
             label: "",
-            section: lightcraft_develop::controls::Section::Light,
+            section: evolight_develop::controls::Section::Light,
             min,
             max,
             default: 0.0,
@@ -1149,7 +1149,7 @@ mod tests {
     #[test]
     fn a_slow_shift_drag_adds_up() {
         let ctx = egui::Context::default();
-        let temp = lightcraft_develop::controls::find("wb.temp").unwrap();
+        let temp = evolight_develop::controls::find("wb.temp").unwrap();
         let mut value = 7000.0;
         let frame = |time: f64, events: Vec<egui::Event>, value: f64| {
             let input = egui::RawInput {
@@ -1185,9 +1185,9 @@ mod tests {
     /// Typed values (issue #322): signs, a decimal comma, units; on the control's steps, in range.
     #[test]
     fn typed_values_are_stepped_and_clamped() {
-        let exposure = lightcraft_develop::controls::find("light.exposure").unwrap();
-        let contrast = lightcraft_develop::controls::find("light.contrast").unwrap();
-        let temp = lightcraft_develop::controls::find("wb.temp").unwrap();
+        let exposure = evolight_develop::controls::find("light.exposure").unwrap();
+        let contrast = evolight_develop::controls::find("light.contrast").unwrap();
+        let temp = evolight_develop::controls::find("wb.temp").unwrap();
         assert_eq!(typed_value(exposure, "1.5"), Some(1.5));
         assert_eq!(typed_value(exposure, " +0,25 "), Some(0.25));
         assert_eq!(typed_value(exposure, "-12"), Some(exposure.min), "clamped");
@@ -1211,7 +1211,7 @@ mod access_tests {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         ctx.enable_accesskit();
-        let spec = lightcraft_develop::controls::find("light.exposure").unwrap();
+        let spec = evolight_develop::controls::find("light.exposure").unwrap();
         let mut found = Vec::new();
         let mut ranges = Vec::new();
         for _ in 0..3 {
@@ -1367,12 +1367,12 @@ pub mod text_field;
 mod slider_reset_tests;
 
 fn focused_slider_key() -> egui::Id {
-    egui::Id::unique("lightcraft-focused-slider")
+    egui::Id::unique("evolight-focused-slider")
 }
 
 /// The slider a click or drag armed for vertical wheel edits, if any.
 fn wheel_slider_key() -> egui::Id {
-    egui::Id::unique("lightcraft-wheel-slider")
+    egui::Id::unique("evolight-wheel-slider")
 }
 
 /// Whether the widget with keyboard focus is a develop slider selected by a click, drag or Tab.

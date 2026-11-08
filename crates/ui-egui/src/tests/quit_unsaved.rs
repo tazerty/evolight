@@ -5,12 +5,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use lightcraft_catalog::{MemStore, Store};
-use lightcraft_engine::library::LibraryStores;
+use evolight_catalog::{MemStore, Store};
+use evolight_engine::library::LibraryStores;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
@@ -65,10 +65,10 @@ fn click(h: &mut Headless, id: &str) {
 #[test]
 fn quitting_with_unsaved_changes_asks_first() {
     let store = Unplugged::default();
-    let mut s = lightcraft_engine::Session::new();
+    let mut s = evolight_engine::Session::new();
     let stores = LibraryStores { dir: "unplugged".into(), catalog: Box::new(store.clone()), files: Box::new(MemStore::new()), on_disk: false };
     s.open_library_in(stores, false).unwrap();
-    let app = LightcraftApp::new(s, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(s, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     h.step();
     // nothing unsaved: closing is fine
@@ -112,10 +112,10 @@ fn quitting_with_unsaved_changes_asks_first() {
 #[test]
 fn retrying_an_unsaved_prompt_resets_focus_to_safe_cancel() {
     let store = Unplugged::default();
-    let mut s = lightcraft_engine::Session::new();
+    let mut s = evolight_engine::Session::new();
     let stores = LibraryStores { dir: "unplugged".into(), catalog: Box::new(store.clone()), files: Box::new(MemStore::new()), on_disk: false };
     s.open_library_in(stores, false).unwrap();
-    let app = LightcraftApp::new(s, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(s, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     h.step();
     store.fail.store(true, Ordering::SeqCst);
@@ -148,10 +148,10 @@ fn retrying_an_unsaved_prompt_resets_focus_to_safe_cancel() {
 fn damaged_settings_file_is_shown() {
     let files = MemStore::new();
     files.set("presets.json", b"{\"user\": [ {\"id\": ".to_vec());
-    let mut s = lightcraft_engine::Session::new();
+    let mut s = evolight_engine::Session::new();
     let stores = LibraryStores { dir: "lib".into(), catalog: Box::new(MemStore::new()), files: Box::new(files.clone()), on_disk: false };
     s.open_library_in(stores, false).unwrap();
-    let app = LightcraftApp::new(s, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(s, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     h.step();
     h.step();
@@ -172,10 +172,10 @@ fn damaged_settings_file_is_shown() {
 /// no file.
 #[test]
 fn quitting_waits_for_what_the_log_thread_has_not_written_yet() {
-    use lightcraft_catalog::fault::{self, Step};
+    use evolight_catalog::fault::{self, Step};
     let dir = std::env::temp_dir().join(format!("lc-ui-quit-log-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let mut s = lightcraft_engine::Session::new();
+    let mut s = evolight_engine::Session::new();
     s.open_library(&dir, true).unwrap();
     let id = s.catalog.photos().map(|p| p.id).min().unwrap();
     fault::install(
@@ -188,7 +188,7 @@ fn quitting_waits_for_what_the_log_thread_has_not_written_yet() {
             Ok(())
         }),
     );
-    let app = LightcraftApp::new(s, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(s, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     let r = h.request("engine.execute", json!({"command": "photo.flag", "params": {"flag": "reject", "ids": [id.0]}}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -198,17 +198,17 @@ fn quitting_waits_for_what_the_log_thread_has_not_written_yet() {
     let copy = dir.with_extension("copy");
     let _ = std::fs::remove_dir_all(&copy);
     std::fs::create_dir_all(&copy).unwrap();
-    for f in [lightcraft_catalog::journal::SNAPSHOT, lightcraft_catalog::journal::LOG] {
+    for f in [evolight_catalog::journal::SNAPSHOT, evolight_catalog::journal::LOG] {
         if dir.join(f).exists() {
             std::fs::copy(dir.join(f), copy.join(f)).unwrap();
         }
     }
-    let (_, c, _) = lightcraft_catalog::Journal::open(Box::new(lightcraft_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
+    let (_, c, _) = evolight_catalog::Journal::open(Box::new(evolight_catalog::store::FsStore::open(&copy).unwrap())).unwrap();
     let saved = c.photo(id).map(|p| p.flag);
     fault::remove(&dir);
     drop(h);
     let _ = std::fs::remove_dir_all(&copy);
     let _ = std::fs::remove_dir_all(&dir);
-    assert!(!closes || saved == Some(lightcraft_catalog::Flag::Reject), "closed with the flag in no file: {saved:?}");
+    assert!(!closes || saved == Some(evolight_catalog::Flag::Reject), "closed with the flag in no file: {saved:?}");
     assert!(closes, "the closing snapshot saved it, so the window may close: {:?} {saved:?}", prompt);
 }

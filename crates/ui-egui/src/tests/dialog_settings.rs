@@ -12,22 +12,22 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::panels::settings::TABS;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 /// The app window sizes tried: roomy, the desktop minimum, and smaller than that.
 const SIZES: [[f32; 2]; 3] = [[1600.0, 1000.0], [900.0, 560.0], [640.0, 480.0]];
 
-fn headless(session: lightcraft_engine::Session, size: [f32; 2]) -> Headless {
-    let mut h = Headless::new(LightcraftApp::new(session, Services::default()), size, 1.0);
+fn headless(session: evolight_engine::Session, size: [f32; 2]) -> Headless {
+    let mut h = Headless::new(EvoLightApp::new(session, Services::default()), size, 1.0);
     // let the first renders finish (a render still running at exit can crash in GPU teardown)
     h.settle(T);
     h
 }
 
 fn demo(size: [f32; 2]) -> Headless {
-    headless(lightcraft_engine::Session::with_demo(), size)
+    headless(evolight_engine::Session::with_demo(), size)
 }
 
 /// Given Settings open on `tab`, drawn until its layout has settled.
@@ -159,7 +159,7 @@ fn a_long_library_folder_is_cut_short_and_its_tooltip_has_all_of_it() {
     let dir =
         base.0.join("photographs-from-2019-to-2026-kept-on-the-second-external-drive-that-nobody-wants-to-type-twice").join("the-master-library");
     std::fs::create_dir_all(&dir).unwrap();
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(&dir, true).unwrap();
     let path = dir.display().to_string();
 
@@ -236,7 +236,7 @@ fn library_default_stays_on_the_line_of_the_smart_previews_folder_whatever_its_l
     for n in 0..24 {
         let dir = base.0.join(format!("photographs-kept-on-the-second-external-drive-{n}")).join("m".repeat(2 + 3 * n));
         std::fs::create_dir_all(&dir).unwrap();
-        let mut session = lightcraft_engine::Session::new().with_fs();
+        let mut session = evolight_engine::Session::new().with_fs();
         session.open_library(&dir, true).unwrap();
         let mut h = headless(session, [1600.0, 1000.0]);
         // When Performance is scrolled to the foot of its page

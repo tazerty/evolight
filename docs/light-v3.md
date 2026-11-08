@@ -121,7 +121,7 @@ threshold with synthetic inputs and scans all committed fit files.
 ## Measured agreement
 
 The private agreement harness compares the log2-luminance response of each export pair with
-LightCraft's response to the same two recipes. The reported error, in stops, is the mean over
+EvoLight's response to the same two recipes. The reported error, in stops, is the mean over
 rows (amount, reference and size) of the median over photos. Both builds use the same photos;
 a registration rejected in either run is omitted from the paired comparison. The historical
 V2 baseline is main at `76b53778`. The six check photos were not used to fit the operators.

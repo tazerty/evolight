@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_develop::{DevelopSettings, MaskOp, MaskShape};
+use evolight_develop::{DevelopSettings, MaskOp, MaskShape};
 
 /// A packet in the shape local corrections take (values written for this test).
 const PACKET: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -33,7 +33,7 @@ const PACKET: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="
 </rdf:Description></rdf:RDF></x:xmpmeta>"#;
 
 fn settings() -> (DevelopSettings, Vec<String>) {
-    let d = lightcraft_meta::parse_xmp(PACKET).unwrap();
+    let d = evolight_meta::parse_xmp(PACKET).unwrap();
     let (partial, unmapped) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     (DevelopSettings::default().merged(&partial).expect("valid settings"), unmapped)
 }
@@ -70,9 +70,9 @@ fn corrections_become_masks() {
 #[test]
 fn masks_render() {
     let (s, _) = settings();
-    let img = lightcraft_scenes::demo_library()[0].render(96, 64);
+    let img = evolight_scenes::demo_library()[0].render(96, 64);
     let render =
-        |d: &DevelopSettings| lightcraft_pipeline::render(&img, &Default::default(), d, &lightcraft_pipeline::RenderRequest::fit(96, 64)).image.data;
+        |d: &DevelopSettings| evolight_pipeline::render(&img, &Default::default(), d, &evolight_pipeline::RenderRequest::fit(96, 64)).image.data;
     assert_ne!(render(&DevelopSettings { light: s.light, ..Default::default() }), render(&s), "the masks change the picture");
 }
 
@@ -89,7 +89,7 @@ fn range_to_white_stays_open_and_unmapped_local_sliders_are_reported() {
   </rdf:Description></rdf:li>
  </rdf:Seq></crs:MaskGroupBasedCorrections>
 </rdf:Description></rdf:RDF></x:xmpmeta>"#;
-    let d = lightcraft_meta::parse_xmp(x).unwrap();
+    let d = evolight_meta::parse_xmp(x).unwrap();
     let (partial, unmapped) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     let s = DevelopSettings::default().merged(&partial).expect("valid settings");
     let MaskShape::LuminanceRange { hi, hi_feather, .. } = &s.masks[0].components[0].shape else { panic!() };
@@ -114,9 +114,9 @@ fn lrtemplate_corrections() {
 fn presets_add_masks_once() {
     let (s, _) = settings();
     let partial = json!({"masks": serde_json::to_value(&s.masks).unwrap(), "light": {"exposure": 0.5}});
-    let p = lightcraft_develop::Preset { id: "t".into(), name: "t".into(), group: "g".into(), settings: partial, favorite: false, builtin: false };
+    let p = evolight_develop::Preset { id: "t".into(), name: "t".into(), group: "g".into(), settings: partial, favorite: false, builtin: false };
     let mut mine = DevelopSettings::default();
-    mine.masks.push(lightcraft_develop::Mask { id: 7, name: "Mine".into(), ..Default::default() });
+    mine.masks.push(evolight_develop::Mask { id: 7, name: "Mine".into(), ..Default::default() });
     let once = p.apply(&mine, 1.0);
     assert_eq!(once.masks.len(), 4, "added to the photo's own mask");
     assert_eq!(once.masks[1].id, 8, "fresh ids");
@@ -152,7 +152,7 @@ fn radial_packet(container: &str, attrs: &str) -> String {
 }
 
 fn radial_settings(container: &str, attrs: &str) -> DevelopSettings {
-    let d = lightcraft_meta::parse_xmp(&radial_packet(container, attrs)).unwrap();
+    let d = evolight_meta::parse_xmp(&radial_packet(container, attrs)).unwrap();
     let (partial, unmapped) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     assert!(unmapped.is_empty(), "{unmapped:?}");
     let s = DevelopSettings::default().merged(&partial).unwrap();
@@ -169,11 +169,11 @@ fn radial_of(s: &DevelopSettings) -> (bool, f64, bool) {
 
 /// How much brighter the mask makes the centre and a corner of a flat grey frame (8-bit green).
 fn lift_inside_outside(s: &DevelopSettings) -> (i32, i32) {
-    let img = lightcraft_raster::Image { width: 90, height: 60, data: vec![[0.18f32; 3]; 90 * 60] };
+    let img = evolight_raster::Image { width: 90, height: 60, data: vec![[0.18f32; 3]; 90 * 60] };
     let render =
-        |d: &DevelopSettings| lightcraft_pipeline::render(&img, &Default::default(), d, &lightcraft_pipeline::RenderRequest::fit(90, 60)).image;
+        |d: &DevelopSettings| evolight_pipeline::render(&img, &Default::default(), d, &evolight_pipeline::RenderRequest::fit(90, 60)).image;
     let (with, without) = (render(s), render(&DevelopSettings { light: s.light, ..Default::default() }));
-    let g = |im: &lightcraft_raster::Rgba8, x: usize, y: usize| i32::from(im.data[y * im.width + x][1]);
+    let g = |im: &evolight_raster::Rgba8, x: usize, y: usize| i32::from(im.data[y * im.width + x][1]);
     (g(&with, 45, 30) - g(&without, 45, 30), g(&with, 3, 3) - g(&without, 3, 3))
 }
 
@@ -272,8 +272,8 @@ const SPOTS: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="h
 
 #[test]
 fn retouch_areas_become_spots() {
-    use lightcraft_develop::SpotMode;
-    let d = lightcraft_meta::parse_xmp(SPOTS).unwrap();
+    use evolight_develop::SpotMode;
+    let d = evolight_meta::parse_xmp(SPOTS).unwrap();
     let (partial, unmapped) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     let s = DevelopSettings::default().merged(&partial).expect("valid settings");
     assert_eq!(s.light.exposure, 0.1, "global settings still map");
@@ -297,7 +297,7 @@ fn retouch_areas_become_spots() {
 
 #[test]
 fn portrait_target_scales_spot_sizes() {
-    let d = lightcraft_meta::parse_xmp(SPOTS).unwrap();
+    let d = evolight_meta::parse_xmp(SPOTS).unwrap();
     let (partial, _) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 2.0 / 3.0);
     let s = DevelopSettings::default().merged(&partial).unwrap();
     assert!((s.spots[0].size - 0.01 * 2.0 / 3.0).abs() < 1e-9, "a width fraction on a portrait target: {}", s.spots[0].size);
@@ -306,11 +306,11 @@ fn portrait_target_scales_spot_sizes() {
 #[test]
 fn legacy_retouch_info_is_read_on_its_own() {
     let packet = SPOTS.replace("crs:RetouchAreas", "crs:Ignored");
-    let d = lightcraft_meta::parse_xmp(&packet).unwrap();
+    let d = evolight_meta::parse_xmp(&packet).unwrap();
     let (partial, unmapped) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     let s = DevelopSettings::default().merged(&partial).unwrap();
     assert_eq!(s.spots.len(), 1, "{:?}", s.spots);
-    assert_eq!(s.spots[0].mode, lightcraft_develop::SpotMode::Heal);
+    assert_eq!(s.spots[0].mode, evolight_develop::SpotMode::Heal);
     assert!((s.spots[0].points[0].x - 0.4).abs() < 1e-9 && (s.spots[0].size - 0.01).abs() < 1e-9);
     assert!(s.spots[0].source_offset.is_some_and(|o| (o.x - 0.05).abs() < 1e-9));
     assert!(unmapped.iter().any(|u| u == "Ignored"), "{unmapped:?}");
@@ -319,11 +319,11 @@ fn legacy_retouch_info_is_read_on_its_own() {
 
 #[test]
 fn spots_render() {
-    let d = lightcraft_meta::parse_xmp(SPOTS).unwrap();
+    let d = evolight_meta::parse_xmp(SPOTS).unwrap();
     let (partial, _) = crate::crs::to_partial_report(&d.properties, Some(&d.values), crate::crs::Target::Any, 1.5);
     let s = DevelopSettings::default().merged(&partial).unwrap();
-    let img = lightcraft_scenes::demo_library()[0].render(96, 64);
+    let img = evolight_scenes::demo_library()[0].render(96, 64);
     let render =
-        |d: &DevelopSettings| lightcraft_pipeline::render(&img, &Default::default(), d, &lightcraft_pipeline::RenderRequest::fit(96, 64)).image.data;
+        |d: &DevelopSettings| evolight_pipeline::render(&img, &Default::default(), d, &evolight_pipeline::RenderRequest::fit(96, 64)).image.data;
     assert_ne!(render(&DevelopSettings { light: s.light, ..Default::default() }), render(&s), "the spots change the picture");
 }

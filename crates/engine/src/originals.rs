@@ -1,4 +1,4 @@
-//! Never write over an original: exports, renders and other files LightCraft writes for the user
+//! Never write over an original: exports, renders and other files EvoLight writes for the user
 //! must not land on a catalogued photo's own file (or its XMP sidecar), whatever the conflict
 //! setting or exact path asked for. [`OriginalGuard`] is a snapshot of the library's originals
 //! that answers "would writing here replace one?" by file identity (the same file under another
@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 #[cfg(not(any(unix, windows)))]
 use std::time::SystemTime;
 
-use lightcraft_catalog::safe_file::{same_file, same_file_strict};
-use lightcraft_catalog::{Catalog, Source};
+use evolight_catalog::safe_file::{same_file, same_file_strict};
+use evolight_catalog::{Catalog, Source};
 
 /// The directory entry a screenshot is about to write, pinned at request admission.
 ///
@@ -154,7 +154,7 @@ impl OriginalGuard {
             let same = if hard_links {
                 same_file_strict(p, target).map_err(|e| {
                     format!(
-                        "{}: LightCraft cannot tell whether this is {what} in the library ({e}) and never writes over an original (choose another folder or file name)",
+                        "{}: EvoLight cannot tell whether this is {what} in the library ({e}) and never writes over an original (choose another folder or file name)",
                         target.display()
                     )
                 })?
@@ -163,7 +163,7 @@ impl OriginalGuard {
             };
             if same {
                 return Err(format!(
-                    "{} is {what} in the library: LightCraft never writes over an original (choose another folder or file name)",
+                    "{} is {what} in the library: EvoLight never writes over an original (choose another folder or file name)",
                     target.display()
                 ));
             }
@@ -301,7 +301,7 @@ impl crate::Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_catalog::{Op, Photo, PhotoId};
+    use evolight_catalog::{Op, Photo, PhotoId};
 
     #[test]
     fn originals_and_their_sidecars_are_protected_by_identity() {
@@ -434,7 +434,7 @@ mod tests {
         if backup_open(&original) && backup_open(&linked) {
             assert!(refused.contains("is the original"), "{refused}");
             assert!(!refused.contains("cannot tell whether"), "{refused}");
-            lightcraft_testkit::skip!(
+            evolight_testkit::skip!(
                 System,
                 "a backup-semantics open gets past share_mode(0) here (SeBackupPrivilege is enabled), so the \"cannot tell whether\" refusal can't be tested"
             );

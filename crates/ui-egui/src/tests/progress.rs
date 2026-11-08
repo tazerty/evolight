@@ -265,13 +265,13 @@ fn the_sam_bar_text_and_its_accessible_value_agree() {
 
 #[test]
 fn an_activity_bar_is_named_after_its_task() {
-    let task = lightcraft_engine::activity::TaskInfo {
+    let task = evolight_engine::activity::TaskInfo {
         id: 1,
         kind: "export",
         label: "Exporting".into(),
         done: 3,
         total: 25,
-        unit: lightcraft_engine::activity::Unit::Count,
+        unit: evolight_engine::activity::Unit::Count,
         detail: String::new(),
         cancellable: true,
         cancelling: false,

@@ -49,20 +49,20 @@ commands:
                   Lightroom parity summary; --write refreshes the summary table in the document
   wasm            cargo check --target wasm32-unknown-unknown for the wasm-safe crates (+ the web app), in one call
   web [--serve [port]] [--dev]
-                  build the browser app (apps/lightcraft-web) into <target>/web-site/;
+                  build the browser app (apps/evolight-web) into <target>/web-site/;
                   --serve serves it on http://127.0.0.1:<port> (default 8080)
   ci [--hardware] [--summary-md] [--quick [--base REF]]
                   fmt --check, clippy -D warnings, heif, test, GPU probe, parity refs, layers, assets, roots, wasm
                   (stops at first failure). Tests run under cargo test (cargo nextest with
-                  LIGHTCRAFT_NEXTEST=1), without examples, then doctests with cargo test --doc; after
+                  EVOLIGHT_NEXTEST=1), without examples, then doctests with cargo test --doc; after
                   them it prints the translation gaps report (never a failure). Writes
                   target/ci/report.json (machine, GPU adapters, data,
                   steps, skipped tests) and target/ci/summary.md; --hardware also runs the GPU tests on
                   every backend with a hardware adapter; --summary-md prints the Markdown summary.
                   --quick: only what the changes since the merge base with origin/main (or REF) can
                   break: clippy, the changed packages' tests, and heif / parity / wasm when they apply.
-                  One ci runs at a time per machine; others wait (LIGHTCRAFT_CI_SLOTS=N for N at once,
-                  LIGHTCRAFT_CI_LOCK=off to skip the lock)
+                  One ci runs at a time per machine; others wait (EVOLIGHT_CI_SLOTS=N for N at once,
+                  EVOLIGHT_CI_LOCK=off to skip the lock)
   corpus [--download]
                   show where test corpora live; --download fetches PngSuite and CC0 raw samples (raw.pixls.us) into corpus/ and checks their sha256
   stats [--exact] count tests and lines per crate (--exact: ask the test harness via `-- --list`)
@@ -105,14 +105,14 @@ fn main() -> ExitCode {
     }
 }
 
-/// `cargo xtask raw-frame FILE…`: runs the `raw_frame` example of `lightcraft-engine` on the files.
+/// `cargo xtask raw-frame FILE…`: runs the `raw_frame` example of `evolight-engine` on the files.
 fn cmd_raw_frame(files: &[&str]) -> Result<(), String> {
     if files.is_empty() {
         return Err("raw-frame needs one or more raw files (several per camera, with detail across the frame)".into());
     }
-    eprintln!("$ cargo run --release -p lightcraft-engine --example raw_frame -- {}", files.join(" "));
+    eprintln!("$ cargo run --release -p evolight-engine --example raw_frame -- {}", files.join(" "));
     let status = cargo()
-        .args(["run", "--release", "-q", "-p", "lightcraft-engine", "--example", "raw_frame", "--"])
+        .args(["run", "--release", "-q", "-p", "evolight-engine", "--example", "raw_frame", "--"])
         .args(files)
         .status()
         .map_err(|e| format!("raw_frame: {e}"))?;

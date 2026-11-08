@@ -1,4 +1,4 @@
-//! Photo metadata for LightCraft: EXIF (TIFF/raw files, JPEG APP1, PNG `eXIf`, WebP `EXIF`, HEIF items), XMP packets
+//! Photo metadata for EvoLight: EXIF (TIFF/raw files, JPEG APP1, PNG `eXIf`, WebP `EXIF`, HEIF items), XMP packets
 //! (read + write, standard namespaces plus our own `lc:` namespace) and basic IPTC-IIM.
 //!
 //! Entry points:
@@ -35,7 +35,7 @@ pub use exif::{from_tiff, read_exif, strip_exif_header, try_read_exif, try_read_
 pub use focus::FocusPoint;
 pub use gpx::{GpxError, Match, TrackPoint, Tracklog, parse_gpx};
 pub use iptc::parse_iptc;
-pub use lightcraft_geom::{Orientation, Rect};
+pub use evolight_geom::{Orientation, Rect};
 pub use tags::{TagRow, file_tag_rows, tag_rows};
 pub use xmp::{CRS_NS, LC_NS, XmpData, XmpError, XmpValue, parse_xmp, write_xmp, write_xmp_lc};
 pub use xmp_merge::{MergeRules, merge_xmp};
@@ -60,7 +60,7 @@ pub struct Flash {
 }
 
 /// A named region of interest on a photo (MWG Region Guidelines, `mwg-rs:Regions`): most often a face,
-/// drawn by Lightroom, digiKam, Picasa or similar tools. Read-only for now — LightCraft does not write
+/// drawn by Lightroom, digiKam, Picasa or similar tools. Read-only for now — EvoLight does not write
 /// regions yet (see `docs/xmp-interop.md`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Region {
@@ -84,7 +84,7 @@ pub enum RegionKind {
     Other(String),
 }
 
-/// Everything LightCraft shows or searches about a photo. All fields are optional; unknown = `None`/empty.
+/// Everything EvoLight shows or searches about a photo. All fields are optional; unknown = `None`/empty.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Metadata {
     // camera
@@ -555,7 +555,7 @@ mod tests {
                 j.extend(payload);
             };
             // orientation 6, 6000 × 4000 as stored
-            seg([b"Exif\0\0".as_slice(), &crate::exif::tests::sample_exif(lightcraft_tiff::ByteOrder::Little)].concat());
+            seg([b"Exif\0\0".as_slice(), &crate::exif::tests::sample_exif(evolight_tiff::ByteOrder::Little)].concat());
             seg([b"http://ns.adobe.com/xap/1.0/\0".as_slice(), packet.as_bytes()].concat());
             j.extend([0xff, 0xd9]);
             j
@@ -600,29 +600,29 @@ mod tests {
         assert!(near(m.regions[0].rect, DRAWN), "{:?}", m.regions[0].rect);
         assert_eq!(try_extract(&j).unwrap().regions, m.regions);
         // a TIFF-based file: the whole file is the Exif block, with the XMP in its first IFD
-        let mut ifd0 = lightcraft_tiff::IfdBuilder::new();
-        ifd0.set(lightcraft_tiff::tags::ORIENTATION, lightcraft_tiff::Value::Short(vec![6]));
-        ifd0.set(lightcraft_tiff::tags::XMP, lightcraft_tiff::Value::Byte(packet.into_bytes()));
-        let m = extract(&lightcraft_tiff::TiffWriter::default().write(&[ifd0]).unwrap());
+        let mut ifd0 = evolight_tiff::IfdBuilder::new();
+        ifd0.set(evolight_tiff::tags::ORIENTATION, evolight_tiff::Value::Short(vec![6]));
+        ifd0.set(evolight_tiff::tags::XMP, evolight_tiff::Value::Byte(packet.into_bytes()));
+        let m = extract(&evolight_tiff::TiffWriter::default().write(&[ifd0]).unwrap());
         assert_eq!((m.orientation, m.width, m.height), (Some(Orientation::Rotate90), Some(4000), Some(6000)));
         assert!(near(m.regions[0].rect, DRAWN), "TIFF: {:?}", m.regions[0].rect);
     }
 
-    /// A photo whose Exif has a size but no orientation, and whose XMP says `tiff:Orientation=6`: LightCraft
+    /// A photo whose Exif has a size but no orientation, and whose XMP says `tiff:Orientation=6`: EvoLight
     /// displays it by the Exif alone, so it stays as stored, and boxes drawn on that stored frame are right as
     /// written. Turning them by an orientation only the XMP states put them where the photo isn't (review of #2857).
     #[test]
     fn an_orientation_only_the_xmp_states_turns_no_regions() {
         // 6000 × 4000 in the Exif, and no orientation
         let size_ifd = || {
-            let mut sub = lightcraft_tiff::IfdBuilder::new();
-            sub.set(lightcraft_tiff::tags::PIXEL_X_DIMENSION, lightcraft_tiff::Value::Long(vec![6000]));
-            sub.set(lightcraft_tiff::tags::PIXEL_Y_DIMENSION, lightcraft_tiff::Value::Long(vec![4000]));
+            let mut sub = evolight_tiff::IfdBuilder::new();
+            sub.set(evolight_tiff::tags::PIXEL_X_DIMENSION, evolight_tiff::Value::Long(vec![6000]));
+            sub.set(evolight_tiff::tags::PIXEL_Y_DIMENSION, evolight_tiff::Value::Long(vec![4000]));
             sub
         };
-        let mut exif_ifd0 = lightcraft_tiff::IfdBuilder::new();
-        exif_ifd0.set_child(lightcraft_tiff::tags::EXIF_IFD, size_ifd());
-        let exif = lightcraft_tiff::TiffWriter::new(lightcraft_tiff::ByteOrder::Little, false).write(&[exif_ifd0]).unwrap();
+        let mut exif_ifd0 = evolight_tiff::IfdBuilder::new();
+        exif_ifd0.set_child(evolight_tiff::tags::EXIF_IFD, size_ifd());
+        let exif = evolight_tiff::TiffWriter::new(evolight_tiff::ByteOrder::Little, false).write(&[exif_ifd0]).unwrap();
         let packet = regions_packet(6000, 4000, "")
             .replace(r#"rdf:about="""#, r#"rdf:about="" xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:Orientation="6""#);
         let mut j = vec![0xff, 0xd8];
@@ -641,10 +641,10 @@ mod tests {
         assert!(near(m.regions[0].rect, DRAWN), "turned by an orientation the Exif doesn't state: {:?}", m.regions[0].rect);
         assert_eq!(try_extract(&j).unwrap().regions, m.regions);
         // a TIFF-based file: the first IFD has no orientation, its XMP (tag 700) has
-        let mut ifd0 = lightcraft_tiff::IfdBuilder::new();
-        ifd0.set(lightcraft_tiff::tags::XMP, lightcraft_tiff::Value::Byte(packet.into_bytes()));
-        ifd0.set_child(lightcraft_tiff::tags::EXIF_IFD, size_ifd());
-        let m = extract(&lightcraft_tiff::TiffWriter::default().write(&[ifd0]).unwrap());
+        let mut ifd0 = evolight_tiff::IfdBuilder::new();
+        ifd0.set(evolight_tiff::tags::XMP, evolight_tiff::Value::Byte(packet.into_bytes()));
+        ifd0.set_child(evolight_tiff::tags::EXIF_IFD, size_ifd());
+        let m = extract(&evolight_tiff::TiffWriter::default().write(&[ifd0]).unwrap());
         assert_eq!(m.orientation, Some(Orientation::Rotate90));
         assert!(near(m.regions[0].rect, DRAWN), "TIFF: {:?}", m.regions[0].rect);
     }

@@ -8,8 +8,8 @@ use crate::headless::Headless;
 use crate::import::ImportDialog;
 use crate::render::Slot;
 use crate::state::{Dialog, UiState};
-use crate::{LightcraftApp, Services};
-use lightcraft_engine::import::ImportCandidate;
+use crate::{EvoLightApp, Services};
+use evolight_engine::import::ImportCandidate;
 
 const T: Duration = Duration::from_secs(30);
 
@@ -39,14 +39,14 @@ impl Review {
     }
 
     fn with_dimensions(scale: f32, width: usize, height: usize) -> Self {
-        let dir = std::env::temp_dir().join(format!("lc-import-thumbnails-{}-{}", std::process::id(), lightcraft_preview::next_tick()));
+        let dir = std::env::temp_dir().join(format!("lc-import-thumbnails-{}-{}", std::process::id(), evolight_preview::next_tick()));
         std::fs::create_dir_all(&dir).unwrap();
-        let image = lightcraft_raster::Rgba8 {
+        let image = evolight_raster::Rgba8 {
             width,
             height,
             data: (0..width * height).map(|i| [((i % width) / 7) as u8, ((i / width) / 5) as u8, 100, 255]).collect(),
         };
-        let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&image), &Default::default()).unwrap();
+        let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&image), &Default::default()).unwrap();
         let path = dir.join("original.png");
         std::fs::write(&path, &bytes).unwrap();
         let mut candidates: Vec<_> = (0..60)
@@ -62,7 +62,7 @@ impl Review {
             .collect();
         candidates[1].duplicate = Some("content".into());
         candidates[2].error = Some("Unreadable test candidate".into());
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services::default());
         app.ui.dialog = Some(Dialog::Import { opts: Box::new(ImportDialog::new(candidates)) });
         let mut h = Headless::new(app, [1366.0, 1000.0], scale);
         assert!(h.settle(T));
@@ -192,7 +192,7 @@ fn import_thumbnail_close_releases_previews_for_all_cancel_paths() {
 /// Invalid commands preserve the setting; legacy and non-finite preferences restore safely.
 #[test]
 fn import_thumbnail_size_rejects_bad_commands_and_restores_old_preferences() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new(), Services::default());
     assert_eq!(app.run("view.importThumbSize", json!({})).unwrap()["size"], 116.0);
     for bad in [json!("large"), json!(null), json!([120]), json!(1e300)] {
         assert!(app.run("view.importThumbSize", json!({"size": bad})).is_err());
@@ -252,7 +252,7 @@ fn import_thumbnail_labels_are_localized_in_every_shipped_language() {
     assert_eq!(command.1, "Import Thumbnail Size", "the catalog key matches the command's actual label");
     for theme in ["charcoal", "paper"] {
         for scale in [1.0, 2.25] {
-            let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), Services { png: None, ..Default::default() });
+            let mut app = EvoLightApp::new(evolight_engine::Session::new(), Services { png: None, ..Default::default() });
             app.ui.dialog = Some(Dialog::Import { opts: Box::new(ImportDialog::new(Vec::new())) });
             let mut h = Headless::new(app, [960.0, 720.0], scale);
             assert!(h.app.run("view.theme", json!({"theme": theme})).is_ok());

@@ -4,13 +4,13 @@
 //! A global matrix can't follow the camera's hue-dependent rendering (the best matrix rendered a
 //! lime shirt olive that the camera kept lime): a hue/saturation table fitted to the residuals
 //! (applied like a DNG `ProfileHueSatMap`) corrects that when it also improves the held-out pixels.
-use lightcraft_color::{D50, D65, Mat3, PROPHOTO, REC2020, Xy, bradford, luminance_2020};
-use lightcraft_pipeline::tone::{CameraTone, ToneMap};
-use lightcraft_raster::{
+use evolight_color::{D50, D65, Mat3, PROPHOTO, REC2020, Xy, bradford, luminance_2020};
+use evolight_pipeline::tone::{CameraTone, ToneMap};
+use evolight_raster::{
     Rgb32f,
     resample::{Filter, fit, resize},
 };
-use lightcraft_raw::{
+use evolight_raw::{
     ColorData, RawFormat, RawImage,
     color::CameraTransform,
     profile::{HsvTable, ProfileLook, ToneCurve},

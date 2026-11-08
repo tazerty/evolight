@@ -3,9 +3,9 @@
 
 use std::path::Path;
 
-use lightcraft_engine::Session;
-use lightcraft_engine::catalog::PhotoId;
-use lightcraft_raster::Rgba8;
+use evolight_engine::Session;
+use evolight_engine::catalog::PhotoId;
+use evolight_raster::Rgba8;
 use serde_json::{Value, json};
 
 use crate::backend::{Backend, ProgressHook};
@@ -59,10 +59,10 @@ impl Headless {
     }
 
     /// The UI command `app.export`, emulated with the same parameters as the desktop app
-    /// (see `lightcraft_engine::export::ExportOptions::from_json`, plus `ids`, `dir`, `path`).
+    /// (see `evolight_engine::export::ExportOptions::from_json`, plus `ids`, `dir`, `path`).
     /// With `path` and no `format`, the format follows the path's extension.
     fn export(&mut self, p: &Value) -> Result<Value, String> {
-        use lightcraft_engine::export::{Destination, ExportFormat, ExportOptions, Resize, prepare_batch, run_batch};
+        use evolight_engine::export::{Destination, ExportFormat, ExportOptions, Resize, prepare_batch, run_batch};
         let p = &self.session.export_params_or(p, ExportFormat::Png)?;
         // PNG for a `path` that names no format; `bitDepth` is checked against the format written
         let mut opts = ExportOptions::from_params_or(p, ExportFormat::Png).map_err(|e| e.to_string())?;
@@ -80,7 +80,7 @@ impl Headless {
             None => vec![self.photo_or_active(p)?],
         };
         let dir = p.get("dir").and_then(Value::as_str).unwrap_or("");
-        let write = &mut lightcraft_engine::export::write_file;
+        let write = &mut evolight_engine::export::write_file;
         // Add to Apple Photos: refused before anything is written when it can't be done
         let after = self.session.after_export(&opts)?;
         let items = prepare_batch(&mut self.session, &ids, &opts)?;
@@ -151,7 +151,7 @@ impl Backend for Headless {
             }
             "app.export" => self.export(&p),
             m if m.starts_with("ui.") || m == "app.quit" => {
-                Err(format!("`{m}` needs the desktop app: start `lightcraft --control 7980` and run the MCP server with `--connect`"))
+                Err(format!("`{m}` needs the desktop app: start `evolight --control 7980` and run the MCP server with `--connect`"))
             }
             other => Err(format!("unknown method `{other}`")),
         }
@@ -166,9 +166,9 @@ impl Backend for Headless {
     }
 }
 
-/// Expand folders (recursively, sorted; bounded, see `lightcraft_engine::walk`) into photo files
+/// Expand folders (recursively, sorted; bounded, see `evolight_engine::walk`) into photo files
 /// and make paths absolute. Folders take the extensions `library.import` takes
-/// (`lightcraft_engine::import::EXTENSIONS`), so the two can't drift apart (issue #1080).
+/// (`evolight_engine::import::EXTENSIONS`), so the two can't drift apart (issue #1080).
 pub fn expand_paths(paths: &[String]) -> Vec<String> {
     let absolute = |p: &Path| std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf()).to_string_lossy().to_string();
     let mut out = Vec::new();
@@ -176,7 +176,7 @@ pub fn expand_paths(paths: &[String]) -> Vec<String> {
         let path = Path::new(p);
         if path.is_dir() {
             let w =
-                lightcraft_engine::walk::files_in(path, None, lightcraft_engine::walk::Limits::default(), lightcraft_engine::import::is_supported);
+                evolight_engine::walk::files_in(path, None, evolight_engine::walk::Limits::default(), evolight_engine::import::is_supported);
             out.extend(w.files.iter().map(|f| absolute(f)));
         } else {
             // Explicit files are kept even with unknown extensions (the probe decides).
@@ -189,16 +189,16 @@ pub fn expand_paths(paths: &[String]) -> Vec<String> {
 /// Encode by extension: `.png` (default), `.jpg`/`.jpeg` (quality), `.tif`/`.tiff`, `.webp` (lossless),
 /// `.avif`, `.jxl` — via the shared export encoder (embeds an sRGB profile).
 pub fn encode_image(ext: &str, img: &Rgba8, quality: u8) -> Result<Vec<u8>, String> {
-    use lightcraft_engine::export::{ExportFormat, ExportOptions};
+    use evolight_engine::export::{ExportFormat, ExportOptions};
     let format = ExportFormat::parse(ext).unwrap_or(ExportFormat::Png);
-    lightcraft_engine::export::encode_image(img, &ExportOptions { format, quality: quality.clamp(1, 100), ..Default::default() })
+    evolight_engine::export::encode_image(img, &ExportOptions { format, quality: quality.clamp(1, 100), ..Default::default() })
 }
 
 /// Encode by the path's extension and write the file.
 pub fn write_image(path: &Path, img: &Rgba8, quality: u8) -> Result<(), String> {
     let ext = path.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
     let bytes = encode_image(&ext, img, quality)?;
-    lightcraft_engine::export::write_file(&path.to_string_lossy(), &bytes)
+    evolight_engine::export::write_file(&path.to_string_lossy(), &bytes)
 }
 
 #[cfg(test)]
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn a_headless_session_reads_the_downloaded_lens_database() {
         let h = Headless::default();
-        assert_eq!(lightcraft_engine::lens_profiles::host_dir(), lightcraft_engine::lensfun_download::default_dir());
+        assert_eq!(evolight_engine::lens_profiles::host_dir(), evolight_engine::lensfun_download::default_dir());
         assert!(!h.session.lens_auto_download, "selecting it is not permission to download it");
     }
 
@@ -221,7 +221,7 @@ mod tests {
         let nested = dir.join("trip").join("day2"); // not "trip/day2": discovery yields the platform's separator
         std::fs::create_dir_all(&nested).unwrap();
         let mut expected = Vec::new();
-        for ext in lightcraft_engine::import::EXTENSIONS {
+        for ext in evolight_engine::import::EXTENSIONS {
             for (folder, name) in [(&dir, format!("lower.{ext}")), (&nested, format!("upper.{}", ext.to_ascii_uppercase()))] {
                 let path = folder.join(name);
                 std::fs::write(&path, b"discovery only, not a decoded photo").unwrap();
@@ -239,7 +239,7 @@ mod tests {
     /// Headless sessions look for the SAM 3 model where the desktop app does, and `segment.model.status` reports it (issue #619).
     #[test]
     fn headless_sessions_get_the_sam3_model_folder() {
-        let dir = lightcraft_engine::config::default_sam3_dir();
+        let dir = evolight_engine::config::default_sam3_dir();
         assert_eq!(Headless::default().session.segmenter.dir, dir);
         assert_eq!(Headless::demo().session.segmenter.dir, dir);
         let dir = std::env::temp_dir().join("lc-mcp-sam3-dir");
@@ -256,7 +256,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("lc-mcp-expand-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        for e in lightcraft_engine::import::EXTENSIONS {
+        for e in evolight_engine::import::EXTENSIONS {
             std::fs::write(dir.join(format!("a.{e}")), b"x").unwrap();
         }
         std::fs::write(dir.join("B.HEIC"), b"x").unwrap();
@@ -266,7 +266,7 @@ mod tests {
         let ext = |f: &String| Path::new(f).extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
         let mut got: Vec<String> = found.iter().map(ext).collect();
         got.sort();
-        let mut want: Vec<String> = lightcraft_engine::import::EXTENSIONS.iter().map(|e| e.to_string()).chain(["HEIC".to_string()]).collect();
+        let mut want: Vec<String> = evolight_engine::import::EXTENSIONS.iter().map(|e| e.to_string()).chain(["HEIC".to_string()]).collect();
         want.sort();
         assert_eq!(got, want);
     }

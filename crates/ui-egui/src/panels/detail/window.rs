@@ -1,12 +1,12 @@
-use super::{Color32, LightcraftApp, PhotoId, Rect, Slot, pos2, vec2};
+use super::{Color32, EvoLightApp, PhotoId, Rect, Slot, pos2, vec2};
 
 /// Whether an overlay can be rendered on a region tile without changing what the tile means. Mask (one or all)
 /// overlays are evaluated from the same mask alpha as the full render; Point Color range and Visualize
 /// HDR act pixel by pixel (the HDR rendition is rendered for the same window); Visualize Spots' high
 /// pass reads about 3σ = 1.8 % of the long edge, inside the window's margin
 /// ([`crate::region::margin_for`]: 4.5 %). Each is tested equal to the whole-frame render's pixels.
-pub(crate) fn overlay_supports_window(overlay: lightcraft_pipeline::Overlay) -> bool {
-    use lightcraft_pipeline::Overlay as O;
+pub(crate) fn overlay_supports_window(overlay: evolight_pipeline::Overlay) -> bool {
+    use evolight_pipeline::Overlay as O;
     match overlay {
         O::None | O::Mask { .. } | O::AllMasks { .. } | O::PointColorRange(_) | O::HdrRange | O::Spots(_) => true,
         // clipping and greyscale previews act pixel by pixel on the finished image
@@ -18,7 +18,7 @@ pub(crate) fn overlay_supports_window(overlay: lightcraft_pipeline::Overlay) -> 
 /// What a window render of the loupe needs to know about the view it belongs to.
 pub(super) struct WindowCtx {
     pub(super) id: PhotoId,
-    pub(super) overlay: lightcraft_pipeline::Overlay,
+    pub(super) overlay: evolight_pipeline::Overlay,
     /// Long edge of the frame the windows are cut from (`None`: no windows).
     pub(super) frame_edge: Option<usize>,
     pub(super) drawn_long: f32,
@@ -49,7 +49,7 @@ pub(super) struct WindowView {
 
 /// Ask for the window of `v` that holds what is on screen; remember it so its texture can be
 /// drawn where it belongs. `None`: no window is wanted (or possible) for this view.
-pub(super) fn request_window(app: &mut LightcraftApp, c: &WindowCtx, v: &WindowView) -> Option<crate::region::RegionView> {
+pub(super) fn request_window(app: &mut EvoLightApp, c: &WindowCtx, v: &WindowView) -> Option<crate::region::RegionView> {
     let frame_edge = c.frame_edge?;
     // while a pinch or scroll runs the windows there are keep being drawn, magnified: no new one
     // per frame (zooming out would ask for ever wider ones)
@@ -69,7 +69,7 @@ pub(super) fn request_window(app: &mut LightcraftApp, c: &WindowCtx, v: &WindowV
     );
     let win = crate::region::window_for(fw, fh, visible, crate::region::max_span(c.texture_side))?;
     // a window waits for the original another window job is decoding (see `defer_window`)
-    let original_held = app.session.media.has_source(c.id, lightcraft_engine::SourceLevel::for_size(fw.max(fh)));
+    let original_held = app.session.media.has_source(c.id, evolight_engine::SourceLevel::for_size(fw.max(fh)));
     let window_pending = app.renderer.is_pending(Slot::Region) || app.renderer.is_pending(Slot::RegionBefore);
     if crate::region::defer_window(window_pending, original_held) {
         return if v.before { app.region_before_view } else { app.region_view }.filter(|w| w.photo == c.id);
@@ -88,7 +88,7 @@ pub(super) fn request_window(app: &mut LightcraftApp, c: &WindowCtx, v: &WindowV
     // a drag renders drafts of the window, as it does of the whole frame. The Before tile stays
     // plain; the After tile carries the same mask overlay as the whole-frame render.
     let job = if c.interacting { job.draft() } else { job };
-    let overlay = if v.before { lightcraft_pipeline::Overlay::None } else { c.overlay };
+    let overlay = if v.before { evolight_pipeline::Overlay::None } else { c.overlay };
     let job = if v.before { job } else { job.with_hidden_grading(app.ui.grading_hidden_for(c.id)) };
     // the After window is proofed like the whole-frame render under it; the Before side is
     // never proofed (its whole-frame render isn't either)
@@ -110,7 +110,7 @@ pub(super) fn request_window(app: &mut LightcraftApp, c: &WindowCtx, v: &WindowV
 
 /// Draw `v`'s window texture over the whole-frame render, if it is the one asked for (or, in a
 /// drag, an earlier draft of it).
-pub(super) fn draw_window(p: &egui::Painter, app: &LightcraftApp, c: &WindowCtx, v: &WindowView, wanted: &crate::region::RegionView) -> bool {
+pub(super) fn draw_window(p: &egui::Painter, app: &EvoLightApp, c: &WindowCtx, v: &WindowView, wanted: &crate::region::RegionView) -> bool {
     let Some(tex) = app.renderer.textures.get(&v.slot).filter(|t| t.photo == c.id) else { return false };
     let Some(tile) = app.region_tiles.get(&(v.before, tex.key)).filter(|t| t.is_current(c.id, wanted.full, wanted.settings, c.interacting)) else {
         return false;

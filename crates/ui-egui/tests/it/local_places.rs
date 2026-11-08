@@ -3,7 +3,7 @@
 //! real name.
 use egui::{PointerButton, vec2};
 use egui_kittest::{Harness, kittest::Queryable};
-use lightcraft_ui_egui::{LightcraftApp, Services, i18n::Locale, state::Dialog};
+use evolight_ui_egui::{EvoLightApp, Services, i18n::Locale, state::Dialog};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -12,7 +12,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(name: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("lightcraft-local-places-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-local-places-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         for sub in ["home/Pictures", "kept/Trips"] {
             std::fs::create_dir_all(dir.join(sub)).expect("scratch folders");
@@ -32,14 +32,14 @@ impl Drop for Scratch {
 
 /// The app with Local listing `places` (what the host passes in place of the machine's home) and
 /// `kept` folders kept with Browse Folder….
-fn harness(places: Vec<(String, String)>, kept: Vec<String>) -> Harness<'static, LightcraftApp> {
+fn harness(places: Vec<(String, String)>, kept: Vec<String>) -> Harness<'static, EvoLightApp> {
     let services = Services { local_places: Some(places), pick_folder: Some(Box::new(|| None)), ..Default::default() };
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), services);
+    let mut app = EvoLightApp::new(evolight_engine::Session::new(), services);
     app.headless_host = true;
     app.ui.left_panel = true;
     app.ui.local_roots = kept;
     let mut h = Harness::builder().with_size(vec2(1000.0, 800.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -49,7 +49,7 @@ fn harness(places: Vec<(String, String)>, kept: Vec<String>) -> Harness<'static,
     h
 }
 
-fn open_menu(h: &mut Harness<'_, LightcraftApp>, row: &str) {
+fn open_menu(h: &mut Harness<'_, EvoLightApp>, row: &str) {
     h.get_by_label(row).click_button(PointerButton::Secondary);
     h.run_steps(4);
 }

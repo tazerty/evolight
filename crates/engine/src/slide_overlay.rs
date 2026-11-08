@@ -5,9 +5,9 @@
 //! `slideshow.overlays` command; [`SlideOverlays`] is those settings resolved for one photo (its
 //! texts expanded, its rating) and drawn onto the composed slide.
 //!
-//! **Where the drawing lives:** text needs the fonts (Inter plus the craft-fonts CJK fallbacks,
+//! **Where the drawing lives:** text needs the fonts (Inter plus the evo-fonts CJK fallbacks,
 //! [`crate::text`]) and tokens need the catalog's photo, both in the engine, so overlays are a
-//! second pass in the engine over `lightcraft_slideshow::compose_with`'s slide (its `behind` hook
+//! second pass in the engine over `evolight_slideshow::compose_with`'s slide (its `behind` hook
 //! draws an identity plate set to "render behind image" before the photo). The composer stays a
 //! layout-and-pixels crate with no fonts and no catalog.
 //!
@@ -23,9 +23,9 @@
 
 use std::sync::Arc;
 
-use lightcraft_catalog::Photo;
-use lightcraft_raster::{Image, Plane, Rgba8};
-use lightcraft_slideshow::{Layout, Rect, hex, parse_color};
+use evolight_catalog::Photo;
+use evolight_raster::{Image, Plane, Rgba8};
+use evolight_slideshow::{Layout, Rect, hex, parse_color};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
@@ -216,7 +216,7 @@ impl Default for IdentityPlate {
     fn default() -> Self {
         IdentityPlate {
             enabled: false,
-            text: "LightCraft".into(),
+            text: "EvoLight".into(),
             image: String::new(),
             size: 0.05,
             color: [255, 255, 255],
@@ -752,7 +752,7 @@ impl SlideOverlays {
             return Some(PlateContent::Image(img, w as usize, h as usize));
         }
         let text = p.text.trim();
-        crate::text::TextLayout::new(text, px as f32, false, crate::fonts::CRAFT_FONTS).map(PlateContent::Text)
+        crate::text::TextLayout::new(text, px as f32, false, crate::fonts::EVO_FONTS).map(PlateContent::Text)
     }
 
     fn text_layout(&self, i: usize, l: &Layout) -> Option<crate::text::TextLayout> {
@@ -761,7 +761,7 @@ impl SlideOverlays {
         if t.opacity <= 0.0 {
             return None;
         }
-        crate::text::TextLayout::new(text, (t.size * Self::short(l)).max(1.0) as f32, false, crate::fonts::CRAFT_FONTS)
+        crate::text::TextLayout::new(text, (t.size * Self::short(l)).max(1.0) as f32, false, crate::fonts::EVO_FONTS)
     }
 
     fn stars_size(&self, l: &Layout) -> Option<(usize, f64)> {
@@ -918,7 +918,7 @@ fn shadow(img: &mut Rgba8, tl: &crate::text::TextLayout, x: f64, y: f64, sigma: 
             *m = (*m + cov).min(1.0);
         }
     });
-    let mask = if sigma > 0.3 { lightcraft_raster::blur::gaussian(&mask, sigma as f32) } else { mask };
+    let mask = if sigma > 0.3 { evolight_raster::blur::gaussian(&mask, sigma as f32) } else { mask };
     let (ox, oy) = (mx0 as i64, my0 as i64);
     for (i, k) in mask.data.iter().enumerate() {
         if *k > 1e-3 {
@@ -949,7 +949,7 @@ fn scaled_graphic(path: &str, src: &Arc<Rgba8>, w: usize, h: usize) -> Option<Ar
         let a = p[3] as f32 / 255.0;
         [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, a]
     });
-    let scaled = Arc::new(lightcraft_raster::resample::resize(&pre, w, h, lightcraft_raster::resample::Filter::Mitchell));
+    let scaled = Arc::new(evolight_raster::resample::resize(&pre, w, h, evolight_raster::resample::Filter::Mitchell));
     *cache = Some((path.to_string(), id, w, h, scaled.clone()));
     Some(scaled)
 }

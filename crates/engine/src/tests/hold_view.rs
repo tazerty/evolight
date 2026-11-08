@@ -1,7 +1,7 @@
 //! A view holds the photos it shows until it is refreshed (`library.holdView`): an edit that makes a photo stop
 //! matching a smart album's rules, Picks or the filter bar leaves it where it is, and the others where they are.
 
-use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+use evolight_catalog::{Op, Photo, PhotoId, Source};
 use serde_json::json;
 
 use crate::{LibrarySource, Session};
@@ -160,7 +160,7 @@ fn picks_and_the_filter_bar_hold_too_and_an_album_lets_go_of_what_is_taken_out_o
     let left = s.visible_cloned();
     assert!(!left.contains(&shown[0]) && !left.contains(&shown[1]), "out of the album is out of the view: {left:?}");
     assert_eq!(left.len(), 3);
-    assert_eq!(s.source, LibrarySource::Album(lightcraft_catalog::AlbumId(album)));
+    assert_eq!(s.source, LibrarySource::Album(evolight_catalog::AlbumId(album)));
 }
 
 #[test]

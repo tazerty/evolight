@@ -8,13 +8,13 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(60);
 
-fn set_captured(h: &mut Headless, id: lightcraft_catalog::PhotoId, t: &str) {
-    h.app.session.catalog.apply(lightcraft_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
+fn set_captured(h: &mut Headless, id: evolight_catalog::PhotoId, t: &str) {
+    h.app.session.catalog.apply(evolight_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
 }
 
 fn painted(h: &Headless, part: &str) -> bool {
@@ -26,7 +26,7 @@ fn toast(h: &Headless) -> String {
 }
 
 /// Select `ids` with `active` and open Edit Capture Time.
-fn open(h: &mut Headless, ids: &[lightcraft_catalog::PhotoId], active: lightcraft_catalog::PhotoId) {
+fn open(h: &mut Headless, ids: &[evolight_catalog::PhotoId], active: evolight_catalog::PhotoId) {
     let ids: Vec<u64> = ids.iter().map(|id| id.0).collect();
     h.request("engine.execute", json!({"command": "library.select", "params": {"ids": ids, "active": active.0}}), T);
     let r = h.request("ui.menu.invoke", json!({"id": "dialog.captureTime"}), T);
@@ -36,7 +36,7 @@ fn open(h: &mut Headless, ids: &[lightcraft_catalog::PhotoId], active: lightcraf
 
 #[test]
 fn shift_preview_says_the_photos_capture_time_cant_be_read() {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     let id = h.app.session.visible_cloned()[0];
     set_captured(&mut h, id, "2026-01-01T10:00:00");
@@ -68,14 +68,14 @@ fn shift_preview_says_the_photos_capture_time_cant_be_read() {
 
 #[test]
 fn set_mode_refuses_moving_others_by_an_unreadable_time_and_repairs_it_alone() {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     let ids = h.app.session.visible_cloned();
     let (bad, other) = (ids[0], ids[1]);
     let broken = "2026-01-01T10:00:00 and more";
     set_captured(&mut h, bad, broken);
     set_captured(&mut h, other, "2026-01-01T12:00:00");
-    let open_set = |h: &mut Headless, select: &[lightcraft_catalog::PhotoId]| {
+    let open_set = |h: &mut Headless, select: &[evolight_catalog::PhotoId]| {
         open(h, select, bad);
         match &mut h.app.ui.dialog {
             Some(Dialog::CaptureTime { mode, time, .. }) => {
@@ -153,7 +153,7 @@ fn errors_are_shown_and_the_dialog_stays_open() {
 /// would read as midnight. The field starts empty and the preview asks for a date.
 #[test]
 fn set_mode_does_not_start_from_an_unreadable_time() {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     let id = h.app.session.visible_cloned()[0];
     set_captured(&mut h, id, "2026-01-01T10:00:00");

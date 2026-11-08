@@ -6,7 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use lightcraft_catalog::{Catalog, Op, Photo, PhotoId, Source};
+use evolight_catalog::{Catalog, Op, Photo, PhotoId, Source};
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, cmd, str_param};
@@ -172,7 +172,7 @@ fn file_hash(path: &str) -> Option<String> {
 
 /// The content hash of what `r` gives, read in pieces (the hash import computes of the whole).
 fn hash_reader(mut r: impl std::io::Read) -> Option<String> {
-    let mut hasher = lightcraft_preview::Hasher128::new();
+    let mut hasher = evolight_preview::Hasher128::new();
     let mut piece = vec![0u8; 1 << 16];
     loop {
         match r.read(&mut piece) {
@@ -210,10 +210,10 @@ mod tests {
     fn a_hash_read_in_pieces_is_the_hash_of_the_whole() {
         // longer than one piece, so the read loop runs more than once
         let bytes: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
-        let whole = lightcraft_preview::hash_bytes(&bytes).to_string();
+        let whole = evolight_preview::hash_bytes(&bytes).to_string();
         assert_eq!(hash_reader(bytes.as_slice()).as_deref(), Some(whole.as_str()));
-        assert_eq!(hash_reader(Trickle(&bytes[..1000], false)).as_deref(), Some(lightcraft_preview::hash_bytes(&bytes[..1000]).to_string().as_str()));
-        assert_eq!(hash_reader(std::io::empty()).as_deref(), Some(lightcraft_preview::hash_bytes(&[]).to_string().as_str()));
+        assert_eq!(hash_reader(Trickle(&bytes[..1000], false)).as_deref(), Some(evolight_preview::hash_bytes(&bytes[..1000]).to_string().as_str()));
+        assert_eq!(hash_reader(std::io::empty()).as_deref(), Some(evolight_preview::hash_bytes(&[]).to_string().as_str()));
     }
 
     /// A scratch folder that goes away with the test, however it ends.
@@ -232,7 +232,7 @@ mod tests {
         std::fs::create_dir_all(&dir.0).unwrap();
         let f = dir.0.join("a.bin");
         std::fs::write(&f, b"pixels").unwrap();
-        assert_eq!(file_hash(f.to_str().unwrap()), Some(lightcraft_preview::hash_bytes(b"pixels").to_string()));
+        assert_eq!(file_hash(f.to_str().unwrap()), Some(evolight_preview::hash_bytes(b"pixels").to_string()));
         assert_eq!(file_hash(dir.0.join("nope").to_str().unwrap()), None);
         assert_eq!(file_hash(dir.0.to_str().unwrap()), None, "a folder has no content hash");
         #[cfg(unix)]

@@ -2,7 +2,7 @@ use super::load::WbScaleOf;
 use super::preview::embedded_preview_size;
 use super::{MediaKind, Meta, Orientation, ProbeInfo};
 
-pub(super) fn meta_of(m: &lightcraft_meta::Metadata) -> (Meta, Option<String>) {
+pub(super) fn meta_of(m: &evolight_meta::Metadata) -> (Meta, Option<String>) {
     let shutter = m.exposure_time.map(|t| if t >= 1.0 { format!("{t:.0}") } else { format!("1/{:.0}", 1.0 / t) }).unwrap_or_default();
     let camera = [m.make.clone().unwrap_or_default(), m.model.clone().unwrap_or_default()].join(" ").trim().to_string();
     let meta = Meta {
@@ -10,7 +10,7 @@ pub(super) fn meta_of(m: &lightcraft_meta::Metadata) -> (Meta, Option<String>) {
         make: m.make.clone().unwrap_or_default(),
         lens_make: m.lens_make.clone().unwrap_or_default(),
         // (a camera that writes no lens name, like Nikon's DSLRs, still says what range the lens covers)
-        lens: m.lens_model.clone().or_else(|| m.lens_spec.and_then(lightcraft_meta::lens_spec_name)).unwrap_or_default(),
+        lens: m.lens_model.clone().or_else(|| m.lens_spec.and_then(evolight_meta::lens_spec_name)).unwrap_or_default(),
         focal_mm: m.focal_length.map(|f| f as f32),
         aperture: m.f_number.map(|f| f as f32),
         shutter,
@@ -28,12 +28,12 @@ pub(super) fn meta_of(m: &lightcraft_meta::Metadata) -> (Meta, Option<String>) {
         title: m.title.clone().unwrap_or_default(),
         caption: m.caption.clone().unwrap_or_default(),
         copyright: m.copyright.clone().unwrap_or_default(),
-        copyright_status: lightcraft_catalog::CopyrightStatus::from_marked(m.copyright_marked),
+        copyright_status: evolight_catalog::CopyrightStatus::from_marked(m.copyright_marked),
         usage_terms: m.usage_terms.clone().unwrap_or_default(),
         copyright_url: m.copyright_url.clone().unwrap_or_default(),
         creator: m.artist.clone().unwrap_or_default(),
         // paths from `lr:hierarchicalSubject`, names from `dc:subject` that aren't their levels
-        keywords: lightcraft_catalog::keywords::from_file(&m.keywords, &m.hierarchical_keywords),
+        keywords: evolight_catalog::keywords::from_file(&m.keywords, &m.hierarchical_keywords),
         regions: m.regions.clone(),
         focus: m.focus.clone(),
     };
@@ -42,11 +42,11 @@ pub(super) fn meta_of(m: &lightcraft_meta::Metadata) -> (Meta, Option<String>) {
 
 /// Lens corrections embedded in a raw's `OpcodeList3` (`WarpRectilinear`, `WarpRectilinear2`, `FixVignetteRadial`: a DNG's own, or the
 /// raw reader's equivalent of the camera's correction, e.g. Panasonic / Leica RW2 distortion), re-expressed for the
-/// default-cropped, EXIF-oriented image. These are the only "profile" corrections LightCraft applies.
-pub fn embedded_lens(raw: &lightcraft_raw::RawInfo) -> Option<lightcraft_develop::EmbeddedLens> {
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette, EmbeddedWarp, EmbeddedWarpStage, WARP_STAGES};
-    use lightcraft_geom::Point;
-    use lightcraft_raw::Opcode;
+/// default-cropped, EXIF-oriented image. These are the only "profile" corrections EvoLight applies.
+pub fn embedded_lens(raw: &evolight_raw::RawInfo) -> Option<evolight_develop::EmbeddedLens> {
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette, EmbeddedWarp, EmbeddedWarpStage, WARP_STAGES};
+    use evolight_geom::Point;
+    use evolight_raw::Opcode;
     let (aw, ah) = (raw.active_area.width as f64, raw.active_area.height as f64);
     if aw < 2.0 || ah < 2.0 {
         return None;
@@ -68,7 +68,7 @@ pub fn embedded_lens(raw: &lightcraft_raw::RawInfo) -> Option<lightcraft_develop
     let mut lens = EmbeddedLens::default();
     // opcodes in list order, minus the ones the DNG 1.6 skip rule drops (a WarpRectilinear that follows an optional
     // WarpRectilinear2)
-    let ops: Vec<&Opcode> = lightcraft_raw::opcodes::applied_ops(&raw.opcodes.list3).collect();
+    let ops: Vec<&Opcode> = evolight_raw::opcodes::applied_ops(&raw.opcodes.list3).collect();
     // A DNG with a WarpRectilinear2 keeps every warp opcode as a chain of stages (each warps the one before's output);
     // without one the first WarpRectilinear is the lens warp, as it always was.
     let chain = ops.iter().any(|op| matches!(op, Opcode::WarpRectilinear2 { .. }));
@@ -85,7 +85,7 @@ pub fn embedded_lens(raw: &lightcraft_raw::RawInfo) -> Option<lightcraft_develop
                 let (center, radius) = centre(*center);
                 let p = |i: usize| {
                     let k = planes[i.min(planes.len() - 1)];
-                    let mut s = [0.0; lightcraft_raw::opcodes::WR2_LEN];
+                    let mut s = [0.0; evolight_raw::opcodes::WR2_LEN];
                     s[0] = k[0];
                     s[2] = k[1];
                     s[4] = k[2];
@@ -116,7 +116,7 @@ pub fn embedded_lens(raw: &lightcraft_raw::RawInfo) -> Option<lightcraft_develop
     if lens.warp.is_none() && lens.vignette.is_none() && !lens.has_stages() {
         return None;
     }
-    Some(lightcraft_pipeline::optics::reorient_lens(&lens, raw.orientation, cw, ch))
+    Some(evolight_pipeline::optics::reorient_lens(&lens, raw.orientation, cw, ch))
 }
 
 fn ext_upper(name: &str) -> String {
@@ -124,15 +124,15 @@ fn ext_upper(name: &str) -> String {
 }
 
 /// Probe a file's bytes: kind, dimensions (oriented), metadata. No pixel data is decompressed:
-/// raws are described from their headers ([`lightcraft_raw::probe_info`]), other images too
-/// ([`lightcraft_codecs::read_header`], which refuses truncated files but can't see damage inside
+/// raws are described from their headers ([`evolight_raw::probe_info`]), other images too
+/// ([`evolight_codecs::read_header`], which refuses truncated files but can't see damage inside
 /// compressed data that is all there: such a file imports and shows as unreadable when rendered).
 pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
-    let content_hash = Some(lightcraft_preview::hash_bytes(bytes).to_string());
-    let m = lightcraft_meta::extract(bytes);
+    let content_hash = Some(evolight_preview::hash_bytes(bytes).to_string());
+    let m = evolight_meta::extract(bytes);
     let (meta, captured) = meta_of(&m);
-    if lightcraft_raw::probe(bytes).is_some() {
-        let raw = match lightcraft_raw::probe_info(bytes).map_err(|e| preview_reason(bytes, e)) {
+    if evolight_raw::probe(bytes).is_some() {
+        let raw = match evolight_raw::probe_info(bytes).map_err(|e| preview_reason(bytes, e)) {
             Ok(r) => r,
             Err(Ok(why)) => {
                 // a raw variant we can't decode yet: describe it from its embedded preview
@@ -147,7 +147,7 @@ pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
                     meta,
                     as_shot_wb: None,
                     content_hash,
-                    xmp: lightcraft_meta::embedded(bytes).xmp,
+                    xmp: evolight_meta::embedded(bytes).xmp,
                     orientation: m.orientation,
                     preview_only: Some(why),
                     ..Default::default()
@@ -168,7 +168,7 @@ pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
             std::mem::swap(&mut w, &mut h);
         }
         let scale = WbScaleOf::new(raw.format, &raw.color, raw.wb_multipliers, &raw.metadata);
-        let as_shot_wb = Some(scale.as_shot(lightcraft_raw::color::as_shot_white_xy_of(&raw)));
+        let as_shot_wb = Some(scale.as_shot(evolight_raw::color::as_shot_white_xy_of(&raw)));
         let embedded_lens = crate::lens_profiles::for_raw(&raw, || m.clone());
         return Ok(ProbeInfo {
             embedded_lens,
@@ -182,18 +182,18 @@ pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
             meta,
             as_shot_wb,
             content_hash,
-            xmp: lightcraft_meta::embedded(bytes).xmp,
+            xmp: evolight_meta::embedded(bytes).xmp,
             orientation: Some(raw.orientation),
             preview_only: None,
         });
     }
-    let fmt = lightcraft_codecs::sniff(bytes).ok_or("unrecognized file format")?;
+    let fmt = evolight_codecs::sniff(bytes).ok_or("unrecognized file format")?;
     if let Some(why) = fmt.not_decodable() {
-        // e.g. "Heif files can't be opened: HEIC/HEIF support isn't included in this build of LightCraft"
+        // e.g. "Heif files can't be opened: HEIC/HEIF support isn't included in this build of EvoLight"
         return Err(format!("{fmt:?} files can't be opened: {why}"));
     }
     // headers only (issue #367: decoding the pixels was nearly all of an import's CPU time)
-    let header = lightcraft_codecs::read_header(bytes).map_err(|e| e.to_string())?;
+    let header = evolight_codecs::read_header(bytes).map_err(|e| e.to_string())?;
     let o = Orientation::from_exif(header.orientation);
     let (mut w, mut h) = (header.width, header.height);
     if o.swaps_axes() {
@@ -204,12 +204,12 @@ pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
     let mut meta = meta;
     if o.swaps_axes()
         && !meta.regions.is_empty()
-        && let Some(xmp) = lightcraft_meta::embedded(bytes).xmp.and_then(|x| lightcraft_meta::parse_xmp(&x).ok())
+        && let Some(xmp) = evolight_meta::embedded(bytes).xmp.and_then(|x| evolight_meta::parse_xmp(&x).ok())
         && let Some(drawn_on) = xmp.regions_drawn_on()
         && !xmp.metadata.regions.is_empty()
     {
         meta.regions = xmp.metadata.regions;
-        lightcraft_meta::upright_regions(&mut meta.regions, drawn_on, o, (header.width, header.height));
+        evolight_meta::upright_regions(&mut meta.regions, drawn_on, o, (header.width, header.height));
     }
     let format = match ext_upper(name).as_str() {
         "JPG" | "JPEG" => "JPEG".to_string(),
@@ -239,11 +239,11 @@ pub fn probe_bytes(name: &str, bytes: &[u8]) -> Result<ProbeInfo, String> {
 /// decoder is verified on few bodies, and every CR3 opened from its embedded JPEG before it existed.
 /// So does any other failure of a recognised raw (damaged or oversized raw data, unreadable TIFF
 /// structure): its preview may still be intact. Only a file that is not a raw reports an error.
-pub(super) fn preview_reason(bytes: &[u8], e: lightcraft_raw::RawError) -> Result<String, String> {
-    use lightcraft_raw::RawError;
+pub(super) fn preview_reason(bytes: &[u8], e: evolight_raw::RawError) -> Result<String, String> {
+    use evolight_raw::RawError;
     match e {
         RawError::Unsupported(why) => Ok(why),
-        e if lightcraft_raw::probe(bytes) == Some(lightcraft_raw::RawFormat::Cr3) => Ok(format!("CR3 {e}")),
+        e if evolight_raw::probe(bytes) == Some(evolight_raw::RawFormat::Cr3) => Ok(format!("CR3 {e}")),
         RawError::NotRaw => Err(RawError::NotRaw.to_string()),
         e => Ok(e.to_string()),
     }

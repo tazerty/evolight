@@ -5,10 +5,10 @@
 //! Normalized coordinates (masks, spots, crop) refer to the *transformed* image: the oriented source after
 //! lens correction and perspective, at the source's size. Everything is sampled in one resample.
 
-use lightcraft_develop::{DevelopSettings, EmbeddedLens};
-use lightcraft_geom::{Affine, CropGeometry, Homography, Orientation, Point, Rect};
-use lightcraft_raster::resample::{Filter, resize};
-use lightcraft_raster::{Rgb32f, par_rows};
+use evolight_develop::{DevelopSettings, EmbeddedLens};
+use evolight_geom::{Affine, CropGeometry, Homography, Orientation, Point, Rect};
+use evolight_raster::resample::{Filter, resize};
+use evolight_raster::{Rgb32f, par_rows};
 
 use crate::optics::{Warp, reorient_lens};
 
@@ -34,7 +34,7 @@ pub struct Frame {
     /// Set when this frame draws only a window of a larger output (see [`Frame::window`]).
     pub view: Option<ViewWindow>,
     /// Mask coordinates are on the photo before the warp ([`Frame::for_mask`],
-    /// `lightcraft_develop::Mask::on_photo`); otherwise they are normalized coordinates of this
+    /// `evolight_develop::Mask::on_photo`); otherwise they are normalized coordinates of this
     /// frame's transformed image, like spots and the crop.
     pub masks_on_photo: bool,
 }
@@ -248,7 +248,7 @@ impl Frame {
     }
 
     /// This frame for evaluating mask `m`: whether its coordinates are on the photo before the
-    /// warp ([`lightcraft_develop::Mask::on_photo`]).
+    /// warp ([`evolight_develop::Mask::on_photo`]).
     pub fn for_mask(&self, on_photo: bool) -> std::borrow::Cow<'_, Frame> {
         if self.masks_on_photo == on_photo {
             std::borrow::Cow::Borrowed(self)
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn a_crop_far_past_the_photo_keeps_the_native_size_near_the_source() {
         let mut s = DevelopSettings::default();
-        s.crop.geometry = lightcraft_geom::CropGeometry { rect: lightcraft_geom::Rect::new(0.0, 0.0, 1000.0, 1000.0), angle: 5.0 };
+        s.crop.geometry = evolight_geom::CropGeometry { rect: evolight_geom::Rect::new(0.0, 0.0, 1000.0, 1000.0), angle: 5.0 };
         let (w, h) = crate::native_output_size(6000, 4000, &s);
         assert!(w <= 12_000.0 && h <= 8_000.0, "{w} x {h}");
         // an untouched photo is its own size

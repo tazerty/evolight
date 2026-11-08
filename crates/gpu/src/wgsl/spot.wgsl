@@ -1,4 +1,4 @@
-// Spot removal (`lightcraft_pipeline::spots::apply`), one spot at a time, on the image in place.
+// Spot removal (`evolight_pipeline::spots::apply`), one spot at a time, on the image in place.
 // Bindings: img (rgb, read-write), pts (f32 data: see each kernel), al / sp / df / wt (work buffers
 // over the spot's box: alpha, source patch, masked difference, weights).
 //

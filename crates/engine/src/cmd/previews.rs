@@ -73,7 +73,7 @@ impl PreviewBuild {
     }
 
     /// The user is at photo `id`, moving `backward` or forward: build from there on.
-    pub fn focus_on(&self, id: lightcraft_catalog::PhotoId, backward: bool) {
+    pub fn focus_on(&self, id: evolight_catalog::PhotoId, backward: bool) {
         if let Some(i) = self.order.iter().position(|p| *p == id.0) {
             self.focus.store(i, Ordering::Relaxed);
             self.backward.store(backward, Ordering::Relaxed);
@@ -100,7 +100,7 @@ impl PreviewBuild {
 
 /// The jobs that build `id`'s previews: the largest grid thumbnail and the view render at `edge`
 /// (`None` = 1:1, the photo's full size), the larger first.
-pub(crate) fn jobs_for(s: &mut Session, id: lightcraft_catalog::PhotoId, edge: Option<usize>) -> Vec<RenderJob> {
+pub(crate) fn jobs_for(s: &mut Session, id: evolight_catalog::PhotoId, edge: Option<usize>) -> Vec<RenderJob> {
     let Some(p) = s.catalog.photo(id) else { return Vec::new() };
     let full = p.width.max(p.height) as usize;
     let e = edge.unwrap_or(full).min(full.max(1)).max(1);
@@ -527,7 +527,7 @@ fn build(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let state = Arc::new(build_state);
     if let Some(at) = p.get("from").and_then(Value::as_u64) {
-        state.focus_on(lightcraft_catalog::PhotoId(at), p.get("backward").and_then(Value::as_bool).unwrap_or(false));
+        state.focus_on(evolight_catalog::PhotoId(at), p.get("backward").and_then(Value::as_bool).unwrap_or(false));
     }
     s.preview_build = Some(state.clone());
     let task = row.then(|| task_for(s, &state));
@@ -575,16 +575,16 @@ fn build(s: &mut Session, p: &Value) -> Result<Value> {
 /// vendor raws and DNGs (whose tone can come from their preview); only those proxies go stale when
 /// the fit changes; an older encoding makes any proxy stale).
 #[cfg(not(target_arch = "wasm32"))]
-type SmartJob = (lightcraft_catalog::PhotoId, std::path::PathBuf, Option<crate::media::SourceRef>, bool);
+type SmartJob = (evolight_catalog::PhotoId, std::path::PathBuf, Option<crate::media::SourceRef>, bool);
 
 /// DNG tone fits also go stale, although DNGs keep their own matrix and Kelvin white-balance scale.
 /// So do preview-only raws: their proxy is the embedded JPEG, read in the colour space the raw
 /// declares, which a look version bump can change too (#2654).
 #[cfg(not(target_arch = "wasm32"))]
-fn preview_fitted_look(photo: &lightcraft_catalog::Photo) -> bool {
+fn preview_fitted_look(photo: &evolight_catalog::Photo) -> bool {
     photo.fitted_look()
         || (photo.develops_raw() && photo.format.eq_ignore_ascii_case("DNG"))
-        || (photo.kind == lightcraft_catalog::MediaKind::Raw && photo.preview_only.is_some())
+        || (photo.kind == evolight_catalog::MediaKind::Raw && photo.preview_only.is_some())
 }
 
 /// Held while one proxy is checked and (re)written, so Build Smart Previews and the opening look
@@ -688,7 +688,7 @@ fn smart_run(
                         if !parent.is_dir() {
                             std::fs::create_dir(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
                         }
-                        lightcraft_catalog::safe_file::write_atomic(&path, &b).map_err(|e| format!("{}: {e}", path.display()))
+                        evolight_catalog::safe_file::write_atomic(&path, &b).map_err(|e| format!("{}: {e}", path.display()))
                     });
                 match r {
                     Ok(()) => {
@@ -749,7 +749,7 @@ fn smart(s: &mut Session, p: &Value) -> Result<Value> {
     let mut jobs: Vec<SmartJob> = Vec::new();
     for id in ids {
         let Some(ph) = s.catalog.photo(id).cloned() else { continue };
-        if !matches!(ph.source, lightcraft_catalog::Source::File { .. }) {
+        if !matches!(ph.source, evolight_catalog::Source::File { .. }) {
             continue;
         }
         let path = crate::smart::sharded_file_path(&dir, &ph);
@@ -814,7 +814,7 @@ pub(crate) fn refresh_stale_smart_previews(s: &mut Session) -> Option<std::threa
         return None;
     }
     let max_edge = crate::media::SourceLevel::Preview.max_edge();
-    let photos: Vec<_> = s.catalog.photos().filter(|p| matches!(p.source, lightcraft_catalog::Source::File { .. })).collect();
+    let photos: Vec<_> = s.catalog.photos().filter(|p| matches!(p.source, evolight_catalog::Source::File { .. })).collect();
     let jobs: Vec<SmartJob> = photos
         .iter()
         .map(|p| (p.id, crate::smart::sharded_file_path(&dir, p), Some(s.media.origin_ref(&p.source, max_edge)), preview_fitted_look(p)))
@@ -914,7 +914,7 @@ fn smart_location(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 /// Whether photo `id` has a smart preview.
-pub fn has_smart_preview(s: &Session, id: lightcraft_catalog::PhotoId) -> bool {
+pub fn has_smart_preview(s: &Session, id: evolight_catalog::PhotoId) -> bool {
     match (&s.media.smart_dir, s.catalog.photo(id)) {
         (Some(dir), Some(p)) => crate::smart::is_valid(&crate::smart::file_path(dir, p)),
         _ => false,
@@ -946,7 +946,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(query "photo.smartPreview", "Smart Preview Status", [], None, "{id?} → {smartPreview: bool, originalOnline: bool}", always, |s, p| {
             let id = s.targets(p)?.first().copied().ok_or_else(|| bad("photo.smartPreview", "no photo"))?;
             let online = match s.catalog.photo(id).map(|p| p.source.clone()) {
-                Some(lightcraft_catalog::Source::File { path }) => std::path::Path::new(&path).exists(),
+                Some(evolight_catalog::Source::File { path }) => std::path::Path::new(&path).exists(),
                 _ => true,
             };
             Ok(json!({"smartPreview": has_smart_preview(s, id), "originalOnline": online}))
@@ -1014,7 +1014,7 @@ mod tests {
     // space can change with it (#2654); a rendered photo's proxy does not
     #[test]
     fn preview_only_raws_follow_the_look_version() {
-        use lightcraft_catalog::{MediaKind, Photo, PhotoId, Source};
+        use evolight_catalog::{MediaKind, Photo, PhotoId, Source};
         let mut ph = Photo::new(PhotoId(1), Source::File { path: "/x.cr3".into() }, "x.cr3", "CR3", 6000, 4000, "2026-10-23T00:00:00");
         ph.kind = MediaKind::Raw;
         assert!(super::preview_fitted_look(&ph), "a developed CR3");

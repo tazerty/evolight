@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::pick::{PickRequest, Picked};
 use crate::state::{BeforeAfter, Dialog, RightPanel, ViewMode, Zoom};
 
@@ -23,11 +23,11 @@ pub mod menubar;
 pub type UiCommand = (&'static str, &'static str, Option<&'static str>, &'static str);
 
 /// Views whose bottom bar has the thumbnail-size slider and that draw tiles of that size.
-fn thumb_size_view(app: &LightcraftApp) -> bool {
+fn thumb_size_view(app: &EvoLightApp) -> bool {
     matches!(app.ui.view, ViewMode::PhotoGrid | ViewMode::SquareGrid | ViewMode::People)
 }
 
-pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
+pub fn ui_enabled(app: &EvoLightApp, id: &str) -> bool {
     match id {
         "library.selectOnlyActive" => app.session.active().is_some(),
         "view.thumbSizeUp" | "view.thumbSizeDown" => thumb_size_view(app),
@@ -42,15 +42,15 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
             app.session.active().is_some()
         }
         "photo.tagFromTracklog" => app.session.active().is_some() && app.services.pick_tracklog.is_some(),
-        "photo.editInPhotoCraft" | "photo.editInExternal" => app.session.active().is_some() && app.services.open_with.is_some(),
+        "photo.editInEvoPhoto" | "photo.editInExternal" => app.session.active().is_some() && app.services.open_with.is_some(),
         "app.exportPrevious" => app.session.active().is_some() && app.session.last_export.is_some(),
         "dialog.pasteSettings" => app.session.active().is_some() && app.session.clipboard.is_some(),
         "photo.openOriginalInExternal" => {
-            // only a file type LightCraft reads can be handed over (#2135); the extension alone
+            // only a file type EvoLight reads can be handed over (#2135); the extension alone
             // decides, so no disk or share is touched while a menu is drawn
             app.services.open_with.is_some()
                 && app.session.active().and_then(|id| app.session.catalog.photo(id)).is_some_and(|p| match &p.source {
-                    lightcraft_engine::catalog::Source::File { path } => lightcraft_engine::open_path::is_media(std::path::Path::new(path)),
+                    evolight_engine::catalog::Source::File { path } => evolight_engine::open_path::is_media(std::path::Path::new(path)),
                     _ => false,
                 })
         }
@@ -60,7 +60,7 @@ pub fn ui_enabled(app: &LightcraftApp, id: &str) -> bool {
                     .session
                     .active()
                     .and_then(|id| app.session.catalog.photo(id))
-                    .is_some_and(|p| matches!(p.source, lightcraft_engine::catalog::Source::File { .. }))
+                    .is_some_and(|p| matches!(p.source, evolight_engine::catalog::Source::File { .. }))
         }
         "app.showInFolders" => show_in_folders_enabled(app, None),
         "app.openSamModelFolder" => app.session.segmenter.dir.is_some() && app.services.open_with.is_some(),
@@ -95,7 +95,7 @@ pub struct MenuEntry {
 }
 
 /// The flattened menu model (UI commands + engine commands with menu paths).
-pub fn menu_entries(app: &LightcraftApp) -> Vec<MenuEntry> {
+pub fn menu_entries(app: &EvoLightApp) -> Vec<MenuEntry> {
     let mut v: Vec<MenuEntry> = ui_commands()
         .filter(|c| !c.3.is_empty())
         .map(|(id, label, sc, m)| MenuEntry {

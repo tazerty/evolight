@@ -1,23 +1,23 @@
 //! On the GPU, masks stay on the image content under every geometry change:
 //! a mask drawn around a mark still brightens that mark after Straighten, a crop, a flip, a quarter
 //! turn or a lens / perspective warp, rendered fresh or through the view's stage cache. (The CPU
-//! side is `lightcraft-pipeline`'s `tests_mask_geometry`.)
+//! side is `evolight-pipeline`'s `tests_mask_geometry`.)
 
 use std::sync::Arc;
 
-use lightcraft_develop::{BrushStroke, DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
-use lightcraft_geom::{CropGeometry, Point, Rect};
-use lightcraft_pipeline::{RenderRequest, SourceInfo, StageCache};
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_develop::{BrushStroke, DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
+use evolight_geom::{CropGeometry, Point, Rect};
+use evolight_pipeline::{RenderRequest, SourceInfo, StageCache};
+use evolight_raster::{Rgb32f, Rgba8};
 
 const W: usize = 240;
 const H: usize = 160;
 const MARK: (f64, f64) = (0.3, 0.32);
 
 fn gpu() -> bool {
-    let ok = lightcraft_gpu::available();
+    let ok = evolight_gpu::available();
     if !ok {
-        lightcraft_testkit::skip!(Gpu, "no GPU adapter");
+        evolight_testkit::skip!(Gpu, "no GPU adapter");
     }
     ok
 }
@@ -93,10 +93,10 @@ fn geometries() -> Vec<(&'static str, Box<dyn Fn(&mut DevelopSettings)>)> {
             // Rotate Right: the photo and its masks turn together (`photo.rotateRight`)
             "quarter turn",
             Box::new(|s: &mut DevelopSettings| {
-                let turn = lightcraft_geom::Orientation::Normal.rotated(true);
+                let turn = evolight_geom::Orientation::Normal.rotated(true);
                 s.orientation = s.orientation.rotated(true);
                 for m in &mut s.masks {
-                    lightcraft_pipeline::mask_space::turn(m, turn);
+                    evolight_pipeline::mask_space::turn(m, turn);
                 }
             }),
         ),
@@ -126,7 +126,7 @@ fn centroid(w: usize, weights: impl Iterator<Item = f64>) -> (f64, f64) {
 
 fn on_gpu(src: &Arc<Rgb32f>, s: &DevelopSettings, cache: Option<&StageCache>) -> Rgba8 {
     let req = RenderRequest::fit(W, H);
-    lightcraft_gpu::try_render(src, &SourceInfo::default(), s, &req, cache).map(|r| r.image).unwrap_or_else(|e| panic!("GPU render failed: {e:?}"))
+    evolight_gpu::try_render(src, &SourceInfo::default(), s, &req, cache).map(|r| r.image).unwrap_or_else(|e| panic!("GPU render failed: {e:?}"))
 }
 
 #[test]

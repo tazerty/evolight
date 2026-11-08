@@ -6,16 +6,16 @@
 //! a packet that binds `http://purl.org/dc/elements/1.1/` to `foo:` still yields `dc:title`.
 //!
 //! Writing emits the interchange subset in standard namespaces (dc, xmp, photoshop, exif, exifEX, tiff, lr) and
-//! LightCraft's full develop settings as an opaque JSON string in `lc:settings`.
+//! EvoLight's full develop settings as an opaque JSON string in `lc:settings`.
 
 use crate::{DateTime, Flash, Gps, Metadata, Orientation, Region, RegionKind, parse_number};
-use lightcraft_geom::{Point, Rect};
+use evolight_geom::{Point, Rect};
 use quick_xml::escape::{escape, partial_escape};
 use quick_xml::events::Event;
 use std::collections::BTreeMap;
 
-/// LightCraft's XMP namespace URI (prefix `lc`).
-pub const LC_NS: &str = "http://ns.lightcraft.app/lc/1.0/";
+/// EvoLight's XMP namespace URI (prefix `lc`).
+pub const LC_NS: &str = "http://ns.evolight.app/lc/1.0/";
 
 const NAMESPACES: &[(&str, &str)] = &[
     ("x", "adobe:ns:meta/"),
@@ -633,12 +633,12 @@ fn frac(v: f64) -> String {
             return format!("1/{}", inv.round() as u64);
         }
     }
-    let (n, d) = lightcraft_tiff::writer::rational(v);
+    let (n, d) = evolight_tiff::writer::rational(v);
     format!("{n}/{d}")
 }
 
 fn sfrac(v: f64) -> String {
-    let (n, d) = lightcraft_tiff::writer::srational(v);
+    let (n, d) = evolight_tiff::writer::srational(v);
     format!("{n}/{d}")
 }
 
@@ -696,7 +696,7 @@ pub fn write_xmp_lc(meta: &Metadata, lc: &[(&str, &str)]) -> String {
 
     let mut x = String::new();
     x.push_str("<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n");
-    x.push_str("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"LightCraft\">\n");
+    x.push_str("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"EvoLight\">\n");
     x.push_str(" <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n");
     x.push_str("  <rdf:Description rdf:about=\"\"");
     for (p, u) in NAMESPACES.iter().skip(2).filter(|(p, _)| *p != "crs") {

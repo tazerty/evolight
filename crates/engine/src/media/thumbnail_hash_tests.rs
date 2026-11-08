@@ -60,14 +60,14 @@ fn a_virtual_copy_has_its_own_stand_in_keys() {
     assert_ne!(full(&mut s, 1), full(&mut s, 2));
 }
 
-/// Settings saved by a newer LightCraft (a process number this build doesn't know) render with
+/// Settings saved by a newer EvoLight (a process number this build doesn't know) render with
 /// this build's latest process, and a build that resolved the number to an older process
 /// cached other pixels under the same settings hash: the persistent keys (thumbnails, the
 /// loupe's view render, variants) name the process the settings render with, so those are
 /// never served (review of 5a7016c8: a catalog saved with a newer process kept main's V2 thumbnails).
 #[test]
 fn persistent_keys_name_the_process_the_settings_render_with() {
-    use lightcraft_develop::ProcessVersion;
+    use evolight_develop::ProcessVersion;
     let mut s = session();
     let newer = DevelopSettings { process: ProcessVersion(ProcessVersion::LATEST.0 + 1), ..DevelopSettings::default() };
     s.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(newer.clone()), label: "newer".into(), edited: None }).unwrap();
@@ -88,7 +88,7 @@ fn persistent_keys_name_the_process_the_settings_render_with() {
         }
         h.u64(newer.hash64()).u64(size).u64(RENDER_CACHE_VERSION).u64(process).u64(crate::camera_profiles::cache_key()).finish()
     };
-    let resolved = u64::from(lightcraft_develop::Process::LATEST.version().0);
+    let resolved = u64::from(evolight_develop::Process::LATEST.version().0);
     let keys = [
         (s.thumb_job(PhotoId(1), 256).unwrap().cache.unwrap().1, None, 256),
         (s.view_key(&p, true), Some("view"), 1),
@@ -107,7 +107,7 @@ fn persistent_keys_name_the_process_the_settings_render_with() {
 /// previews lost their thumbnails); V3 and later name their process.
 #[test]
 fn v1_and_v2_photos_keep_the_render_cache_keys_they_had() {
-    use lightcraft_develop::Process;
+    use evolight_develop::Process;
     let mut s = session();
     for process in [Process::V1, Process::V2, Process::V3] {
         let settings = DevelopSettings { process: process.version(), ..DevelopSettings::default() };
@@ -223,7 +223,7 @@ fn source_from_before_a_lens_profile_change_is_not_accepted() {
     s.media.file_loader = Some(Arc::new(|_, _, _| Ok((Rgb32f::new(8, 8), SourceInfo::default()))));
     let old = s.thumb_job(PhotoId(1), 256).unwrap().run();
     assert!(old.loaded.is_some());
-    let lens = lightcraft_develop::EmbeddedLens { source: lightcraft_develop::LensSource::Database, ..Default::default() };
+    let lens = evolight_develop::EmbeddedLens { source: evolight_develop::LensSource::Database, ..Default::default() };
     s.catalog.apply(Op::SetEmbeddedLens { id: PhotoId(1), lens: Some(Box::new(lens)) }).unwrap();
     s.media.forget(PhotoId(1));
     s.accept(&old);
@@ -240,14 +240,14 @@ fn a_hover_preview_key_follows_the_lens_profile() {
     let mut s = session();
     let settings = s.catalog.photo(PhotoId(1)).unwrap().develop.clone();
     let before = s.preview_job(PhotoId(1), 640, 480, true, &settings).unwrap().key;
-    let lens = lightcraft_develop::EmbeddedLens { source: lightcraft_develop::LensSource::Database, ..Default::default() };
+    let lens = evolight_develop::EmbeddedLens { source: evolight_develop::LensSource::Database, ..Default::default() };
     s.catalog.apply(Op::SetEmbeddedLens { id: PhotoId(1), lens: Some(Box::new(lens)) }).unwrap();
     let after = s.preview_job(PhotoId(1), 640, 480, true, &settings).unwrap().key;
     assert_ne!(before, after);
     // one database profile looked up again as another (a newer database): the key follows the profile's contents,
     // not only whether there is one
-    let vignette = lightcraft_develop::EmbeddedVignette { k: [-0.3, 0.0, 0.0, 0.0, 0.0], radius: 1.0, ..Default::default() };
-    let other = lightcraft_develop::EmbeddedLens { source: lightcraft_develop::LensSource::Database, vignette: Some(vignette), ..Default::default() };
+    let vignette = evolight_develop::EmbeddedVignette { k: [-0.3, 0.0, 0.0, 0.0, 0.0], radius: 1.0, ..Default::default() };
+    let other = evolight_develop::EmbeddedLens { source: evolight_develop::LensSource::Database, vignette: Some(vignette), ..Default::default() };
     s.catalog.apply(Op::SetEmbeddedLens { id: PhotoId(1), lens: Some(Box::new(other)) }).unwrap();
     let again = s.preview_job(PhotoId(1), 640, 480, true, &settings).unwrap().key;
     assert_ne!(after, again, "a different database profile");

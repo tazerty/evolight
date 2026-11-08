@@ -9,7 +9,7 @@
 //!   step and redo is left alone.
 //! - Given a normal add or toggle, then one step is recorded and one undo restores the album.
 
-use lightcraft_catalog::{AlbumId, PhotoId};
+use evolight_catalog::{AlbumId, PhotoId};
 use serde_json::json;
 
 use crate::{Selection, Session};

@@ -143,7 +143,7 @@ pub(super) fn fit_hue_sat(pairs: &[([f64; 3], [f64; 3])], matrix: &Mat3) -> Opti
         .filter_map(|(_, (x, y))| {
             let p = to.apply(matrix.apply(*x));
             let (hp, sp) = hue_saturation(p)?;
-            let value = f64::from(lightcraft_color::transfer::linear_to_srgb(p[0].max(p[1]).max(p[2]).min(1.0) as f32));
+            let value = f64::from(evolight_color::transfer::linear_to_srgb(p[0].max(p[1]).max(p[2]).min(1.0) as f32));
             let (ht, st) = hue_saturation(to.apply(*y))?;
             // hue is meaningless near neutral
             if sp < 0.08 || st < 0.02 {
@@ -240,9 +240,9 @@ pub(super) fn fit_chroma(pairs: &[([f64; 3], [f64; 3])], look: &CameraLook) -> O
     if samples.len() < 64 {
         return None;
     }
-    let mut curve = [1.0f32; lightcraft_pipeline::tone::CHROMA_N];
+    let mut curve = [1.0f32; evolight_pipeline::tone::CHROMA_N];
     for (j, node) in curve.iter_mut().enumerate() {
-        let at = j as f64 / (lightcraft_pipeline::tone::CHROMA_N - 1) as f64;
+        let at = j as f64 / (evolight_pipeline::tone::CHROMA_N - 1) as f64;
         let (mut weight, mut sum) = (0.0, 0.0);
         for &(o, cp, log_ratio) in &samples {
             let k = (-0.5 * ((o - at) / CHROMA_KERNEL).powi(2)).exp() * cp;
@@ -264,7 +264,7 @@ pub(super) fn fit_chroma(pairs: &[([f64; 3], [f64; 3])], look: &CameraLook) -> O
             .sum()
     };
     let (before, after) = (error(&tone), error(&with));
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!("[profile] ARW chroma curve {curve:?}: held-out error {before:.4} -> {after:.4}");
     }
     (after.is_finite() && after < before).then_some(fitted)

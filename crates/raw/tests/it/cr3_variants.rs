@@ -17,11 +17,11 @@
 //! this API: plane validation rejects any gain on the low-frequency bands first. It is defence in
 //! depth, not a contract, and has no test here.
 
-use lightcraft_raw::{RawData, RawError, decode, probe_info};
+use evolight_raw::{RawData, RawError, decode, probe_info};
 
 /// The header probe can't see what only the samples tell: a full CR3 decode adds the white headroom
 /// it found to `baseline_exposure`. Everything else must match.
-fn without_baseline(mut info: lightcraft_raw::RawInfo) -> lightcraft_raw::RawInfo {
+fn without_baseline(mut info: evolight_raw::RawInfo) -> evolight_raw::RawInfo {
     info.color.baseline_exposure = 0.0;
     info
 }

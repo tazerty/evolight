@@ -10,7 +10,7 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::pick::{PickKind, PickRequest};
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -38,8 +38,8 @@ impl Drop for Scratch {
 }
 
 fn write_png(path: &str, seed: u8) {
-    let img = lightcraft_raster::Rgba8::from_fn(24, 16, |x, y| [(x * 9) as u8, (y * 13) as u8, seed, 255]);
-    let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(24, 16, |x, y| [(x * 9) as u8, (y * 13) as u8, seed, 255]);
+    let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     std::fs::create_dir_all(std::path::Path::new(path).parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
 }
@@ -56,12 +56,12 @@ fn app_with_trip(dir: &Scratch) -> (Headless, Asked, Arc<AtomicUsize>) {
 /// [`app_with_trip`], with the photo imported into the library at `library` (`None`: in memory).
 fn app_with_trip_in(dir: &Scratch, library: Option<&str>) -> (Headless, Asked, Arc<AtomicUsize>) {
     write_png(&dir.path("trip/a.png"), 1);
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     if let Some(library) = library {
         session.open_library(library, false).unwrap();
     }
     session.execute("library.import", &json!({"paths": [dir.path("trip")]})).unwrap();
-    let mut app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let asked: Asked = Default::default();
     let a = asked.clone();
     app.services.picker = Some(Box::new(move |req| {
@@ -122,8 +122,8 @@ fn move_folder_to_asks_off_the_ui_thread_and_moves_with_the_answer() {
     assert!(std::path::Path::new(&dir.path("dest/trip/a.png")).exists(), "moved on disk");
     assert!(!std::path::Path::new(&dir.path("trip")).exists());
     let moved = h.app.session.catalog.photos().filter(|p| p.in_library()).all(|p| match &p.source {
-        lightcraft_catalog::Source::File { path } => path.replace('\\', "/").starts_with(&dir.path("dest/trip")),
-        lightcraft_catalog::Source::Demo { .. } => false,
+        evolight_catalog::Source::File { path } => path.replace('\\', "/").starts_with(&dir.path("dest/trip")),
+        evolight_catalog::Source::Demo { .. } => false,
     });
     assert!(moved, "the photo is relinked");
     let toast = h.app.ui.toast.as_ref().map(|t| t.0.clone()).unwrap_or_default();
@@ -171,8 +171,8 @@ fn no_library_switch_while_move_folder_to_waits_for_its_destination() {
     assert!(std::path::Path::new(&dir.path("dest/trip/a.png")).exists(), "moved on disk");
     assert_eq!(library(&h), Some(first));
     let relinked = h.app.session.catalog.photos().filter(|p| p.in_library()).all(|p| match &p.source {
-        lightcraft_catalog::Source::File { path } => path.replace('\\', "/").starts_with(&dir.path("dest/trip")),
-        lightcraft_catalog::Source::Demo { .. } => false,
+        evolight_catalog::Source::File { path } => path.replace('\\', "/").starts_with(&dir.path("dest/trip")),
+        evolight_catalog::Source::Demo { .. } => false,
     });
     assert!(relinked, "the photo is relinked in the first library");
     // and now the switch goes through

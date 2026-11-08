@@ -1,13 +1,13 @@
 [package]
-name = "lightcraft-wincolor"
+name = "evolight-wincolor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft wincolor (L0): the colour profile Windows assigns to the monitor showing a window. One of the two crates allowed `unsafe` (Win32 calls)."
+description = "EvoLight wincolor (L0): the colour profile Windows assigns to the monitor showing a window. One of the two crates allowed `unsafe` (Win32 calls)."
 
 # The workspace lints: they deny `unsafe_code` (deny, not forbid), which the `win32` module in
 # src/lib.rs allows for its Win32 calls; every other crate root has `#![forbid(unsafe_code)]`. See
-# AGENTS.md and craftrules standards/never-crash.md ("isolated helper library crate").
+# AGENTS.md and evorules standards/never-crash.md ("isolated helper library crate").
 [lints]
 workspace = true
 
@@ -21,7 +21,7 @@ windows-sys = { version = "0.61", features = [
 
 [dev-dependencies]
 # tests record why they skip (`cargo xtask ci` lists the skips)
-lightcraft-testkit = { workspace = true }
+evolight-testkit = { workspace = true }
 
 # the desktop window, for a test
 [target.'cfg(windows)'.dev-dependencies]

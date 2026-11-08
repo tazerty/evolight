@@ -2,14 +2,14 @@ use super::hdr_flow::{LayoutFlow, hdr_histogram_key, sdr_histogram_key};
 #[cfg(test)]
 use super::sliders::reset_tip;
 use super::{
-    Align2, Color32, Histogram, Icon, LightcraftApp, PhotoId, Rect, RichText, RightPanel, Sense, Slot, Stroke, Tokens, divider, json, paint, pos2,
+    Align2, Color32, Histogram, Icon, EvoLightApp, PhotoId, Rect, RichText, RightPanel, Sense, Slot, Stroke, Tokens, divider, json, paint, pos2,
     register, vec2,
 };
 
 // ------------------------------------------------------------------------------ histogram
 
 /// The current photo's existing preview histogram, shared by Histogram and Tone Curve.
-pub(super) fn preview_histogram(app: &LightcraftApp, id: PhotoId) -> Option<lightcraft_raster::Histogram> {
+pub(super) fn preview_histogram(app: &EvoLightApp, id: PhotoId) -> Option<evolight_raster::Histogram> {
     app.renderer
         .textures
         .get(&Slot::Main)
@@ -48,7 +48,7 @@ fn live_hdr_histogram(live: Option<&(PhotoId, u64, Histogram)>, id: PhotoId, dra
 
 /// The histogram, its clipping buttons and the EXIF strip, drawn above the Edit panel's scrolling sliders
 /// ([`crate::panels::right::show`]).
-pub(crate) fn histogram(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(crate) fn histogram(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let t = Tokens::get(ui.ctx());
     let w = ui.available_width();
     let hdr_edit = app.session.develop_of(id).is_some_and(|d| d.hdr.enabled);
@@ -56,7 +56,7 @@ pub(crate) fn histogram(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId)
     // gives one (at its own pace: the drafts don't wait for it)
     let interacting = app.session.interaction.is_some();
     if interacting && hdr_edit {
-        let edge = lightcraft_pipeline::HDR_HISTOGRAM_DRAG_EDGE;
+        let edge = evolight_pipeline::HDR_HISTOGRAM_DRAG_EDGE;
         if let Some(job) = app.session.render_job(id, edge, edge, false, app.ui.right != RightPanel::Crop)
             && app.renderer.live_hdr_histogram.as_ref().is_none_or(|l| l.1 != job.key)
         {
@@ -96,7 +96,7 @@ pub(crate) fn histogram(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId)
         let white = Color32::from_rgb(228, 228, 230);
         bar(plot.left(), x0 - 1.0, white);
         let stops = b.stops.round().max(1.0) as usize;
-        let bands = lightcraft_pipeline::visualize::HDR_BANDS;
+        let bands = evolight_pipeline::visualize::HDR_BANDS;
         let colours = app.ui.hdr_visualize;
         for k in 0..stops {
             let c = if colours { bands.get(k).or(bands.last()).copied().unwrap_or([255, 255, 255]) } else { [228, 228, 230] };
@@ -205,8 +205,8 @@ pub(crate) fn histogram(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId)
 // ------------------------------------------------------------------------------ soft proofing
 
 /// The Soft Proofing strip under the histogram: proof profile, gamut warnings, Create Proof Copy.
-pub(super) fn soft_proofing(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
-    use lightcraft_engine::pipeline::OutputSpace;
+pub(super) fn soft_proofing(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
+    use evolight_engine::pipeline::OutputSpace;
     let t = Tokens::get(ui.ctx());
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 8, bottom: 6 }).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -257,7 +257,7 @@ pub(super) fn soft_proofing(app: &mut LightcraftApp, ui: &mut egui::Ui, id: Phot
         if app.ui.proof_profile.is_some() {
             ui.horizontal(|ui| {
                 ui.label(RichText::new(crate::i18n::tr("Intent:")).color(t.text_label));
-                use lightcraft_engine::proof::ProofIntent;
+                use evolight_engine::proof::ProofIntent;
                 for (i, label) in [(ProofIntent::Perceptual, "Perceptual"), (ProofIntent::Relative, "Relative")] {
                     let r = ui.selectable_label(app.ui.proof_intent == i, crate::i18n::tr(label));
                     register(ui, format!("button:proofIntent-{}", i.name()), r.rect);

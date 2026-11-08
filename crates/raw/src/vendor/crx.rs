@@ -20,7 +20,7 @@
 
 use super::crx_wavelet::{self, Band as WaveletBand, TileEdges};
 use crate::{MAX_SAMPLES, RawError, Result};
-use lightcraft_meta::cr3::Cr3Compression;
+use evolight_meta::cr3::Cr3Compression;
 use rayon::prelude::*;
 use std::ops::Range;
 
@@ -95,7 +95,7 @@ pub(crate) fn decode(sample: &[u8], config: &Cr3Compression) -> Result<Vec<u16>>
     let count = image_size(config)?;
     let tiles = layout(sample, config)?;
     validate_planes(&tiles, config)?;
-    // Allocated once the first plane decodes: a tiny crafted file can claim a huge image.
+    // Allocated once the first plane decodes: a tiny built file can claim a huge image.
     let mut output = Vec::new();
     let midpoint = 1i32 << (config.bit_depth - 1);
     let maximum = (1i32 << config.bit_depth) - 1;
@@ -1191,7 +1191,7 @@ mod tests {
 
     #[test]
     fn optional_cc0_samples_match_external_oracle() {
-        let Some(directory) = std::env::var_os("LIGHTCRAFT_CR3_CORPUS") else { return };
+        let Some(directory) = std::env::var_os("EVOLIGHT_CR3_CORPUS") else { return };
         for (name, expected) in [
             ("cr3-canon-r100-raw.cr3", 0xcbe5299ab9c52630u64),
             ("cr3-canon-m50-raw.cr3", 0x62261f0ba81cfcd2u64),
@@ -1206,12 +1206,12 @@ mod tests {
         ] {
             let path = std::path::Path::new(&directory).join(name);
             let bytes = std::fs::read(path).unwrap();
-            let container = lightcraft_meta::cr3::parse_cr3(&bytes).unwrap();
+            let container = evolight_meta::cr3::parse_cr3(&bytes).unwrap();
             let mut candidates = container
                 .tracks
                 .iter()
                 .filter_map(|track| {
-                    let lightcraft_meta::cr3::Cr3TrackKind::Raw { cmp1: Some((at, length)), .. } = track.kind else { return None };
+                    let evolight_meta::cr3::Cr3TrackKind::Raw { cmp1: Some((at, length)), .. } = track.kind else { return None };
                     let coding = Cr3Compression::parse(bytes.get(at..at + length)?)?;
                     Some((u64::from(coding.width) * u64::from(coding.height), coding, track.data?))
                 })

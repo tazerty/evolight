@@ -1,6 +1,6 @@
 use super::albums::top_level_drop_target;
 use super::rows::{ROW_HEIGHT, note_width};
-use super::{Align2, Icon, LightcraftApp, Rect, Sense, SidebarSection, Tokens, icon_button, json, paint, pos2, register, vec2};
+use super::{Align2, Icon, EvoLightApp, Rect, Sense, SidebarSection, Tokens, icon_button, json, paint, pos2, register, vec2};
 
 /// Space above a section's header.
 pub(super) const SECTION_GAP: f32 = 10.0;
@@ -12,11 +12,11 @@ const SECTION_HEADER: f32 = 34.0;
 /// draws. Every section goes through here, so they all fold, space and announce themselves alike.
 /// `rows`: how many rows the section lists at its top level (a folded header says so).
 pub(super) fn section(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     section: SidebarSection,
     rows: usize,
-    body: impl FnOnce(&mut LightcraftApp, &mut egui::Ui),
+    body: impl FnOnce(&mut EvoLightApp, &mut egui::Ui),
 ) -> PlacedSection {
     ui.add_space(SECTION_GAP);
     let (header, _) = ui.allocate_exact_size(vec2(ui.available_width(), SECTION_HEADER), Sense::hover());
@@ -59,7 +59,7 @@ pub(super) fn visible_right(ui: &egui::Ui) -> f32 {
 /// the sidebar (widget `sidebarSectionPinned:<id>`), so it is always clear which section the rows
 /// belong to, and the section can be folded, moved or hidden from anywhere in a long list. The
 /// next section's header pushes it out as it arrives. `view_top`: where the visible part starts.
-pub(super) fn pinned_header(app: &mut LightcraftApp, ui: &mut egui::Ui, placed: &[PlacedSection], view_top: f32) {
+pub(super) fn pinned_header(app: &mut EvoLightApp, ui: &mut egui::Ui, placed: &[PlacedSection], view_top: f32) {
     let pinned = placed.iter().find(|p| p.open && p.top < view_top && p.bottom > view_top);
     let rect = pinned.map(|p| {
         let top = view_top.min(p.bottom - SECTION_HEADER);
@@ -121,7 +121,7 @@ pub(crate) fn section_drop_before(placed: &[PlacedSection], y: f32) -> Option<Si
 
 /// While a section is dragged by its header: a line shows where it would go, releasing over the
 /// sidebar moves it there (`view.sidebarMoveSection`), releasing elsewhere or Esc leaves it.
-pub(super) fn section_drag(app: &mut LightcraftApp, ui: &mut egui::Ui, placed: &[PlacedSection]) {
+pub(super) fn section_drag(app: &mut EvoLightApp, ui: &mut egui::Ui, placed: &[PlacedSection]) {
     let Some(dragged) = app.ui.dragging_section else { return };
     let (released, pos, esc) = ui.input(|i| (i.pointer.primary_released(), i.pointer.latest_pos(), i.key_pressed(egui::Key::Escape)));
     if esc {
@@ -161,7 +161,7 @@ pub(super) fn section_drag(app: &mut LightcraftApp, ui: &mut egui::Ui, placed: &
 
 /// The dragged section's name follows the pointer; a drag that ended anywhere (also outside the
 /// sidebar, or with the sidebar closed) is over.
-pub fn section_drag_feedback(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn section_drag_feedback(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(section) = app.ui.dragging_section else { return };
     let (down, pos) = ctx.input(|i| (i.pointer.primary_down(), i.pointer.latest_pos()));
     if !down || !app.ui.left_panel {
@@ -186,7 +186,7 @@ pub fn section_drag_feedback(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// it survives restarts), and what the section adds to its header (its button, see `header_button`) sits at
 /// the visible edge. A folded section says how many rows it holds (`rows`, with View ▸ Show Photo
 /// Counts). `pinned`: this is the copy kept at the top of the sidebar (see `pinned_header`).
-fn section_header(app: &mut LightcraftApp, ui: &mut egui::Ui, section: SidebarSection, r: Rect, rows: usize, pinned: bool) -> HeaderOutcome {
+fn section_header(app: &mut EvoLightApp, ui: &mut egui::Ui, section: SidebarSection, r: Rect, rows: usize, pinned: bool) -> HeaderOutcome {
     let t = Tokens::get(ui.ctx());
     let id = section.id();
     let title = crate::i18n::tr(section.title());
@@ -254,9 +254,9 @@ struct HeaderButton {
 /// What a header's button does when clicked.
 enum HeaderAction {
     /// Does it at once (usually: opens a dialog).
-    Run(fn(&mut LightcraftApp, &egui::Context)),
+    Run(fn(&mut EvoLightApp, &egui::Context)),
     /// Opens a menu with these items.
-    Menu(fn(&mut LightcraftApp, &mut egui::Ui)),
+    Menu(fn(&mut EvoLightApp, &mut egui::Ui)),
 }
 
 /// The button a section has at the end of its header, if it has one. This is the one place that
@@ -282,7 +282,7 @@ fn header_button_rect(ui: &egui::Ui, header: Rect) -> Rect {
 }
 
 /// Draw `button` at the end of `header` and act on it.
-fn show_header_button(app: &mut LightcraftApp, ui: &mut egui::Ui, header: Rect, button: &HeaderButton) {
+fn show_header_button(app: &mut EvoLightApp, ui: &mut egui::Ui, header: Rect, button: &HeaderButton) {
     let mut hdr =
         ui.new_child(egui::UiBuilder::new().max_rect(header_button_rect(ui, header)).layout(egui::Layout::right_to_left(egui::Align::Center)));
     let resp = icon_button(&mut hdr, button.id, button.icon, vec2(HEADER_BUTTON, HEADER_BUTTON), false, true, button.tooltip);
@@ -301,7 +301,7 @@ fn show_header_button(app: &mut LightcraftApp, ui: &mut egui::Ui, header: Rect, 
 /// Keywords' +: Create Keyword Tag, for a keyword at the usual place for new ones (not inside
 /// whatever is picked in the Keyword List, which may not even be on screen).
 /// Made from here, the keyword is shown here: Keywords opens down to it (`reveal_keyword`).
-fn new_keyword(app: &mut LightcraftApp, _ctx: &egui::Context) {
+fn new_keyword(app: &mut EvoLightApp, _ctx: &egui::Context) {
     let mut dialog = crate::panels::keyword_list::create_dialog_inside(app, None);
     if let crate::state::Dialog::KeywordTag { reveal, .. } = &mut dialog {
         *reveal = true;
@@ -312,7 +312,7 @@ fn new_keyword(app: &mut LightcraftApp, _ctx: &egui::Context) {
 /// The menu of a section's header (`on`) and of the My Photos title (`None`): hide this section,
 /// show or hide any section, and go back to the usual arrangement. Its items are widgets
 /// `sidebarMenu:hide`, `sidebarMenu:section:<id>` and `sidebarMenu:reset`.
-pub(super) fn sections_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, on: Option<SidebarSection>) {
+pub(super) fn sections_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, on: Option<SidebarSection>) {
     let mut run = None;
     if let Some(section) = on {
         let hide = ui.button(crate::i18n::tr("Hide This Section"));
@@ -351,7 +351,7 @@ pub(super) fn sections_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, on: Opti
 }
 
 /// The menu of Albums' +: Create Album, Smart Album, Folder…
-fn new_album_menu(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn new_album_menu(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     if ui.button(crate::i18n::tr("Create Album…")).clicked() {
         app.ui.dialog = Some(crate::state::Dialog::NewAlbum { name: String::new(), folder: false, parent: None, include_selected: true });
     }
@@ -359,7 +359,7 @@ fn new_album_menu(app: &mut LightcraftApp, ui: &mut egui::Ui) {
         app.ui.dialog = Some(crate::state::Dialog::SmartRules {
             id: None,
             name: String::new(),
-            rules: lightcraft_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
+            rules: evolight_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
             parent: None,
         });
     }
@@ -388,7 +388,7 @@ fn new_album_menu(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 /// takes seconds, a headless run's fast simulated clock would start the next one before settling.
 /// A catalog change during a timed refresh is pending from the frame it is seen, although its
 /// recount starts only when the refresh ends.
-pub(super) fn missing_count(app: &mut LightcraftApp, ui: &mut egui::Ui) -> usize {
+pub(super) fn missing_count(app: &mut EvoLightApp, ui: &mut egui::Ui) -> usize {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::AcqRel, Ordering::Relaxed};
     #[derive(Clone, Default)]
     struct Job {
@@ -415,7 +415,7 @@ pub(super) fn missing_count(app: &mut LightcraftApp, ui: &mut egui::Ui) -> usize
     let fresh = now - job.at < 5.0 && job.rev == rev;
     if !fresh && !running {
         // the same scope as the Missing Photos view: library photos only, never Local browse records
-        let paths = lightcraft_engine::cmd::missing::candidates(&app.session.catalog);
+        let paths = evolight_engine::cmd::missing::candidates(&app.session.catalog);
         let pending = (job.rev != rev).then(|| super::local::fs_running_counter(ui.ctx()));
         if let Some(p) = &pending
             && !job.owed

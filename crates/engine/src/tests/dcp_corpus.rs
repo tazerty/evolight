@@ -1,18 +1,18 @@
 //! A real camera profile end to end: the Nikon D750 ColorChecker DCP and chart NEFs dieli released
-//! under CC0 (github.com/dieli/d750-lightcraft-colorchecker, pinned in `D750_COLORCHECKER`,
+//! under CC0 (github.com/dieli/d750-evolight-colorchecker, pinned in `D750_COLORCHECKER`,
 //! xtask/src/main.rs; `cargo xtask corpus --download`). Each chart is imported, developed with the
 //! imported profile, white balanced on the second-lightest grey patch (as in the reference) and
 //! exported as sRGB; the 24 patches are then compared in CIELAB (ΔE2000) with Lightroom Classic
 //! 15.6's render of the same NEF with the same profile.
 //!
 //! The comparison is lenient on purpose: the profile is matrix-only, so the colour model is the same,
-//! but Lightroom adds its own default tone curve and rendering, which LightCraft does not copy. The
+//! but Lightroom adds its own default tone curve and rendering, which EvoLight does not copy. The
 //! test pins the measured agreement against regressions (see `MEAN_LIMIT`, `MAX_LIMIT`) and prints
 //! every patch's ΔE. Missing files are reported as skipped.
 
 use std::path::{Path, PathBuf};
 
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde_json::json;
 
 use crate::Session;
@@ -26,7 +26,7 @@ const MEAN_LIMIT: f64 = 5.0;
 const MAX_LIMIT: f64 = 10.0;
 
 fn set_dir() -> PathBuf {
-    std::env::var_os("LIGHTCRAFT_CORPUS")
+    std::env::var_os("EVOLIGHT_CORPUS")
         .map(PathBuf::from)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("d750-colorchecker")
@@ -56,7 +56,7 @@ fn frame_centres(chart: &str) -> Vec<(f64, f64)> {
 /// Mean CIELAB (D50) of a box of half-width `radius` (a fraction of the image width) around each
 /// centre, and the largest standard deviation of L* inside a box (a box on a patch edge shows up there).
 fn patch_labs(bytes: &[u8], centres: &[(f64, f64)], radius: f64) -> (Vec<[f64; 3]>, f64) {
-    let d = lightcraft_codecs::decode(bytes, Default::default()).unwrap();
+    let d = evolight_codecs::decode(bytes, Default::default()).unwrap();
     let to_xyz = d.space.to_xyz_d50;
     let (w, h) = (d.image.width, d.image.height);
     let r = (w as f64 * radius).max(1.0) as isize;
@@ -163,7 +163,7 @@ fn the_d750_profile_develops_its_charts_close_to_lightroom() {
         needed.push(set.join(format!("images/{name}-lightroom.jpg")));
     }
     if let Some(missing) = needed.iter().find(|p| !p.exists()) {
-        lightcraft_testkit::skip!(Corpus, "{} absent (cargo xtask corpus --download)", missing.display());
+        evolight_testkit::skip!(Corpus, "{} absent (cargo xtask corpus --download)", missing.display());
         return;
     }
     let lib = std::env::temp_dir().join(format!("lc-dcp-d750-{}", std::process::id()));
@@ -212,8 +212,8 @@ fn the_d750_profile_develops_its_charts_close_to_lightroom() {
         let ev = (lo + hi) / 2.0;
         let (ours, spread) = render(&mut s, ev);
         assert!(spread < 4.0, "{name}: every box lies inside its patch (L* spread {spread:.1})");
-        // LIGHTCRAFT_DCP_DUMP=<folder>: keep our renders, to check the patch boxes by eye
-        if let Some(dir) = std::env::var_os("LIGHTCRAFT_DCP_DUMP") {
+        // EVOLIGHT_DCP_DUMP=<folder>: keep our renders, to check the patch boxes by eye
+        if let Some(dir) = std::env::var_os("EVOLIGHT_DCP_DUMP") {
             s.execute("develop.set", &json!({"control": "light.exposure", "value": ev})).unwrap();
             let _ = std::fs::write(Path::new(&dir).join(format!("{name}.png")), export_photo(&mut s, id, &o, 1).unwrap().bytes);
         }

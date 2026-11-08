@@ -25,8 +25,8 @@ fn seed_param(p: &Value, cmd: &str, default: u64) -> Result<u64> {
 /// within one clock tick still differ (barring a 2^-53 collision). Kept below 2^53 so JSON
 /// clients that read numbers as doubles (web, MCP agents) get the same seed back.
 fn next_seed(prev: u64, now: &str) -> u64 {
-    let t = now.bytes().fold(0u64, |h, b| lightcraft_catalog::mix64(h ^ u64::from(b)));
-    (lightcraft_catalog::mix64(prev.wrapping_add(1)) ^ t) & (MAX_SEED - 1)
+    let t = now.bytes().fold(0u64, |h, b| evolight_catalog::mix64(h ^ u64::from(b)));
+    (evolight_catalog::mix64(prev.wrapping_add(1)) ^ t) & (MAX_SEED - 1)
 }
 
 pub fn specs() -> Vec<CommandSpec> {
@@ -58,9 +58,9 @@ pub fn specs() -> Vec<CommandSpec> {
                         LibrarySource::Album(a)
                     }
                     "libraryFolder" => {
-                        let path = str_param(p, "path").filter(|d| !d.trim().is_empty() && !lightcraft_catalog::query::folder_key(d).is_empty());
+                        let path = str_param(p, "path").filter(|d| !d.trim().is_empty() && !evolight_catalog::query::folder_key(d).is_empty());
                         let path = path.ok_or_else(|| bad("library.source", "libraryFolder needs the `path` of a folder from library.folders"))?;
-                        if lightcraft_catalog::folders::is_startup_disk(path) {
+                        if evolight_catalog::folders::is_startup_disk(path) {
                             return Err(bad("library.source", "the startup disk's path covers every disk: choose a folder in it"));
                         }
                         let f = Filter { library_folder: Some(path.to_string()), ..Default::default() };
@@ -91,7 +91,7 @@ pub fn specs() -> Vec<CommandSpec> {
             always,
             |s, p| {
                 let mut v = serde_json::to_value(&s.filter).unwrap_or_default();
-                lightcraft_develop::presets::deep_merge(&mut v, p);
+                evolight_develop::presets::deep_merge(&mut v, p);
                 let f: Filter = serde_json::from_value(v).map_err(|e| bad("library.filter", e.to_string()))?;
                 let mut f = f;
                 // a blank folder is no folder: no hidden "filters active" state
@@ -133,13 +133,13 @@ pub fn specs() -> Vec<CommandSpec> {
             |s, p| {
                 const C: &str = "library.removeFolder";
                 let path = str_param(p, "path").filter(|d| !d.trim().is_empty()).ok_or_else(|| bad(C, "missing `path`"))?;
-                if lightcraft_catalog::query::folder_key(path).is_empty() {
+                if evolight_catalog::query::folder_key(path).is_empty() {
                     return Err(bad(C, format!("{path}: not a folder")));
                 }
-                if lightcraft_catalog::folders::is_startup_disk(path) {
+                if evolight_catalog::folders::is_startup_disk(path) {
                     return Err(bad(C, "choose a folder, not the whole startup disk"));
                 }
-                if lightcraft_catalog::folders::is_disk_root(path) && !bool_or(p, "disk", false) {
+                if evolight_catalog::folders::is_disk_root(path) && !bool_or(p, "disk", false) {
                     return Err(bad(C, format!("{path} is a whole disk or share: pass `disk: true` to remove everything on it")));
                 }
                 let f = Filter { library_folder: Some(path.to_string()), ..Default::default() };
@@ -151,12 +151,12 @@ pub fn specs() -> Vec<CommandSpec> {
                     return Err(bad(C, format!("{path} holds whole disks: pass `disk: true` to remove everything on them")));
                 }
                 mark_deleted(s, &ids, "Remove Folder from Library")?;
-                if s.filter.library_folder.as_deref().is_some_and(|c| lightcraft_catalog::query::folder_within(c, path)) {
+                if s.filter.library_folder.as_deref().is_some_and(|c| evolight_catalog::query::folder_within(c, path)) {
                     s.filter.library_folder = None;
                 }
                 // a filter put aside by Enable Filters must not bring the removed folder back
                 if let Some(f) = s.shelved_filter.as_mut()
-                    && f.library_folder.as_deref().is_some_and(|c| lightcraft_catalog::query::folder_within(c, path))
+                    && f.library_folder.as_deref().is_some_and(|c| evolight_catalog::query::folder_within(c, path))
                 {
                     f.library_folder = None;
                 }
@@ -164,7 +164,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     s.shelved_filter = None;
                 }
                 // the folder being shown is gone: back to everything, as for a deleted album
-                if s.library_folder.as_deref().is_some_and(|c| lightcraft_catalog::query::folder_within(c, path)) {
+                if s.library_folder.as_deref().is_some_and(|c| evolight_catalog::query::folder_within(c, path)) {
                     s.library_folder = None;
                     if s.source == LibrarySource::LibraryFolder {
                         s.source = LibrarySource::All;
@@ -647,7 +647,7 @@ pub fn specs() -> Vec<CommandSpec> {
                 }
                 let mut meta = s.catalog.photo(id).ok_or_else(|| bad(C, "no such photo"))?.meta.clone();
                 let region = meta.regions.get_mut(index).ok_or_else(|| bad(C, "no such region"))?;
-                region.rect = lightcraft_geom::Rect { x0, y0, x1, y1 };
+                region.rect = evolight_geom::Rect { x0, y0, x1, y1 };
                 s.commit("Resize Face Box", Op::SetMeta { id, meta: Box::new(meta) })?;
                 s.skip_auto_write = true;
                 Ok(json!({"rect": {"x0": x0, "y0": y0, "x1": x1, "y1": y1}}))
@@ -757,10 +757,10 @@ pub fn specs() -> Vec<CommandSpec> {
                         }
                     }
                     // keywords are stored cleaned (`a | b ` is `a|b`), each once whatever its case
-                    use lightcraft_catalog::keywords::clean;
+                    use evolight_catalog::keywords::clean;
                     // (a set of the lower-cased keywords keeps this linear however many are supplied)
                     let mut seen: std::collections::HashSet<String> = m.keywords.iter().map(|x| x.to_lowercase()).collect();
-                    let add = |m: &mut lightcraft_catalog::Meta, seen: &mut std::collections::HashSet<String>, k: &str| {
+                    let add = |m: &mut evolight_catalog::Meta, seen: &mut std::collections::HashSet<String>, k: &str| {
                         let k = clean(k);
                         if !k.is_empty() && seen.insert(k.to_lowercase()) {
                             m.keywords.push(k);
@@ -831,7 +831,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     return Err(bad("album.createSmart", "empty name"));
                 }
                 let rules = match p.get("rules") {
-                    Some(r) => merge_rules(&lightcraft_catalog::Filter::default(), r, "album.createSmart", &s.catalog, None)?,
+                    Some(r) => merge_rules(&evolight_catalog::Filter::default(), r, "album.createSmart", &s.catalog, None)?,
                     None => view_rules(s),
                 };
                 let parent = p.get("parent").and_then(Value::as_u64).map(AlbumId);
@@ -842,7 +842,7 @@ pub fn specs() -> Vec<CommandSpec> {
             }
         ),
         cmd!(query "album.ruleFields", "Smart Album Rule Fields", [], None, "{} → [{field, label, kind (text|keywords|number|date|choice|bool|album: an album id), group (field-menu submenu, null at the top level), ops: [{op, label}], choices? (ids), choiceLabels? ({id: label})}] for ruleSet rules, in menu order", always, |_, _| {
-            use lightcraft_catalog::rules::{FIELDS, Kind, field_group, ops_for};
+            use evolight_catalog::rules::{FIELDS, Kind, field_group, ops_for};
             Ok(json!(FIELDS
                 .iter()
                 .map(|(id, label, kind)| {
@@ -885,7 +885,7 @@ pub fn specs() -> Vec<CommandSpec> {
                         .unwrap_or_default()
                         .into_iter()
                         .chain(s.catalog.album_filter_problem(&view, Some(id)))
-                        .filter(|p| p.issue == lightcraft_catalog::rules::Issue::AlbumLoop)
+                        .filter(|p| p.issue == evolight_catalog::rules::Issue::AlbumLoop)
                         .map(|p| p.to_string())
                         .collect();
                     if !loops.is_empty() {
@@ -1207,7 +1207,7 @@ pub fn specs() -> Vec<CommandSpec> {
                     .catalog
                     .photos()
                     .filter_map(|p| match &p.source {
-                        lightcraft_catalog::Source::File { path } => Some(path.clone()),
+                        evolight_catalog::Source::File { path } => Some(path.clone()),
                         _ => None,
                     })
                     .collect();

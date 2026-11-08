@@ -4,9 +4,9 @@
 
 use std::path::PathBuf;
 
-use lightcraft_catalog::{Op, PhotoId};
-use lightcraft_geom::Rect;
-use lightcraft_meta::{Region, RegionKind};
+use evolight_catalog::{Op, PhotoId};
+use evolight_geom::Rect;
+use evolight_meta::{Region, RegionKind};
 use serde_json::{Value, json};
 
 use crate::Session;
@@ -37,7 +37,7 @@ pub(crate) fn setup(d: &std::path::Path, dim: u64) -> (Session, String) {
     s.face_models_dir = Some(d.join("models"));
     keep_on_cpu(&mut s);
     let model = d.join(format!("tiny{dim}.onnx"));
-    std::fs::write(&model, lightcraft_faces::synthetic::tiny_embedder_model(dim)).unwrap();
+    std::fs::write(&model, evolight_faces::synthetic::tiny_embedder_model(dim)).unwrap();
     let r = s.execute("faces.models.install", &json!({"path": model.to_string_lossy(), "acknowledged": true})).unwrap();
     let id = r["installed"]["id"].as_str().unwrap().to_string();
     s.execute("faces.models.select", &json!({"id": id})).unwrap();
@@ -54,7 +54,7 @@ fn fresh_library(d: &std::path::Path, dim: u64) -> (Session, PathBuf) {
     keep_on_cpu(&mut s);
     s.open_library(&lib, false).unwrap();
     let model = d.join(format!("tiny{dim}.onnx"));
-    std::fs::write(&model, lightcraft_faces::synthetic::tiny_embedder_model(dim)).unwrap();
+    std::fs::write(&model, evolight_faces::synthetic::tiny_embedder_model(dim)).unwrap();
     s.execute("faces.models.install", &json!({"path": model.to_string_lossy(), "acknowledged": true})).unwrap();
     (s, lib)
 }
@@ -65,8 +65,8 @@ fn write_photo(path: &std::path::Path, seed: u8) {
     let data: Vec<[u8; 4]> = (0..w * h)
         .map(|i| [((i % w * 3 + seed as usize * 17) % 256) as u8, ((i / w * 5 + seed as usize * 29) % 256) as u8, seed.wrapping_mul(41), 255])
         .collect();
-    let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
-    let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: w, height: h, data };
+    let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
 }
@@ -89,7 +89,7 @@ fn import_three_photos(s: &mut Session, d: &std::path::Path) -> (PhotoId, PhotoI
 /// committed) and says whether it did: the parts of a test that need to find faces run only then.
 pub(crate) fn install_yunet(s: &mut Session) -> bool {
     let Some(file) = std::env::var_os("LC_YUNET_MODEL") else {
-        lightcraft_testkit::skip!(Model, "LC_YUNET_MODEL is not set, so the face-finding part is not checked");
+        evolight_testkit::skip!(Model, "LC_YUNET_MODEL is not set, so the face-finding part is not checked");
         return false;
     };
     let r = s.execute("faces.models.install", &json!({"path": file.to_string_lossy(), "acknowledged": true}));
@@ -237,7 +237,7 @@ fn embeddings_are_cached_beside_the_library_and_reset_for_another_model() {
     let models = d.join("models");
     let install = |s: &mut Session, dim: u64| -> String {
         let model = d.join(format!("tiny{dim}.onnx"));
-        std::fs::write(&model, lightcraft_faces::synthetic::tiny_embedder_model(dim)).unwrap();
+        std::fs::write(&model, evolight_faces::synthetic::tiny_embedder_model(dim)).unwrap();
         let r = s.execute("faces.models.install", &json!({"path": model.to_string_lossy(), "acknowledged": true})).unwrap();
         let id = r["installed"]["id"].as_str().unwrap().to_string();
         s.execute("faces.models.select", &json!({"id": id})).unwrap();
@@ -488,7 +488,7 @@ fn unnamed_faces_come_with_look_alikes_together_and_the_name_the_named_ones_sugg
     set_regions(&mut s, b, vec![region(0.1, None), region(0.5, None)]);
     set_regions(&mut s, c, vec![region(0.3, None)]);
     // three faces like Ann, two like Bob (unnamed), one unembedded
-    let put = |s: &mut Session, id: lightcraft_catalog::PhotoId, x: f64, v: Vec<f32>| s.faces.index.insert(id.0, &region(x, None).rect, v);
+    let put = |s: &mut Session, id: evolight_catalog::PhotoId, x: f64, v: Vec<f32>| s.faces.index.insert(id.0, &region(x, None).rect, v);
     put(&mut s, a, 0.1, unit64(&[(0, 1.0)])); // Ann, named
     put(&mut s, a, 0.5, unit64(&[(1, 1.0)])); // like Bob
     put(&mut s, b, 0.1, unit64(&[(0, 0.97), (2, 0.2)])); // like Ann
@@ -533,8 +533,8 @@ fn every_scanned_face_is_shown_by_the_same_kind_of_box() {
     s.execute("faces.index", &json!({"budgetMs": 0})).unwrap();
     let (a, _) = two_photos(&s);
     // a loosely drawn box (from some other tool) and the detector's tighter box of the same face
-    let loose = lightcraft_geom::Rect { x0: 0.2, y0: 0.1, x1: 0.8, y1: 0.9 };
-    let tight = lightcraft_geom::Rect { x0: 0.35, y0: 0.25, x1: 0.65, y1: 0.65 };
+    let loose = evolight_geom::Rect { x0: 0.2, y0: 0.1, x1: 0.8, y1: 0.9 };
+    let tight = evolight_geom::Rect { x0: 0.35, y0: 0.25, x1: 0.65, y1: 0.65 };
     let mut meta = s.catalog.photo(a).unwrap().meta.clone();
     meta.regions = vec![Region { rect: loose, kind: RegionKind::Face, name: Some("Ann".into()), description: None }];
     s.commit("setup", Op::SetMeta { id: a, meta: Box::new(meta) }).unwrap();
@@ -544,7 +544,7 @@ fn every_scanned_face_is_shown_by_the_same_kind_of_box() {
     let shown = s.face_view(a, loose);
     assert!((shown.x0 - tight.x0).abs() < 1e-3 && (shown.y1 - tight.y1).abs() < 1e-3, "shown by the detector's box once known: {shown:?}");
     // a face nobody has looked at, or in another photo, is shown by its own box
-    let other = lightcraft_geom::Rect { x0: 0.1, y0: 0.1, x1: 0.2, y1: 0.2 };
+    let other = evolight_geom::Rect { x0: 0.1, y0: 0.1, x1: 0.2, y1: 0.2 };
     assert_eq!(s.face_view(a, other), other);
     // the page of the person uses it too
     let r = s.execute("faces.person", &json!({"name": "Ann"})).unwrap();

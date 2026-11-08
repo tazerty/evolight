@@ -15,7 +15,7 @@
 use egui::RichText;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{GridBadges, HOT_PIXEL_LIMIT_DEFAULT, HOT_PIXEL_LIMITS, PREVIEW_LIMITS, StartupView};
 use crate::theme::Tokens;
 use crate::widgets::register;
@@ -63,7 +63,7 @@ const CACHE_SIZES: [u32; 8] = [512, 1024, 2048, 4096, 8192, 51_200, 204_800, 0];
 const LABEL_W: f32 = 150.0;
 
 /// The page of `tab` (the tab bar in [`window`] switches `tab`).
-pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, tab: &str) {
+pub fn body(app: &mut EvoLightApp, ui: &mut egui::Ui, tab: &str) {
     let t = Tokens::get(ui.ctx());
     match tab {
         "import" => import_tab(app, ui, &t),
@@ -103,7 +103,7 @@ const PREVIEW_CHROME: f32 = 82.0;
 /// up: a row's controls wrap ([`row`]) and paths are shortened ([`path_label`]).
 /// On Slideshow the slide preview is pinned between the tab bar and the page (where the room
 /// allows), and comes off that page's room.
-pub fn window(app: &mut LightcraftApp, ui: &mut egui::Ui, tab: &mut String, max_height: f32) {
+pub fn window(app: &mut EvoLightApp, ui: &mut egui::Ui, tab: &mut String, max_height: f32) {
     ui.set_width((ui.ctx().content_rect().width() - 64.0).clamp(240.0, PAGE_SIZE.x));
     let top = ui.cursor().top();
     // The page drawn is the one that was open when the frame began: a tab clicked now opens on

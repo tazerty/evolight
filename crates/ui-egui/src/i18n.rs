@@ -40,7 +40,7 @@ macro_rules! language_table {
             }
 
             /// The ISO 15924 script this language is written in (`"Latn"`, `"Jpan"`, `"Hans"`…):
-            /// the craft-fonts faces for it are the ones this language needs.
+            /// the evo-fonts faces for it are the ones this language needs.
             pub const fn script(self) -> &'static str {
                 match self { Self::$source => "Latn", $(Self::$variant => $script,)* }
             }
@@ -207,11 +207,11 @@ pub fn locale_from_tags(tags: &[String]) -> Option<Locale> {
     tags.iter().find_map(|tag| Locale::parse_tag(tag))
 }
 
-/// The UI language "Auto" resolves to: the environment's (`LIGHTCRAFT_LANGUAGE=zh-hans`, for
+/// The UI language "Auto" resolves to: the environment's (`EVOLIGHT_LANGUAGE=zh-hans`, for
 /// headless runs), or the host-installed default ([`set_default_language`], the browser's languages
 /// on the web), else English.
 pub fn default_language() -> Locale {
-    std::env::var("LIGHTCRAFT_LANGUAGE")
+    std::env::var("EVOLIGHT_LANGUAGE")
         .ok()
         .and_then(|value| Locale::parse_tag(&value))
         .or_else(|| DEFAULT_LANGUAGE.with(std::cell::Cell::get))
@@ -398,21 +398,21 @@ pub fn dropped_photos_unreadable(n: usize) -> String {
 /// (issue #260), in the UI language: the error and, when there is one, the log file to look in.
 pub fn startup_failed_message(error: &str, log_file: Option<&str>) -> (String, String) {
     let text = match log_file {
-        Some(path) => tr_format!("LightCraft could not open its window: {e}\n\nThe log file has the details: {path}", e = error, path = path),
-        None => tr_format!("LightCraft could not open its window: {e}", e = error),
+        Some(path) => tr_format!("EvoLight could not open its window: {e}\n\nThe log file has the details: {path}", e = error, path = path),
+        None => tr_format!("EvoLight could not open its window: {e}", e = error),
     };
-    (tr("LightCraft could not start").to_string(), text)
+    (tr("EvoLight could not start").to_string(), text)
 }
 
-/// The title and text of the message box shown when LightCraft stopped while its window was up
+/// The title and text of the message box shown when EvoLight stopped while its window was up
 /// (issue #1337: the window's renderer after the graphics driver reset the GPU), in the UI
 /// language: what happened and, when there is one, the log file to look in.
 pub fn stopped_message(error: &str, log_file: Option<&str>) -> (String, String) {
     let text = match log_file {
-        Some(path) => tr_format!("LightCraft stopped unexpectedly: {e}\n\nThe log file has the details: {path}", e = error, path = path),
-        None => tr_format!("LightCraft stopped unexpectedly: {e}", e = error),
+        Some(path) => tr_format!("EvoLight stopped unexpectedly: {e}\n\nThe log file has the details: {path}", e = error, path = path),
+        None => tr_format!("EvoLight stopped unexpectedly: {e}", e = error),
     };
-    (tr("LightCraft stopped").to_string(), text)
+    (tr("EvoLight stopped").to_string(), text)
 }
 
 /// Whether sentence case may upper-case `c`. Georgian has no case: upper-casing Mkhedruli would
@@ -440,12 +440,12 @@ pub fn builtin_label(source: &str, builtin: bool) -> &str {
 /// A profile's name for display: a built-in profile's is translated, an imported LUT's is shown as
 /// its file named it (it may happen to match a message, like "Vivid").
 pub fn profile_label<'a>(id: &str, name: &'a str) -> &'a str {
-    builtin_label(name, lightcraft_engine::presets::profile(id).is_some())
+    builtin_label(name, evolight_engine::presets::profile(id).is_some())
 }
 
 /// An Activity (history) step for display. The step's stored label stays English; generated steps
 /// are translated around the names they carry, and a user preset's name is kept verbatim.
-pub fn history_label(source: &str, presets: &[lightcraft_develop::Preset]) -> String {
+pub fn history_label(source: &str, presets: &[evolight_develop::Preset]) -> String {
     if let Some(name) = source.strip_prefix("Preset: ") {
         // A user preset may share a stock preset's name: then the step could be either, so it
         // keeps the name as written.
@@ -463,16 +463,16 @@ pub fn history_label(source: &str, presets: &[lightcraft_develop::Preset]) -> St
 
 /// A library source's heading (All Photos, Recently Deleted…) in the UI language; an album's
 /// name is the user's and stays verbatim.
-pub fn source_label(source: lightcraft_engine::LibrarySource, catalog: &lightcraft_catalog::Catalog) -> String {
+pub fn source_label(source: evolight_engine::LibrarySource, catalog: &evolight_catalog::Catalog) -> String {
     let label = source.label(catalog);
-    if matches!(source, lightcraft_engine::LibrarySource::Album(id) if catalog.album(id).is_some()) { label } else { tr(&label).to_string() }
+    if matches!(source, evolight_engine::LibrarySource::Album(id) if catalog.album(id).is_some()) { label } else { tr(&label).to_string() }
 }
 
 /// What the grid is titled for the session's source: [`source_label`], or a library folder's last
 /// two names (`photos/travel`; the folder's name is the user's and stays verbatim).
-pub fn source_title(session: &lightcraft_engine::Session) -> String {
+pub fn source_title(session: &evolight_engine::Session) -> String {
     match (session.source, session.library_folder.as_deref()) {
-        (lightcraft_engine::LibrarySource::LibraryFolder, Some(path)) => lightcraft_catalog::folders::folder_label(path),
+        (evolight_engine::LibrarySource::LibraryFolder, Some(path)) => evolight_catalog::folders::folder_label(path),
         (source, _) => source_label(source, &session.catalog),
     }
 }
@@ -482,7 +482,7 @@ pub fn source_title(session: &lightcraft_engine::Session) -> String {
 /// catalog's own wording; every other language formats it with its `*-formats.json` date
 /// patterns and weekday names. The grouping keys themselves never change.
 pub fn date_group_label(key: &str, short: bool) -> String {
-    let label = lightcraft_catalog::dates::group_label(key);
+    let label = evolight_catalog::dates::group_label(key);
     if language() == Locale::En {
         return if short {
             match key.len() {
@@ -507,7 +507,7 @@ pub fn date_group_label(key: &str, short: bool) -> String {
         return if short { tr_format!("{month}", month = month) } else { tr_format!("{month} {year}", month = month, year = year) };
     }
     if key.len() == 10
-        && let Some(weekday) = lightcraft_catalog::dates::weekday(key)
+        && let Some(weekday) = evolight_catalog::dates::weekday(key)
         && let Some(day) = key.get(8..10).and_then(|d| d.parse::<u32>().ok())
     {
         let weekday = tr(weekday);
@@ -523,8 +523,8 @@ pub fn date_group_label(key: &str, short: bool) -> String {
 /// A capture time for display in the UI language (English: "March 30, 2022 at 10:11:11 PM");
 /// the metadata itself is never rewritten, and a value that doesn't parse is shown as it is.
 pub fn display_time(iso: &str) -> String {
-    if language() == Locale::En || lightcraft_catalog::dates::normalize_iso(iso).is_none() {
-        return lightcraft_catalog::dates::display_time(iso);
+    if language() == Locale::En || evolight_catalog::dates::normalize_iso(iso).is_none() {
+        return evolight_catalog::dates::display_time(iso);
     }
     let date = date_group_label(iso.get(..10).unwrap_or(iso), false);
     match iso.get(11..).filter(|time| !time.is_empty()) {
@@ -534,16 +534,16 @@ pub fn display_time(iso: &str) -> String {
 }
 
 /// Built-in colour names are translated; custom label names are user data.
-pub fn color_label(catalog: &lightcraft_catalog::Catalog, label: lightcraft_catalog::ColorLabel) -> String {
+pub fn color_label(catalog: &evolight_catalog::Catalog, label: evolight_catalog::ColorLabel) -> String {
     catalog.custom_label_name(label).map_or_else(|| tr(&catalog.label_name(label)).to_string(), str::to_string)
 }
 
 /// A legacy smart-album filter summary, using the same display labels as filter chips.
-pub fn filter_label(filter: &lightcraft_catalog::Filter, catalog: &lightcraft_catalog::Catalog) -> String {
+pub fn filter_label(filter: &evolight_catalog::Filter, catalog: &evolight_catalog::Catalog) -> String {
     if language() == Locale::En {
         filter.describe_with(catalog)
     } else {
-        lightcraft_engine::filter_chips(filter, catalog)
+        evolight_engine::filter_chips(filter, catalog)
             .iter()
             .map(|chip| crate::panels::chips::display_label(chip, filter, catalog))
             .collect::<Vec<_>>()
@@ -553,27 +553,27 @@ pub fn filter_label(filter: &lightcraft_catalog::Filter, catalog: &lightcraft_ca
 
 /// What people read for a smart-album rule's problem, under its row: the field's name and the
 /// issue, in the current language ("Title: needs something to look for").
-pub fn problem_text(problem: &lightcraft_catalog::rules::Problem) -> String {
+pub fn problem_text(problem: &evolight_catalog::rules::Problem) -> String {
     problem_text_in(language(), problem)
 }
 
 /// [`problem_text`] with the rule's position first ("#2.1 Rating: …"), for lists away from the
 /// editor (the sidebar's tooltip).
-pub fn problem_line(problem: &lightcraft_catalog::rules::Problem) -> String {
+pub fn problem_line(problem: &evolight_catalog::rules::Problem) -> String {
     problem_line_in(language(), problem)
 }
 
-fn problem_text_in(language: Locale, problem: &lightcraft_catalog::rules::Problem) -> String {
+fn problem_text_in(language: Locale, problem: &evolight_catalog::rules::Problem) -> String {
     let issue = tr_in(language, problem.issue.text());
     // Japanese and Chinese catalogs join a label and its text with a full-width colon
     let colon = if matches!(language.script(), "Jpan" | "Hans" | "Hant") { "：" } else { ": " };
     match problem.field.as_deref() {
-        Some(field) => format!("{}{colon}{issue}", tr_in(language, lightcraft_catalog::rules::field_label(field).unwrap_or(field))),
+        Some(field) => format!("{}{colon}{issue}", tr_in(language, evolight_catalog::rules::field_label(field).unwrap_or(field))),
         None => issue.to_string(),
     }
 }
 
-fn problem_line_in(language: Locale, problem: &lightcraft_catalog::rules::Problem) -> String {
+fn problem_line_in(language: Locale, problem: &evolight_catalog::rules::Problem) -> String {
     let at: Vec<String> = problem.path.iter().map(|i| i.saturating_add(1).to_string()).collect();
     // a problem with the album filter around the rules has no rule to point at
     if at.is_empty() {
@@ -589,7 +589,7 @@ pub fn choice_text<'a>(field: &str, id: &'a str) -> &'a str {
 }
 
 fn choice_text_in<'a>(language: Locale, field: &str, id: &'a str) -> &'a str {
-    lightcraft_catalog::rules::choice_label(field, id).map_or(id, |label| tr_in(language, label))
+    evolight_catalog::rules::choice_label(field, id).map_or(id, |label| tr_in(language, label))
 }
 
 /// What people read for a smart-album yes/no value ("Ja" / "Nein" in German).
@@ -601,13 +601,13 @@ pub fn bool_text(b: bool) -> &'static str {
 const BOOL_CONTEXT: &str = "smart album value";
 
 fn bool_text_in(language: Locale, b: bool) -> &'static str {
-    tr_ctx_in(language, BOOL_CONTEXT, lightcraft_catalog::rules::bool_label(b))
+    tr_ctx_in(language, BOOL_CONTEXT, evolight_catalog::rules::bool_label(b))
 }
 
 /// A rule summary for display, keeping free-text rule values verbatim.
-pub fn rules_label(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_catalog::Catalog) -> String {
-    fn describe(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_catalog::Catalog, depth: usize) -> String {
-        use lightcraft_catalog::{
+pub fn rules_label(rules: &evolight_catalog::RuleSet, catalog: &evolight_catalog::Catalog) -> String {
+    fn describe(rules: &evolight_catalog::RuleSet, catalog: &evolight_catalog::Catalog, depth: usize) -> String {
+        use evolight_catalog::{
             Match, Rule,
             rules::{FIELDS, Kind, ops_for},
         };
@@ -624,9 +624,9 @@ pub fn rules_label(rules: &lightcraft_catalog::RuleSet, catalog: &lightcraft_cat
                     let operator = ops_for(*kind).iter().find(|entry| entry.0 == op).map_or(op.as_str(), |entry| entry.1);
                     let text = match kind {
                         // the album's name, as people know it (a user's name is never translated)
-                        Kind::Album => lightcraft_catalog::rules::album_name(value, Some(catalog)),
+                        Kind::Album => evolight_catalog::rules::album_name(value, Some(catalog)),
                         Kind::Choice(_) => value.as_str().map_or_else(|| value.to_string(), |id| choice_text(field, id).to_string()),
-                        Kind::Bool => lightcraft_catalog::rules::bool_value(value).map_or_else(|| value.to_string(), |b| bool_text(b).to_string()),
+                        Kind::Bool => evolight_catalog::rules::bool_value(value).map_or_else(|| value.to_string(), |b| bool_text(b).to_string()),
                         _ if matches!(op.as_str(), "inLast" | "notInLast") => format!(
                             "{} {}",
                             value.get("n").unwrap_or(&serde_json::Value::Null),

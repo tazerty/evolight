@@ -356,7 +356,7 @@ mod tests {
             assert_eq!(Preset::parse(spelling).map(|p| p.name), Some(name), "{spelling}");
         }
         assert!(Preset::parse("kodachrome").is_none() && Preset::parse("").is_none());
-        // A host shows a choice with a space exactly as written (PhotoCraft does), so the names
+        // A host shows a choice with a space exactly as written (EvoPhoto does), so the names
         // are the menu's text: capitalised words and numbers, distinct however they are spelled.
         for p in &PRESETS {
             assert!(p.name.starts_with(|c: char| c.is_ascii_uppercase()), "{}", p.name);

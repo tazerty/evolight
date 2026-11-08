@@ -49,8 +49,8 @@ pub struct RenderJob {
 
 /// `img` shrunk to fit `max_w × max_h` with a Lanczos filter (see [`RenderJob::display_fit`]).
 pub fn fit_for_display(img: &Rgba8, max_w: usize, max_h: usize) -> Rgba8 {
-    use lightcraft_raster::resample::{Filter, fit};
-    let f = lightcraft_raster::Image {
+    use evolight_raster::resample::{Filter, fit};
+    let f = evolight_raster::Image {
         width: img.width,
         height: img.height,
         data: img.data.iter().map(|p| [f32::from(p[0]), f32::from(p[1]), f32::from(p[2]), f32::from(p[3])]).collect(),
@@ -62,7 +62,7 @@ pub fn fit_for_display(img: &Rgba8, max_w: usize, max_h: usize) -> Rgba8 {
 
 /// A render left on the GPU for the window to draw ([`RenderResult::frame`]).
 #[cfg(not(target_arch = "wasm32"))]
-pub type ScreenFrame = lightcraft_gpu::DisplayFrame;
+pub type ScreenFrame = evolight_gpu::DisplayFrame;
 /// A render left on the GPU for the window to draw (never, in the browser build).
 #[cfg(target_arch = "wasm32")]
 #[derive(Clone, Debug)]
@@ -79,7 +79,7 @@ pub struct RenderResult {
     pub key: u64,
     pub rendered: Result<Rendered, String>,
     /// Set when this job's render was tried on the GPU and fell back to the CPU: why
-    /// ([`lightcraft_gpu::Fallback::Failed`]). The result is the CPU render either way.
+    /// ([`evolight_gpu::Fallback::Failed`]). The result is the CPU render either way.
     pub gpu_fallback: Option<String>,
     /// A source that was loaded by this job (to be inserted into the cache).
     pub loaded: Option<DecodedSource>,
@@ -113,24 +113,24 @@ impl RenderJob {
 
     /// Draw a diagnostic overlay over the result (e.g. Point Color's visualized range). Gets its
     /// own result key.
-    pub fn with_overlay(mut self, overlay: lightcraft_pipeline::Overlay) -> Self {
+    pub fn with_overlay(mut self, overlay: evolight_pipeline::Overlay) -> Self {
         if self.request.overlay != overlay {
             self.key ^= self.request.overlay.key().wrapping_mul(0x9e37_79b9_7f4a_7c15);
             self.request.overlay = overlay;
             self.key ^= overlay.key().wrapping_mul(0x9e37_79b9_7f4a_7c15);
         }
         // a diagnostic view (visualized range / spots) must never become the photo's cached preview
-        if overlay != lightcraft_pipeline::Overlay::None {
+        if overlay != evolight_pipeline::Overlay::None {
             self.view_cache = None;
         }
         self
     }
 
-    /// Soft-proof the result (see [`lightcraft_pipeline::Proof`]). Gets its own result key and is
+    /// Soft-proof the result (see [`evolight_pipeline::Proof`]). Gets its own result key and is
     /// never kept as the photo's cached preview.
-    pub fn with_proof(mut self, proof: Option<lightcraft_pipeline::Proof>) -> Self {
+    pub fn with_proof(mut self, proof: Option<evolight_pipeline::Proof>) -> Self {
         if self.request.proof != proof {
-            let k = |p: Option<lightcraft_pipeline::Proof>| p.map_or(0, |p| p.key()).wrapping_mul(0xc2b2_ae3d_27d4_eb4f);
+            let k = |p: Option<evolight_pipeline::Proof>| p.map_or(0, |p| p.key()).wrapping_mul(0xc2b2_ae3d_27d4_eb4f);
             self.key ^= k(self.request.proof) ^ k(proof);
             self.request.proof = proof;
         }
@@ -160,7 +160,7 @@ impl RenderJob {
         let g = &mut s.grading;
         for (off, wheel) in hidden.into_iter().zip([&mut g.shadows, &mut g.midtones, &mut g.highlights]) {
             if off {
-                *wheel = lightcraft_develop::Wheel::default();
+                *wheel = evolight_develop::Wheel::default();
             }
         }
         let bits = hidden.iter().enumerate().fold(0u64, |b, (i, h)| b | ((*h as u64) << i));
@@ -184,7 +184,7 @@ impl RenderJob {
     /// [`crate::display::present`] converts their sRGB results.
     pub fn with_display(mut self, display: Option<Arc<crate::display::Display>>) -> Self {
         // (a slide is composed in sRGB, backdrop colours included; the frontend presents it)
-        if self.cache.is_some() || self.slide.is_some() || self.request.depth != lightcraft_pipeline::OutputDepth::U8 {
+        if self.cache.is_some() || self.slide.is_some() || self.request.depth != evolight_pipeline::OutputDepth::U8 {
             return self;
         }
         let k = |d: &Option<Arc<crate::display::Display>>| d.as_ref().map_or(0, |d| d.id()).wrapping_mul(0xd6e8_feb8_6659_fd93);
@@ -249,7 +249,7 @@ impl RenderJob {
     pub fn cached_view(&self) -> Option<Rgba8> {
         let (cache, key) = self.view_cache.as_ref()?;
         if self.request.quality != Quality::Full
-            || self.request.depth != lightcraft_pipeline::OutputDepth::U8
+            || self.request.depth != evolight_pipeline::OutputDepth::U8
             || self.request.window.is_some()
             || self.settings.hdr.enabled
             || self.slide.is_some()
@@ -336,7 +336,7 @@ impl RenderJob {
         let was_loaded = matches!(self.source, SourceRef::Loaded(_));
         // The app is closing (issue #620): nobody is left to show this, and quitting waits for the
         // jobs that are running. Without this, one that lost the GPU mid-way would render on the CPU.
-        let closing = || lightcraft_gpu::shutting_down().then(|| "LightCraft is closing".to_string());
+        let closing = || evolight_gpu::shutting_down().then(|| "EvoLight is closing".to_string());
         let source = match closing() {
             Some(e) => Err(e),
             None => self.source.load_source().and_then(|s| closing().map_or(Ok(s), Err)),
@@ -351,7 +351,7 @@ impl RenderJob {
                 // use it once it is ready - ~20-30 % faster than the CPU at 256 px with six jobs
                 // side by side (`crates/gpu/tests/it/thumbs_bench.rs`), and the cores stay free for
                 // decoding - but never wait for it: at startup they render on the CPU.
-                let gpu = self.cache.is_none() || lightcraft_gpu::ready();
+                let gpu = self.cache.is_none() || evolight_gpu::ready();
                 // a clipping preview tests sRGB values, like the histogram: rendered in sRGB, then
                 // converted for the display below
                 let clip_view = self.request.overlay.is_clipping();
@@ -369,7 +369,7 @@ impl RenderJob {
                             level: self.level,
                             key: self.key,
                             rendered: Ok(Rendered {
-                                image: lightcraft_raster::Rgba8 { width: 0, height: 0, data: Vec::new() },
+                                image: evolight_raster::Rgba8 { width: 0, height: 0, data: Vec::new() },
                                 histogram,
                                 deep: None,
                             }),
@@ -389,7 +389,7 @@ impl RenderJob {
                 let display = match (&self.display, self.request.display) {
                     // a diagnostic view: the histogram stays the photo's (taken before the overlay
                     // was drawn), and nothing goes to the view cache
-                    (Some(d), Some(_)) if self.request.overlay != lightcraft_pipeline::Overlay::None => {
+                    (Some(d), Some(_)) if self.request.overlay != evolight_pipeline::Overlay::None => {
                         let converted = if clip_view { d.profile.from_srgb(&mut rendered.image) } else { d.profile.correct(&mut rendered.image) };
                         if let Err(e) = converted {
                             log::warn!("display profile: {e}");
@@ -500,16 +500,16 @@ fn shrink_rgba(img: &Rgba8, nw: usize, nh: usize) -> Rgba8 {
     Rgba8 { width: nw, height: nh, data }
 }
 
-/// Render `src`: on the GPU when `gpu` is set and a GPU is available (`lightcraft_gpu`), else on
+/// Render `src`: on the GPU when `gpu` is set and a GPU is available (`evolight_gpu`), else on
 /// the CPU, reusing `stages` either way. Both produce the same image within 1–3 LSB (see
-/// `docs/gpu-pipeline.md`); `LIGHTCRAFT_GPU=0` or [`lightcraft_gpu::set_enabled`] forces the CPU.
+/// `docs/gpu-pipeline.md`); `EVOLIGHT_GPU=0` or [`evolight_gpu::set_enabled`] forces the CPU.
 pub fn develop(src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest, stages: Option<&StageCache>, gpu: bool) -> Rendered {
     develop_reporting(src, info, s, req, stages, gpu).0
 }
 
 /// [`develop`], also saying why the render fell back from the GPU to the CPU when it did (`None`:
 /// it rendered on the GPU, or the GPU was not tried). The reason is this render's own, not the
-/// process-wide [`lightcraft_gpu::last_fallback`].
+/// process-wide [`evolight_gpu::last_fallback`].
 pub fn develop_reporting(
     src: &Arc<Rgb32f>,
     info: &SourceInfo,
@@ -520,7 +520,7 @@ pub fn develop_reporting(
 ) -> (Rendered, Option<String>) {
     let (mut rendered, fallback) = develop_image(src, info, s, req, stages, gpu);
     // an HDR edit's preview is its SDR rendition: its histogram shows the HDR range instead
-    if let Some(h) = lightcraft_pipeline::hdr_histogram(src, info, s, req) {
+    if let Some(h) = evolight_pipeline::hdr_histogram(src, info, s, req) {
         rendered.histogram = h;
     }
     (rendered, fallback)
@@ -536,17 +536,17 @@ fn develop_image(
 ) -> (Rendered, Option<String>) {
     // (LUT profiles, Refine Edges and soft proofs render on the GPU too)
     let fallback = if gpu {
-        match lightcraft_gpu::try_render(src, info, s, req, stages) {
+        match evolight_gpu::try_render(src, info, s, req, stages) {
             Ok(r) => return (r, None),
-            Err(lightcraft_gpu::Fallback::Failed(why)) => Some(why),
-            Err(lightcraft_gpu::Fallback::NotTried) => None,
+            Err(evolight_gpu::Fallback::Failed(why)) => Some(why),
+            Err(evolight_gpu::Fallback::NotTried) => None,
         }
     } else {
         None
     };
     let rendered = match stages {
-        Some(st) => lightcraft_pipeline::render_cached(src, info, s, req, st),
-        None => lightcraft_pipeline::render(src, info, s, req),
+        Some(st) => evolight_pipeline::render_cached(src, info, s, req, st),
+        None => evolight_pipeline::render(src, info, s, req),
     };
     (rendered, fallback)
 }
@@ -564,13 +564,13 @@ enum OnScreen {
 /// renderer can hand one over, else the pixels.
 fn develop_on_screen(src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest, stages: Option<&StageCache>) -> OnScreen {
     #[cfg(not(target_arch = "wasm32"))]
-    match lightcraft_gpu::render_display(src, info, s, req, stages) {
+    match evolight_gpu::render_display(src, info, s, req, stages) {
         // an HDR edit's histogram shows the HDR range, as `develop_reporting` gives it
-        Some(lightcraft_gpu::Output::Display { frame, histogram }) => {
-            OnScreen::Frame(frame, lightcraft_pipeline::hdr_histogram(src, info, s, req).unwrap_or(histogram))
+        Some(evolight_gpu::Output::Display { frame, histogram }) => {
+            OnScreen::Frame(frame, evolight_pipeline::hdr_histogram(src, info, s, req).unwrap_or(histogram))
         }
-        Some(lightcraft_gpu::Output::Image(mut r)) => {
-            if let Some(h) = lightcraft_pipeline::hdr_histogram(src, info, s, req) {
+        Some(evolight_gpu::Output::Image(mut r)) => {
+            if let Some(h) = evolight_pipeline::hdr_histogram(src, info, s, req) {
                 r.histogram = h;
             }
             OnScreen::Pixels(r)

@@ -59,7 +59,7 @@ fn edits_survive_restart_without_close() {
 fn threshold_compaction_runs_in_the_background() {
     let dir = temp_dir("bg-compact");
     let mut s = open(&dir, true);
-    s.library.as_mut().unwrap().journal_mut().policy = lightcraft_catalog::SnapshotPolicy { max_records: 8, max_bytes: u64::MAX };
+    s.library.as_mut().unwrap().journal_mut().policy = evolight_catalog::SnapshotPolicy { max_records: 8, max_bytes: u64::MAX };
     let ids: Vec<_> = s.catalog.photos().map(|p| p.id).collect();
     let mut background = 0;
     for k in 0..60usize {
@@ -70,7 +70,7 @@ fn threshold_compaction_runs_in_the_background() {
         }
         if k == 30 {
             // a crash while a compaction may be in flight (once the log's thread has written what it
-            // was handed: a process that crashes in LightCraft's code keeps running it)
+            // was handed: a process that crashes in EvoLight's code keeps running it)
             s.library.as_mut().unwrap().journal_mut().flush().unwrap();
             let expect = s.catalog.to_snapshot();
             let copy = temp_dir("bg-compact-crash");
@@ -219,16 +219,16 @@ fn the_shown_library_folder_survives_reopen() {
     let dir = temp_dir("libfolder");
     let mut s = open(&dir, true);
     let id = s.catalog.alloc_photo_id();
-    let p = lightcraft_catalog::Photo::new(
+    let p = evolight_catalog::Photo::new(
         id,
-        lightcraft_catalog::Source::File { path: "/pics/trip/a.jpg".into() },
+        evolight_catalog::Source::File { path: "/pics/trip/a.jpg".into() },
         "a.jpg",
         "JPEG",
         60,
         40,
         "2026-01-01T10:00:00",
     );
-    s.commit("Add", lightcraft_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
+    s.commit("Add", evolight_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
     s.execute("library.source", &json!({"kind": "libraryFolder", "path": "/pics/trip"})).unwrap();
     s.save_view();
     drop(s);
@@ -300,8 +300,8 @@ fn smart_album_rule_sets() {
             ]}}}),
         )
         .unwrap();
-    let id = lightcraft_catalog::AlbumId(r["id"].as_u64().unwrap());
-    let want = s.catalog.photos().filter(|p| !p.deleted && p.rating >= 4 && p.flag != lightcraft_catalog::Flag::Reject).count();
+    let id = evolight_catalog::AlbumId(r["id"].as_u64().unwrap());
+    let want = s.catalog.photos().filter(|p| !p.deleted && p.rating >= 4 && p.flag != evolight_catalog::Flag::Reject).count();
     assert!(want > 0);
     assert_eq!(s.catalog.album_count(id), want);
     // live: a new 5-star photo joins
@@ -320,7 +320,7 @@ fn smart_album_rule_sets() {
 /// single label) AND, and the chip says what they let through, not their union.
 #[test]
 fn filter_label_and_labels_together_chip() {
-    use lightcraft_catalog::ColorLabel;
+    use evolight_catalog::ColorLabel;
     let mut s = crate::Session::with_demo();
     let ids: Vec<u64> = s.catalog.photos().take(3).map(|p| p.id.0).collect();
     for (id, l) in ids.iter().zip(["red", "yellow", "green"]) {
@@ -342,7 +342,7 @@ fn filter_label_and_labels_together_chip() {
 /// The filter bar's label multi-select: any of the chosen labels.
 #[test]
 fn filter_any_of_several_labels() {
-    use lightcraft_catalog::ColorLabel;
+    use evolight_catalog::ColorLabel;
     let mut s = crate::Session::with_demo();
     let ids: Vec<u64> = s.catalog.photos().take(3).map(|p| p.id.0).collect();
     for (id, l) in ids.iter().zip(["red", "yellow", "green"]) {
@@ -363,7 +363,7 @@ fn filter_any_of_several_labels() {
 /// as Lightroom Classic's flag toggles do; one chip clears both, and the old single `flag` still filters.
 #[test]
 fn filter_any_of_several_flags() {
-    use lightcraft_catalog::Flag;
+    use evolight_catalog::Flag;
     let mut s = crate::Session::with_demo();
     let ids: Vec<u64> = s.catalog.photos().take(4).map(|p| p.id.0).collect();
     for (id, f) in ids.iter().zip(["pick", "pick", "reject", "none"]) {
@@ -397,7 +397,7 @@ fn filter_any_of_several_flags() {
 /// they let through, not their union.
 #[test]
 fn filter_flag_and_flags_together_chip() {
-    use lightcraft_catalog::Flag;
+    use evolight_catalog::Flag;
     let mut s = crate::Session::with_demo();
     let ids: Vec<u64> = s.catalog.photos().take(3).map(|p| p.id.0).collect();
     for (id, f) in ids.iter().zip(["pick", "reject", "none"]) {
@@ -433,7 +433,7 @@ fn quick_collection_and_target_album() {
     let alb = s.execute("album.create", &serde_json::json!({"name": "Picks"})).unwrap()["id"].as_u64().unwrap();
     s.execute("album.setTarget", &serde_json::json!({"id": alb})).unwrap();
     s.execute("album.toggleTarget", &serde_json::json!({"ids": [ids[2]]})).unwrap();
-    assert_eq!(s.catalog.album_count(lightcraft_catalog::AlbumId(alb)), 1);
+    assert_eq!(s.catalog.album_count(evolight_catalog::AlbumId(alb)), 1);
     assert_eq!(s.catalog.album_count(quick), 2, "the Quick Collection is untouched");
     let smart = s.execute("album.createSmart", &serde_json::json!({"name": "S", "rules": {"rating": 3}})).unwrap()["id"].as_u64().unwrap();
     assert!(s.execute("album.setTarget", &serde_json::json!({"id": smart})).is_err());
@@ -442,12 +442,12 @@ fn quick_collection_and_target_album() {
     assert_eq!(s.catalog.album_count(quick), 0);
 }
 
-/// Scaling check (ignored: `cargo test --release -p lightcraft-engine -- --ignored scale --nocapture`):
+/// Scaling check (ignored: `cargo test --release -p evolight-engine -- --ignored scale --nocapture`):
 /// the per-frame / per-click library queries on a 100k-photo catalog.
 #[test]
 #[ignore]
 fn scale_100k_library_queries() {
-    use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+    use evolight_catalog::{Op, Photo, PhotoId, Source};
     use std::time::Instant;
     let mut s = crate::Session::new();
     let n = 100_000u64;
@@ -506,7 +506,7 @@ fn scale_100k_library_queries() {
     });
     let alb = s.execute("album.createSmart", &serde_json::json!({"name": "S", "rules": {"rating": 5}})).unwrap()["id"].as_u64().unwrap();
     m("smart album count", &mut || {
-        let _ = s.catalog.album_count(lightcraft_catalog::AlbumId(alb));
+        let _ = s.catalog.album_count(evolight_catalog::AlbumId(alb));
     });
     m("albums.list", &mut || {
         let _ = s.execute("albums.list", &serde_json::json!({})).unwrap();
@@ -605,7 +605,7 @@ fn capture_time_shift_counts_photos_whose_time_does_not_read() {
     let ids: Vec<_> = s.catalog.photos().take(2).map(|p| p.id).collect();
     let (good, bad) = (ids[0], ids[1]);
     for (id, t) in [(good, "2026-01-01T10:00:00"), (bad, "2026-01-01T10:00:00 and more")] {
-        s.catalog.apply(lightcraft_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
     }
     let r = s.execute("photo.setCaptureTime", &serde_json::json!({"ids": [good.0, bad.0], "hours": 1})).unwrap();
     assert_eq!(r["unreadable"], 1, "the unreadable photo is counted: {r}");
@@ -633,7 +633,7 @@ fn capture_time_set_refuses_an_active_photo_whose_time_does_not_read() {
     let (bad, other) = (ids[0], ids[1]);
     let broken = "2026-01-01T10:00:00 and more";
     for (id, t) in [(bad, broken), (other, "2026-01-01T12:00:00")] {
-        s.catalog.apply(lightcraft_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::SetCaptured { id, captured: Some(t.into()) }).unwrap();
     }
     s.execute("library.select", &serde_json::json!({"ids": [bad.0, other.0], "active": bad.0})).unwrap();
     assert_eq!(s.active(), Some(bad));
@@ -645,7 +645,7 @@ fn capture_time_set_refuses_an_active_photo_whose_time_does_not_read() {
     let r = s.execute("photo.setCaptureTime", &serde_json::json!({"ids": [bad.0], "time": "2026-01-01T11:00:00"})).unwrap();
     assert_eq!((r["changed"].as_u64(), r["unreadable"].as_u64()), (Some(1), Some(0)), "{r}");
     assert_eq!(captured(&s, bad).as_deref(), Some("2026-01-01T11:00:00"), "alone, it gets the time");
-    s.catalog.apply(lightcraft_catalog::Op::SetCaptured { id: bad, captured: Some(broken.into()) }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetCaptured { id: bad, captured: Some(broken.into()) }).unwrap();
     let r = s.execute("photo.setCaptureTime", &serde_json::json!({"ids": [bad.0, other.0], "time": "2026-01-01T11:00:00", "each": true})).unwrap();
     assert_eq!((r["changed"].as_u64(), r["unreadable"].as_u64()), (Some(2), Some(0)), "{r}");
     assert_eq!(captured(&s, bad).as_deref(), Some("2026-01-01T11:00:00"), "each repairs it");
@@ -677,10 +677,10 @@ fn smart_rule_values_are_checked_by_commands() {
 /// still be edited: its rule is read as the "isn't" it always meant.
 #[test]
 fn old_album_operator_rules_stay_editable() {
-    use lightcraft_catalog::{Album, AlbumId, Op};
+    use evolight_catalog::{Album, AlbumId, Op};
     let mut s = crate::Session::with_demo();
     let trip = s.execute("album.create", &serde_json::json!({"name": "Trip", "addSelected": false})).unwrap()["id"].as_u64().unwrap();
-    let rules: lightcraft_catalog::Filter =
+    let rules: evolight_catalog::Filter =
         serde_json::from_value(serde_json::json!({"ruleSet": {"rules": [{"field": "album", "op": "gte", "value": trip}]}})).unwrap();
     let id = s.catalog.alloc_album_id();
     s.catalog.apply(Op::AddAlbum { album: Album { smart: Some(Box::new(rules)), ..Album::new(id, "Old") } }).unwrap();
@@ -695,7 +695,7 @@ fn old_album_operator_rules_stay_editable() {
 fn set_rules_with_a_name_is_one_step() {
     let mut s = crate::Session::with_demo();
     let id = s.execute("album.createSmart", &serde_json::json!({"name": "Old", "rules": {"rating": 3}})).unwrap()["id"].as_u64().unwrap();
-    let album = |s: &crate::Session| s.catalog.album(lightcraft_catalog::AlbumId(id)).unwrap().clone();
+    let album = |s: &crate::Session| s.catalog.album(evolight_catalog::AlbumId(id)).unwrap().clone();
     let good = serde_json::json!({"ruleSet": {"rules": [{"field": "rating", "op": "gte", "value": 4}]}});
     let bad = serde_json::json!({"ruleSet": {"rules": [{"field": "captureDate", "op": "is", "value": "banana"}]}});
     // refused rules: the name stays too
@@ -717,7 +717,7 @@ fn set_rules_with_a_name_is_one_step() {
 /// album stays limited to that album after OK, until a call says `album: null`.
 #[test]
 fn editing_a_smart_album_made_from_an_album_view_keeps_the_album() {
-    use lightcraft_catalog::AlbumId;
+    use evolight_catalog::AlbumId;
     let mut s = crate::Session::with_demo();
     let trip = s.execute("album.create", &serde_json::json!({"name": "Trip", "addSelected": false})).unwrap()["id"].as_u64().unwrap();
     let all = s.catalog.photos().map(|p| p.id.0).collect::<Vec<_>>();
@@ -771,18 +771,18 @@ fn smart_album_excluding_a_smart_album() {
         .unwrap()["id"]
         .as_u64()
         .unwrap();
-    let count = |s: &crate::Session| s.catalog.album_count(lightcraft_catalog::AlbumId(travel));
+    let count = |s: &crate::Session| s.catalog.album_count(evolight_catalog::AlbumId(travel));
     let want = |s: &crate::Session| {
         s.catalog
             .photos()
             .filter(|p| !p.deleted && p.meta.keywords.iter().any(|k| k.to_lowercase().contains(&keyword.to_lowercase())))
-            .filter(|p| p.label != Some(lightcraft_catalog::ColorLabel::Red) && p.flag != lightcraft_catalog::Flag::Reject)
+            .filter(|p| p.label != Some(evolight_catalog::ColorLabel::Red) && p.flag != evolight_catalog::Flag::Reject)
             .count()
     };
     assert_eq!(count(&s), want(&s));
     // reject one of Travel's photos: it leaves Travel
     let before = count(&s);
-    let id = s.catalog.photos().find(|p| s.catalog.album_contains(lightcraft_catalog::AlbumId(travel), p)).map(|p| p.id).expect("a travel photo");
+    let id = s.catalog.photos().find(|p| s.catalog.album_contains(evolight_catalog::AlbumId(travel), p)).map(|p| p.id).expect("a travel photo");
     s.execute("photo.flag", &serde_json::json!({"ids": [id.0], "flag": "reject"})).unwrap();
     assert_eq!(count(&s), before - 1);
     // Excluded Photos testing Travel back would include itself
@@ -806,11 +806,11 @@ fn rules_from_the_view_cant_loop() {
     let rules = serde_json::json!({"ruleSet": {"rules": [{"field": "album", "op": "isNot", "value": b}]}});
     let a = s.execute("album.createSmart", &serde_json::json!({"name": "A", "rules": rules})).unwrap()["id"].as_u64().unwrap();
     s.execute("library.source", &serde_json::json!({"kind": "album", "id": a})).unwrap();
-    let before = s.catalog.album(lightcraft_catalog::AlbumId(b)).unwrap().smart.clone();
+    let before = s.catalog.album(evolight_catalog::AlbumId(b)).unwrap().smart.clone();
     let r = s.execute("album.setRules", &serde_json::json!({"id": b, "fromView": true}));
     assert!(r.is_err_and(|e| e.to_string().contains("would make this album include itself")), "refused");
-    assert_eq!(s.catalog.album(lightcraft_catalog::AlbumId(b)).unwrap().smart, before, "B unchanged");
-    assert!(s.catalog.smart_album_problems(lightcraft_catalog::AlbumId(b)).is_empty());
+    assert_eq!(s.catalog.album(evolight_catalog::AlbumId(b)).unwrap().smart, before, "B unchanged");
+    assert!(s.catalog.smart_album_problems(evolight_catalog::AlbumId(b)).is_empty());
 }
 
 /// A rule that stops checking later (the album it tests is deleted) doesn't lock up what doesn't
@@ -843,7 +843,7 @@ fn an_album_filter_loop_is_refused() {
     let a = s.execute("album.createSmart", &serde_json::json!({"name": "A", "rules": {"rating": 2}})).unwrap()["id"].as_u64().unwrap();
     let r = s.execute("album.setRules", &serde_json::json!({"id": a, "rules": {"album": a}}));
     assert!(r.is_err_and(|e| e.to_string().contains("include itself")), "refused");
-    assert_eq!(s.catalog.album(lightcraft_catalog::AlbumId(a)).unwrap().smart.as_ref().and_then(|f| f.album), None);
+    assert_eq!(s.catalog.album(evolight_catalog::AlbumId(a)).unwrap().smart.as_ref().and_then(|f| f.album), None);
 }
 
 /// Given a library whose thumbnail cache is from before (`.jpg` files in `thumbs`), when it is
@@ -861,9 +861,9 @@ fn a_thumbnail_cache_from_before_is_tidied_in_the_background_when_the_library_op
     // the cache as an older build left it
     let thumbs = dir.join("thumbs");
     let _ = std::fs::remove_dir_all(&thumbs);
-    let img = lightcraft_raster::Rgba8 { width: 32, height: 20, data: vec![[90, 120, 150, 255]; 640] };
-    let jpeg = lightcraft_preview::encode_jpeg(&img).unwrap();
-    let names: Vec<String> = (0..2000u16).map(|i| lightcraft_preview::hash_bytes(&i.to_le_bytes()).to_string()).collect();
+    let img = evolight_raster::Rgba8 { width: 32, height: 20, data: vec![[90, 120, 150, 255]; 640] };
+    let jpeg = evolight_preview::encode_jpeg(&img).unwrap();
+    let names: Vec<String> = (0..2000u16).map(|i| evolight_preview::hash_bytes(&i.to_le_bytes()).to_string()).collect();
     for hex in &names {
         std::fs::create_dir_all(thumbs.join(&hex[..2])).unwrap();
         std::fs::write(thumbs.join(&hex[..2]).join(format!("{hex}.jpg")), &jpeg).unwrap();

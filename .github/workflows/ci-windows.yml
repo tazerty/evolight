@@ -27,17 +27,17 @@ concurrency:
 jobs:
   windows-scope:
     if: github.event.action != 'labeled' || github.event.label.name == 'full-ci'
-    uses: storytold/craft-common-actions/.github/workflows/changed-paths.yml@main
+    uses: amont/evo-common-actions/.github/workflows/changed-paths.yml@main
     with:
       label: full-ci
       # The crates and files with `cfg(windows)` code, and what decides how they build: their
       # manifests and the lockfile (a dependency bump can break only Windows).
       paths: |
         .github/workflows/ci-windows.yml
-        apps/lightcraft/*
-        apps/lightcraft-cli/src/bench_cull.rs
-        apps/lightcraft-cli/tests/it/cli.rs
-        apps/lightcraft-cli/Cargo.toml
+        apps/evolight/*
+        apps/evolight-cli/src/bench_cull.rs
+        apps/evolight-cli/tests/it/cli.rs
+        apps/evolight-cli/Cargo.toml
         crates/wincolor/*
         crates/ui-egui/src/theme.rs
         crates/ui-egui/src/panels/left/local.rs
@@ -64,15 +64,15 @@ jobs:
     needs: windows-scope
     if: needs.windows-scope.outputs.matched == 'true'
     # Tracks @main so suite-wide CI fixes reach every app without a PR in each repository.
-    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+    uses: amont/evo-common-actions/.github/workflows/gate.yml@main
     with:
       os: '["windows-latest"]'
-      # Same craft-fonts commit as ci.yml and release.yml.
-      craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
+      # Same evo-fonts commit as ci.yml and release.yml.
+      evo-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
       targets: ""
       tools: ""
       timeout-minutes: 90
       windows-command: |
-        pkgs=(-p lightcraft-wincolor -p lightcraft-catalog -p lightcraft-engine -p lightcraft-ui-egui -p lightcraft -p lightcraft-cli)
+        pkgs=(-p evolight-wincolor -p evolight-catalog -p evolight-engine -p evolight-ui-egui -p evolight -p evolight-cli)
         cargo clippy "${pkgs[@]}" --all-targets --keep-going -- -D warnings
         cargo test "${pkgs[@]}" --lib --bins --tests --no-fail-fast

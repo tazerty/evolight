@@ -10,7 +10,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use lightcraft_catalog::{Op, PhotoId, Source};
+use evolight_catalog::{Op, PhotoId, Source};
 use serde_json::{Value, json};
 
 use crate::media::{FileProbe, ProbeInfo};

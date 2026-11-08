@@ -2,33 +2,33 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::Op;
+use evolight_catalog::Op;
 use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 fn demo() -> Headless {
     let services = Services { png: None, write_shared: Some(std::sync::Arc::new(|_: &str, _: &[u8]| Ok(()))), ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = Headless::new(app, [1400.0, 900.0], 1.0);
     h.settle(T);
     h
 }
 
-fn face(x: f64, name: &str) -> lightcraft_meta::Region {
-    lightcraft_meta::Region {
-        rect: lightcraft_geom::Rect { x0: x, y0: 0.2, x1: x + 0.25, y1: 0.6 },
-        kind: lightcraft_meta::RegionKind::Face,
+fn face(x: f64, name: &str) -> evolight_meta::Region {
+    evolight_meta::Region {
+        rect: evolight_geom::Rect { x0: x, y0: 0.2, x1: x + 0.25, y1: 0.6 },
+        kind: evolight_meta::RegionKind::Face,
         name: Some(name.to_string()),
         description: None,
     }
 }
 
-fn name_faces(h: &mut Headless, id: lightcraft_catalog::PhotoId, regions: Vec<lightcraft_meta::Region>) {
+fn name_faces(h: &mut Headless, id: evolight_catalog::PhotoId, regions: Vec<evolight_meta::Region>) {
     let mut meta = h.app.session.catalog.photo(id).unwrap().meta.clone();
     meta.regions = regions;
     h.app.session.commit("setup", Op::SetMeta { id, meta: Box::new(meta) }).unwrap();
@@ -60,7 +60,7 @@ fn open_people(h: &mut Headless) {
     h.step();
 }
 
-fn stored(h: &Headless, id: lightcraft_catalog::PhotoId) -> Vec<Option<String>> {
+fn stored(h: &Headless, id: evolight_catalog::PhotoId) -> Vec<Option<String>> {
     h.app.session.catalog.photo(id).unwrap().meta.regions.iter().map(|r| r.name.clone()).collect()
 }
 

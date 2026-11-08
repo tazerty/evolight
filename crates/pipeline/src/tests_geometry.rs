@@ -1,9 +1,9 @@
 //! Geometry / optics tests on synthetic images with known distortions.
 
-use lightcraft_develop::{DevelopSettings, EmbeddedLens, EmbeddedVignette, EmbeddedWarp};
-use lightcraft_geom::Point;
-use lightcraft_raster::resample::{Filter, resize};
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_develop::{DevelopSettings, EmbeddedLens, EmbeddedVignette, EmbeddedWarp};
+use evolight_geom::Point;
+use evolight_raster::resample::{Filter, resize};
+use evolight_raster::{Rgb32f, Rgba8};
 
 use crate::{RenderRequest, SourceInfo, render};
 
@@ -188,7 +188,7 @@ fn mean_abs_diff_downscaled(small: &Rgba8, big: &Rgba8) -> f32 {
 
 #[test]
 fn optics_preview_matches_export() {
-    let src = lightcraft_scenes::demo_library()[2].render(960, 640);
+    let src = evolight_scenes::demo_library()[2].render(960, 640);
     let mut s = DevelopSettings::default();
     s.optics.distortion = 40.0;
     s.optics.vignetting = 60.0;
@@ -205,7 +205,7 @@ fn optics_preview_matches_export() {
 
 /// Source whose content is a straight grid after the forward transform `h` (centred coordinates of a `w × h`
 /// image): each source pixel shows the grid at its transformed position.
-fn keystoned_grid(w: usize, h: usize, fwd: lightcraft_geom::Homography, step: f64) -> Rgb32f {
+fn keystoned_grid(w: usize, h: usize, fwd: evolight_geom::Homography, step: f64) -> Rgb32f {
     let l = w.max(h) as f64 / 2.0;
     let (cx, cy) = (w as f64 / 2.0, h as f64 / 2.0);
     synth(
@@ -221,14 +221,14 @@ fn keystoned_grid(w: usize, h: usize, fwd: lightcraft_geom::Homography, step: f6
 
 #[test]
 fn manual_vertical_keystone_widens_the_top() {
-    let g = lightcraft_develop::Geometry { vertical: -50.0, ..Default::default() };
+    let g = evolight_develop::Geometry { vertical: -50.0, ..Default::default() };
     let hm = crate::transform::manual(&g);
     let (tl, tr) = (hm.apply(Point::new(-1.0, -0.66)), hm.apply(Point::new(1.0, -0.66)));
     let (bl, br) = (hm.apply(Point::new(-1.0, 0.66)), hm.apply(Point::new(1.0, 0.66)));
     assert!(tr.x - tl.x > (br.x - bl.x) * 1.15, "top {} bottom {}", tr.x - tl.x, br.x - bl.x);
     let c = hm.apply(Point::new(0.0, 0.0));
     assert!(c.dist(Point::new(0.0, 0.0)) < 1e-9, "centre stays put");
-    let g = lightcraft_develop::Geometry { horizontal: -50.0, ..Default::default() };
+    let g = evolight_develop::Geometry { horizontal: -50.0, ..Default::default() };
     let hm = crate::transform::manual(&g);
     let (lt, lb) = (hm.apply(Point::new(-0.9, -0.6)), hm.apply(Point::new(-0.9, 0.6)));
     let (rt, rb) = (hm.apply(Point::new(0.9, -0.6)), hm.apply(Point::new(0.9, 0.6)));
@@ -240,9 +240,9 @@ fn manual_vertical_keystone_widens_the_top() {
 fn manual_transforms_straighten_known_keystone() {
     let (w, h) = (480usize, 320usize);
     for g in [
-        lightcraft_develop::Geometry { vertical: -40.0, ..Default::default() },
-        lightcraft_develop::Geometry { horizontal: 35.0, rotate: 3.0, ..Default::default() },
-        lightcraft_develop::Geometry { vertical: 25.0, aspect: 30.0, scale: 110.0, offset_x: 6.0, offset_y: -4.0, ..Default::default() },
+        evolight_develop::Geometry { vertical: -40.0, ..Default::default() },
+        evolight_develop::Geometry { horizontal: 35.0, rotate: 3.0, ..Default::default() },
+        evolight_develop::Geometry { vertical: 25.0, aspect: 30.0, scale: 110.0, offset_x: 6.0, offset_y: -4.0, ..Default::default() },
     ] {
         // the source was "shot" with the inverse transform; correcting with `g` must give the straight grid back
         let fwd = crate::transform::manual(&g);
@@ -311,7 +311,7 @@ fn lens_corrections_leave_no_blank_corners() {
 
 #[test]
 fn transforms_preview_matches_export() {
-    let src = lightcraft_scenes::demo_library()[4].render(960, 640);
+    let src = evolight_scenes::demo_library()[4].render(960, 640);
     let mut s = DevelopSettings::default();
     s.geometry.vertical = -30.0;
     s.geometry.horizontal = 15.0;
@@ -328,7 +328,7 @@ fn transforms_preview_matches_export() {
 // ------------------------------------------------------------------------------------------ M4.4 Upright
 
 use crate::upright::{Segment, detect_segments, solve_guided};
-use lightcraft_develop::Upright;
+use evolight_develop::Upright;
 
 #[test]
 fn segment_detector_finds_known_lines() {
@@ -343,7 +343,7 @@ fn segment_detector_finds_known_lines() {
         let t = ((p - a).dot(ab) / ab.dot(ab)).clamp(0.0, 1.0);
         p.dist(a + ab * t)
     };
-    let lum = lightcraft_raster::Plane::from_fn(480, 320, |x, y| {
+    let lum = evolight_raster::Plane::from_fn(480, 320, |x, y| {
         let p = Point::new(x as f64 + 0.5, y as f64 + 0.5);
         let d = lines.iter().map(|(a, b)| dist(p, *a, *b)).fold(f64::MAX, f64::min);
         (0.15 + 0.7 * ((d - 1.0) / 1.2).clamp(0.0, 1.0)) as f32
@@ -387,7 +387,7 @@ fn upright_render(src: &Rgb32f, mode: Upright) -> Rgba8 {
 fn upright_vertical_fixes_converging_verticals() {
     let (w, h) = (720usize, 480usize);
     // "shot from below" and slightly rolled: the inverse of what the correction should do
-    let shot = lightcraft_develop::Geometry { vertical: 35.0, rotate: -2.0, ..Default::default() };
+    let shot = evolight_develop::Geometry { vertical: 35.0, rotate: -2.0, ..Default::default() };
     let src = keystoned_grid(w, h, crate::transform::manual(&shot), 48.0);
     let raw = render(&src, &SourceInfo::default(), &DevelopSettings::default(), &RenderRequest::fit(w, h)).image;
     let before = vertical_line_track(&raw, 130.0);
@@ -406,7 +406,7 @@ fn upright_vertical_fixes_converging_verticals() {
 #[test]
 fn upright_level_straightens_a_tilted_horizon() {
     let (w, h) = (720usize, 480usize);
-    let shot = lightcraft_develop::Geometry { rotate: 3.5, ..Default::default() };
+    let shot = evolight_develop::Geometry { rotate: 3.5, ..Default::default() };
     let src = keystoned_grid(w, h, crate::transform::manual(&shot), 48.0);
     let img = upright_render(&src, Upright::Level);
     for y0 in [120.0, 240.0, 360.0] {
@@ -418,7 +418,7 @@ fn upright_level_straightens_a_tilted_horizon() {
 #[test]
 fn upright_full_fixes_both_families() {
     let (w, h) = (720usize, 480usize);
-    let shot = lightcraft_develop::Geometry { vertical: 25.0, horizontal: -25.0, ..Default::default() };
+    let shot = evolight_develop::Geometry { vertical: 25.0, horizontal: -25.0, ..Default::default() };
     let src = keystoned_grid(w, h, crate::transform::manual(&shot), 48.0);
     let img = upright_render(&src, Upright::Full);
     for x0 in [200.0, 360.0, 520.0] {
@@ -434,7 +434,7 @@ fn upright_full_fixes_both_families() {
 #[test]
 fn guided_upright_from_two_vertical_guides() {
     let (w, h) = (720usize, 480usize);
-    let shot = lightcraft_develop::Geometry { vertical: 30.0, ..Default::default() };
+    let shot = evolight_develop::Geometry { vertical: 30.0, ..Default::default() };
     let fwd = crate::transform::manual(&shot);
     let src = keystoned_grid(w, h, fwd, 48.0);
     // guides drawn along two building edges: straight lines of the "true" image, seen through fwd⁻¹
@@ -462,7 +462,7 @@ fn guided_upright_from_two_vertical_guides() {
 
 #[test]
 fn upright_analysis_is_resolution_independent() {
-    let shot = lightcraft_develop::Geometry { vertical: 30.0, rotate: 1.5, ..Default::default() };
+    let shot = evolight_develop::Geometry { vertical: 30.0, rotate: 1.5, ..Default::default() };
     let fwd = crate::transform::manual(&shot);
     let big = keystoned_grid(1200, 800, fwd, 80.0);
     let small = keystoned_grid(600, 400, fwd, 40.0);
@@ -485,15 +485,15 @@ fn upright_analysis_is_resolution_independent() {
 /// water line) — the demo library has no buildings, so Auto should stay close to identity everywhere.
 #[test]
 fn upright_auto_leaves_natural_scenes_nearly_alone() {
-    use lightcraft_develop::Upright;
-    for scene in lightcraft_scenes::demo_library() {
+    use evolight_develop::Upright;
+    for scene in evolight_scenes::demo_library() {
         let src = scene.render_fit(768);
         let h = crate::upright::auto_transform(&src, &SourceInfo::default(), &DevelopSettings::default(), Upright::Auto);
         // how far the corners of the centred unit frame move
         let worst = [(-1.0, -0.66), (1.0, -0.66), (-1.0, 0.66), (1.0, 0.66)]
             .iter()
             .map(|&(x, y)| {
-                let p = h.apply(lightcraft_geom::Point::new(x, y));
+                let p = h.apply(evolight_geom::Point::new(x, y));
                 (p.x - x).hypot(p.y - y)
             })
             .fold(0.0f64, f64::max);
@@ -501,12 +501,12 @@ fn upright_auto_leaves_natural_scenes_nearly_alone() {
     }
 }
 
-/// Diagnostics: `SCENE="Lake" cargo test -p lightcraft-pipeline debug_upright_scene -- --ignored --nocapture`.
+/// Diagnostics: `SCENE="Lake" cargo test -p evolight-pipeline debug_upright_scene -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn debug_upright_scene() {
     let scene =
-        lightcraft_scenes::demo_library().into_iter().find(|s| s.name.starts_with(std::env::var("SCENE").as_deref().unwrap_or("Lake"))).unwrap();
+        evolight_scenes::demo_library().into_iter().find(|s| s.name.starts_with(std::env::var("SCENE").as_deref().unwrap_or("Lake"))).unwrap();
     let src = scene.render_fit(768);
     let a = crate::upright::analyze_source(&src, &SourceInfo::default(), &DevelopSettings::default());
     eprintln!("vert {} horiz {} vvp {:?} hvp {:?}", a.vertical.len(), a.horizontal.len(), a.vertical_vp, a.horizontal_vp);
@@ -654,9 +654,9 @@ fn the_analysis_cache_tells_lenses_and_optics_apart() {
     let src = tilted_scene(2.0, 30.0);
     let s = DevelopSettings::default();
     let plain = SourceInfo::default();
-    let vignette = lightcraft_develop::EmbeddedVignette::default();
+    let vignette = evolight_develop::EmbeddedVignette::default();
     let lens =
-        SourceInfo { lens: Some(lightcraft_develop::EmbeddedLens { vignette: Some(vignette), ..Default::default() }), ..SourceInfo::default() };
+        SourceInfo { lens: Some(evolight_develop::EmbeddedLens { vignette: Some(vignette), ..Default::default() }), ..SourceInfo::default() };
     let key = crate::upright::analysis_key;
     assert_eq!(key(&src, &plain, &s), key(&src, &plain.clone(), &s), "the same source, settings and lens");
     assert_ne!(key(&src, &plain, &s), key(&src, &lens, &s), "another lens");

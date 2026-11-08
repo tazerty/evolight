@@ -3,7 +3,7 @@ use super::options::{Conflict, DestinationMode};
 use super::prepare::{Destination, Exported};
 
 /// Write an exported or rendered file on disk: its folder is created if needed, and the file is
-/// replaced atomically ([`lightcraft_catalog::safe_file::write_atomic_nosync`]: a temp file
+/// replaced atomically ([`evolight_catalog::safe_file::write_atomic_nosync`]: a temp file
 /// renamed into place), so a failure part-way leaves any previous file intact and no truncated
 /// one. Not synced to disk (issue #134): an export can always be made again from the original.
 /// The native writer behind exports, renders and screenshots (app, CLI, MCP).
@@ -26,11 +26,11 @@ pub fn write_file_new(path: &str, bytes: &[u8]) -> Result<(), String> {
     if let Some(dir) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     }
-    lightcraft_catalog::safe_file::write_new(p, bytes).map_err(|e| format!("{path}: {e}"))
+    evolight_catalog::safe_file::write_new(p, bytes).map_err(|e| format!("{path}: {e}"))
 }
 
 fn write_with(path: &str, bytes: &[u8], durable: bool) -> Result<(), String> {
-    use lightcraft_catalog::safe_file::{write_atomic, write_atomic_nosync};
+    use evolight_catalog::safe_file::{write_atomic, write_atomic_nosync};
     let p = std::path::Path::new(path);
     if let Some(dir) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -105,7 +105,7 @@ impl<'a> Placer<'a> {
     /// and record the outcome. `Err` only when it failed and `stop_on_error` is set.
     pub(super) fn place(
         &mut self,
-        photo: lightcraft_catalog::PhotoId,
+        photo: evolight_catalog::PhotoId,
         name: String,
         source_dir: Option<&str>,
         guard: &crate::originals::OriginalGuard,

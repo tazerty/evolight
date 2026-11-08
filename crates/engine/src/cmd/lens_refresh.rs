@@ -7,11 +7,11 @@
 //! its settings).
 //!
 //! Split like [`super::recheck`] so the app probes on a worker thread: [`missing`] lists what to probe (no
-//! file-system calls), [`probe`] reads the files without the session, [`apply`] applies the results as LightCraft's
+//! file-system calls), [`probe`] reads the files without the session, [`apply`] applies the results as EvoLight's
 //! own bookkeeping (journaled, not an undo step). Agents and tests use `library.refreshLensProfiles`.
 
-use lightcraft_catalog::{Catalog, Op, Photo, PhotoId};
-use lightcraft_develop::LensSource;
+use evolight_catalog::{Catalog, Op, Photo, PhotoId};
+use evolight_develop::LensSource;
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, cmd};
@@ -28,9 +28,9 @@ pub struct Missing {
 /// Library raws with a file, no lens profile and a lens the database `db` knows by name (`ids`: only these; virtual
 /// copies follow the photo they were copied from). With `again` (the database's files were replaced, or an agent
 /// asked for every photo), also the raws whose profile came from the database (the new data may give another one, or
-/// none) and the raws whose file named no lens when they were imported (a newer LightCraft may read their lens).
+/// none) and the raws whose file named no lens when they were imported (a newer EvoLight may read their lens).
 /// No file-system calls.
-pub fn missing(cat: &Catalog, db: &lightcraft_lensdb::LensDb, ids: Option<&[PhotoId]>, again: bool) -> Vec<Missing> {
+pub fn missing(cat: &Catalog, db: &evolight_lensdb::LensDb, ids: Option<&[PhotoId]>, again: bool) -> Vec<Missing> {
     // a photo and its virtual copies list the photo once, in library order
     let mut seen = std::collections::HashSet::new();
     let from_database = |p: &Photo| p.embedded_lens.is_some_and(|l| l.source == LensSource::Database);
@@ -150,7 +150,7 @@ fn download(s: &mut Session, _: &Value) -> Result<Value> {
 
 /// Fetch the database into `dir` and select it, so this session reads it once it is in place (a session that
 /// selected no database, e.g. a bare headless one, would otherwise download it and go on without it; the user's
-/// `LIGHTCRAFT_LENSFUN_DIR` still wins). Until the download is whole the folder has no marker and isn't read.
+/// `EVOLIGHT_LENSFUN_DIR` still wins). Until the download is whole the folder has no marker and isn't read.
 pub fn start_download(
     s: &mut Session,
     dir: &std::path::Path,
@@ -195,7 +195,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Download the Lens Database",
             [],
             None,
-            "{} — fetch lensfun's lens database (CC BY-SA 3.0, pinned to one commit, checked file by file) into the app's data folder in the background, with an activity row, and read lens profiles from it once it is in place (unless LIGHTCRAFT_LENSFUN_DIR names another folder); the desktop app offers it on its first launch and in Settings. LIGHTCRAFT_LENSFUN_URL lists other places to fetch the same files from → {started, dir}",
+            "{} — fetch lensfun's lens database (CC BY-SA 3.0, pinned to one commit, checked file by file) into the app's data folder in the background, with an activity row, and read lens profiles from it once it is in place (unless EVOLIGHT_LENSFUN_DIR names another folder); the desktop app offers it on its first launch and in Settings. EVOLIGHT_LENSFUN_URL lists other places to fetch the same files from → {started, dir}",
             always,
             download
         ),

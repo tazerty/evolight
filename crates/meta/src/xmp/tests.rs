@@ -9,7 +9,7 @@ fn full() -> Metadata {
         make: Some("Maker & Sons".into()),
         model: Some("X <1>".into()),
         serial_number: Some("SN1".into()),
-        software: Some("LightCraft".into()),
+        software: Some("EvoLight".into()),
         lens_make: Some("L".into()),
         lens_model: Some("24-70mm".into()),
         lens_serial_number: Some("LS".into()),
@@ -509,7 +509,7 @@ fn numeric_references_to_forbidden_characters_are_not_decoded() {
 fn flattened_keys_stay_within_the_cumulative_budget() {
     let level = "n".repeat(200);
     let mut doc = String::from(
-        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns:lc=\"https://lightcraft.example/lc/\"><rdf:RDF><rdf:Description><lc:root rdf:parseType=\"Resource\">",
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns:lc=\"https://evolight.example/lc/\"><rdf:RDF><rdf:Description><lc:root rdf:parseType=\"Resource\">",
     );
     for _ in 0..4 {
         doc.push_str(&format!("<lc:{level} rdf:parseType=\"Resource\">"));

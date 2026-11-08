@@ -29,7 +29,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use lightcraft_catalog::{MediaKind, Op, Photo, PhotoId, Source};
+use evolight_catalog::{MediaKind, Op, Photo, PhotoId, Source};
 use serde::{Deserialize, Serialize};
 
 use crate::Session;

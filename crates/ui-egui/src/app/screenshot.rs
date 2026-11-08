@@ -1,10 +1,10 @@
 use super::{
-    ControlResponse, LightcraftApp, MAX_PENDING_SHOTS, MAX_SHOT_BYTES, MAX_SHOT_TOTAL_BYTES, PendingShot, SCREENSHOT_FALLBACK_MS,
+    ControlResponse, EvoLightApp, MAX_PENDING_SHOTS, MAX_SHOT_BYTES, MAX_SHOT_TOTAL_BYTES, PendingShot, SCREENSHOT_FALLBACK_MS,
     SCREENSHOT_SETTLE_MS, SHOT_FORCE_BUSY_MS, SHOT_SETTLE_FRAMES, SHOT_SETTLE_MS, Sender, ShotGeometry, headless,
 };
 use crate::control;
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// The immutable identity a capture is bound to: the library generation. It changes when a
     /// different library is opened, not on every edit, import batch or keyword op (`catalog.revision`
     /// bumps on all of those), so a screenshot during interactive editing still belongs to the
@@ -99,7 +99,7 @@ impl LightcraftApp {
     pub(crate) fn admit_shot(
         &mut self,
         ctx: &egui::Context,
-        target: Option<lightcraft_engine::originals::WriteTarget>,
+        target: Option<evolight_engine::originals::WriteTarget>,
         headless: bool,
         reply: Sender<ControlResponse>,
     ) -> Result<(), String> {
@@ -233,7 +233,7 @@ impl LightcraftApp {
             }
             // One slot and one callback per issue; the callback only holds a weak slot and wakes
             // the viewport. File writes and replies happen in `collect_screenshots`.
-            let (slot, callback) = craft_ui::capture::CaptureSlot::new(ctx, egui::ViewportId::ROOT, MAX_SHOT_BYTES);
+            let (slot, callback) = evo_ui::capture::CaptureSlot::new(ctx, egui::ViewportId::ROOT, MAX_SHOT_BYTES);
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(callback));
             log::debug!("ui.screenshot {}: issued at {:?}, {} bytes reserved", shot.token, geometry.viewport, shot.reserved);
             shot.slot = Some(slot);
@@ -291,7 +291,7 @@ impl LightcraftApp {
         let mut shots = std::mem::take(&mut self.pending_screenshots);
         let mut keep = Vec::with_capacity(shots.len());
         for mut shot in shots.drain(..) {
-            let completed = shot.slot.as_ref().and_then(craft_ui::capture::CaptureSlot::take);
+            let completed = shot.slot.as_ref().and_then(evo_ui::capture::CaptureSlot::take);
             match completed {
                 Some(Ok(image)) => {
                     let stale =

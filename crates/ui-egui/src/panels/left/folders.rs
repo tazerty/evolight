@@ -1,7 +1,7 @@
 use super::albums::pointer_over_row;
 use super::local::{is_builtin_place, same_folder, subfolders};
 use super::rows::{INDENT_STEP, LIBFOLDER_REVEALED, Row, out_of_sight, set_tree_open, tree_open, tree_toggle};
-use super::{Album, FolderNode, Icon, LibrarySource, LightcraftApp, Tokens, json, register, vec2};
+use super::{Album, FolderNode, Icon, LibrarySource, EvoLightApp, Tokens, json, register, vec2};
 
 /// A folder on disk with a disclosure triangle: click browses it, the triangle lists its
 /// subfolders. In the tree that holds the folder being browsed (`reveal`), the folders on the
@@ -12,7 +12,7 @@ use super::{Album, FolderNode, Icon, LibrarySource, LightcraftApp, Tokens, json,
 /// triangles have ids of their own, else the copy drawn last takes the other's clicks (#1093).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn folder_tree(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     place: &str,
     name: &str,
@@ -24,7 +24,7 @@ pub(super) fn folder_tree(
 ) {
     let open_id = egui::Id::unique(("folder-open", place.to_string(), path.to_string()));
     let sel = current.is_some_and(|c| same_folder(c, path));
-    let on_the_way = !sel && current.is_some_and(|c| lightcraft_catalog::query::folder_within(c, path));
+    let on_the_way = !sel && current.is_some_and(|c| evolight_catalog::query::folder_within(c, path));
     let mut open = tree_open(ui, open_id, false);
     if reveal && on_the_way {
         // opened once per browsed folder: collapsing it again afterwards sticks
@@ -102,7 +102,7 @@ pub(super) fn folder_tree(
     }
 }
 
-pub(super) fn folder_menu(app: &mut LightcraftApp, resp: &egui::Response, a: &Album) {
+pub(super) fn folder_menu(app: &mut EvoLightApp, resp: &egui::Response, a: &Album) {
     crate::widgets::context_menu(resp, |ui| {
         if a.folder {
             // the same commands as File ▸ New…, aimed at this folder
@@ -158,7 +158,7 @@ pub(super) fn folder_menu(app: &mut LightcraftApp, resp: &egui::Response, a: &Al
                 }
                 // like File ▸ Import from Device: one entry per camera or card found
                 let device = crate::widgets::menu_button(ui, crate::i18n::tr("Import from Device"), |ui| {
-                    let devices = lightcraft_engine::devices::devices();
+                    let devices = evolight_engine::devices::devices();
                     if devices.is_empty() {
                         ui.add_enabled(false, egui::Button::new(crate::i18n::tr("No Camera or Card Found")));
                     }
@@ -196,7 +196,7 @@ pub(super) fn folder_menu(app: &mut LightcraftApp, resp: &egui::Response, a: &Al
         }
         if !a.folder {
             // export: show the album, select its photos, then the dialog / a preset
-            let show_all = |app: &mut LightcraftApp| {
+            let show_all = |app: &mut EvoLightApp| {
                 let _ = app.run("library.source", json!({"kind": "album", "id": a.id.0}));
                 let _ = app.run("library.selectAll", json!({}));
             };
@@ -250,7 +250,7 @@ pub(super) fn folder_menu(app: &mut LightcraftApp, resp: &egui::Response, a: &Al
 }
 
 /// Whether `id` is `ancestor` or lies inside it.
-pub(super) fn is_within(app: &LightcraftApp, id: lightcraft_catalog::AlbumId, ancestor: lightcraft_catalog::AlbumId) -> bool {
+pub(super) fn is_within(app: &EvoLightApp, id: evolight_catalog::AlbumId, ancestor: evolight_catalog::AlbumId) -> bool {
     let mut cur = Some(id);
     let mut guard = 0;
     while let Some(c) = cur {
@@ -267,17 +267,17 @@ pub(super) fn is_within(app: &LightcraftApp, id: lightcraft_catalog::AlbumId, an
 }
 
 // "Folders" (drawn in `show`): where on disk the library's photos were imported from, with photo counts (see
-// `lightcraft_catalog::folders`). A click makes that folder the source, like an album or a Local
+// `evolight_catalog::folders`). A click makes that folder the source, like an album or a Local
 // folder: its photos and those of the folders inside it fill the grid. The triangle opens a
 // level. Only folders holding imported photos are listed; every folder on disk is under Local.
 
 /// Whenever the shown folder changes (a click, an agent, a rename or its undo), open the rows
 /// above it so it is on screen; folding one by hand afterwards sticks until the choice changes.
-pub(super) fn reveal_chosen(app: &LightcraftApp, ui: &egui::Ui, tree: &[FolderNode]) {
+pub(super) fn reveal_chosen(app: &EvoLightApp, ui: &egui::Ui, tree: &[FolderNode]) {
     let shown = app.session.library_folder.clone().filter(|_| app.session.source == LibrarySource::LibraryFolder);
-    let chosen = shown.filter(|c| !lightcraft_catalog::query::folder_key(c).is_empty());
+    let chosen = shown.filter(|c| !evolight_catalog::query::folder_key(c).is_empty());
     let seen = egui::Id::unique(LIBFOLDER_REVEALED);
-    let now = chosen.as_deref().map(lightcraft_catalog::query::folder_key);
+    let now = chosen.as_deref().map(evolight_catalog::query::folder_key);
     if ui.data(|d| d.get_temp::<Option<String>>(seen)) == Some(now.clone()) {
         return;
     }
@@ -285,8 +285,8 @@ pub(super) fn reveal_chosen(app: &LightcraftApp, ui: &egui::Ui, tree: &[FolderNo
     let Some(chosen) = chosen else { return };
     fn open_above(ui: &egui::Ui, nodes: &[FolderNode], chosen: &str) {
         for n in nodes {
-            if lightcraft_catalog::query::folder_within(chosen, &n.path) && !same_folder(chosen, &n.path) {
-                let key = lightcraft_catalog::query::folder_key(&n.path);
+            if evolight_catalog::query::folder_within(chosen, &n.path) && !same_folder(chosen, &n.path) {
+                let key = evolight_catalog::query::folder_key(&n.path);
                 ui.data_mut(|d| d.insert_temp(egui::Id::unique(("libfolder-open", key)), true));
                 open_above(ui, &n.children, chosen);
             }
@@ -301,13 +301,13 @@ pub(crate) fn folder_row_of<'a>(tree: &'a [FolderNode], dir: &str) -> Option<&'a
     // only the rows that hold `dir` are opened (the startup disk's holds the other disks' paths
     // too, so more than one may), and the tree is at most `MAX_DEPTH` deep
     tree.iter()
-        .filter(|n| lightcraft_catalog::query::folder_within(dir, &n.path))
+        .filter(|n| evolight_catalog::query::folder_within(dir, &n.path))
         .find_map(|n| if same_folder(&n.path, dir) { Some(n) } else { folder_row_of(&n.children, dir) })
 }
 
-pub(super) fn folder_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, nodes: &[FolderNode], indent: f32) {
+pub(super) fn folder_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, nodes: &[FolderNode], indent: f32) {
     for n in nodes {
-        let key = lightcraft_catalog::query::folder_key(&n.path);
+        let key = evolight_catalog::query::folder_key(&n.path);
         let open_id = egui::Id::unique(("libfolder-open", key.clone()));
         // a disk starts open, and so does a folder that holds nothing itself and leads to one
         // folder (`Users` → `me`): the first row where the library branches is what you look for
@@ -327,7 +327,7 @@ pub(super) fn folder_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, nodes: &[F
 
 /// One drawn row of [`folder_rows`], shown as `name`; `open_id` and `open` are its triangle's.
 #[allow(clippy::too_many_arguments)]
-fn folder_row(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode, id: &str, name: &str, indent: f32, open_id: egui::Id, open: &mut bool) {
+fn folder_row(app: &mut EvoLightApp, ui: &mut egui::Ui, n: &FolderNode, id: &str, name: &str, indent: f32, open_id: egui::Id, open: &mut bool) {
     let sel = n.selectable
         && app.session.source == LibrarySource::LibraryFolder
         && app.session.library_folder.as_deref().is_some_and(|f| same_folder(f, &n.path));
@@ -369,7 +369,7 @@ const SPRING_OPEN_SECONDS: f64 = 0.7;
 /// they will go, as the same gesture onto an album only adds them to it. Held over a closed row,
 /// it opens. Photos that can't go there leave it dark (a row covering several disks; Local photos,
 /// not in the library) and a release says why; photos already there say so.
-fn folder_drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, n: &FolderNode, open_id: egui::Id, open: &mut bool) {
+fn folder_drop_target(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, n: &FolderNode, open_id: egui::Id, open: &mut bool) {
     let Some(ids) = app.ui.dragging_photos.clone() else { return };
     // only where the row can be seen: not scrolled out of the sidebar or beneath the pinned header
     if !pointer_over_row(ui, resp.rect) {
@@ -378,7 +378,7 @@ fn folder_drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::R
     spring_open(ui, n, open_id, open);
     // (the label, the confirmation and the toast say which folder when another row has the name)
     let name = crate::destination::folder(&app.caches.folder_tree(&app.session.catalog), &n.path);
-    let photos: Vec<_> = ids.iter().filter_map(|id| app.session.catalog.photo(lightcraft_catalog::PhotoId(*id))).collect();
+    let photos: Vec<_> = ids.iter().filter_map(|id| app.session.catalog.photo(evolight_catalog::PhotoId(*id))).collect();
     let refused = if !n.selectable {
         Some(crate::i18n::tr("This row covers more than one disk: drop on a folder inside it"))
     } else if photos.iter().any(|p| p.local) {
@@ -386,8 +386,8 @@ fn folder_drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::R
     } else {
         None
     };
-    let here = |p: &lightcraft_catalog::Photo| match &p.source {
-        lightcraft_catalog::Source::File { path } => std::path::Path::new(path).parent().is_some_and(|d| same_folder(&d.to_string_lossy(), &n.path)),
+    let here = |p: &evolight_catalog::Photo| match &p.source {
+        evolight_catalog::Source::File { path } => std::path::Path::new(path).parent().is_some_and(|d| same_folder(&d.to_string_lossy(), &n.path)),
         _ => false,
     };
     let all_here = !photos.is_empty() && photos.iter().all(|p| here(p));
@@ -456,13 +456,13 @@ fn spring_open(ui: &egui::Ui, n: &FolderNode, open_id: egui::Id, open: &mut bool
 /// Move photos (`ids`, else the selection) into the folder `path` on disk (`photo.moveToFolder`).
 /// Photos that leave the view leave the selection, so nothing done next (Delete, an edit) reaches
 /// photos no longer on screen. How many moved, or why none did.
-pub(crate) fn move_photos(app: &mut LightcraftApp, ids: Option<&[u64]>, path: &str) -> Result<u64, String> {
+pub(crate) fn move_photos(app: &mut EvoLightApp, ids: Option<&[u64]>, path: &str) -> Result<u64, String> {
     let mut params = json!({"folder": path});
     if let Some(ids) = ids {
         params["ids"] = json!(ids);
     }
     let r = app.run("photo.moveToFolder", params)?;
-    let visible: std::collections::HashSet<lightcraft_catalog::PhotoId> = app.session.visible_cloned().into_iter().collect();
+    let visible: std::collections::HashSet<evolight_catalog::PhotoId> = app.session.visible_cloned().into_iter().collect();
     let sel = &mut app.session.selection;
     sel.ids.retain(|id| visible.contains(id));
     if sel.active.is_some_and(|a| !visible.contains(&a)) {
@@ -485,11 +485,11 @@ pub(crate) fn moved_text(n: u64, name: &str) -> String {
 /// is on disk now, but it has no photos, so the Folders list may not show it yet.
 pub(crate) fn created_text(path: &str, parent: &str) -> String {
     let name = std::path::Path::new(path).file_name().map_or_else(|| path.to_string(), |f| f.to_string_lossy().to_string());
-    crate::i18n::tr_format!("Created folder “{name}” in “{parent}”", name = name, parent = lightcraft_catalog::folders::folder_label(parent))
+    crate::i18n::tr_format!("Created folder “{name}” in “{parent}”", name = name, parent = evolight_catalog::folders::folder_label(parent))
 }
 
 /// [`move_photos`], saying how it went in a toast.
-fn move_photos_here(app: &mut LightcraftApp, ctx: &egui::Context, ids: Option<&[u64]>, path: &str, name: &str) {
+fn move_photos_here(app: &mut EvoLightApp, ctx: &egui::Context, ids: Option<&[u64]>, path: &str, name: &str) {
     match move_photos(app, ids, path) {
         Ok(n) => app.toast(ctx, moved_text(n, name)),
         Err(e) => app.toast(ctx, e),
@@ -498,7 +498,7 @@ fn move_photos_here(app: &mut LightcraftApp, ctx: &egui::Context, ids: Option<&[
 
 /// The context menu of a Folders row: a folder's own, a disk's (remove it), none for the
 /// startup disk.
-fn row_menu(app: &mut LightcraftApp, resp: &egui::Response, n: &FolderNode) {
+fn row_menu(app: &mut EvoLightApp, resp: &egui::Response, n: &FolderNode) {
     if !n.volume {
         folder_menu_for_library(app, resp, n);
     } else if n.path != "/" {
@@ -521,7 +521,7 @@ fn row_menu(app: &mut LightcraftApp, resp: &egui::Response, n: &FolderNode) {
 
 /// Locate Missing Files… of a Folders row: choose where this folder moved, then let the existing
 /// background finder relink only this folder's photos (including the folders inside it).
-fn locate_missing_item(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode) {
+fn locate_missing_item(app: &mut EvoLightApp, ui: &mut egui::Ui, n: &FolderNode) {
     let r = ui.button(crate::i18n::tr("Locate Missing Files…"));
     register(ui, "folderLocateMissing", r.rect);
     if r.clicked() {
@@ -537,7 +537,7 @@ fn locate_missing_item(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNod
 /// holding other folders. `None` when no library photo lies in `path` or inside it. Reads the
 /// cached Folders tree only; the disk is not touched.
 fn library_node_for(tree: &[FolderNode], path: &str) -> Option<(FolderNode, String)> {
-    use lightcraft_catalog::query::folder_within;
+    use evolight_catalog::query::folder_within;
     fn exact<'a>(tree: &'a [FolderNode], path: &str) -> Option<&'a FolderNode> {
         tree.iter().find_map(|n| if same_folder(&n.path, path) { Some(n) } else { exact(&n.children, path) })
     }
@@ -545,7 +545,7 @@ fn library_node_for(tree: &[FolderNode], path: &str) -> Option<(FolderNode, Stri
         tree.iter().any(|n| (n.count > 0 && folder_within(&n.path, path)) || any_inside(&n.children, path))
     }
     if let Some(n) = exact(tree, path).filter(|n| n.count > 0) {
-        return Some((n.clone(), lightcraft_catalog::folders::folder_label(&n.path)));
+        return Some((n.clone(), evolight_catalog::folders::folder_label(&n.path)));
     }
     if !any_inside(tree, path) {
         return None;
@@ -568,7 +568,7 @@ fn library_node_for(tree: &[FolderNode], path: &str) -> Option<(FolderNode, Stri
 /// dialogs answer in the order they were opened ([`crate::pick::poll`]), so the library could
 /// switch first and the move then run in the other library, moving the folder on disk with
 /// nothing to relink (issue #3140).
-fn can_move_folder(app: &LightcraftApp) -> Result<(), String> {
+fn can_move_folder(app: &EvoLightApp) -> Result<(), String> {
     for (command, label) in [("app.openLibrary", "Open Library…"), ("app.newLibrary", "New Library…")] {
         if app.pending_picks.iter().any(|p| p.command == command) {
             return Err(format!("wait for {label} to finish before moving a folder"));
@@ -581,7 +581,7 @@ fn can_move_folder(app: &LightcraftApp) -> Result<(), String> {
 /// shared folder dialog, off the UI thread where the host has one (issue #3140: a dialog on the UI
 /// thread froze the window); `folder.move` then runs when it closes ([`crate::pick::poll`]).
 /// Disabled while a library dialog is up ([`can_move_folder`]).
-fn move_folder_item(app: &mut LightcraftApp, ui: &mut egui::Ui, path: &str) {
+fn move_folder_item(app: &mut EvoLightApp, ui: &mut egui::Ui, path: &str) {
     if app.services.pick_folder.is_none() && app.services.picker.is_none() {
         return;
     }
@@ -612,7 +612,7 @@ fn move_folder_item(app: &mut LightcraftApp, ui: &mut egui::Ui, path: &str) {
 
 /// Synchronize Folder… of a Folders row (widget `folderSynchronize`): opens its dialog, which
 /// scans the folder in the background.
-fn synchronize_item(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode, name: &str) {
+fn synchronize_item(app: &mut EvoLightApp, ui: &mut egui::Ui, n: &FolderNode, name: &str) {
     let r = ui
         .button(crate::i18n::tr("Synchronize Folder…"))
         .on_hover_text(crate::i18n::tr("Find photos added to or missing from this folder on disk, and XMP sidecars changed by other apps"));
@@ -628,7 +628,7 @@ fn synchronize_item(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode, 
 
 /// Set Color Label ▸ of a Folders row (`folder.label`; the submenu is widget `folderLabelMenu`,
 /// its colours `folderLabel:<colour>`).
-fn folder_label_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode) {
+fn folder_label_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, n: &FolderNode) {
     let menu = crate::widgets::menu_button(ui, crate::i18n::tr("Set Color Label"), |ui| {
         if let Some(l) = crate::panels::grid::label_items(app, ui, n.label, "folderLabel") {
             if let Err(e) = app.run("folder.label", json!({"path": n.path, "label": crate::panels::grid::label_param(l)})) {
@@ -642,11 +642,11 @@ fn folder_label_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, n: &FolderNode)
 
 /// The context menu of a folder row: the folder's disk actions (the same as Local's, photos
 /// follow) and taking its photos out of the library.
-fn folder_menu_for_library(app: &mut LightcraftApp, resp: &egui::Response, n: &FolderNode) {
+fn folder_menu_for_library(app: &mut EvoLightApp, resp: &egui::Response, n: &FolderNode) {
     let path = n.path.as_str();
     let name = std::path::Path::new(path).file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| path.to_string());
     // what dialogs call it: the last two names, so same-named folders are told apart
-    let label = lightcraft_catalog::folders::folder_label(path);
+    let label = evolight_catalog::folders::folder_label(path);
     crate::widgets::context_menu(resp, |ui| {
         if ui.button(crate::i18n::tr("Rename Folder…")).clicked() {
             app.ui.dialog = Some(crate::state::Dialog::TextPrompt {

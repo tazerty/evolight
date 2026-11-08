@@ -11,14 +11,14 @@
 //! a row and ✕ in the activity stack (issue #345); the whole import is one undo step.
 
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Vec2, pos2, vec2};
-use lightcraft_engine::import::{
+use evolight_engine::import::{
     ImportCandidate, ImportUprightMode, ImportWarning, ImportWarningCode, ScanInput, ScanOutput, ScanProgress, scan_with,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::atomic::Ordering;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::render::Slot;
 use crate::theme::Tokens;
 use crate::widgets::register;
@@ -103,7 +103,7 @@ pub struct ImportDialog {
     /// The candidate clicked last: where a Shift-click range starts ([`ImportDialog::click`]).
     #[serde(skip)]
     pub last_clicked: Option<usize>,
-    /// The library the scan was made in ([`lightcraft_engine::Session::library_generation`]): its duplicate
+    /// The library the scan was made in ([`evolight_engine::Session::library_generation`]): its duplicate
     /// decisions and album ids belong to that catalog, so the review is not shown or confirmed in another.
     #[serde(skip)]
     pub library: Option<u64>,
@@ -132,7 +132,7 @@ impl ImportDialog {
     }
 
     /// Whether the library the scan was made in is still the open one (a review that names none counts).
-    fn in_library(&self, app: &LightcraftApp) -> bool {
+    fn in_library(&self, app: &EvoLightApp) -> bool {
         self.library.is_none_or(|g| g == app.session.library_generation())
     }
     /// Mark the candidates whose photo is in Recently Deleted. They are checked when the choice
@@ -242,7 +242,7 @@ impl ImportDialog {
             "" => Ok(None),
             "custom" => {
                 let t = self.folder_template.trim();
-                if let Some(e) = lightcraft_engine::rename::folder_template_error(t) {
+                if let Some(e) = evolight_engine::rename::folder_template_error(t) {
                     return Err(e);
                 }
                 // a plain folder name ("Imports") is a one-level template too
@@ -400,23 +400,23 @@ mod tests {
     /// import with it fail. Each is moved off its default, as a slider drag does.
     #[test]
     fn every_offered_recipe_control_is_accepted_by_the_import() {
-        let session = lightcraft_engine::Session::new();
+        let session = evolight_engine::Session::new();
         let mut d = dialog();
         for id in RECIPE_CONTROLS {
-            let spec = lightcraft_develop::controls::find(id).unwrap_or_else(|| panic!("{id} is not a develop control"));
+            let spec = evolight_develop::controls::find(id).unwrap_or_else(|| panic!("{id} is not a develop control"));
             let moved = if spec.default < spec.max { spec.max } else { spec.min };
             note_recipe_value(&mut d.recipe, spec, moved);
         }
         assert_eq!(d.recipe.len(), RECIPE_CONTROLS.len(), "all named, none repeated");
         let params = json!({"paths": ["img0.jpg"], "recipe": recipe_items(&d.recipe)});
-        let request = lightcraft_engine::cmd::library::import_params(&session, &params).unwrap_or_else(|e| panic!("refused: {e}"));
+        let request = evolight_engine::cmd::library::import_params(&session, &params).unwrap_or_else(|e| panic!("refused: {e}"));
         assert_eq!(request.opts.recipe.len(), RECIPE_CONTROLS.len());
     }
 
     /// A slider moved off its default names its control in the recipe; moved back, it no longer does.
     #[test]
     fn a_slider_back_at_its_default_leaves_the_recipe() {
-        let spec = lightcraft_develop::controls::find("light.exposure").unwrap();
+        let spec = evolight_develop::controls::find("light.exposure").unwrap();
         let mut recipe = std::collections::BTreeMap::new();
         note_recipe_value(&mut recipe, spec, 0.5);
         assert_eq!(recipe.get("light.exposure"), Some(&0.5));
@@ -429,7 +429,7 @@ mod tests {
     /// `start` hands `library.import` a `recipe` only when the dialog has one.
     #[test]
     fn start_passes_the_recipe_only_when_the_dialog_has_one() {
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::new(), crate::Services { png: None, ..Default::default() });
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::new(), crate::Services { png: None, ..Default::default() });
         let mut d = dialog();
         start(&mut app, &d).unwrap();
         let params = app.import.take().map(|t| t.params).unwrap();

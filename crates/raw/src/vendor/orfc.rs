@@ -12,8 +12,8 @@
 //! See `docs/orf-compression.md` for format specification and verification records.
 
 use crate::{RawError, Result};
-use lightcraft_tiff::Ifd;
-use lightcraft_tiff::makernote::MakerNote;
+use evolight_tiff::Ifd;
+use evolight_tiff::makernote::MakerNote;
 
 /// Valid bits tag in Olympus MakerNote.
 const MN_VALID_BITS: u16 = 0x102c;

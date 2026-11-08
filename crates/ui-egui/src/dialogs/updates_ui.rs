@@ -2,12 +2,12 @@
 
 use serde_json::Value;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 #[cfg(not(target_arch = "wasm32"))]
-use craft_update::dialog::{CheckResultDialog, CheckResultResponse};
+use evo_update::dialog::{CheckResultDialog, CheckResultResponse};
 #[cfg(not(target_arch = "wasm32"))]
-use craft_update::updater::{Action, Status, Updater};
+use evo_update::updater::{Action, Status, Updater};
 
 pub(crate) struct Runtime {
     #[cfg(not(target_arch = "wasm32"))]
@@ -44,7 +44,7 @@ impl Default for Runtime {
     }
 }
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// Whether the app asks for a newer release when it starts (off until the desktop app turns it on).
     #[cfg(not(target_arch = "wasm32"))]
     pub fn set_startup_update_check(&mut self, on: bool) {
@@ -53,7 +53,7 @@ impl LightcraftApp {
 }
 
 /// The update prompt owns the keyboard while it is open: shortcuts must not reach the library behind it.
-pub(crate) fn blocks_input(app: &LightcraftApp) -> bool {
+pub(crate) fn blocks_input(app: &EvoLightApp) -> bool {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.updates_rt.updater.prompt_open()
@@ -65,7 +65,7 @@ pub(crate) fn blocks_input(app: &LightcraftApp) -> bool {
     }
 }
 
-pub(crate) fn check(app: &mut LightcraftApp) -> Result<Value, String> {
+pub(crate) fn check(app: &mut EvoLightApp) -> Result<Value, String> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.updates_rt.check_requested = true;
@@ -82,7 +82,7 @@ pub(crate) fn check(app: &mut LightcraftApp) -> Result<Value, String> {
     }
 }
 
-pub(crate) fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn tick(app: &mut EvoLightApp, ctx: &egui::Context) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         let rt = &mut app.updates_rt;
@@ -99,7 +99,7 @@ pub(crate) fn tick(app: &mut LightcraftApp, ctx: &egui::Context) {
     let _ = (app, ctx);
 }
 
-pub(crate) fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         // The restart helper is scheduled before the app closes, so no update starts over unsaved work.
@@ -131,7 +131,7 @@ pub(crate) fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
     #[cfg(target_arch = "wasm32")]
     if app.updates_rt.manual_window_open {
         let mut open = true;
-        let shown = egui::Window::new(crate::i18n::tr("LightCraft Updates"))
+        let shown = egui::Window::new(crate::i18n::tr("EvoLight Updates"))
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
@@ -158,7 +158,7 @@ pub(crate) fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_engine::Session;
+    use evolight_engine::Session;
 
     #[test]
     fn default_runtime_is_idle() {
@@ -175,13 +175,13 @@ mod tests {
     #[test]
     #[cfg(not(target_arch = "wasm32"))]
     fn startup_prompt_shows_and_closes() {
-        let mut app = LightcraftApp::new(Session::new(), Default::default());
+        let mut app = EvoLightApp::new(Session::new(), Default::default());
         let ctx = egui::Context::default();
-        let release = craft_update::Release {
+        let release = evo_update::Release {
             tag: "v99.0.0".into(),
-            version: craft_update::parse_version("99.0.0"),
-            name: "LightCraft 99.0.0".into(),
-            html_url: "https://github.com/storytold/lightcraft/releases/tag/v99.0.0".into(),
+            version: evo_update::parse_version("99.0.0"),
+            name: "EvoLight 99.0.0".into(),
+            html_url: "https://github.com/tazerty/evolight/releases/tag/v99.0.0".into(),
             ..Default::default()
         };
         app.updates_rt.updater.offer(release);

@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use lightcraft_develop::{DevelopSettings, Process, ProcessVersion, controls};
-use lightcraft_raster::{Plane, Rgb32f, Rgba8};
+use evolight_develop::{DevelopSettings, Process, ProcessVersion, controls};
+use evolight_raster::{Plane, Rgb32f, Rgba8};
 
 use crate::{Quality, RenderRequest, SourceInfo, StageCache, local, render, render_cached};
 
@@ -272,7 +272,7 @@ fn the_base_plane_is_cached_per_process() {
 /// and keeps both apart; V1 to V4 keep their look.
 #[test]
 fn exposure_keeps_the_highlights_a_camera_curve_recorded() {
-    use lightcraft_color::transfer::linear_to_srgb;
+    use evolight_color::transfer::linear_to_srgb;
     let knots = std::array::from_fn(|i| {
         let x = 0.003 * 1.18f32.powi(i as i32);
         [x, 1.0 - (-3.3 * x).exp()]
@@ -304,7 +304,7 @@ fn exposure_keeps_the_highlights_a_camera_curve_recorded() {
 /// off in stops from half a stop below the white point; V1 to V4 keep their look.
 #[test]
 fn exposure_keeps_the_highlights_the_generic_curve_recorded() {
-    use lightcraft_color::transfer::linear_to_srgb;
+    use evolight_color::transfer::linear_to_srgb;
     let info = SourceInfo { raw: true, ..SourceInfo::default() };
     let at = |process: Process, ev: f32, y: f32| {
         let o = crate::finish::base_tone(&on(process), &info, 1.0).apply(y * ev.exp2());

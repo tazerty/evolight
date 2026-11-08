@@ -1,7 +1,7 @@
 //! The Edit panel's flow between SDR and HDR: pressing HDR moves the histogram and the HDR settings
 //! to their new layout instead of swapping it in one frame.
 
-use lightcraft_raster::HdrBins;
+use evolight_raster::HdrBins;
 
 use super::{Color32, Histogram, Mesh, PhotoId, Pos2, Rect, Stroke, Vertex, hex, pos2, vec2};
 
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn pressing_hdr_moves_the_panel_instead_of_swapping_its_layout() {
         use crate::headless::Headless;
-        use crate::{LightcraftApp, Services};
+        use crate::{EvoLightApp, Services};
         use serde_json::json;
         use std::time::{Duration, Instant};
 
@@ -232,7 +232,7 @@ mod tests {
             (steps, v.windows(2).map(|w| (w[1] - w[0]).abs()).fold(0.0, f32::max) / (hi - lo).max(1.0))
         };
 
-        let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+        let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
         let mut h = Headless::new(app, [1400.0, 1000.0], 1.0);
         let r = h.request("ui.set", json!({"view": "detail", "right": "edit", "openSections": ["light"]}), Duration::from_secs(20));
         assert_eq!(r["ok"], true, "{r}");

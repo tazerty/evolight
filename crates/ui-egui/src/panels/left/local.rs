@@ -1,6 +1,6 @@
 use super::folders::folder_tree;
 use super::rows::Row;
-use super::{Icon, LibrarySource, LightcraftApp, SidebarSection, json, register};
+use super::{Icon, LibrarySource, EvoLightApp, SidebarSection, json, register};
 
 /// Local's folders as they stand this frame, and the folder being browsed among them.
 pub(super) struct LocalNow {
@@ -14,7 +14,7 @@ pub(super) struct LocalNow {
 /// Downloads, the home folder, the folder being browsed, and the folders kept with Browse
 /// Folder…. Worked out every frame the sidebar shows, drawn or not: the row listed for this
 /// session only (`local_browse_root`) follows the browsing. `None` where there is no Local (web).
-pub(super) fn local_now(app: &mut LightcraftApp, ui: &egui::Ui) -> Option<LocalNow> {
+pub(super) fn local_now(app: &mut EvoLightApp, ui: &egui::Ui) -> Option<LocalNow> {
     if !SidebarSection::Local.available() {
         return None;
     }
@@ -54,7 +54,7 @@ pub(super) fn local_now(app: &mut LightcraftApp, ui: &egui::Ui) -> Option<LocalN
 /// The user's home folder, the engine's own reading of it (so the menu and the rename/move guard
 /// agree); empty when the host has none.
 fn home_folder() -> String {
-    lightcraft_engine::library::home_folder().map(|h| h.to_string_lossy().into_owned()).unwrap_or_default()
+    evolight_engine::library::home_folder().map(|h| h.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
 /// Local's built-in places under `home` as (English name, path), in order. The names are keys for
@@ -73,7 +73,7 @@ fn default_places(home: &str) -> Vec<(&'static str, String)> {
 /// Whether `path` is one of Local's built-in places (the home folder, Pictures, Desktop,
 /// Downloads, or a place the host listed itself). They are the computer's own folders, shown under
 /// a translated label, so Local offers no Rename or Move for them.
-pub(super) fn is_builtin_place(app: &LightcraftApp, path: &str) -> bool {
+pub(super) fn is_builtin_place(app: &EvoLightApp, path: &str) -> bool {
     builtin_place_in(app.services.local_places.as_deref(), &home_folder(), path)
 }
 
@@ -87,7 +87,7 @@ fn builtin_place_in(injected: Option<&[(String, String)]>, home: &str, path: &st
 }
 
 /// Local's rows: each place as a folder tree, Browse Folder…, and the way back for hidden places.
-pub(super) fn local_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, now: &LocalNow) {
+pub(super) fn local_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, now: &LocalNow) {
     let (local, current) = (&now.places, now.current.as_deref());
     for (i, (name, path)) in local.places.iter().enumerate() {
         let transient = local.browse_root.as_deref() == Some(path.as_str());
@@ -127,7 +127,7 @@ pub(super) fn local_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, now: &Local
 
 /// The list behind "Show N hidden locations": each place by name (its path on hover), then
 /// Restore All.
-fn hidden_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, hidden: &[(String, String)]) {
+fn hidden_menu(app: &mut EvoLightApp, ui: &mut egui::Ui, hidden: &[(String, String)]) {
     for (name, path) in hidden {
         let r = ui.button(name).on_hover_text(path);
         register(ui, format!("local:restoreHidden:{path}"), r.rect);
@@ -146,9 +146,9 @@ fn hidden_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, hidden: &[(String, St
 }
 
 /// Whether two paths name the same folder, however they are spelled (separators, trailing
-/// slash, `.`/`..`, drive-letter case; see `lightcraft_catalog::query::folder_key`).
+/// slash, `.`/`..`, drive-letter case; see `evolight_catalog::query::folder_key`).
 pub(crate) fn same_folder(a: &str, b: &str) -> bool {
-    a == b || lightcraft_catalog::query::folder_key(a) == lightcraft_catalog::query::folder_key(b)
+    a == b || evolight_catalog::query::folder_key(a) == evolight_catalog::query::folder_key(b)
 }
 
 /// Local's top-level folders and how the folder being browsed sits among them.
@@ -194,7 +194,7 @@ fn local_places_with_unlisted(
     hidden: &[String],
     unlisted: &[String],
 ) -> LocalPlaces {
-    use lightcraft_catalog::query::{folder_key, folder_within};
+    use evolight_catalog::query::{folder_key, folder_within};
     let is_hidden = |p: &str| hidden.iter().any(|h| same_folder(h, p));
     let listed_below = |current: &str, root: &str| {
         folder_within(current, root) && !unlisted.iter().any(|h| !same_folder(h, root) && folder_within(current, h) && folder_within(h, root))
@@ -232,7 +232,7 @@ fn local_places_with_unlisted(
 }
 
 fn unlisted_ancestors(path: &str) -> Vec<String> {
-    std::path::Path::new(path).ancestors().filter(|p| lightcraft_engine::walk::is_hidden_path(p)).map(|p| p.to_string_lossy().to_string()).collect()
+    std::path::Path::new(path).ancestors().filter(|p| evolight_engine::walk::is_hidden_path(p)).map(|p| p.to_string_lossy().to_string()).collect()
 }
 
 /// The subfolders of `path` (not hidden ones), sorted; listed on a worker thread at most every
@@ -245,7 +245,7 @@ fn list_subfolders(path: &str) -> std::sync::Arc<Vec<(String, String)>> {
     let mut v: Vec<(String, String)> = std::fs::read_dir(path)
         .map(|rd| {
             rd.flatten()
-                .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()) && !lightcraft_engine::walk::is_hidden_entry(e))
+                .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()) && !evolight_engine::walk::is_hidden_entry(e))
                 .map(|e| {
                     let name = e.file_name().to_string_lossy().to_string();
                     (name, e.path().to_string_lossy().to_string())
@@ -345,16 +345,16 @@ mod tests {
         // no home: no standard places, and no relative ones
         assert!(!super::builtin_place_in(None, "", "Pictures") && !super::builtin_place_in(None, "", ""));
         // places the host listed replace the standard ones
-        let injected = vec![("Sandbox".to_string(), "/lightcraft-test/home".to_string())];
-        assert!(super::builtin_place_in(Some(&injected), home, "/lightcraft-test/home"));
+        let injected = vec![("Sandbox".to_string(), "/evolight-test/home".to_string())];
+        assert!(super::builtin_place_in(Some(&injected), home, "/evolight-test/home"));
         assert!(!super::builtin_place_in(Some(&injected), home, "/home/example/Pictures"));
     }
 
     #[test]
     fn injected_places_replace_the_machine_home() {
-        let places = vec![("Sandbox".to_string(), "/lightcraft-test/home".to_string())];
+        let places = vec![("Sandbox".to_string(), "/evolight-test/home".to_string())];
         let services = crate::Services { local_places: Some(places.clone()), ..Default::default() };
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::new(), services);
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::new(), services);
         let mut view = crate::headless::HeadlessView::new();
         let raw = crate::headless::HeadlessView::raw_input(egui::vec2(300.0, 200.0), 1.0, 0.0, vec![]);
         view.run(raw, |ui| {
@@ -364,14 +364,14 @@ mod tests {
 
     #[test]
     fn local_folder_rows_outside_the_viewport_skip_interactive_widgets() {
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::new(), crate::Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::new(), crate::Services::default());
         let mut view = crate::headless::HeadlessView::new();
         for frame in 0..3 {
             let raw = crate::headless::HeadlessView::raw_input(egui::vec2(300.0, 160.0), 1.0, frame as f64 / 60.0, vec![]);
             view.run(raw, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for index in 0..500 {
-                        let path = format!("/lightcraft-test/folder-{index:04}");
+                        let path = format!("/evolight-test/folder-{index:04}");
                         super::folder_tree(&mut app, ui, &path, &format!("Folder {index}"), &path, 0.0, None, false, false);
                     }
                 });
@@ -552,9 +552,9 @@ mod tests {
     fn a_local_folder_lines_up_with_the_rows_above_and_its_triangle_stays_left_of_the_icon() {
         use crate::Services;
         use crate::headless::HeadlessView;
-        let mut app = crate::LightcraftApp::new(lightcraft_engine::Session::new(), Services::default());
+        let mut app = crate::EvoLightApp::new(evolight_engine::Session::new(), Services::default());
         let mut view = HeadlessView::new();
-        let path = "/lightcraft-test/Pictures";
+        let path = "/evolight-test/Pictures";
         let mut widgets = vec![];
         for frame in 0..3 {
             let raw = HeadlessView::raw_input(egui::vec2(300.0, 200.0), 1.0, frame as f64 / 60.0, vec![]);

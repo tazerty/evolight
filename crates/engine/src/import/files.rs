@@ -37,11 +37,11 @@ fn is_xmp_sidecar(path: &Path) -> bool {
 ///
 /// The picker only offers files this build can actually import: `.avif` has no
 /// AV1 decoder in any build, and `.heic`/`.heif` decode only when the codecs'
-/// `heif` feature is enabled ([`lightcraft_codecs::Format::Heif::can_decode`]).
+/// `heif` feature is enabled ([`evolight_codecs::Format::Heif::can_decode`]).
 /// [`EXTENSIONS`] itself stays complete — files on disk are still recognised,
 /// and import reports them as failed, saying why.
 pub fn accept_list() -> String {
-    let heif_decodable = lightcraft_codecs::Format::Heif.can_decode();
+    let heif_decodable = evolight_codecs::Format::Heif.can_decode();
     let mut out = String::new();
     for &ext in EXTENSIONS {
         // Skip extensions a web user could pick but this build could not import.
@@ -176,7 +176,7 @@ pub enum LaunchPath {
 /// ([`crate::library::is_library`]), so a `CATALOG.SNAP` the opener would not read (a case-sensitive file system)
 /// never opens its folder as a new, empty library.
 pub fn library_dir_of(path: &Path) -> Option<PathBuf> {
-    let snapshot = lightcraft_catalog::journal::SNAPSHOT;
+    let snapshot = evolight_catalog::journal::SNAPSHOT;
     let named = path.file_name().is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(snapshot));
     if named && path.is_file() {
         return path.parent().filter(|dir| crate::library::is_library(dir)).map(Path::to_path_buf);
@@ -184,7 +184,7 @@ pub fn library_dir_of(path: &Path) -> Option<PathBuf> {
     (path.is_dir() && crate::library::is_library(path)).then(|| path.to_path_buf())
 }
 
-/// How long the launch arguments' library checks may take, all of them together, before LightCraft gives up and
+/// How long the launch arguments' library checks may take, all of them together, before EvoLight gives up and
 /// treats the arguments not yet checked as photos to import (in the background). A path on a dead network mount
 /// can block a file-system query for minutes, and these checks run before the window opens.
 pub const LAUNCH_PROBE_LIMIT: std::time::Duration = std::time::Duration::from_secs(2);
@@ -265,7 +265,7 @@ pub fn launch_path_until(
             None => LaunchPath::Refused { path: shown, why: "a whole drive".into() },
         });
     }
-    let key = lightcraft_catalog::query::folder_key;
+    let key = evolight_catalog::query::folder_key;
     if home.is_some_and(|h| key(&h.to_string_lossy()) == key(&shown)) {
         return Some(LaunchPath::Refused { path: shown, why: "the whole home folder".into() });
     }
@@ -466,14 +466,14 @@ pub(super) fn copy_into(dir: &Path, src: &str, name: Option<&str>, probe_hash: O
     let name = name
         .map(str::to_string)
         .unwrap_or_else(|| Path::new(src).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "photo".into()));
-    let expect = probe_hash.and_then(lightcraft_preview::Hash128::parse);
+    let expect = probe_hash.and_then(evolight_preview::Hash128::parse);
     crate::import_move::copy_new(Path::new(src), dir, &name, expect).map(|p| p.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
 mod prepared_tests {
     use super::*;
-    use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+    use evolight_catalog::{Op, Photo, PhotoId, Source};
 
     fn temp_dir(tag: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("lc-launch-{tag}-{}", std::process::id()));
@@ -496,7 +496,7 @@ mod prepared_tests {
         }
         // a folder holding only the journal is a library to the opener, so it is one here too
         let journal = temp_dir("journal");
-        std::fs::write(journal.join(lightcraft_catalog::journal::LOG), b"x").unwrap();
+        std::fs::write(journal.join(evolight_catalog::journal::LOG), b"x").unwrap();
         assert_eq!(library_dir_of(&journal), Some(journal.clone()));
         // a folder of photos is not
         let photos = temp_dir("photos");
@@ -508,7 +508,7 @@ mod prepared_tests {
     }
 
     /// The library check runs before the window opens; one that blocks (a dead network mount) gives up after the
-    /// limit and the argument is imported instead, so LightCraft still starts.
+    /// limit and the argument is imported instead, so EvoLight still starts.
     #[test]
     fn a_blocked_launch_probe_gives_up_after_its_limit() {
         let start = std::time::Instant::now();
@@ -526,7 +526,7 @@ mod prepared_tests {
     #[test]
     fn launch_arguments_share_one_deadline() {
         let dir = temp_dir("deadline");
-        std::fs::write(dir.join(lightcraft_catalog::journal::LOG), b"x").unwrap();
+        std::fs::write(dir.join(evolight_catalog::journal::LOG), b"x").unwrap();
         let arg = dir.to_string_lossy().to_string();
         let none = |_: &Path| None;
         assert_eq!(launch_path_until(&arg, None, None, none, launch_deadline()), Some(LaunchPath::Library(arg.clone())));
@@ -539,7 +539,7 @@ mod prepared_tests {
     /// Extensions the picker may offer: every one in [`EXTENSIONS`], minus the
     /// files this build cannot import (see [`accept_list`]).
     fn pickable_extensions() -> Vec<&'static str> {
-        let heif_decodable = lightcraft_codecs::Format::Heif.can_decode();
+        let heif_decodable = evolight_codecs::Format::Heif.can_decode();
         EXTENSIONS
             .iter()
             .copied()
@@ -575,7 +575,7 @@ mod prepared_tests {
     #[test]
     fn accept_list_offers_heic_heif_only_when_decodable() {
         let list = accept_list();
-        let listed = lightcraft_codecs::Format::Heif.can_decode();
+        let listed = evolight_codecs::Format::Heif.can_decode();
         for ext in ["heic", "heif"] {
             assert_eq!(list.contains(&format!(".{ext}")), listed, "lowercase .{ext}");
             assert_eq!(list.contains(&format!(".{}", ext.to_uppercase())), listed, "uppercase .{ext}");
@@ -585,8 +585,8 @@ mod prepared_tests {
     #[test]
     fn revalidate_add_only_converts_matching_ready_item() {
         let mut s = Session::new();
-        let existing_path = std::env::temp_dir().join("lightcraft-revalidate-existing.jpg");
-        let other_path = std::env::temp_dir().join("lightcraft-revalidate-other.jpg");
+        let existing_path = std::env::temp_dir().join("evolight-revalidate-existing.jpg");
+        let other_path = std::env::temp_dir().join("evolight-revalidate-other.jpg");
         let existing = Photo::new(PhotoId(1), Source::File { path: existing_path.to_string_lossy().into() }, "existing.jpg", "JPG", 1, 1, "now");
         s.commit("existing", Op::AddPhoto { photo: Box::new(existing) }).unwrap();
         let ready = |path: &Path| ReadyFile {
@@ -606,7 +606,7 @@ mod prepared_tests {
     }
 
     fn unread_paths(n: usize) -> Vec<String> {
-        (0..n).map(|i| std::env::temp_dir().join(format!("lightcraft-probe-progress-{i}.jpg")).to_string_lossy().into()).collect()
+        (0..n).map(|i| std::env::temp_dir().join(format!("evolight-probe-progress-{i}.jpg")).to_string_lossy().into()).collect()
     }
 
     /// Reading the files of a large import (a Lightroom catalog's originals) reported nothing:
@@ -701,7 +701,7 @@ mod prepared_tests {
     #[test]
     fn a_scans_probe_is_reused_only_for_a_file_as_it_was() {
         use std::sync::atomic::Ordering::Relaxed;
-        let dir = std::env::temp_dir().join(format!("lightcraft-reuse-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-reuse-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let mut files = Vec::new();
@@ -763,7 +763,7 @@ mod prepared_tests {
     /// photo that failed to probe takes none of the others'.
     #[test]
     fn a_batchs_sidecars_go_to_their_own_photos() {
-        let dir = std::env::temp_dir().join(format!("lightcraft-sidecars-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-sidecars-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let xmp = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:Rating="4"/></rdf:RDF></x:xmpmeta>"#;

@@ -6,20 +6,20 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use lightcraft_develop::DevelopSettings;
-use lightcraft_pipeline::{RenderRequest, SourceInfo};
+use evolight_develop::DevelopSettings;
+use evolight_pipeline::{RenderRequest, SourceInfo};
 
 #[test]
 fn the_device_is_not_created_once_the_process_is_ending() {
-    lightcraft_gpu::begin_shutdown();
-    lightcraft_gpu::warm_up();
-    assert!(!lightcraft_gpu::available());
-    assert_eq!(lightcraft_gpu::adapter_name(), None);
-    let src = Arc::new(lightcraft_scenes::demo_library()[0].render(300, 200));
-    let rendered = lightcraft_gpu::render(&src, &SourceInfo::default(), &DevelopSettings::default(), &RenderRequest::fit(300, 200), None);
+    evolight_gpu::begin_shutdown();
+    evolight_gpu::warm_up();
+    assert!(!evolight_gpu::available());
+    assert_eq!(evolight_gpu::adapter_name(), None);
+    let src = Arc::new(evolight_scenes::demo_library()[0].render(300, 200));
+    let rendered = evolight_gpu::render(&src, &SourceInfo::default(), &DevelopSettings::default(), &RenderRequest::fit(300, 200), None);
     assert!(rendered.is_none());
-    assert!(lightcraft_gpu::wait_idle(Duration::from_secs(60)), "the warm-up thread found the gate closed");
+    assert!(evolight_gpu::wait_idle(Duration::from_secs(60)), "the warm-up thread found the gate closed");
     // `ready()` is "device creation finished" (or the GPU is switched off by the environment)
-    let switched_off = lightcraft_gpu::unavailable_reason().is_some_and(|r| r.starts_with("disabled by LIGHTCRAFT_GPU"));
-    assert!(switched_off || !lightcraft_gpu::ready(), "no device was created");
+    let switched_off = evolight_gpu::unavailable_reason().is_some_and(|r| r.starts_with("disabled by EVOLIGHT_GPU"));
+    assert!(switched_off || !evolight_gpu::ready(), "no device was created");
 }

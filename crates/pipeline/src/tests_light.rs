@@ -1,9 +1,9 @@
 //! Process V4's calibrated Contrast and Blacks (`light_v3`): V1 and V2 render as they
 //! always did, and the V4 operators behave.
 
-use lightcraft_color::transfer::{linear_to_srgb, srgb_to_linear};
-use lightcraft_develop::{DevelopSettings, Process, ProcessVersion, controls};
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_color::transfer::{linear_to_srgb, srgb_to_linear};
+use evolight_develop::{DevelopSettings, Process, ProcessVersion, controls};
+use evolight_raster::{Rgb32f, Rgba8};
 
 use crate::light_v3::{self, FITS, LUT_N, LightOps, Mode, Operator, Reference};
 use crate::light_v3_params as fitted;
@@ -56,7 +56,7 @@ fn v3_luminance_cutoff_chroma_4() {
 }
 
 fn scenes() -> Vec<Rgb32f> {
-    let lib = lightcraft_scenes::demo_library();
+    let lib = evolight_scenes::demo_library();
     vec![lib[0].render(480, 320), lib[3].render(400, 300)]
 }
 
@@ -372,7 +372,7 @@ fn v3_at_zero_is_the_neutral_camera_look_and_other_paths_are_v2() {
     assert!(LightOps::new(&on(Process::V4, &typical), &info).is_none(), "nothing to apply at 0");
     assert!(
         LightOps::new(
-            &on(Process::V3, &DevelopSettings { light: lightcraft_develop::Light { contrast: 50.0, ..Default::default() }, ..typical.clone() }),
+            &on(Process::V3, &DevelopSettings { light: evolight_develop::Light { contrast: 50.0, ..Default::default() }, ..typical.clone() }),
             &info
         )
         .is_none()
@@ -382,7 +382,7 @@ fn v3_at_zero_is_the_neutral_camera_look_and_other_paths_are_v2() {
 /// Cached renders (a view's stage cache) render as uncached ones do, whole or as a window.
 #[test]
 fn calibrated_operators_match_in_cached_and_windowed_renders() {
-    let src = std::sync::Arc::new(lightcraft_scenes::demo_library()[3].render(1200, 800));
+    let src = std::sync::Arc::new(evolight_scenes::demo_library()[3].render(1200, 800));
     let info = camera_look();
     let mut s = DevelopSettings::default();
     s.light.contrast = 40.0;
@@ -502,14 +502,14 @@ fn section_bypass_and_local_adjustments_keep_v2_behavior() {
     assert_eq!(render_hash(&src, &info, &on(Process::V4, &s), &req), render_hash(&src, &info, &on(Process::V3, &s), &req));
     s.light = Default::default();
     s.disabled_sections.clear();
-    s.masks = vec![lightcraft_develop::Mask {
-        components: vec![lightcraft_develop::MaskComponent {
+    s.masks = vec![evolight_develop::Mask {
+        components: vec![evolight_develop::MaskComponent {
             name: None,
-            op: lightcraft_develop::MaskOp::Add,
+            op: evolight_develop::MaskOp::Add,
             invert: false,
-            shape: lightcraft_develop::MaskShape::Linear { start: lightcraft_geom::Point::new(0.2, 0.0), end: lightcraft_geom::Point::new(0.8, 1.0) },
+            shape: evolight_develop::MaskShape::Linear { start: evolight_geom::Point::new(0.2, 0.0), end: evolight_geom::Point::new(0.8, 1.0) },
         }],
-        adjust: lightcraft_develop::LocalAdjustments { contrast: 40.0, whites: 60.0, blacks: -30.0, ..Default::default() },
+        adjust: evolight_develop::LocalAdjustments { contrast: 40.0, whites: 60.0, blacks: -30.0, ..Default::default() },
         ..Default::default()
     }];
     assert_eq!(render_hash(&src, &info, &on(Process::V4, &s), &req), render_hash(&src, &info, &on(Process::V3, &s), &req));

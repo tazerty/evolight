@@ -5,7 +5,7 @@ impl Scratch {
     fn new(bytes: &[u8]) -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!("lightcraft-page-source-{}-{n}.lrcat", std::process::id()));
+        let path = std::env::temp_dir().join(format!("evolight-page-source-{}-{n}.lrcat", std::process::id()));
         std::fs::write(&path, bytes).unwrap();
         Self(path)
     }

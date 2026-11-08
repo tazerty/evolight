@@ -1,13 +1,13 @@
-//! Thumbnail throughput, CPU vs GPU: `cargo test --release -p lightcraft-gpu --test it thumbs_bench -- --ignored --nocapture`.
+//! Thumbnail throughput, CPU vs GPU: `cargo test --release -p evolight-gpu --test it thumbs_bench -- --ignored --nocapture`.
 //! Six threads (the app's render workers) each render thumbnails of 512 px sources at 256 px with
 //! settings like a typical preset (noise reduction, sharpening, clarity, grading, a gradient mask).
 
 use std::sync::Arc;
 use std::time::Instant;
 
-use lightcraft_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape};
-use lightcraft_geom::Point;
-use lightcraft_pipeline::{RenderRequest, SourceInfo};
+use evolight_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape};
+use evolight_geom::Point;
+use evolight_pipeline::{RenderRequest, SourceInfo};
 
 fn preset_like() -> DevelopSettings {
     let mut s = DevelopSettings::default();
@@ -28,7 +28,7 @@ fn preset_like() -> DevelopSettings {
             invert: false,
             shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.5) },
         }],
-        adjust: lightcraft_develop::LocalAdjustments { exposure: -0.6, ..Default::default() },
+        adjust: evolight_develop::LocalAdjustments { exposure: -0.6, ..Default::default() },
         ..Default::default()
     }];
     s
@@ -37,12 +37,12 @@ fn preset_like() -> DevelopSettings {
 #[test]
 #[ignore]
 fn thumbnail_throughput() {
-    if !lightcraft_gpu::available() {
-        eprintln!("skipped: no GPU ({:?})", lightcraft_gpu::unavailable_reason());
+    if !evolight_gpu::available() {
+        eprintln!("skipped: no GPU ({:?})", evolight_gpu::unavailable_reason());
         return;
     }
-    let lib = lightcraft_scenes::demo_library();
-    let sources: Vec<Arc<lightcraft_raster::Rgb32f>> = (0..12).map(|i| Arc::new(lib[i % lib.len()].render(512, 341))).collect();
+    let lib = evolight_scenes::demo_library();
+    let sources: Vec<Arc<evolight_raster::Rgb32f>> = (0..12).map(|i| Arc::new(lib[i % lib.len()].render(512, 341))).collect();
     let info = SourceInfo { raw: true, ..Default::default() };
     let s = preset_like();
     let req = RenderRequest::fit(256, 256);
@@ -56,9 +56,9 @@ fn thumbnail_throughput() {
                     for i in 0..per_thread {
                         let src = &sources[(k * per_thread + i) % sources.len()];
                         let r = if gpu {
-                            lightcraft_gpu::render(src, info, s, &req, None)
+                            evolight_gpu::render(src, info, s, &req, None)
                         } else {
-                            Some(lightcraft_pipeline::render(src, info, s, &req))
+                            Some(evolight_pipeline::render(src, info, s, &req))
                         };
                         assert!(r.is_some());
                     }

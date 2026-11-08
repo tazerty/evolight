@@ -1,12 +1,12 @@
 use super::geometry::CanvasMap;
 use super::{
-    Affine, Color32, DevelopSettings, Frame, Gesture, LightcraftApp, PhotoId, Point, Pos2, Rect, Stroke, Tokens, json, pos2, register, vec2,
+    Affine, Color32, DevelopSettings, Frame, Gesture, EvoLightApp, PhotoId, Point, Pos2, Rect, Stroke, Tokens, json, pos2, register, vec2,
 };
 
 // ------------------------------------------------------------------------ crop
 
 pub(super) fn crop_overlay(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     resp: &egui::Response,
     map: &CanvasMap,
@@ -40,7 +40,7 @@ pub(super) fn crop_overlay(
     let preview;
     let d = match app.crop_tool_preview() {
         Some(geometry) => {
-            preview = DevelopSettings { crop: lightcraft_develop::Crop { geometry, ..d.crop }, ..d.clone() };
+            preview = DevelopSettings { crop: evolight_develop::Crop { geometry, ..d.crop }, ..d.clone() };
             &preview
         }
         None => d,
@@ -156,7 +156,7 @@ pub(super) fn crop_overlay(
         match app.gesture.clone() {
             Some(Gesture::CropHandle { handle, start, angle }) => {
                 // The crop model decides what the drag does (anchor, aspect lock, image bounds): see
-                // `lightcraft_geom::drag_crop`; the UI only reports where the pointer started and is.
+                // `evolight_geom::drag_crop`; the UI only reports where the pointer started and is.
                 let n = to_straight(map.norm(q), angle, frame);
                 let orig = ui.input(|i| i.pointer.press_origin()).map(|q0| to_straight(map.norm(q0), angle, frame)).unwrap_or(n);
                 // Shift keeps the current proportions for this drag only; the Lock toggle is untouched.
@@ -204,7 +204,7 @@ const CROP_HANDLE_NAMES: [&str; 9] = [
 /// undo step each), as a pointer drag from its place would. Return applies the crop. True when the
 /// frame is over (the crop was applied).
 fn crop_keys(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     map: &CanvasMap,
     handles: &[Pos2],
@@ -247,7 +247,7 @@ fn crop_keys(
 /// The crop angle as the rotation readout shows it: like the Straighten value, in degrees.
 pub(crate) fn crop_angle_label(angle: f64) -> String {
     let shown =
-        lightcraft_develop::controls::find("crop.angle").map_or_else(|| format!("{angle:.2}"), |spec| crate::widgets::shown_value(spec, angle));
+        evolight_develop::controls::find("crop.angle").map_or_else(|| format!("{angle:.2}"), |spec| crate::widgets::shown_value(spec, angle));
     // the slider's format turns a rounded −0.00 into "0": every zero reads "0.00", the angle's
     // usual two decimals
     let shown = if shown == "0" { "0.00".to_string() } else { shown };
@@ -323,7 +323,7 @@ fn angle_readout(ui: &egui::Ui, at: Pos2, angle: f64, bounds: Rect) {
 /// Guided Upright: draw up to four guides along lines that should be vertical or horizontal. Guides are
 /// stored in lens-corrected (pre-perspective) coordinates, so they stay attached to the image as it warps.
 fn guided_overlay(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     resp: &egui::Response,
     map: &CanvasMap,
@@ -554,7 +554,7 @@ fn frame_crop_quad(d: &DevelopSettings, frame: &Frame) -> [Point; 4] {
 /// Straighten tool: drag along a horizon (or a vertical) to set the crop angle; double-click = Auto.
 /// The image is shown unrotated in the crop view, so the line's on-screen angle is its image angle.
 /// `held`: drawn with ⌘ held in the crop tool, which stays active afterwards.
-fn straighten_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, held: bool) {
+fn straighten_overlay(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, held: bool) {
     ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
     if !held && resp.double_clicked() {
         app.auto_straighten(ui.ctx());

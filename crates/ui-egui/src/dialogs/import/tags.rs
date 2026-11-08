@@ -23,7 +23,7 @@ pub(crate) fn tag_toggle(ui: &mut egui::Ui, key: &str) -> bool {
 
 /// "Unknown tag {x} stays as typed" under a template field, when it has one.
 pub(crate) fn unknown_tags_warning(ui: &mut egui::Ui, template: &str) {
-    let unknown = lightcraft_engine::rename::unknown_tokens(template);
+    let unknown = evolight_engine::rename::unknown_tokens(template);
     if !unknown.is_empty() {
         let s = if unknown.len() == 1 { "" } else { "s" };
         let text = crate::i18n::tr_format!(
@@ -58,7 +58,7 @@ pub(crate) fn insert_at_cursor(ctx: &egui::Context, edit_id: egui::Id, text: &mu
 /// meaning and an example, the `{date:…}` directives and how templates behave. Clicking a tag
 /// (`button:<key>Tag-<i>`) inserts it at the cursor of the field `edit_id`.
 pub(crate) fn tag_help(ui: &mut egui::Ui, key: &str, text: &mut String, edit_id: egui::Id) {
-    use lightcraft_engine::rename::{DATE_DIRECTIVES, TEMPLATE_NOTES, TOKENS, token_example};
+    use evolight_engine::rename::{DATE_DIRECTIVES, TEMPLATE_NOTES, TOKENS, token_example};
     let t = Tokens::get(ui.ctx());
     egui::Frame::new().fill(t.inset).corner_radius(4.0).inner_margin(6.0).show(ui, |ui| {
         ui.label(

@@ -19,7 +19,7 @@ pub struct FilterValues {
 /// What the smart-album rule dialog shows besides the rules themselves: their problems (each row
 /// marks its own), how many photos they match and the albums an Album rule picks from.
 pub struct RulesView {
-    pub problems: Vec<lightcraft_catalog::rules::Problem>,
+    pub problems: Vec<evolight_catalog::rules::Problem>,
     pub count: usize,
     pub albums: Vec<album_picker::AlbumEntry>,
 }
@@ -33,35 +33,35 @@ pub(crate) fn key_of(parts: impl std::hash::Hash) -> u64 {
 /// `reads` of a photo: nothing changed since, or only other things of some photos did (a rating changes no folder's
 /// count, a slider changes none at all). Each of these tallies asks every photo, so one kept is a pass over the
 /// library saved on every edit.
-fn still_right(cat: &lightcraft_catalog::Catalog, revision: u64, reads: lightcraft_catalog::Aspects) -> bool {
+fn still_right(cat: &evolight_catalog::Catalog, revision: u64, reads: evolight_catalog::Aspects) -> bool {
     revision == cat.revision || cat.aspects_since(revision).is_some_and(|changed| !changed.any_of(reads))
 }
 
 /// What the tallies below read of a photo, besides whether it is in the library.
-const READS_FILE: lightcraft_catalog::Aspects = lightcraft_catalog::Aspects::PRESENCE.with(lightcraft_catalog::Aspects::FILE);
+const READS_FILE: evolight_catalog::Aspects = evolight_catalog::Aspects::PRESENCE.with(evolight_catalog::Aspects::FILE);
 
-const READS_META: lightcraft_catalog::Aspects = lightcraft_catalog::Aspects::PRESENCE.with(lightcraft_catalog::Aspects::META);
+const READS_META: evolight_catalog::Aspects = evolight_catalog::Aspects::PRESENCE.with(evolight_catalog::Aspects::META);
 
-const READS_PEOPLE: lightcraft_catalog::Aspects = READS_META.with(lightcraft_catalog::Aspects::ANALYSIS);
+const READS_PEOPLE: evolight_catalog::Aspects = READS_META.with(evolight_catalog::Aspects::ANALYSIS);
 
-const READS_CAPTURED: lightcraft_catalog::Aspects = lightcraft_catalog::Aspects::PRESENCE.with(lightcraft_catalog::Aspects::CAPTURED);
+const READS_CAPTURED: evolight_catalog::Aspects = evolight_catalog::Aspects::PRESENCE.with(evolight_catalog::Aspects::CAPTURED);
 
-const READS_FLAG: lightcraft_catalog::Aspects = lightcraft_catalog::Aspects::PRESENCE.with(lightcraft_catalog::Aspects::FLAG);
+const READS_FLAG: evolight_catalog::Aspects = evolight_catalog::Aspects::PRESENCE.with(evolight_catalog::Aspects::FLAG);
 
 impl Caches {
     /// The folders the library's photos were imported from.
-    pub fn folder_tree(&mut self, cat: &lightcraft_catalog::Catalog) -> std::sync::Arc<Vec<lightcraft_catalog::FolderNode>> {
+    pub fn folder_tree(&mut self, cat: &evolight_catalog::Catalog) -> std::sync::Arc<Vec<evolight_catalog::FolderNode>> {
         let kept = self.folder_tree.take().filter(|(r, _)| still_right(cat, *r, READS_FILE)).map(|(_, t)| t);
         let t = kept.unwrap_or_else(|| std::sync::Arc::new(cat.folder_tree()));
         self.folder_tree = Some((cat.revision, t.clone()));
         t
     }
     /// The folder tree as last built, when it still holds (a read-only check cannot rebuild it).
-    pub(crate) fn folder_tree_if_fresh(&self, cat: &lightcraft_catalog::Catalog) -> Option<std::sync::Arc<Vec<lightcraft_catalog::FolderNode>>> {
+    pub(crate) fn folder_tree_if_fresh(&self, cat: &evolight_catalog::Catalog) -> Option<std::sync::Arc<Vec<evolight_catalog::FolderNode>>> {
         self.folder_tree.as_ref().filter(|(r, _)| still_right(cat, *r, READS_FILE)).map(|(_, t)| t.clone())
     }
     /// The library's keyword tree.
-    pub fn keyword_tree(&mut self, cat: &lightcraft_catalog::Catalog) -> std::sync::Arc<Vec<lightcraft_catalog::KeywordNode>> {
+    pub fn keyword_tree(&mut self, cat: &evolight_catalog::Catalog) -> std::sync::Arc<Vec<evolight_catalog::KeywordNode>> {
         let kept = self.keyword_tree.take().filter(|(r, _)| still_right(cat, *r, READS_META)).map(|(_, t)| t);
         let t = kept.unwrap_or_else(|| std::sync::Arc::new(cat.keyword_tree()));
         self.keyword_tree = Some((cat.revision, t.clone()));
@@ -71,8 +71,8 @@ impl Caches {
     /// (`export`), or the keywords with those containing them.
     pub(crate) fn keyword_names(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        selection: &[lightcraft_catalog::PhotoId],
+        cat: &evolight_catalog::Catalog,
+        selection: &[evolight_catalog::PhotoId],
         export: bool,
     ) -> std::sync::Arc<Vec<panels::keywording::Chip>> {
         let key = key_of((selection, export));
@@ -92,8 +92,8 @@ impl Caches {
     /// The selection's keywords (the Keywording box's chips).
     pub(crate) fn keyword_chips(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        selection: &[lightcraft_catalog::PhotoId],
+        cat: &evolight_catalog::Catalog,
+        selection: &[evolight_catalog::PhotoId],
     ) -> std::sync::Arc<Vec<panels::keywording::Chip>> {
         let key = key_of(selection);
         match &self.keyword_chips {
@@ -107,7 +107,7 @@ impl Caches {
     }
     /// How many photos the selection is: each once, those the library has (what the Keywording
     /// box's "N of M" counts).
-    pub(crate) fn selected_photos(&mut self, cat: &lightcraft_catalog::Catalog, selection: &[lightcraft_catalog::PhotoId]) -> usize {
+    pub(crate) fn selected_photos(&mut self, cat: &evolight_catalog::Catalog, selection: &[evolight_catalog::PhotoId]) -> usize {
         let key = key_of(selection);
         match self.selected_photos {
             Some((r, k, n)) if r == cat.revision && k == key => n,
@@ -121,8 +121,8 @@ impl Caches {
     /// The selection's keywords grouped by the keyword they are inside (the grouped Keywording box).
     pub(crate) fn keyword_groups(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        selection: &[lightcraft_catalog::PhotoId],
+        cat: &evolight_catalog::Catalog,
+        selection: &[evolight_catalog::PhotoId],
     ) -> std::sync::Arc<Vec<panels::keywording::Group>> {
         let key = key_of(selection);
         match &self.keyword_groups {
@@ -138,8 +138,8 @@ impl Caches {
     /// How many selected photos have each keyword (the Keyword List's tick boxes).
     pub(crate) fn keyword_ticks(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        selection: &[lightcraft_catalog::PhotoId],
+        cat: &evolight_catalog::Catalog,
+        selection: &[evolight_catalog::PhotoId],
     ) -> std::sync::Arc<panels::keyword_list::Ticks> {
         let key = key_of(selection);
         match &self.keyword_ticks {
@@ -155,10 +155,10 @@ impl Caches {
     /// with photo counts.
     pub fn people(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        filter: &lightcraft_catalog::Filter,
-    ) -> std::sync::Arc<Vec<lightcraft_catalog::Person>> {
-        let key = lightcraft_catalog::Filter { person: None, ..filter.clone() };
+        cat: &evolight_catalog::Catalog,
+        filter: &evolight_catalog::Filter,
+    ) -> std::sync::Arc<Vec<evolight_catalog::Person>> {
+        let key = evolight_catalog::Filter { person: None, ..filter.clone() };
         match &self.people {
             Some((r, f, t)) if *r == cat.revision && *f == key => t.clone(),
             _ => {
@@ -169,7 +169,7 @@ impl Caches {
         }
     }
     /// All Photos / Picks / Recently Deleted counts.
-    pub fn counts(&mut self, cat: &lightcraft_catalog::Catalog) -> LibraryCounts {
+    pub fn counts(&mut self, cat: &evolight_catalog::Catalog) -> LibraryCounts {
         if let Some((r, c)) = self.counts
             && still_right(cat, r, READS_FLAG)
         {
@@ -180,7 +180,7 @@ impl Caches {
         for p in cat.photos() {
             if p.in_library() {
                 c.total += 1;
-                if p.flag == lightcraft_catalog::Flag::Pick {
+                if p.flag == evolight_catalog::Flag::Pick {
                     c.picks += 1;
                 }
             } else if p.deleted && !p.local {
@@ -191,21 +191,21 @@ impl Caches {
         c
     }
     /// Everyone named on a face in the library (for completing a name as it is typed).
-    pub fn person_names(&mut self, cat: &lightcraft_catalog::Catalog) -> std::sync::Arc<Vec<String>> {
+    pub fn person_names(&mut self, cat: &evolight_catalog::Catalog) -> std::sync::Arc<Vec<String>> {
         let kept = self.person_names.take().filter(|(r, _)| still_right(cat, *r, READS_PEOPLE)).map(|(_, v)| v);
         let v = kept.unwrap_or_else(|| std::sync::Arc::new(cat.people().into_iter().map(|p| p.name).collect::<Vec<_>>()));
         self.person_names = Some((cat.revision, v.clone()));
         v
     }
     /// The By Date tree.
-    pub fn date_groups(&mut self, cat: &lightcraft_catalog::Catalog) -> std::sync::Arc<Vec<lightcraft_catalog::DateGroup>> {
+    pub fn date_groups(&mut self, cat: &evolight_catalog::Catalog) -> std::sync::Arc<Vec<evolight_catalog::DateGroup>> {
         let kept = self.date_groups.take().filter(|(r, _)| still_right(cat, *r, READS_CAPTURED)).map(|(_, g)| g);
         let g = kept.unwrap_or_else(|| std::sync::Arc::new(cat.date_groups()));
         self.date_groups = Some((cat.revision, g.clone()));
         g
     }
     /// Cameras, lenses and keywords in the library (filter bar pickers).
-    pub fn filter_values(&mut self, cat: &lightcraft_catalog::Catalog) -> std::sync::Arc<FilterValues> {
+    pub fn filter_values(&mut self, cat: &evolight_catalog::Catalog) -> std::sync::Arc<FilterValues> {
         match &self.filter_values {
             Some((r, v)) if *r == cat.revision => v.clone(),
             _ => {
@@ -231,7 +231,7 @@ impl Caches {
     /// through the library's keywords.
     pub(crate) fn completions(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
+        cat: &evolight_catalog::Catalog,
         current: &[String],
         typed: &str,
     ) -> std::sync::Arc<panels::keywording::Offers> {
@@ -246,7 +246,7 @@ impl Caches {
         }
     }
     /// Keyword suggestions for a photo with `current` keywords and the typed `prefix`.
-    pub fn suggestions(&mut self, cat: &lightcraft_catalog::Catalog, current: &[String], prefix: &str, n: usize) -> std::sync::Arc<Vec<String>> {
+    pub fn suggestions(&mut self, cat: &evolight_catalog::Catalog, current: &[String], prefix: &str, n: usize) -> std::sync::Arc<Vec<String>> {
         let k = key_of((cat.revision, current, prefix, n));
         match &self.suggestions {
             Some((h, v)) if *h == k => v.clone(),
@@ -267,8 +267,8 @@ impl Caches {
     /// rules, the language or (for "in the last…" rules) the minute changes, not every frame.
     pub fn rules_view(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-        rules: &lightcraft_catalog::RuleSet,
+        cat: &evolight_catalog::Catalog,
+        rules: &evolight_catalog::RuleSet,
         editing: Option<u64>,
         folder: Option<String>,
         now: &str,
@@ -282,10 +282,10 @@ impl Caches {
             return v.clone();
         }
         if relative {
-            lightcraft_catalog::rules::set_now(Some(now.to_string()));
+            evolight_catalog::rules::set_now(Some(now.to_string()));
         }
-        let problems = rules.check_for(cat, editing.map(lightcraft_catalog::AlbumId));
-        let filter = lightcraft_catalog::Filter { rule_set: Some(rules.clone()), library_folder: folder, ..Default::default() };
+        let problems = rules.check_for(cat, editing.map(evolight_catalog::AlbumId));
+        let filter = evolight_catalog::Filter { rule_set: Some(rules.clone()), library_folder: folder, ..Default::default() };
         let count = if problems.is_empty() { cat.query(&filter, &Default::default()).len() } else { 0 };
         let v = std::sync::Arc::new(RulesView { problems, count, albums: panels::dialogs::album_entries(cat, editing) });
         self.rules_view_scans += 1;
@@ -295,7 +295,7 @@ impl Caches {
 
     /// A count an open dialog shows (photos a filter matches, photos with a keyword…): `count` runs
     /// again only when the catalog or `what` (what is counted) changes, not every frame.
-    pub(crate) fn dialog_count(&mut self, cat: &lightcraft_catalog::Catalog, what: impl std::hash::Hash, count: impl FnOnce() -> usize) -> usize {
+    pub(crate) fn dialog_count(&mut self, cat: &evolight_catalog::Catalog, what: impl std::hash::Hash, count: impl FnOnce() -> usize) -> usize {
         let k = key_of((cat.revision, what));
         if let Some((key, n)) = self.dialog_count
             && key == k
@@ -312,8 +312,8 @@ impl Caches {
     /// for the sidebar's ⚠ marks: worked out again only when the catalog changes.
     pub fn smart_album_problems(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
-    ) -> std::sync::Arc<std::collections::HashMap<lightcraft_catalog::AlbumId, Vec<lightcraft_catalog::rules::Problem>>> {
+        cat: &evolight_catalog::Catalog,
+    ) -> std::sync::Arc<std::collections::HashMap<evolight_catalog::AlbumId, Vec<evolight_catalog::rules::Problem>>> {
         if let Some((rev, v)) = &self.smart_problems
             && *rev == cat.revision
         {
@@ -329,9 +329,9 @@ impl Caches {
 
     pub fn album_counts(
         &mut self,
-        cat: &lightcraft_catalog::Catalog,
+        cat: &evolight_catalog::Catalog,
         now: &str,
-    ) -> std::sync::Arc<std::collections::HashMap<lightcraft_catalog::AlbumId, usize>> {
+    ) -> std::sync::Arc<std::collections::HashMap<evolight_catalog::AlbumId, usize>> {
         let relative = cat.albums().any(|a| a.smart.as_ref().is_some_and(|f| f.depends_on_now()));
         let minute = if relative { now.get(..16).unwrap_or(now) } else { "" };
         // the counts of this minute, if there are any: an edit to a photo or a few is followed from them, a smart
@@ -348,7 +348,7 @@ impl Caches {
             // "in the last N days" counts back from the session clock, as in the grid. (Within a minute an edit asks
             // only the photos it touched, at this second; the others were asked earlier in the minute. That is as
             // far out as the counts already were between edits, and the next minute counts them all again.)
-            lightcraft_catalog::rules::set_now(Some(now.to_string()));
+            evolight_catalog::rules::set_now(Some(now.to_string()));
         }
         let tally = match kept {
             Some((_, mut tally, _)) => {
@@ -359,7 +359,7 @@ impl Caches {
             }
             None => {
                 self.album_count_scans += 1;
-                lightcraft_catalog::tally::AlbumTally::of(cat)
+                evolight_catalog::tally::AlbumTally::of(cat)
             }
         };
         let shown = std::sync::Arc::new(tally.counts().clone());
@@ -370,7 +370,7 @@ impl Caches {
 
 #[cfg(test)]
 mod cache_tests {
-    use lightcraft_catalog::{Album, AlbumId, Catalog, Filter, Op, Photo, PhotoId, RuleSet, Source};
+    use evolight_catalog::{Album, AlbumId, Catalog, Filter, Op, Photo, PhotoId, RuleSet, Source};
 
     fn photo(id: u64, captured: &str, rating: u8) -> Op {
         let mut p = Photo::new(PhotoId(id), Source::Demo { scene: 0 }, &format!("p{id}.jpg"), "JPEG", 60, 40, "2026-01-01T00:00:00");
@@ -416,7 +416,7 @@ mod cache_tests {
         // an hour later the 11:59:30 photo has left "in the last hour", with no catalog change
         assert_eq!(c.album_counts(&cat, "2026-09-30T13:00:10")[&AlbumId(11)], 0);
         assert_eq!(c.album_count_scans, 3, "new rules and a new minute are counted from every photo; the rating was not");
-        lightcraft_catalog::rules::set_now(None);
+        evolight_catalog::rules::set_now(None);
     }
 
     /// The rule dialog's problems, live count and album list are worked out once per change to the
@@ -443,7 +443,7 @@ mod cache_tests {
         assert_eq!(c.rules_view(&cat, &rules(3), None, None, now).count, 2, "a catalog change");
         assert_eq!(c.rules_view_scans, 4);
         // the sidebar's problems
-        cat.apply(Op::AddAlbum { album: lightcraft_catalog::Album::new(AlbumId(20), "Trip") }).unwrap();
+        cat.apply(Op::AddAlbum { album: evolight_catalog::Album::new(AlbumId(20), "Trip") }).unwrap();
         cat.apply(smart(21, serde_json::json!({"rules": [{"field": "album", "op": "is", "value": 20}]}))).unwrap();
         assert!(c.smart_album_problems(&cat).get(&AlbumId(21)).is_none_or(Vec::is_empty));
         for _ in 0..10 {

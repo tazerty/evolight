@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_catalog::{Catalog, Op, Photo, Source};
+use evolight_catalog::{Catalog, Op, Photo, Source};
 
 #[test]
 fn render_failures_identify_the_file_for_thumbnail_and_view_slots() {
@@ -32,7 +32,7 @@ fn each_render_request_and_how_it_ended_is_a_debug_line_with_its_file() {
         |lines: &[String]| -> Vec<String> { lines.iter().map(|l| l.rsplit_once(": ").map_or(l.clone(), |(_, end)| end.to_string())).collect() };
     let (mut app, work, ctx) = fixture();
     let slot = Slot::Thumb(PhotoId(1));
-    let job = |app: &mut crate::LightcraftApp, edge| app.session.render_job(PhotoId(1), edge, edge, false, true).unwrap();
+    let job = |app: &mut crate::EvoLightApp, edge| app.session.render_job(PhotoId(1), edge, edge, false, true).unwrap();
     // asked once, drawn
     let j = job(&mut app, 64);
     app.renderer.request(slot, j, 10);
@@ -49,7 +49,7 @@ fn each_render_request_and_how_it_ended_is_a_debug_line_with_its_file() {
     // a stand-in that comes back after the thumbnail itself is not used
     let quick = Slot::ThumbQuick(PhotoId(1));
     let mut j = job(&mut app, 64);
-    j.request_id = lightcraft_preview::next_tick();
+    j.request_id = evolight_preview::next_tick();
     app.renderer.requests.insert(quick, Requested { look: None, id: j.request_id, source: Some(j.origin.clone()) });
     finish(&mut app, &work, &ctx, quick, j.run());
     // a render still running when everything is forgotten says so once, when it comes back
@@ -72,7 +72,7 @@ fn each_render_request_and_how_it_ended_is_a_debug_line_with_its_file() {
             "abandoned, no longer wanted when it finished"
         ]
     );
-    let named = |app: &crate::LightcraftApp| {
+    let named = |app: &crate::EvoLightApp| {
         assert!(
             app.renderer.decisions.iter().all(|l| l.starts_with("render Thumb") && l.contains(", PhotoId(1), file \"audit.jpg\": ")),
             "{:?}",
@@ -128,9 +128,9 @@ fn each_render_request_and_how_it_ended_is_a_debug_line_with_its_file() {
 
     // a stand-in still waiting that the grid moves up while it scrolls says so
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, _, _) = fixture_with(s, raw);
     app.renderer.pool = JobPool::new(0); // nothing starts until run_inline
@@ -192,7 +192,7 @@ fn snapshot_tracks_cow_edits_undo_reload_and_replacement() {
     r.pending.insert(Slot::Thumb(PhotoId(1)), (77, 10));
     assert!(r.thumb_current(&old, 384, 10));
     assert!(!r.thumb_current(&old, 512, 10));
-    let mut settings = lightcraft_develop::DevelopSettings::default();
+    let mut settings = evolight_develop::DevelopSettings::default();
     settings.light.exposure = 1.0;
     let undo = catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(settings), label: "edit".into(), edited: None }).unwrap();
     assert!(!r.thumb_current(catalog.photo(PhotoId(1)).unwrap(), 384, 10));
@@ -239,10 +239,10 @@ fn queue_promotions_running_work_and_cancellation() {
 }
 fn queued_quick_thumbnail(id: PhotoId) -> (Arc<Photo>, QuickJob) {
     let mut session = Session::new();
-    session.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    session.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
     raw.id = id;
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     session.catalog.apply(Op::AddPhoto { photo: Box::new(raw) }).unwrap();
     let p = session.catalog.photo(id).unwrap().clone();
@@ -357,7 +357,7 @@ fn a_failed_thumbnail_is_retried_only_when_its_photo_changes() {
     catalog.apply(Op::AddPhoto { photo: Box::new(other_photo) }).unwrap();
     // the files are there (an undecodable file is still a file)
     let here = Arc::new(AtomicBool::new(true));
-    let mut files = lightcraft_engine::availability::Availability::default();
+    let mut files = evolight_engine::availability::Availability::default();
     let h = here.clone();
     files.set_probe(Arc::new(move |_| h.load(Ordering::SeqCst)));
     let slot = Slot::Thumb(p.id);
@@ -379,7 +379,7 @@ fn a_failed_thumbnail_is_retried_only_when_its_photo_changes() {
     r.failed.insert(slot, (77, "unrecognised image format".into(), r.catalog_rev, p.id));
     assert!(!r.request_needed(slot, 77, 10));
     let album = catalog.alloc_album_id();
-    catalog.apply(Op::AddAlbum { album: lightcraft_catalog::Album::new(album, "Trip") }).unwrap();
+    catalog.apply(Op::AddAlbum { album: evolight_catalog::Album::new(album, "Trip") }).unwrap();
     r.follow_catalog(&catalog, &files);
     assert!(r.request_needed(slot, 77, 10), "which photos changed is unknown");
     // a file known to be missing (its drive unplugged) is tried at every change, as before, so
@@ -394,7 +394,7 @@ fn a_failed_thumbnail_is_retried_only_when_its_photo_changes() {
 #[test]
 fn a_fast_draft_is_drawn_in_the_frame_that_asked_for_it() {
     let mut s = Session::new();
-    s.media.file_loader = Some(Arc::new(|_, _, _| Ok((lightcraft_raster::Rgb32f::new(8, 8), Default::default()))));
+    s.media.file_loader = Some(Arc::new(|_, _, _| Ok((evolight_raster::Rgb32f::new(8, 8), Default::default()))));
     s.catalog.apply(Op::AddPhoto { photo: Box::new((*photo()).clone()) }).unwrap();
     let mut r = Renderer::with_worker_threads(1);
     let ctx = egui::Context::default();
@@ -428,28 +428,28 @@ impl RenderOffload for Manual {
         std::mem::take(&mut self.0.borrow_mut().finished)
     }
 }
-fn fixture() -> (crate::LightcraftApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
+fn fixture() -> (crate::EvoLightApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
     fixture_with(Session::new(), (*photo()).clone())
 }
 /// An unedited raw: its embedded camera preview is its final thumbnail (the grid's quick path).
-fn raw_quick_fixture() -> (crate::LightcraftApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
+fn raw_quick_fixture() -> (crate::EvoLightApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     fixture_with(s, raw)
 }
-fn fixture_with(mut s: Session, photo: Photo) -> (crate::LightcraftApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
+fn fixture_with(mut s: Session, photo: Photo) -> (crate::EvoLightApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context) {
     s.media.file_loader = Some(Arc::new(|_, _, _| {
-        let mut image = lightcraft_raster::Rgb32f::new(8, 8);
+        let mut image = evolight_raster::Rgb32f::new(8, 8);
         image.data.fill([0.3, 0.2, 0.1]);
         Ok((image, Default::default()))
     }));
     // (`with_fs` sets the file system's thumbnail loader, which wins over `file_loader`: thumbnails use the stub too)
     s.media.reduced_loader = None;
     s.catalog.apply(Op::AddPhoto { photo: Box::new(photo) }).unwrap();
-    let mut app = crate::LightcraftApp::new(s, crate::Services::default());
+    let mut app = crate::EvoLightApp::new(s, crate::Services::default());
     app.renderer.keep_pixels = true;
     let work = std::rc::Rc::new(std::cell::RefCell::new(Work::default()));
     app.renderer.set_offload(Box::new(Manual(work.clone())));
@@ -460,27 +460,27 @@ fn fixture_with(mut s: Session, photo: Photo) -> (crate::LightcraftApp, std::rc:
 fn take_job(work: &std::rc::Rc<std::cell::RefCell<Work>>) -> (Slot, RenderJob) {
     work.borrow_mut().jobs.pop().unwrap()
 }
-fn finish(app: &mut crate::LightcraftApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, ctx: &egui::Context, slot: Slot, result: RenderResult) {
+fn finish(app: &mut crate::EvoLightApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, ctx: &egui::Context, slot: Slot, result: RenderResult) {
     work.borrow_mut().finished.push((slot, result, 0.0));
     app.renderer.poll(ctx, &mut app.session);
 }
-fn request(app: &mut crate::LightcraftApp) {
+fn request(app: &mut crate::EvoLightApp) {
     crate::panels::grid::request_thumb(app, PhotoId(1), 256, 10);
 }
 
 /// Draws GPU-resident renders under one fixed id, and reads them back from the test's device.
 #[cfg(not(target_arch = "wasm32"))]
-struct TestScreen(lightcraft_engine::gpu::wgpu::Device, lightcraft_engine::gpu::wgpu::Queue, std::sync::Arc<std::sync::Mutex<Vec<egui::TextureId>>>);
+struct TestScreen(evolight_engine::gpu::wgpu::Device, evolight_engine::gpu::wgpu::Queue, std::sync::Arc<std::sync::Mutex<Vec<egui::TextureId>>>);
 #[cfg(not(target_arch = "wasm32"))]
 impl ScreenTextures for TestScreen {
-    fn show(&mut self, _: &lightcraft_engine::media::ScreenFrame, _: Option<egui::TextureId>) -> Option<egui::TextureId> {
+    fn show(&mut self, _: &evolight_engine::media::ScreenFrame, _: Option<egui::TextureId>) -> Option<egui::TextureId> {
         Some(egui::TextureId::User(7))
     }
     fn free(&mut self, id: egui::TextureId) {
         self.2.lock().unwrap().push(id);
     }
-    fn read(&self, frame: &lightcraft_engine::media::ScreenFrame) -> Option<egui::ColorImage> {
-        let img = lightcraft_engine::gpu::read_texture(&self.0, &self.1, &frame.texture, frame.width, frame.height).ok()?;
+    fn read(&self, frame: &evolight_engine::media::ScreenFrame) -> Option<egui::ColorImage> {
+        let img = evolight_engine::gpu::read_texture(&self.0, &self.1, &frame.texture, frame.width, frame.height).ok()?;
         Some(color_image(&img))
     }
 }
@@ -494,12 +494,12 @@ impl ScreenTextures for TestScreen {
 #[allow(clippy::type_complexity)]
 fn gpu_drawn_fixture(
     freed: std::sync::Arc<std::sync::Mutex<Vec<egui::TextureId>>>,
-) -> Option<(crate::LightcraftApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context, lightcraft_engine::media::ScreenFrame)> {
-    use lightcraft_engine::gpu::wgpu;
+) -> Option<(crate::EvoLightApp, std::rc::Rc<std::cell::RefCell<Work>>, egui::Context, evolight_engine::media::ScreenFrame)> {
+    use evolight_engine::gpu::wgpu;
     let device = (|| {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = lightcraft_engine::gpu::backend::window_backends();
-        desc.backend_options = lightcraft_engine::gpu::backend::backend_options();
+        desc.backends = evolight_engine::gpu::backend::window_backends();
+        desc.backend_options = evolight_engine::gpu::backend::backend_options();
         let instance = wgpu::Instance::new(desc);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).ok()?;
         pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("test window"), ..Default::default() })).ok()
@@ -525,7 +525,7 @@ fn gpu_drawn_fixture(
     );
     let (mut app, work, ctx) = fixture();
     app.renderer.set_screen_textures(Box::new(TestScreen(device, queue, freed)));
-    Some((app, work, ctx, lightcraft_engine::media::ScreenFrame { texture, width: w, height: h }))
+    Some((app, work, ctx, evolight_engine::media::ScreenFrame { texture, width: w, height: h }))
 }
 
 /// A headless screenshot (driven by the control channel: `keep_pixels`) of a view drawn straight
@@ -535,7 +535,7 @@ fn gpu_drawn_fixture(
 #[test]
 fn a_headless_screenshot_reads_back_a_view_drawn_from_the_gpu() {
     let Some((mut app, work, ctx, frame)) = gpu_drawn_fixture(Default::default()) else {
-        lightcraft_testkit::skip!(Gpu, "no GPU adapter");
+        evolight_testkit::skip!(Gpu, "no GPU adapter");
         return;
     };
     let (w, h) = (frame.width, frame.height);
@@ -563,7 +563,7 @@ fn a_headless_screenshot_reads_back_a_view_drawn_from_the_gpu() {
 fn releasing_a_slot_frees_its_gpu_texture() {
     let freed = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let Some((mut app, work, ctx, frame)) = gpu_drawn_fixture(freed.clone()) else {
-        lightcraft_testkit::skip!(Gpu, "no GPU adapter");
+        evolight_testkit::skip!(Gpu, "no GPU adapter");
         return;
     };
     let job = app.session.render_job(PhotoId(1), 64, 64, false, true).unwrap().draft();
@@ -580,7 +580,7 @@ fn releasing_a_slot_frees_its_gpu_texture() {
 }
 
 fn relink_destination() -> std::path::PathBuf {
-    let path = std::env::temp_dir().join(format!("lc-render-relinked-{}-{}.nef", std::process::id(), lightcraft_preview::next_tick()));
+    let path = std::env::temp_dir().join(format!("lc-render-relinked-{}-{}.nef", std::process::id(), evolight_preview::next_tick()));
     std::fs::write(&path, b"replacement source").unwrap();
     path
 }
@@ -640,9 +640,9 @@ fn superseded_failure_does_not_take_the_new_requests_source() {
 #[test]
 fn grid_queued_standin_changes_priority_without_restarting() {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, work, ctx) = fixture_with(s, raw);
     app.renderer.pool = JobPool::new(0); // deterministic: no quick job starts until run_inline
@@ -736,7 +736,7 @@ fn unchanged_queued_frames_build_no_jobs() {
 /// fails and its cell keeps the plain placeholder.
 #[test]
 fn a_video_asks_the_decoders_for_no_thumbnail() {
-    use lightcraft_catalog::MediaKind;
+    use evolight_catalog::MediaKind;
     let clip = |name: &str, format: &str, kind: MediaKind| {
         let mut p = Photo::new(PhotoId(1), Source::File { path: name.into() }, name, format, 1920, 1080, "2022-11-25");
         p.kind = kind;
@@ -802,7 +802,7 @@ fn a_panicking_render_is_a_failure_not_a_dead_worker() {
     app.session.media.file_loader = Some(Arc::new(|_, _, _| panic!("decoder bug")));
     app.renderer.offload = None; // the real job pool
     let slot = Slot::Thumb(PhotoId(1));
-    let ask = |app: &mut crate::LightcraftApp| {
+    let ask = |app: &mut crate::EvoLightApp| {
         if let Some(job) = app.session.thumb_job(PhotoId(1), 256) {
             app.renderer.request(slot, job, 30);
         }
@@ -856,10 +856,10 @@ fn raw_quick_path_frames_build_no_jobs() {
     let g = gate.clone();
     s.media.preview_loader = Some(Arc::new(move |_: &str, _| {
         drop(g.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-        Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
+        Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
     }));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, _, ctx) = fixture_with(s, raw);
     app.renderer.set_offload(Box::new(Blocked));
@@ -888,7 +888,7 @@ fn raw_quick_path_frames_build_no_jobs() {
 
     // an edit takes the embedded preview out of the picture: the real thumbnail is rendered then
     let mut edited = (*photo()).clone();
-    edited.kind = lightcraft_catalog::MediaKind::Raw;
+    edited.kind = evolight_catalog::MediaKind::Raw;
     edited.develop = Arc::new({
         let mut d = edited.camera_defaults();
         d.light.exposure = 0.5;
@@ -927,7 +927,7 @@ fn loupe_shows_superseded_drafts_newer_than_its_pixels_during_a_drag() {
     let (mut app, work, ctx) = fixture();
     let mut jobs = Vec::new();
     for exposure in [0.0, 1.0, 2.0] {
-        let mut edit = lightcraft_develop::DevelopSettings::default();
+        let mut edit = evolight_develop::DevelopSettings::default();
         edit.light.exposure = exposure;
         app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(edit), label: "drag".into(), edited: None }).unwrap();
         let job = app.session.loupe_job(PhotoId(1), 8, 8, true).unwrap().draft();
@@ -940,14 +940,14 @@ fn loupe_shows_superseded_drafts_newer_than_its_pixels_during_a_drag() {
     // A decoded embedded preview can differ from the catalog's square metadata. Its
     // superseded colour-only draft must retain the identity that enables aspect correction.
     let mut first_result = first.run();
-    first_result.rendered.as_mut().unwrap().image = lightcraft_raster::Rgba8::new(8, 4);
+    first_result.rendered.as_mut().unwrap().image = evolight_raster::Rgba8::new(8, 4);
     finish(&mut app, &work, &ctx, Slot::Main, first_result);
     assert_eq!(app.renderer.textures[&Slot::Main].size, [8, 4]);
     assert_eq!(app.renderer.textures.get(&Slot::Main).map(|t| t.key), Some(keys[0]));
     assert!(app.renderer.is_pending(Slot::Main));
     assert_eq!(
         app.renderer.textures[&Slot::Main].look,
-        Some((geometry_look(&lightcraft_develop::DevelopSettings::default()), true)),
+        Some((geometry_look(&evolight_develop::DevelopSettings::default()), true)),
         "colour-only superseded pixels retain their geometry"
     );
     let current_look = geometry_look(&last.settings);
@@ -968,8 +968,8 @@ fn superseded_crop_keeps_its_own_geometry_instead_of_the_latest_requests() {
     let old_look = geometry_look(&old.settings);
     app.renderer.request(Slot::Main, old, 100);
     let (_, old) = take_job(&work);
-    let mut settings = lightcraft_develop::DevelopSettings::default();
-    settings.crop.geometry.rect = lightcraft_geom::Rect::new(0.0, 0.0, 0.5, 1.0);
+    let mut settings = evolight_develop::DevelopSettings::default();
+    settings.crop.geometry.rect = evolight_geom::Rect::new(0.0, 0.0, 0.5, 1.0);
     let new_look = geometry_look(&settings);
     app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(settings), label: "crop".into(), edited: None }).unwrap();
     let current = app.session.loupe_job(PhotoId(1), 8, 8, true).unwrap().draft();
@@ -985,9 +985,9 @@ fn superseded_crop_keeps_its_own_geometry_instead_of_the_latest_requests() {
 #[test]
 fn hidden_grading_keeps_the_completed_textures_geometry_identity() {
     let (mut app, work, ctx) = fixture();
-    let mut settings = lightcraft_develop::DevelopSettings::default();
+    let mut settings = evolight_develop::DevelopSettings::default();
     settings.grading.shadows.sat = 40.0;
-    settings.crop.geometry.rect = lightcraft_geom::Rect::new(0.1, 0.2, 0.8, 0.7);
+    settings.crop.geometry.rect = evolight_geom::Rect::new(0.1, 0.2, 0.8, 0.7);
     app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(settings.clone()), label: "grade".into(), edited: None }).unwrap();
     let expected = geometry_look(&settings);
     let job = app.session.loupe_job(PhotoId(1), 8, 8, true).unwrap().with_hidden_grading([true, false, false]);
@@ -1003,7 +1003,7 @@ fn a_drag_gets_its_live_hdr_histogram_beside_the_drafts() {
     let (mut app, work, ctx) = fixture();
     let mut jobs = Vec::new();
     for exposure in [1.0, 2.0] {
-        let mut edit = lightcraft_develop::DevelopSettings::default();
+        let mut edit = evolight_develop::DevelopSettings::default();
         edit.hdr.enabled = true;
         edit.light.exposure = exposure;
         app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(edit), label: "drag".into(), edited: None }).unwrap();
@@ -1033,10 +1033,10 @@ fn library_reset_rejects_old_job_even_when_photo_id_and_key_are_reused() {
     let old_result = old.run();
     app.renderer.forget_all();
     let photo = app.session.catalog.photo(PhotoId(1)).unwrap().as_ref().clone();
-    app.session = lightcraft_engine::Session::new();
+    app.session = evolight_engine::Session::new();
     app.session.catalog.apply(Op::AddPhoto { photo: Box::new(photo) }).unwrap();
     app.session.media.file_loader = Some(Arc::new(|_, _, _| {
-        let mut image = lightcraft_raster::Rgb32f::new(8, 8);
+        let mut image = evolight_raster::Rgb32f::new(8, 8);
         image.data.fill([0.1, 0.2, 0.9]);
         Ok((image, Default::default()))
     }));
@@ -1060,7 +1060,7 @@ fn late_results_and_errors_cannot_replace_newest_pixels_or_sources() {
         let (mut app, work, ctx) = fixture();
         request(&mut app);
         let (slot, old) = take_job(&work);
-        let mut edit = lightcraft_develop::DevelopSettings::default();
+        let mut edit = evolight_develop::DevelopSettings::default();
         edit.light.exposure = 1.0;
         app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(edit), label: "edit".into(), edited: None }).unwrap();
         request(&mut app);
@@ -1096,7 +1096,7 @@ fn undo_to_existing_texture_supersedes_pending_edit() {
     let key = first.key;
     finish(&mut app, &work, &ctx, slot, first.run());
     let original = app.renderer.thumb(PhotoId(1)).unwrap().pixels.clone().unwrap();
-    let mut edit = lightcraft_develop::DevelopSettings::default();
+    let mut edit = evolight_develop::DevelopSettings::default();
     edit.light.exposure = 1.0;
     let undo = app.session.catalog.apply(Op::SetDevelop { id: PhotoId(1), settings: Arc::new(edit), label: "edit".into(), edited: None }).unwrap();
     request(&mut app);
@@ -1111,7 +1111,7 @@ fn undo_to_existing_texture_supersedes_pending_edit() {
 }
 
 /// First request: other buckets must not replace the pending job. Returns the pending key.
-fn thumb_buckets_pending_request(app: &mut crate::LightcraftApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, ctx: &egui::Context) -> u64 {
+fn thumb_buckets_pending_request(app: &mut crate::EvoLightApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, ctx: &egui::Context) -> u64 {
     let id = PhotoId(1);
     let slot = Slot::Thumb(id);
     // A print page's cells show the same photo at different sizes. Before any texture arrives,
@@ -1139,7 +1139,7 @@ fn thumb_buckets_pending_request(app: &mut crate::LightcraftApp, work: &std::rc:
 
 /// A larger bucket still upgrades; smaller cells wait behind it. Returns the larger key.
 fn thumb_buckets_larger_upgrades(
-    app: &mut crate::LightcraftApp,
+    app: &mut crate::EvoLightApp,
     work: &std::rc::Rc<std::cell::RefCell<Work>>,
     ctx: &egui::Context,
     pending_key: u64,
@@ -1172,7 +1172,7 @@ fn thumb_buckets_larger_upgrades(
     larger_key
 }
 
-fn thumb_buckets_largest_serves_smaller(app: &mut crate::LightcraftApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, larger_key: u64) {
+fn thumb_buckets_largest_serves_smaller(app: &mut crate::EvoLightApp, work: &std::rc::Rc<std::cell::RefCell<Work>>, larger_key: u64) {
     let id = PhotoId(1);
     let slot = Slot::Thumb(id);
     // Once the largest visible bucket is complete, every smaller cell reuses those pixels.
@@ -1195,7 +1195,7 @@ fn thumb_buckets_largest_serves_smaller(app: &mut crate::LightcraftApp, work: &s
 }
 
 fn thumb_buckets_edit_requests_again(
-    app: &mut crate::LightcraftApp,
+    app: &mut crate::EvoLightApp,
     work: &std::rc::Rc<std::cell::RefCell<Work>>,
     ctx: &egui::Context,
     larger_key: u64,
@@ -1213,7 +1213,7 @@ fn thumb_buckets_edit_requests_again(
 
     // An edit is a different photo/content key: the completed larger picture must not be
     // reused for a smaller cell, and the replacement is requested as before.
-    let mut edit = lightcraft_develop::DevelopSettings::default();
+    let mut edit = evolight_develop::DevelopSettings::default();
     edit.light.exposure = 3.0;
     app.session.catalog.apply(Op::SetDevelop { id, settings: Arc::new(edit), label: "edit".into(), edited: None }).unwrap();
     let current = app.session.catalog.photo(id).unwrap();
@@ -1277,7 +1277,7 @@ fn an_evicted_larger_thumbnail_is_rebuilt_for_a_smaller_cell() {
 fn a_coalesced_thumbnail_promotes_once_for_a_higher_priority_caller() {
     let mut s = Session::new();
     s.catalog.apply(Op::AddPhoto { photo: Box::new((*photo()).clone()) }).unwrap();
-    let mut app = crate::LightcraftApp::new(s, crate::Services::default());
+    let mut app = crate::EvoLightApp::new(s, crate::Services::default());
     app.renderer.pool = JobPool::new(0); // deterministic: nothing starts
     let slot = Slot::Thumb(PhotoId(1));
     crate::panels::grid::request_thumb(&mut app, PhotoId(1), 256, 5);
@@ -1312,7 +1312,7 @@ fn a_stale_texture_does_not_disable_cross_bucket_coalescing() {
     let old_key = app.renderer.textures[&slot].key;
 
     // The edit leaves the old texture displayed until the replacement renders.
-    let mut edit = lightcraft_develop::DevelopSettings::default();
+    let mut edit = evolight_develop::DevelopSettings::default();
     edit.light.exposure = 2.0;
     app.session.catalog.apply(Op::SetDevelop { id, settings: Arc::new(edit), label: "edit".into(), edited: None }).unwrap();
     let built = app.renderer.thumb_jobs_built;
@@ -1347,9 +1347,9 @@ fn a_stale_texture_does_not_disable_cross_bucket_coalescing() {
 #[test]
 fn raw_quick_preview_coalesces_across_buckets_without_priority_ping_pong() {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, work, ctx) = fixture_with(s, raw);
     app.renderer.pool = JobPool::new(0); // deterministic quick renders via run_inline
@@ -1452,8 +1452,8 @@ fn explicit_clear_repairs_same_key_bad_pixels_and_rejects_old_same_key_job() {
     assert_eq!(app.renderer.thumb(PhotoId(1)).unwrap().pixels.as_ref().unwrap().pixels[0].to_array(), [255, 0, 255, 255]);
     // An old job can have the SAME render key and stale decoded pixels.
     let mut old = job.clone();
-    old.source = lightcraft_engine::media::SourceRef::Loaded(Box::new(lightcraft_engine::media::DecodedSource::new(
-        Arc::new(lightcraft_raster::Rgb32f::new(8, 8)),
+    old.source = evolight_engine::media::SourceRef::Loaded(Box::new(evolight_engine::media::DecodedSource::new(
+        Arc::new(evolight_raster::Rgb32f::new(8, 8)),
         None,
     )));
     app.renderer.textures.clear();
@@ -1477,9 +1477,9 @@ fn explicit_clear_repairs_same_key_bad_pixels_and_rejects_old_same_key_job() {
 #[test]
 fn undo_to_embedded_thumb_rejects_late_full_render() {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, work, ctx) = fixture_with(s, raw);
     app.renderer.pool = JobPool::new(0);
@@ -1552,11 +1552,11 @@ fn a_step_takes_over_the_camera_preview_made_ahead() {
     let g = gate.clone();
     s.media.preview_loader = Some(Arc::new(move |_: &str, _| {
         drop(g.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-        Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
+        Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
     }));
     let raw = |id: u64| {
         let mut p = Photo::new(PhotoId(id), Source::File { path: format!("r{id}.cr3") }, &format!("r{id}.cr3"), "CR3", 6000, 4000, "2026-01-01");
-        p.kind = lightcraft_catalog::MediaKind::Raw;
+        p.kind = evolight_catalog::MediaKind::Raw;
         p.develop = Arc::new(p.camera_defaults());
         p
     };
@@ -1564,8 +1564,8 @@ fn a_step_takes_over_the_camera_preview_made_ahead() {
     for id in 2..=4 {
         app.session.catalog.apply(Op::AddPhoto { photo: Box::new(raw(id)) }).unwrap();
     }
-    let job = |app: &mut crate::LightcraftApp, id: u64| app.session.quick_view_job(PhotoId(id), 64, true).unwrap();
-    let wait = |app: &mut crate::LightcraftApp, done: &dyn Fn(&Renderer) -> bool| {
+    let job = |app: &mut crate::EvoLightApp, id: u64| app.session.quick_view_job(PhotoId(id), 64, true).unwrap();
+    let wait = |app: &mut crate::EvoLightApp, done: &dyn Fn(&Renderer) -> bool| {
         let t0 = std::time::Instant::now();
         while !done(&app.renderer) {
             assert!(t0.elapsed() < std::time::Duration::from_secs(20), "the stand-ins never arrived");
@@ -1601,12 +1601,12 @@ fn a_step_takes_over_the_camera_preview_made_ahead() {
 
 /// A loupe with unedited raws 1..=n whose camera previews are read at once, on a renderer
 /// that runs nothing until asked (`run_inline`).
-fn raw_loupe(n: u64) -> (crate::LightcraftApp, egui::Context) {
+fn raw_loupe(n: u64) -> (crate::EvoLightApp, egui::Context) {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_: &str, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_: &str, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let raw = |id: u64| {
         let mut p = Photo::new(PhotoId(id), Source::File { path: format!("r{id}.cr3") }, &format!("r{id}.cr3"), "CR3", 6000, 4000, "2026-01-01");
-        p.kind = lightcraft_catalog::MediaKind::Raw;
+        p.kind = evolight_catalog::MediaKind::Raw;
         p.develop = Arc::new(p.camera_defaults());
         p
     };
@@ -1619,9 +1619,9 @@ fn raw_loupe(n: u64) -> (crate::LightcraftApp, egui::Context) {
 }
 
 /// The look-ahead with every photo allowed (the default preparation settings).
-const ALL: crate::panels::detail::Prepare = crate::panels::detail::Prepare::Photos(lightcraft_engine::prep::Scope::All);
+const ALL: crate::panels::detail::Prepare = crate::panels::detail::Prepare::Photos(evolight_engine::prep::Scope::All);
 
-fn quick(app: &mut crate::LightcraftApp, id: u64, edge: usize) -> QuickJob {
+fn quick(app: &mut crate::EvoLightApp, id: u64, edge: usize) -> QuickJob {
     app.session.quick_view_job(PhotoId(id), edge, true).unwrap()
 }
 
@@ -1631,9 +1631,9 @@ fn quick(app: &mut crate::LightcraftApp, id: u64, edge: usize) -> QuickJob {
 #[test]
 fn the_look_ahead_prepares_only_what_the_preparation_settings_allow() {
     use crate::panels::detail::{Prepare, look_ahead};
-    use lightcraft_engine::prep::Scope;
+    use evolight_engine::prep::Scope;
     let (mut app, _ctx) = raw_loupe(4);
-    app.session.sort.key = lightcraft_catalog::SortKey::FileName;
+    app.session.sort.key = evolight_catalog::SortKey::FileName;
     app.session.sort.ascending = true;
     // (asked for: queued, running or made)
     let ahead = |r: &Renderer| r.quick_tried.keys().filter(|s| matches!(s, Slot::QuickAhead(_))).count();
@@ -1697,17 +1697,17 @@ fn an_ahead_stand_in_no_longer_wanted_is_dropped_when_it_arrives() {
     let g = gate.clone();
     s.media.preview_loader = Some(Arc::new(move |_: &str, _| {
         drop(g.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-        Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
+        Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
     }));
     let raw = |id: u64| {
         let mut p = Photo::new(PhotoId(id), Source::File { path: format!("r{id}.cr3") }, &format!("r{id}.cr3"), "CR3", 6000, 4000, "2026-01-01");
-        p.kind = lightcraft_catalog::MediaKind::Raw;
+        p.kind = evolight_catalog::MediaKind::Raw;
         p.develop = Arc::new(p.camera_defaults());
         p
     };
     let (mut app, _, ctx) = fixture_with(s, raw(1));
     app.session.catalog.apply(Op::AddPhoto { photo: Box::new(raw(2)) }).unwrap();
-    let wait = |app: &mut crate::LightcraftApp, done: &dyn Fn(&Renderer) -> bool, what: &str| {
+    let wait = |app: &mut crate::EvoLightApp, done: &dyn Fn(&Renderer) -> bool, what: &str| {
         let t0 = std::time::Instant::now();
         while !done(&app.renderer) {
             assert!(t0.elapsed() < std::time::Duration::from_secs(20), "{what}");
@@ -1754,11 +1754,11 @@ fn a_running_stand_in_the_loupe_waits_for_keeps_its_slot() {
     s.media.preview_loader = Some(Arc::new(move |_: &str, _| {
         let gate = if c.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 { &f } else { &l };
         drop(gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
-        Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
+        Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })
     }));
     let raw = |id: u64| {
         let mut p = Photo::new(PhotoId(id), Source::File { path: format!("r{id}.cr3") }, &format!("r{id}.cr3"), "CR3", 6000, 4000, "2026-01-01");
-        p.kind = lightcraft_catalog::MediaKind::Raw;
+        p.kind = evolight_catalog::MediaKind::Raw;
         p.develop = Arc::new(p.camera_defaults());
         p
     };
@@ -1767,7 +1767,7 @@ fn a_running_stand_in_the_loupe_waits_for_keeps_its_slot() {
         app.session.catalog.apply(Op::AddPhoto { photo: Box::new(raw(id)) }).unwrap();
     }
     app.renderer.pool = JobPool::new(4);
-    let wait = |app: &mut crate::LightcraftApp, done: &dyn Fn(&Renderer) -> bool, what: &str| {
+    let wait = |app: &mut crate::EvoLightApp, done: &dyn Fn(&Renderer) -> bool, what: &str| {
         let t0 = std::time::Instant::now();
         while !done(&app.renderer) {
             assert!(t0.elapsed() < std::time::Duration::from_secs(20), "{what}");
@@ -1865,9 +1865,9 @@ fn a_stand_in_made_ahead_for_a_smaller_loupe_is_not_taken_over() {
 #[test]
 fn a_thumbnail_replacing_its_stand_in_is_not_counted_again() {
     let mut s = Session::new();
-    s.media.preview_loader = Some(Arc::new(|_, _| Some(lightcraft_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
+    s.media.preview_loader = Some(Arc::new(|_, _| Some(evolight_raster::Rgba8 { width: 4, height: 4, data: vec![[200, 100, 50, 255]; 16] })));
     let mut raw = (*photo()).clone();
-    raw.kind = lightcraft_catalog::MediaKind::Raw;
+    raw.kind = evolight_catalog::MediaKind::Raw;
     raw.develop = Arc::new(raw.camera_defaults());
     let (mut app, work, ctx) = fixture_with(s, raw);
     app.renderer.pool = JobPool::new(0);
@@ -1917,7 +1917,7 @@ fn the_look_ahead_asks_again_when_only_the_crop_changes() {
 fn the_look_ahead_follows_a_new_order_around_the_same_photo() {
     let (mut app, _ctx) = raw_loupe(5);
     let ahead_keys = |r: &Renderer| r.quick_tried.iter().filter(|(s, _)| matches!(s, Slot::QuickAhead(_))).map(|(_, k)| *k).collect::<Vec<u64>>();
-    app.session.sort.key = lightcraft_catalog::SortKey::FileName;
+    app.session.sort.key = evolight_catalog::SortKey::FileName;
     app.session.sort.ascending = true;
     crate::panels::detail::look_ahead(&mut app, PhotoId(3), 64, true, ALL);
     let one = quick(&mut app, 1, 64).key;

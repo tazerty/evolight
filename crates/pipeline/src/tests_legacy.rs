@@ -3,8 +3,8 @@
 //! [`LSB`]. `tests_light::v1_and_v2_render_as_before_v3` checks the same byte for byte, but only
 //! on macOS aarch64, where its hashes were captured.
 
-use lightcraft_develop::{DevelopSettings, ProcessVersion, controls};
-use lightcraft_raster::Rgb32f;
+use evolight_develop::{DevelopSettings, ProcessVersion, controls};
+use evolight_raster::Rgb32f;
 
 use crate::{DeepSamples, OutputDepth, RenderRequest, SourceInfo, render};
 

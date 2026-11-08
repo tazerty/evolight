@@ -17,7 +17,7 @@ The dev-only example includes the previous materialized algorithm and uses the w
 existing `dhat` allocator. No allocator or profiling dependency is added to product builds.
 
 ```sh
-cargo build --release -p lightcraft-pipeline --example guided_memory
+cargo build --release -p evolight-pipeline --example guided_memory
 RAYON_NUM_THREADS=1 target/release/examples/guided_memory old 6000 4000 120 15
 RAYON_NUM_THREADS=1 target/release/examples/guided_memory new 6000 4000 120 15
 RAYON_NUM_THREADS=1 target/release/examples/guided_memory old 6000 4000 120 1 --heap
@@ -29,7 +29,7 @@ Arguments are mode, width, height, integer sigma and timing iterations. The exam
 before measurement; `--heap` counts one filter call with the source allocated beforehand.
 Time the runs without `--heap`: allocation profiling significantly changes timings. It reports
 the minimum wall time; on a shared machine repeat when other builds/renders have stopped.
-Use `LIGHTCRAFT_PROFILE=1` and `cargo xtask bench` for broader pipeline measurements.
+Use `EVOLIGHT_PROFILE=1` and `cargo xtask bench` for broader pipeline measurements.
 
 ## Observed allocation and time
 

@@ -1,6 +1,6 @@
 # GPU develop pipeline (M5.2)
 
-The CPU pipeline (`crates/pipeline`) is the reference ("oracle"). `lightcraft-gpu` (`crates/gpu`, L3)
+The CPU pipeline (`crates/pipeline`) is the reference ("oracle"). `evolight-gpu` (`crates/gpu`, L3)
 evaluates the same stages with wgpu compute shaders (WGSL) on Metal / Vulkan / DX12. Everything is
 pure Rust (wgpu, naga); the drivers are the system's. No GL backend is compiled in.
 
@@ -19,7 +19,7 @@ rounding otherwise can turn a blank edge pixel into a photo pixel. The mask
 uses one bit per output pixel (rows padded to 32 bits). Sampling and color
 corrections remain on the GPU, and existing geometry stage caching reuses the
 result. The mask is built per 32 × 16 block (`Warp::block_coverage`): the warp
-formulas are written once, generic over `lightcraft_geom::Real`, and evaluated
+formulas are written once, generic over `evolight_geom::Real`, and evaluated
 with outward-rounded `Interval`s over the block. Those bounds enclose the f64
 result of every pixel in the block, so a block whose bounds lie inside the
 image edges (the same f64 comparisons, no margin), or beyond one of them, is
@@ -34,9 +34,9 @@ when warped geometry rebuilds.
 wgpu loads the driver of **every** backend in an instance's set while it enumerates adapters — even
 when it then picks another one. A Vulkan driver that crashes there (issue #136: an access violation
 in Intel's `igvk64.dll` on a UHD 630 under Windows 11) takes the process down before any window
-appears, and a native crash cannot be caught. So LightCraft only lets wgpu touch the backends it
-means to use (`lightcraft_gpu::backend`), for its compute device *and* for the desktop window
-(eframe/egui-wgpu, `window_wgpu_options` in `apps/lightcraft/src/main.rs`):
+appears, and a native crash cannot be caught. So EvoLight only lets wgpu touch the backends it
+means to use (`evolight_gpu::backend`), for its compute device *and* for the desktop window
+(eframe/egui-wgpu, `window_wgpu_options` in `apps/evolight/src/main.rs`):
 
 | platform | default (window and compute) |
 |---|---|
@@ -45,42 +45,42 @@ means to use (`lightcraft_gpu::backend`), for its compute device *and* for the d
 | Linux / BSD | Vulkan (the window also lists GL, eframe's default; no GL backend is compiled in) |
 
 Overrides (read once at launch):
-- `LIGHTCRAFT_GPU_BACKEND=dx12 | vulkan | metal | gl | auto | off` (comma lists allowed, e.g.
+- `EVOLIGHT_GPU_BACKEND=dx12 | vulkan | metal | gl | auto | off` (comma lists allowed, e.g.
   `vulkan,dx12`): the backends for both the window and GPU rendering; `off` turns GPU rendering off
   (CPU pipeline) — the window still needs a backend and keeps the platform default. A backend this
   build doesn't contain (`gl`) is ignored with a warning.
 - else `WGPU_BACKEND` (wgpu's own variable, same names) — before #136 only the window honoured it,
   the compute device always used Vulkan + DX12 (+ Metal).
-- `LIGHTCRAFT_GPU=0`: GPU rendering off for the process (the window is unaffected).
-- Both `LIGHTCRAFT_GPU=0` and `LIGHTCRAFT_GPU_BACKEND=off` also keep AI Denoise, the face models
+- `EVOLIGHT_GPU=0`: GPU rendering off for the process (the window is unaffected).
+- Both `EVOLIGHT_GPU=0` and `EVOLIGHT_GPU_BACKEND=off` also keep AI Denoise, the face models
   and the AI mask model (SAM 3 on Metal) on the CPU.
-- `LIGHTCRAFT_GPU_ADAPTER=<part of a card's name>` (any case, e.g. `4070`, `radeon`, `"rtx 4070 super"`):
+- `EVOLIGHT_GPU_ADAPTER=<part of a card's name>` (any case, e.g. `4070`, `radeon`, `"rtx 4070 super"`):
   the graphics card for GPU rendering, AI Denoise and the face models, on a machine with more than one
   (`backend::pick_adapter`). Of the hardware cards whose name contains it, the one whose whole name it
   is wins, then dedicated before built-in before virtual cards, then wgpu's order
   (`backend::choose_named_adapter`); the log says which when several match (`… matches 2 graphics
   cards (…): using …`). Software renderers (WARP, llvmpipe) never: a name that matches only one is
   logged as such. A name that matches no card is logged
-  (`gpu: LIGHTCRAFT_GPU_ADAPTER=… names none of the graphics cards (…); using the default choice`) and
+  (`gpu: EVOLIGHT_GPU_ADAPTER=… names none of the graphics cards (…); using the default choice`) and
   the default high-performance card is used. Each line is logged once, though the render device, AI
   Denoise and the face models each ask. Each of those makes its own wgpu instance and device, so
   devices on different cards share no buffer, pipeline or queue. The window keeps the card wgpu picks for it by power preference, and
   rendering runs on a device of its own on the chosen card (the photo is copied to the window's card).
   Rendering shares the window's device when the variable is unset or names the window's card
-  (`backend::may_adopt_window_device`). The log's `gpu: LIGHTCRAFT_GPU_ADAPTER=…: using …` line names the card
+  (`backend::may_adopt_window_device`). The log's `gpu: EVOLIGHT_GPU_ADAPTER=…: using …` line names the card
   used. Handy to keep test runs or a long export off the card the screens hang on.
-- `LIGHTCRAFT_GPU_ALLOW_SOFTWARE=1`: accept a software adapter (llvmpipe / lavapipe, WARP), which is
+- `EVOLIGHT_GPU_ALLOW_SOFTWARE=1`: accept a software adapter (llvmpipe / lavapipe, WARP), which is
   otherwise refused because the CPU pipeline is faster. For running the GPU tests on a machine
   without a GPU (below); the app never sets it.
 
 **DX12 shader compiler (issue #471).** Every instance (window and compute) compiles DX12 shaders with
-FXC (`d3dcompiler_47.dll`, part of Windows; `lightcraft_gpu::backend::backend_options`). wgpu's
-default, `Auto`, loads whichever `dxcompiler.dll` the DLL search path finds first. LightCraft ships
+FXC (`d3dcompiler_47.dll`, part of Windows; `evolight_gpu::backend::backend_options`). wgpu's
+default, `Auto`, loads whichever `dxcompiler.dll` the DLL search path finds first. EvoLight ships
 none, so that copy belongs to another program (a Windows SDK, a folder on `PATH`). An older copy without
 `dxil.dll` beside it (e.g. DXC 1.7) warns that the DXIL is unsigned, wgpu treats the warning as a
 compile error, its indirect-validation pipelines fail, the device is lost, and the window never opened
 (`WGPU error: Parent device is lost`). `WGPU_DX12_COMPILER=dxc | auto | fxc` (wgpu's variable) still
-chooses; with `dxc`, put `dxcompiler.dll` *and* `dxil.dll` (DXC ≥ 1.8.2502) next to `lightcraft.exe`.
+chooses; with `dxc`, put `dxcompiler.dll` *and* `dxil.dll` (DXC ≥ 1.8.2502) next to `evolight.exe`.
 FXC builds the compute kernels somewhat slower than DXC (≈ 9 s vs 7.5 s for the GPU test suite on an
 RTX 4080), off the startup path.
 
@@ -102,12 +102,12 @@ skip when the device cannot build the kernels hides this, so read the skip note 
 **Off the startup path.** The compute device is created on a background thread once the window is
 up (`gpu::warm_up` from the first frame's settings), and never while GPU rendering is off: with
 Settings ▸ Performance ▸ *Use the GPU for rendering* unchecked (applied before the window opens),
-`LIGHTCRAFT_GPU=0` or `LIGHTCRAFT_GPU_BACKEND=off`, no GPU driver is loaded for rendering at all.
+`EVOLIGHT_GPU=0` or `EVOLIGHT_GPU_BACKEND=off`, no GPU driver is loaded for rendering at all.
 
 **Quitting.** The devices are never dropped, and renders run on worker threads: a render still inside
 the driver while the process exits crashes there (a SIGSEGV in the NVIDIA Vulkan driver on Linux,
 issue #620), which no panic hook catches. So every entry into a device counts as work in flight
-(`crates/gpu/src/exit.rs`), and the desktop app ends with `LightcraftApp::shutdown` (from `on_exit`,
+(`crates/gpu/src/exit.rs`), and the desktop app ends with `EvoLightApp::shutdown` (from `on_exit`,
 after settings and library are saved): `gpu::begin_shutdown()` — from then on `gpu::render` returns
 `None`, no device is created, denoise tiles fail over and a render job gives up instead of rendering
 on the CPU — then the render pool stops (queued jobs dropped, running ones waited for) and
@@ -116,22 +116,22 @@ deadline of 2 s covers it all; past it the app quits anyway. A job pool that is 
 hosts, tests) waits for its running jobs the same way (`JobPool::shutdown`, `crates/preview/src/pool.rs`).
 
 **Crash sentinel.** The desktop app writes `gpu-init.marker` into its settings folder (next to
-`ui.json`: `%APPDATA%\LightCraft`, `~/Library/Application Support/LightCraft`,
-`~/.config/lightcraft`) just before the compute device is created and its kernels are compiled (and, on the first
+`ui.json`: `%APPDATA%\EvoLight`, `~/Library/Application Support/EvoLight`,
+`~/.config/evolight`) just before the compute device is created and its kernels are compiled (and, on the first
 AI denoise, before that network's kernels are) and removes it as soon as that returns, successfully or
 not (issue #250: Apple's Metal compiler, `MTLCompilerService`, aborting on a kernel on an older Intel
 Mac). A kernel the driver refuses without crashing is caught by wgpu error scopes: the log says why
-(`gpu: rendering on the CPU: …`) and renders stay on the CPU. `LIGHTCRAFT_GPU=0` (or Settings ▸
+(`gpu: rendering on the CPU: …`) and renders stay on the CPU. `EVOLIGHT_GPU=0` (or Settings ▸
 uncheck *Use the GPU for rendering*) forces the CPU path from the start. If the marker is still there at the next launch, the process died inside
-the driver: LightCraft starts with GPU rendering off (the preference is saved unchecked), removes the
+the driver: EvoLight starts with GPU rendering off (the preference is saved unchecked), removes the
 marker and says so in a notice. Checking *Use the GPU for rendering* again tries the GPU once more
-(and re-arms the sentinel). Not with `LIGHTCRAFT_NO_PREFS` (tests, scripts), and not in a `--memory` session,
+(and re-arms the sentinel). Not with `EVOLIGHT_NO_PREFS` (tests, scripts), and not in a `--memory` session,
 which writes nothing: it neither arms the sentinel nor removes a marker it finds (it still starts with GPU
 rendering off when one is there, and the next ordinary launch reports and clears it). Killing the app during
 the ~0.3 s of device creation, or two instances starting at the same moment, can trip it falsely —
 harmless: rendering is then on the CPU until the box is checked again. The sentinel covers the compute
 device and every kernel build; a crash while the window's renderer starts is avoided by the backend defaults above
-or worked around with `LIGHTCRAFT_GPU_BACKEND`.
+or worked around with `EVOLIGHT_GPU_BACKEND`.
 
 **The window's renderer and its fallback (Windows).** Before the window opens, each renderer is probed in
 order: DX12, Vulkan, GL, then eframe's OpenGL renderer (glow). A probe creates a device and builds egui's
@@ -140,7 +140,7 @@ incorrect. (0x80070057)" in `egui_pipeline`) is logged and skipped instead of ki
 unless that renderer was forced (#1624). The renderer
 that worked is remembered in the settings folder (`window-renderer`); a start that dies before the window is up
 leaves `window-init.marker`, and the next start (relaunched automatically, at most 4 times) tries that
-renderer last. `LIGHTCRAFT_GPU_BACKEND=dx12 | vulkan | gl | glow` (or `WGPU_BACKEND`) forces one; DX12 stays
+renderer last. `EVOLIGHT_GPU_BACKEND=dx12 | vulkan | gl | glow` (or `WGPU_BACKEND`) forces one; DX12 stays
 first because a broken Vulkan driver can crash the process uncatchably (#136). Compute keeps its own
 device and falls back to the CPU as before.
 
@@ -153,16 +153,16 @@ drawables), and the window used it from #136 until this change, so a drag reache
 texture uploads; renders run on the compute device), which is what `LOW_LATENCY` is meant for.
 During a live window resize egui-wgpu still uses three drawables on macOS.
 
-**Troubleshooting a crash at startup (Windows).** Start LightCraft from a `.cmd` file or a terminal
-with `set LIGHTCRAFT_GPU_BACKEND=dx12` (the default since #136), or `=off` to keep the GPU out of
+**Troubleshooting a crash at startup (Windows).** Start EvoLight from a `.cmd` file or a terminal
+with `set EVOLIGHT_GPU_BACKEND=dx12` (the default since #136), or `=off` to keep the GPU out of
 rendering; `set VK_LOADER_DRIVERS_DISABLE=*igvk64*` (Vulkan loader) hides a specific Vulkan driver
 from every program started with it. Help ▸ System Info and `app.gpu` show the adapter and backend in
 use (e.g. `Intel(R) UHD Graphics 630 (Dx12)`).
 
-**LightCraft stops during an export or a render; the log says "device lost" (Windows, issue #1337).**
+**EvoLight stops during an export or a render; the log says "device lost" (Windows, issue #1337).**
 When the graphics driver resets the GPU (the Windows watchdog, a driver hang: DXGI `0x887A0005`, "GPU
 device instance has been suspended"), renders fall back to the CPU, but the window's renderer (egui-wgpu)
-panics on the lost device and LightCraft stops. It says so ("LightCraft stopped unexpectedly", not "could
+panics on the lost device and EvoLight stops. It says so ("EvoLight stopped unexpectedly", not "could
 not open its window") and records it in `gpu-lost.marker` in the settings folder: the next start turns
 *Use the GPU for rendering* off and says why once. Turn it back on in Settings ▸ Performance after a
 driver update.
@@ -174,14 +174,14 @@ walks the whole system drive while the window's GPU device is created (`D3D12Cre
 unresponsive window for minutes. The Vulkan driver shares that code, so another backend doesn't
 help. Set *Shader Cache Size* back to **Driver Default** (or any size); the setting is global, there
 is no per-program override. Other programs that create a DX12 or Vulkan device at startup hang the
-same way (PhotoCraft does). It is a driver issue: nothing in LightCraft itself
+same way (EvoPhoto does). It is a driver issue: nothing in EvoLight itself
 walks the drive.
 
 ## Where it is used
-- `lightcraft_engine::media::develop` (called by every `RenderJob`): loupe / before / compare views,
+- `evolight_engine::media::develop` (called by every `RenderJob`): loupe / before / compare views,
   `render_now` (CLI, MCP, control channel renders) and exports render on the GPU when one is
   available. Thumbnails (grid, filmstrip, preset and profile previews, faces) render on the GPU
-  once the device is ready (`lightcraft_gpu::ready()`) and on the CPU until then, so they never
+  once the device is ready (`evolight_gpu::ready()`) and on the CPU until then, so they never
   wait for device creation at startup. Six workers rendering 256 px thumbnails: 3.6 ms each on an
   RTX 5070 vs 4.3–5.2 ms on 32 CPU threads (`crates/gpu/tests/it/thumbs_bench.rs`), and the cores stay
   free for raw decoding.
@@ -197,7 +197,7 @@ walks the drive.
   profile (a printer or paper profile), and photos with a content-aware Fill spot (no GPU kernel
   for it).
 - Anything the GPU path cannot do returns `None` and the CPU renders instead: no adapter (CI
-  machines, software-only adapters), `LIGHTCRAFT_GPU=0` or `LIGHTCRAFT_GPU_BACKEND=off` (whole
+  machines, software-only adapters), `EVOLIGHT_GPU=0` or `EVOLIGHT_GPU_BACKEND=off` (whole
   process; see [Backends](#backends-environment-variables-and-troubleshooting-issue-136)), the `app.gpu {enabled}`
   command (runtime preference; `ui.inspect` → `perf.gpu` shows the adapter), a buffer larger than
   the device's storage-buffer limit, or a render the device did not complete correctly (see
@@ -241,12 +241,12 @@ walks the drive.
   the dark channel is recomputed). Dropped buffers are recycled (exact size, ≤ 2 GB pool) once the
   thread that dropped them has submitted — allocating and zero-filling fresh 100–300 MB buffers
   per pass cost as much as the passes.
-- `LIGHTCRAFT_PROFILE=1` prints GPU stage timings (each stage is then submitted and waited for).
+- `EVOLIGHT_PROFILE=1` prints GPU stage timings (each stage is then submitted and waited for).
 
 ## Limits, failures and the CPU fallback
 Issue #78: on an Intel UHD (ICL GT1) iGPU with Mesa/Vulkan, exports from the desktop app came out
-as valid JPEGs that were entirely black, while previews, `lightcraft-cli render` and
-`LIGHTCRAFT_GPU=0` were fine — and the GPU export took ~15 s against ~3 s on the CPU. The readback
+as valid JPEGs that were entirely black, while previews, `evolight-cli render` and
+`EVOLIGHT_GPU=0` were fine — and the GPU export took ~15 s against ~3 s on the CPU. The readback
 returned a buffer the per-pixel stage had never written, with no error. The likeliest cause: the
 whole export was recorded as one command submission lasting seconds on that GPU, and the driver
 reset it (GPU hang check / preemption timeout — the app's own window keeps the GPU busy, the CLI
@@ -285,21 +285,21 @@ cannot vouch for:
 | validation / internal error, device lost, readback failure or timeout, incomplete image, panic | CPU | CPU (whole process) |
 
 **Diagnosing.** `ui.inspect` → `perf.gpu` (adapter in use), `perf.gpuReason` (why renders don't use
-the GPU, e.g. `"disabled by LIGHTCRAFT_GPU=0"`, `"software adapter (llvmpipe (LLVM 21.1.8, 256 bits))
+the GPU, e.g. `"disabled by EVOLIGHT_GPU=0"`, `"software adapter (llvmpipe (LLVM 21.1.8, 256 bits))
 skipped: …"`, `"stopped after a GPU failure: device lost …"`), `perf.gpuFallback` (the latest render
 redone on the CPU and why, e.g. `"6000×4000: the GPU returned an incomplete image (24000000 of
 24000000 pixels unwritten); the GPU is not used again"`). The same in `app.gpu` (`reason`,
-`lastFallback`), Help ▸ System Info and Settings ▸ Performance. `LIGHTCRAFT_PROFILE=1` prints the
+`lastFallback`), Help ▸ System Info and Settings ▸ Performance. `EVOLIGHT_PROFILE=1` prints the
 fallback with the stage timings; `RUST_LOG=warn` logs it.
 `perf.gpuFallback` is one value for the whole process, overwritten by the latest render on any
-thread. A render's *own* reason comes from `lightcraft_gpu::try_render` (`Err(Fallback::Failed(why))`;
-`Fallback::NotTried` when the GPU was not used at all), which `lightcraft_engine::media::develop_reporting`
+thread. A render's *own* reason comes from `evolight_gpu::try_render` (`Err(Fallback::Failed(why))`;
+`Fallback::NotTried` when the GPU was not used at all), which `evolight_engine::media::develop_reporting`
 passes on as `RenderResult::gpu_fallback`; an export carries it as `Exported::gpu_fallback`, and
 each file of an `app.export` batch result has `gpuFallback` when its render fell back (issue #675).
-**Reproducing a smaller GPU:** `LIGHTCRAFT_GPU_LIMITS=webgpu` (or `downlevel`) creates the device
-with 128 MiB storage bindings / 256 MiB buffers, `LIGHTCRAFT_GPU_LIMITS=<n>` with n MiB / 2n MiB;
+**Reproducing a smaller GPU:** `EVOLIGHT_GPU_LIMITS=webgpu` (or `downlevel`) creates the device
+with 128 MiB storage bindings / 256 MiB buffers, `EVOLIGHT_GPU_LIMITS=<n>` with n MiB / 2n MiB;
 the window's device, when adopted, is capped the same way.
-Tests inject failures with `lightcraft_gpu::inject_fault` (`crates/gpu/tests/it/fallback.rs`,
+Tests inject failures with `evolight_gpu::inject_fault` (`crates/gpu/tests/it/fallback.rs`,
 `export_falls_back_to_the_cpu_when_gpu_work_is_lost`). The fault is thread-local, and so are its
 consequences: a simulated fatal failure stops GPU use on the injecting thread only (`available()`
 false, `unavailable_reason()` set there), until `reset_failures()`, which undoes nothing else — a
@@ -324,15 +324,15 @@ cut back after the readback. The tests skip (pass with a note) when no adapter e
 non-Apple GPU verified: all 16 tests pass, 135 compared cases. 124 differ by max 1 LSB, 10 are
 bit-identical, and one (the point colour range overlay) has max 2 LSB on 0.0002% of pixels. Worst
 mean 0.0003 LSB. That is the same picture as on Metal, inside the bounds
-(`cargo test -p lightcraft-gpu --release --test it equivalence:: -- --nocapture`).
+(`cargo test -p evolight-gpu --release --test it equivalence:: -- --nocapture`).
 
 **Running them without a GPU (issue #1050).** `Gpu::new` turns down software adapters, so on a
 machine without a hardware GPU (a VM, a container) every GPU test skips.
-`LIGHTCRAFT_GPU_ALLOW_SOFTWARE=1` lets them through for one run (tests only: the app never sets it):
+`EVOLIGHT_GPU_ALLOW_SOFTWARE=1` lets them through for one run (tests only: the app never sets it):
 
 ```sh
 log="$(mktemp -d)/gpu-skips.jsonl"   # a new private directory; an absolute path, as tests run in crates/gpu
-LIGHTCRAFT_GPU_ALLOW_SOFTWARE=1 LIGHTCRAFT_SKIP_LOG="$log" cargo test -p lightcraft-gpu --tests
+EVOLIGHT_GPU_ALLOW_SOFTWARE=1 EVOLIGHT_SKIP_LOG="$log" cargo test -p evolight-gpu --tests
 grep '"need":"gpu"' "$log" | grep -v -e 'lost on purpose' -e 'memory never ran out'   # no output: only the two below skipped
 ```
 
@@ -344,7 +344,7 @@ grep '"need":"gpu"' "$log" | grep -v -e 'lost on purpose' -e 'memory never ran o
 - **macOS:** Metal is a hardware adapter, so the tests run without the variable.
 
 A machine with a hardware GPU picks it over the software adapter, variable or not. Each test that
-skips prints `skipped (gpu): …` and appends a line to the `LIGHTCRAFT_SKIP_LOG` file; with a software
+skips prints `skipped (gpu): …` and appends a line to the `EVOLIGHT_SKIP_LOG` file; with a software
 adapter the only ones left should be the device-loss test (`no GPU device, or one that can't be lost on
 purpose here`) and the device-memory test (`no GPU device, or its memory never ran out`: on lavapipe its
 allocations never fail, seen 2026-10-31). Measured 2026-10-11 on lavapipe and WARP, and again 2026-10-30 on lavapipe (Mesa's
@@ -356,7 +356,7 @@ Remaining differences come from f32 vs f64 coordinate math, fast-math transcende
 Metal and summation order in the box filters — all far below one 8-bit step.
 
 ## Measurements
-**In the app:** Help ▸ Debug ▸ Frame Rate (`view.frameRate`, `{show?}`; `LIGHTCRAFT_FPS=1`
+**In the app:** Help ▸ Debug ▸ Frame Rate (`view.frameRate`, `{show?}`; `EVOLIGHT_FPS=1`
 starts with it on, never saved) draws frames per second, each frame's UI CPU time against its
 time spent waiting (for vsync, or for the GPU), the latest whole-frame and zoom-window render
 times, the render queue, renders thrown away as superseded, the GPU adapter and its memory, and a
@@ -383,13 +383,13 @@ On Windows (Radeon 780M iGPU, DX12), a full-size JPEG export of the same raw wit
 1.9–2.0 s on the CPU: the horizontal box pass had each thread slide a running sum over 16 pixels, so
 the threads of a workgroup read pixels 16 apart, and it took 9–15× as long as the vertical pass.
 Summing each pixel's window instead (adjacent threads, adjacent pixels): 1.9–2.0 s, with the GPU's
-NR stage 1.5 → 0.4 s and spatial planes 0.89 → 0.29 s (`LIGHTCRAFT_PROFILE`). The ignored test
+NR stage 1.5 → 0.4 s and spatial planes 0.89 → 0.29 s (`EVOLIGHT_PROFILE`). The ignored test
 `bench_kernels` (`crates/gpu/src/render.rs`) times the passes on a 24 MP plane.
 
 GPU timings include the readback of the 8-bit result and the histogram. Device creation + kernel
 compilation: ~0.4 s once per process — the desktop app starts it on a background thread at launch
-(`lightcraft_gpu::warm_up`), so the first loupe render doesn't wait for it; other processes create
-the device on their first GPU render. `lightcraft_gpu::ready()` asks without blocking.
+(`evolight_gpu::warm_up`), so the first loupe render doesn't wait for it; other processes create
+the device on their first GPU render. `evolight_gpu::ready()` asks without blocking.
 
 On Windows / DX12 the kernels cost more: FXC compiles each pipeline single-threaded inside
 `create_compute_pipeline` (issue #471). Built one after another, the 27 took ~2.2 s on an Intel Core
@@ -401,11 +401,11 @@ and build time.
 
 ## Drawing renders straight from the GPU
 The desktop app creates the window's wgpu device with the adapter's limits and hands it to the GPU
-renderer (`lightcraft_gpu::adopt_window_device`, on a background thread at startup: the kernels
+renderer (`evolight_gpu::adopt_window_device`, on a background thread at startup: the kernels
 build there; the crash sentinel covers it), so rendering and drawing share one device. A slider
 drag's drafts of the views (Detail, Before, the zoomed window, hover, Compare, the second window)
 are then marked `RenderJob::on_screen`: the render ends in an `Rgba8Unorm` texture
-(`lightcraft_gpu::render_display` → `Output::Display`) that egui-wgpu draws as a native texture
+(`evolight_gpu::render_display` → `Output::Display`) that egui-wgpu draws as a native texture
 (`ScreenTextures` in `ui-egui`, implemented by the app) - no readback, no conversion to egui's
 pixels, no re-upload. The per-render checks run on the device instead: every pixel written (an
 atomic count), not entirely black (the device histogram). Rows are re-laid at a 256-byte stride
@@ -418,9 +418,9 @@ anything the GPU path declines. A device that doesn't suit (software adapter, to
 buffers, kernels that don't build there) makes the renderer create a device of its own, as before.
 A headless `ui.screenshot` (the control channel keeps CPU copies of what is drawn) taken while a
 view shows a GPU-resident draft reads that texture back for the picture (`ScreenTextures::read`,
-`lightcraft_gpu::read_texture`); drawing never does.
+`evolight_gpu::read_texture`); drawing never does.
 
-- `LIGHTCRAFT_GPU_WINDOW=0`: never adopt the window's device (a device of its own, renders read
+- `EVOLIGHT_GPU_WINDOW=0`: never adopt the window's device (a device of its own, renders read
   back) - to compare, or for a driver that misbehaves with compute and drawing on one device.
 - `ui.inspect` → `perf.gpuWindowDevice` (renders run on the window's device), `perf.screenTextures`
   (the UI can draw GPU-resident renders), `perf.mainOnGpu` (the loupe shows one now).
@@ -452,17 +452,17 @@ A view's stages keep an uploaded source only up to 96 MB (a Preview-level source
   sources, rendered previews) and the GPU renderer's device buffers (allocated, of which pooled
   and retired); `ui.inspect` → `memory` adds the loupe's stage caches (CPU images, GPU buffers)
   and the textures.
-- Heap profile: build `lightcraft-cli` with `--features dhat-heap`; `library.memory` then also
-  reports live/peak heap bytes and the run writes `dhat-heap.json` (`LIGHTCRAFT_DHAT_FILE`), whose
+- Heap profile: build `evolight-cli` with `--features dhat-heap`; `library.memory` then also
+  reports live/peak heap bytes and the run writes `dhat-heap.json` (`EVOLIGHT_DHAT_FILE`), whose
   allocation sites at the peak (`t-gmax`) show who holds the memory.
 - Measuring the scenario (import 14 raws from `corpus/raw`, open the loupe, step 12 times):
-  `/usr/bin/time -l lightcraft-cli snapshot <files> --script steps.jsonl -o out.png` → "maximum
+  `/usr/bin/time -l evolight-cli snapshot <files> --script steps.jsonl -o out.png` → "maximum
   resident set size" and "peak memory footprint". Run it several times: the high-water mark is
   noisy (allocator caching, scheduling). On Apple silicon GPU buffers count in the footprint.
-- Imports read raw headers only (`lightcraft_raw::probe_info`): no pixel data is decompressed,
+- Imports read raw headers only (`evolight_raw::probe_info`): no pixel data is decompressed,
   except the first rows a few vendor formats need for facts their headers lack (Nikon NEF: the
   first 128 rows for the masked trailing columns, issue #708).
-- One budget (`memory::budget`, default min(25 % of RAM, 1.5 GiB); `LIGHTCRAFT_MEMORY_MB` or
+- One budget (`memory::budget`, default min(25 % of RAM, 1.5 GiB); `EVOLIGHT_MEMORY_MB` or
   `app.memoryBudget {mb}`): half for the engine caches (decoded thumbnail / preview / full
   sources and rendered previews, evicted least recently used *across* them; the photo on screen
   stays), a quarter for decodes in flight (`memory::work_gate`: grid thumbnails, neighbour

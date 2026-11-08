@@ -6,7 +6,7 @@
 //! `check` works on already-read file contents so it is unit-testable without the real tree.
 //!
 //! Exception: `crates/wincolor` calls Windows' colour APIs, so it is exempt too (see its module docs).
-//! Exception (documented in AGENTS.md): `crates/sysmem` holds LightCraft's other allowed `unsafe`
+//! Exception (documented in AGENTS.md): `crates/sysmem` holds EvoLight's other allowed `unsafe`
 //! (one FFI call), so it is exempt from `forbid(unsafe_code)` — it still needs the deny list, and
 //! carries it.
 
@@ -16,7 +16,7 @@ const DENY_LINTS: &[&str] =
     &["clippy::unwrap_used", "clippy::expect_used", "clippy::panic", "clippy::unimplemented", "clippy::todo", "clippy::unreachable"];
 
 /// Crate roots exempt from `forbid(unsafe_code)` (they still need the deny list).
-const UNSAFE_EXCEPTION: &[&str] = &["lightcraft-sysmem", "lightcraft-wincolor"];
+const UNSAFE_EXCEPTION: &[&str] = &["evolight-sysmem", "evolight-wincolor"];
 
 #[derive(Debug, Clone)]
 pub struct CrateRoot {
@@ -263,27 +263,27 @@ mod tests {
     #[test]
     fn both_attributes_pass() {
         let src = format!("#![forbid(unsafe_code)]\n#![deny({DENY})]\nfn f() {{}}\n");
-        assert!(check(&[root("lightcraft-foo", &src)]).is_empty());
+        assert!(check(&[root("evolight-foo", &src)]).is_empty());
     }
 
     #[test]
     fn missing_forbid_reported() {
         let src = format!("#![deny({DENY})]\nfn f() {{}}\n");
-        let v = check(&[root("lightcraft-foo", &src)]);
+        let v = check(&[root("evolight-foo", &src)]);
         assert!(matches!(&v[..], [Violation::MissingForbid { .. }]), "{v:?}");
     }
 
     #[test]
     fn missing_deny_reported() {
-        let v = check(&[root("lightcraft-foo", "#![forbid(unsafe_code)]\nfn f() {}\n")]);
+        let v = check(&[root("evolight-foo", "#![forbid(unsafe_code)]\nfn f() {}\n")]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
     #[test]
     fn sysmem_exempt_from_forbid_but_not_deny() {
         let good = format!("#![deny({DENY})]\nfn f() {{}}\n");
-        assert!(check(&[root("lightcraft-sysmem", &good)]).is_empty());
-        let v = check(&[root("lightcraft-sysmem", "#![forbid(unsafe_code)]\nfn f() {}\n")]);
+        assert!(check(&[root("evolight-sysmem", &good)]).is_empty());
+        let v = check(&[root("evolight-sysmem", "#![forbid(unsafe_code)]\nfn f() {}\n")]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
@@ -291,17 +291,17 @@ mod tests {
     fn root_paths_collects_bin_cdylib_and_lib_targets() {
         let meta = serde_json::json!({
             "packages": [
-                { "name": "lightcraft-bin-only", "manifest_path": "/ws/bin-only/Cargo.toml",
+                { "name": "evolight-bin-only", "manifest_path": "/ws/bin-only/Cargo.toml",
                   "targets": [ { "kind": ["bin"], "src_path": "/ws/bin-only/src/main.rs" } ] },
-                { "name": "lightcraft-meta", "manifest_path": "/ws/meta/Cargo.toml",
+                { "name": "evolight-meta", "manifest_path": "/ws/meta/Cargo.toml",
                   "targets": [ { "kind": ["lib"], "src_path": "/ws/meta/src/lib.rs" } ] },
-                { "name": "lightcraft-web", "manifest_path": "/ws/web/Cargo.toml",
+                { "name": "evolight-web", "manifest_path": "/ws/web/Cargo.toml",
                   "targets": [ { "kind": ["cdylib", "rlib"], "src_path": "/ws/web/src/lib.rs" } ] },
             ]
         });
         let paths = root_paths(&meta).expect("metadata should parse");
         let names: Vec<_> = paths.iter().map(|(n, _)| n.as_str()).collect();
-        assert_eq!(names, vec!["lightcraft-bin-only", "lightcraft-meta", "lightcraft-web"]);
+        assert_eq!(names, vec!["evolight-bin-only", "evolight-meta", "evolight-web"]);
         assert_eq!(paths[0].1, std::path::Path::new("/ws/bin-only/src/main.rs"));
         assert_eq!(paths[1].1, std::path::Path::new("/ws/meta/src/lib.rs"));
         assert_eq!(paths[2].1, std::path::Path::new("/ws/web/src/lib.rs"));
@@ -311,9 +311,9 @@ mod tests {
     fn root_paths_collects_proc_macro_targets() {
         let meta = serde_json::json!({
             "packages": [
-                { "name": "lightcraft-macros", "manifest_path": "/ws/macros/Cargo.toml",
+                { "name": "evolight-macros", "manifest_path": "/ws/macros/Cargo.toml",
                   "targets": [ { "kind": ["proc-macro"], "src_path": "/ws/macros/src/derive.rs" } ] },
-                { "name": "lightcraft-plain-macros", "manifest_path": "/ws/plain-macros/Cargo.toml",
+                { "name": "evolight-plain-macros", "manifest_path": "/ws/plain-macros/Cargo.toml",
                   "targets": [ { "kind": ["proc-macro"] } ] },
             ]
         });
@@ -321,15 +321,15 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                ("lightcraft-macros".to_owned(), PathBuf::from("/ws/macros/src/derive.rs")),
-                ("lightcraft-plain-macros".to_owned(), PathBuf::from("/ws/plain-macros/src/lib.rs")),
+                ("evolight-macros".to_owned(), PathBuf::from("/ws/macros/src/derive.rs")),
+                ("evolight-plain-macros".to_owned(), PathBuf::from("/ws/plain-macros/src/lib.rs")),
             ]
         );
     }
 
     #[test]
     fn deny_must_contain_all_six_lints() {
-        let v = check(&[root("lightcraft-foo", "#![forbid(unsafe_code)]\n#![deny(clippy::unwrap_used, clippy::expect_used)]\nfn f() {}\n")]);
+        let v = check(&[root("evolight-foo", "#![forbid(unsafe_code)]\n#![deny(clippy::unwrap_used, clippy::expect_used)]\nfn f() {}\n")]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
@@ -337,11 +337,11 @@ mod tests {
     fn a_root_allow_overriding_a_required_lint_is_reported() {
         // rustc applies the later attribute, so the deny list above it no longer denies
         let src = format!("#![forbid(unsafe_code)]\n#![deny({DENY})]\n#![allow(clippy::panic)]\nfn f() {{}}\n");
-        let v = check(&[root("lightcraft-foo", &src)]);
+        let v = check(&[root("evolight-foo", &src)]);
         assert!(matches!(&v[..], [Violation::OverriddenDeny { lint, .. }] if lint == "clippy::panic"), "{v:?}");
         assert_eq!(
             v.first().map(|v| v.to_string()).as_deref(),
-            Some("lightcraft-foo: the crate-root `#![allow(clippy::panic)]` overrides the required deny list in src/lightcraft-foo.rs"),
+            Some("evolight-foo: the crate-root `#![allow(clippy::panic)]` overrides the required deny list in src/evolight-foo.rs"),
             "the rendered message shows the attribute, not literal braces",
         );
     }
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn a_root_expect_overriding_a_required_lint_is_reported() {
         let src = format!("#![forbid(unsafe_code)]\n#![deny({DENY})]\n#![expect(clippy::unwrap_used)]\nfn f() {{}}\n");
-        let v = check(&[root("lightcraft-foo", &src)]);
+        let v = check(&[root("evolight-foo", &src)]);
         assert!(matches!(&v[..], [Violation::OverriddenDeny { lint, .. }] if lint == "clippy::unwrap_used"), "{v:?}");
     }
 
@@ -359,32 +359,32 @@ mod tests {
         let src = format!(
             "#![forbid(unsafe_code)]\n#![deny({DENY})]\nfn f() {{\n    #[allow(clippy::expect_used)] // invariant\n    let x: u8 = None.expect(\"checked above\");\n}}\n"
         );
-        assert!(check(&[root("lightcraft-foo", &src)]).is_empty());
+        assert!(check(&[root("evolight-foo", &src)]).is_empty());
     }
 
     #[test]
     fn library_root_follows_the_declared_lib_path() {
         let meta = serde_json::json!({
             "packages": [
-                { "name": "lightcraft-custom", "manifest_path": "/ws/custom/Cargo.toml",
+                { "name": "evolight-custom", "manifest_path": "/ws/custom/Cargo.toml",
                   "targets": [ { "kind": ["lib"], "src_path": "/ws/custom/src/core.rs" } ] },
             ]
         });
         let paths = root_paths(&meta).expect("metadata should parse");
-        assert_eq!(paths, vec![("lightcraft-custom".to_owned(), PathBuf::from("/ws/custom/src/core.rs"))]);
+        assert_eq!(paths, vec![("evolight-custom".to_owned(), PathBuf::from("/ws/custom/src/core.rs"))]);
     }
 
     #[test]
     fn a_lint_named_only_in_a_trailing_comment_does_not_count() {
         let src = "#![forbid(unsafe_code)]\n#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo)] // clippy::unreachable\nfn f() {}\n";
-        let v = check(&[root("lightcraft-foo", src)]);
+        let v = check(&[root("evolight-foo", src)]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
     #[test]
     fn lint_names_must_match_whole() {
         let src = "#![forbid(unsafe_code)]\n#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic_in_result_fn, clippy::unimplemented, clippy::todo, clippy::unreachable)]\nfn f() {}\n";
-        let v = check(&[root("lightcraft-foo", src)]);
+        let v = check(&[root("evolight-foo", src)]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
@@ -392,26 +392,26 @@ mod tests {
     fn attributes_after_a_long_header_are_found() {
         let header: String = (0..40).map(|n| format!("//! header line {n}\n")).collect();
         let src = format!("{header}\n#![forbid(unsafe_code)]\n#![deny({DENY})]\nfn f() {{}}\n");
-        assert!(check(&[root("lightcraft-foo", &src)]).is_empty());
+        assert!(check(&[root("evolight-foo", &src)]).is_empty());
     }
 
     #[test]
     fn multi_line_deny_attribute_is_read() {
         let src = "#![forbid(unsafe_code)]\n#![deny(\n    clippy::unwrap_used,\n    clippy::expect_used,\n    clippy::panic,\n    clippy::unimplemented,\n    clippy::todo,\n    clippy::unreachable,\n)]\nfn f() {}\n";
-        assert!(check(&[root("lightcraft-foo", src)]).is_empty());
+        assert!(check(&[root("evolight-foo", src)]).is_empty());
     }
 
     #[test]
     fn attributes_of_a_nested_module_do_not_count() {
         let src = format!("#![forbid(unsafe_code)]\nfn f() {{}}\nmod inner {{\n    #![deny({DENY})]\n}}\n");
-        let v = check(&[root("lightcraft-foo", &src)]);
+        let v = check(&[root("evolight-foo", &src)]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
     #[test]
     fn a_commented_out_attribute_does_not_count() {
         let src = format!("#![forbid(unsafe_code)]\n/*\n#![deny({DENY})]\n*/\nfn f() {{}}\n");
-        let v = check(&[root("lightcraft-foo", &src)]);
+        let v = check(&[root("evolight-foo", &src)]);
         assert!(matches!(&v[..], [Violation::MissingDeny { .. }]), "{v:?}");
     }
 
@@ -419,9 +419,9 @@ mod tests {
     fn targets_without_src_path_fall_back_to_the_default_files() {
         let meta = serde_json::json!({
             "packages": [
-                { "name": "lightcraft-plain", "manifest_path": "/ws/plain/Cargo.toml",
+                { "name": "evolight-plain", "manifest_path": "/ws/plain/Cargo.toml",
                   "targets": [ { "kind": ["lib"] } ] },
-                { "name": "lightcraft-tool", "manifest_path": "/ws/tool/Cargo.toml",
+                { "name": "evolight-tool", "manifest_path": "/ws/tool/Cargo.toml",
                   "targets": [ { "kind": ["bin"] } ] },
             ]
         });

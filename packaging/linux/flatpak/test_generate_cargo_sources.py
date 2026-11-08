@@ -1,4 +1,4 @@
-"""Failure-path and cancellation checks for the LightCraft inventory wrapper."""
+"""Failure-path and cancellation checks for the EvoLight inventory wrapper."""
 import importlib.util
 import io
 import hashlib
@@ -21,10 +21,10 @@ wrapper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wrapper)
 
 # Deliberate sabotage for checking that the cancellation tests are meaningful.
-# Run with LIGHTCRAFT_FLATPAK_TEST_BREAK_KILL=1: the process-group kill becomes
+# Run with EVOLIGHT_FLATPAK_TEST_BREAK_KILL=1: the process-group kill becomes
 # a no-op and the cancellation/timeout tests must fail, proving they observe
 # real liveness instead of relying on teardown.
-BREAK_KILL = os.environ.get('LIGHTCRAFT_FLATPAK_TEST_BREAK_KILL') == '1'
+BREAK_KILL = os.environ.get('EVOLIGHT_FLATPAK_TEST_BREAK_KILL') == '1'
 if BREAK_KILL:
     wrapper._kill_generator = lambda process: None
 
@@ -94,7 +94,7 @@ source, fixture, lock, output, cache = sys.argv[1:6]
 spec = importlib.util.spec_from_file_location("inventory_wrapper", source)
 wrapper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wrapper)
-if os.environ.get("LIGHTCRAFT_FLATPAK_TEST_BREAK_KILL") == "1":
+if os.environ.get("EVOLIGHT_FLATPAK_TEST_BREAK_KILL") == "1":
     wrapper._kill_generator = lambda process: None
 payload = Path(fixture).read_bytes()
 wrapper.download_upstream = lambda: payload
@@ -326,7 +326,7 @@ class InventoryFailures(unittest.TestCase):
             raise
 
     def _new_temp_root(self):
-        temp = tempfile.TemporaryDirectory(prefix='lightcraft-flatpak-test-')
+        temp = tempfile.TemporaryDirectory(prefix='evolight-flatpak-test-')
         self.addCleanup(temp.cleanup)
         root = Path(temp.name).resolve()
         # Registered after temp.cleanup, so addCleanup's LIFO order stops any
@@ -426,7 +426,7 @@ class InventoryFailures(unittest.TestCase):
 
     @staticmethod
     def _preserve_failure_evidence(root, label):
-        destination = Path(tempfile.mkdtemp(prefix=f'lightcraft-flatpak-{label}-'))
+        destination = Path(tempfile.mkdtemp(prefix=f'evolight-flatpak-{label}-'))
         for path in root.rglob('*'):
             if not path.is_file():
                 continue

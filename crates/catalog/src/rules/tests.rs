@@ -128,7 +128,7 @@ fn keyword_count_rules() {
 /// faces are not people; People Count counts each person once.
 #[test]
 fn people_rules() {
-    use lightcraft_meta::{Rect, Region, RegionKind};
+    use evolight_meta::{Rect, Region, RegionKind};
     let cat = Catalog::new();
     let region = |name: Option<&str>, kind: RegionKind| Region {
         rect: Rect { x0: 0.4, y0: 0.4, x1: 0.6, y1: 0.6 },
@@ -239,8 +239,8 @@ fn source_file_and_develop_rules() {
     let mut d = photo(5);
     assert!(m(&d, "cropped", "is", json!(false)) && m(&d, "treatment", "is", json!("color")));
     let mut s = (*d.develop).clone();
-    s.crop.geometry.rect = lightcraft_geom::Rect::new(0.1, 0.0, 0.9, 1.0);
-    s.treatment = lightcraft_develop::Treatment::Bw;
+    s.crop.geometry.rect = evolight_geom::Rect::new(0.1, 0.0, 0.9, 1.0);
+    s.treatment = evolight_develop::Treatment::Bw;
     d.develop = std::sync::Arc::new(s);
     assert!(m(&d, "cropped", "is", json!(true)) && m(&d, "treatment", "is", json!("monochrome")));
     assert!(m(&d, "treatment", "isNot", json!("color")));
@@ -263,11 +263,11 @@ fn size_rules_follow_orientation_and_crop() {
     assert!(m(&p, "aspect", "is", json!("landscape")) && m(&p, "longEdge", "is", json!(6000)) && m(&p, "shortEdge", "is", json!(4000)));
     assert!(m(&p, "megapixels", "is", json!(24)));
     let mut s = (*p.develop).clone();
-    s.orientation = lightcraft_geom::Orientation::Rotate90;
+    s.orientation = evolight_geom::Orientation::Rotate90;
     p.develop = std::sync::Arc::new(s.clone());
     assert!(m(&p, "aspect", "is", json!("portrait")) && m(&p, "longEdge", "is", json!(6000)));
     // a square crop of the rotated frame: 4000 wide, 4000 of its 6000 tall
-    s.crop.geometry.rect = lightcraft_geom::Rect::new(0.0, 1.0 / 6.0, 1.0, 5.0 / 6.0);
+    s.crop.geometry.rect = evolight_geom::Rect::new(0.0, 1.0 / 6.0, 1.0, 5.0 / 6.0);
     p.develop = std::sync::Arc::new(s);
     assert!(m(&p, "aspect", "is", json!("square")) && m(&p, "longEdge", "is", json!(4000)));
     assert!(m(&p, "megapixels", "is", json!(16)), "a 4000 × 4000 crop is 16 MP, not the sensor's 24");
@@ -290,9 +290,9 @@ fn any_searchable_text_covers_new_fields() {
     }
     p.meta.state = "Oregon".into();
     p.meta.alt_text = "A kite".into();
-    p.meta.regions = vec![lightcraft_meta::Region {
-        rect: lightcraft_meta::Rect { x0: 0.4, y0: 0.4, x1: 0.6, y1: 0.6 },
-        kind: lightcraft_meta::RegionKind::Face,
+    p.meta.regions = vec![evolight_meta::Region {
+        rect: evolight_meta::Rect { x0: 0.4, y0: 0.4, x1: 0.6, y1: 0.6 },
+        kind: evolight_meta::RegionKind::Face,
         name: Some("Ana".into()),
         description: None,
     }];

@@ -867,7 +867,7 @@ mod tests {
 /// covers the box) and area-averaged in linear light straight into 8-bit sRGB, without the
 /// float image the general path builds (for a 45 MP camera preview fitted to 2560 px that float
 /// image and its conversions were half the time). `Ok(None)` for anything else.
-pub(crate) fn srgb8_fit(bytes: &[u8], max_w: u32, max_h: u32) -> Result<Option<(lightcraft_raster::Rgba8, u16)>> {
+pub(crate) fn srgb8_fit(bytes: &[u8], max_w: u32, max_h: u32) -> Result<Option<(evolight_raster::Rgba8, u16)>> {
     // (a Samsung SEF trailer read as the file it stands for, as the general decode does: CodeRabbit on #3583)
     let bytes = &*without_sef_trailer(bytes);
     let Some(m) = parse_markers(bytes) else { return Ok(None) };
@@ -901,7 +901,7 @@ pub(crate) fn srgb8_fit(bytes: &[u8], max_w: u32, max_h: u32) -> Result<Option<(
     if w == 0 || h == 0 || px.len() < w.saturating_mul(h).saturating_mul(ch) {
         return Err(Error::Malformed(F, "short output".into()));
     }
-    // the size `lightcraft_raster::resample::fit` gives: within the box, aspect kept, never larger
+    // the size `evolight_raster::resample::fit` gives: within the box, aspect kept, never larger
     let s = (max_w as f64 / w as f64).min(max_h as f64 / h as f64).min(1.0);
     let tw = ((w as f64 * s).round() as usize).clamp(1, w);
     let th = ((h as f64 * s).round() as usize).clamp(1, h);
@@ -927,12 +927,12 @@ fn box_taps(n: usize, out: usize) -> Vec<(usize, Vec<f32>)> {
 
 /// `px` (`w × h`, `ch` = 1 or 3 interleaved 8-bit sRGB samples) averaged over boxes in linear
 /// light into `tw × th` opaque 8-bit sRGB pixels. A copy when the size doesn't change.
-fn area_average_srgb8(px: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: usize) -> lightcraft_raster::Rgba8 {
-    use lightcraft_color::transfer::{decode_srgb8, encode_srgb8};
-    let mut out = lightcraft_raster::Rgba8::new(tw, th);
+fn area_average_srgb8(px: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: usize) -> evolight_raster::Rgba8 {
+    use evolight_color::transfer::{decode_srgb8, encode_srgb8};
+    let mut out = evolight_raster::Rgba8::new(tw, th);
     let sample = |x: usize, y: usize, c: usize| px.get((y * w + x) * ch + if ch == 3 { c } else { 0 }).copied().unwrap_or(0);
     if (tw, th) == (w, h) {
-        lightcraft_raster::par_rows(&mut out.data, tw, |y, row| {
+        evolight_raster::par_rows(&mut out.data, tw, |y, row| {
             for (x, o) in row.iter_mut().enumerate() {
                 *o = [sample(x, y, 0), sample(x, y, 1), sample(x, y, 2), 255];
             }
@@ -970,7 +970,7 @@ fn area_average_srgb8(px: &[u8], w: usize, h: usize, ch: usize, tw: usize, th: u
             buf.push(a);
         }
     };
-    lightcraft_raster::par_rows(&mut out.data, tw, |y, row| {
+    evolight_raster::par_rows(&mut out.data, tw, |y, row| {
         let Some((y0, wy)) = ys.get(y) else { return };
         let mut acc = vec![[0f32; 3]; tw];
         let mut line = Vec::with_capacity(tw);
@@ -1000,7 +1000,7 @@ mod srgb8_fit_tests {
                 [r, g, b, 255]
             })
             .collect();
-        let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
+        let img = evolight_raster::Rgba8 { width: w, height: h, data };
         crate::encode_jpeg(&crate::EncodeImage::rgba8(&img), 95, crate::ChromaSubsampling::S420, &crate::EncodeMeta::default()).unwrap()
     }
 

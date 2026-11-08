@@ -3,7 +3,7 @@
 //! strings for every photo it was asked about; a large library asks it for every photo of every smart album, so
 //! it compares in place. One test per binary (dhat's profiler is global).
 
-use lightcraft_catalog::{Catalog, Photo, PhotoId, RuleSet, Source};
+use evolight_catalog::{Catalog, Photo, PhotoId, RuleSet, Source};
 use serde_json::json;
 
 #[global_allocator]

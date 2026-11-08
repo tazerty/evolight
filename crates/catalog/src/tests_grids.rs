@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use lightcraft_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
+use evolight_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
 
 use crate::journal::{LOG, SNAPSHOT, VERSION};
 use crate::*;
@@ -30,7 +30,7 @@ fn settings_with_seg(seg: SegMask, exposure: f64) -> DevelopSettings {
             op: MaskOp::Add,
             invert: false,
             shape: MaskShape::Object {
-                hint: vec![lightcraft_geom::Point::new(0.5, 0.5)],
+                hint: vec![evolight_geom::Point::new(0.5, 0.5)],
                 exclude: vec![],
                 seg: Some(seg),
                 detail: vec![],
@@ -51,7 +51,7 @@ fn object_mask(id: u32, seg: SegMask) -> Mask {
             op: MaskOp::Add,
             invert: false,
             shape: MaskShape::Object {
-                hint: vec![lightcraft_geom::Point::new(0.5, 0.5)],
+                hint: vec![evolight_geom::Point::new(0.5, 0.5)],
                 exclude: vec![],
                 seg: Some(seg),
                 detail: vec![],
@@ -124,7 +124,7 @@ fn v9_catalog_with_inline_grids_loads_and_is_upgraded() {
     let body = live.to_snapshot();
     assert!(body.contains(&blob), "a live catalog stores its grids inline");
     let m = MemStore::new();
-    m.set(SNAPSHOT, format!("{{\"format\":\"lightcraft-catalog\",\"version\":9,\"seq\":2,\"catalog\":{body}}}\n").into_bytes());
+    m.set(SNAPSHOT, format!("{{\"format\":\"evolight-catalog\",\"version\":9,\"seq\":2,\"catalog\":{body}}}\n").into_bytes());
     let (_, loaded, report) = open(&m);
     assert_eq!((report.replayed, report.upgraded_from), (0, Some(9)));
     assert_eq!(loaded.to_snapshot(), live.to_snapshot());
@@ -166,7 +166,7 @@ fn shared_grid_references_resolve_or_are_repaired() {
     m.set(
         SNAPSHOT,
         format!(
-            "{{\"format\":\"lightcraft-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[\"dHdv\"],{} }} }}\n",
+            "{{\"format\":\"evolight-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[\"dHdv\"],{} }} }}\n",
             &body[1..body.len() - 1]
         )
         .into_bytes(),
@@ -188,7 +188,7 @@ fn shared_grid_references_resolve_or_are_repaired() {
     m.set(
         SNAPSHOT,
         format!(
-            "{{\"format\":\"lightcraft-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[\"{blob}\"],{} }} }}\n",
+            "{{\"format\":\"evolight-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[\"{blob}\"],{} }} }}\n",
             &body[1..body.len() - 1]
         )
         .into_bytes(),
@@ -346,7 +346,7 @@ fn empty_shared_grid_table_clears_dangling_references() {
     m.set(
         SNAPSHOT,
         format!(
-            "{{\"format\":\"lightcraft-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[],{} }} }}\n",
+            "{{\"format\":\"evolight-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{\"grids\":[],{} }} }}\n",
             &body[1..body.len() - 1]
         )
         .into_bytes(),
@@ -376,7 +376,7 @@ fn omitted_shared_grid_table_clears_dangling_references() {
     let m = MemStore::new();
     m.set(
         SNAPSHOT,
-        format!("{{\"format\":\"lightcraft-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{{} }} }}\n", &body[1..body.len() - 1])
+        format!("{{\"format\":\"evolight-catalog\",\"version\":{VERSION},\"seq\":2,\"catalog\":{{{} }} }}\n", &body[1..body.len() - 1])
             .into_bytes(),
     );
     let (_, damaged, report) = open(&m);

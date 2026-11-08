@@ -28,8 +28,8 @@ fn profiles_dir(s: &Session) -> Option<PathBuf> {
 /// Register every imported profile's LUT with the pipeline (missing files are skipped).
 pub fn register_all(s: &Session) {
     for p in &s.lut_profiles {
-        if let Some(l) = std::fs::read_to_string(&p.file).ok().and_then(|t| lightcraft_pipeline::lut::Lut3d::parse_cube(&t).ok()) {
-            lightcraft_pipeline::lut::register(&p.id, l);
+        if let Some(l) = std::fs::read_to_string(&p.file).ok().and_then(|t| evolight_pipeline::lut::Lut3d::parse_cube(&t).ok()) {
+            evolight_pipeline::lut::register(&p.id, l);
         }
     }
 }
@@ -104,7 +104,7 @@ fn import(s: &mut Session, p: &Value) -> Result<Value> {
     let (files, mut failed) = cube_files(&paths);
     let mut imported = Vec::new();
     for (name, text, group) in files {
-        let lut = match lightcraft_pipeline::lut::Lut3d::parse_cube(&text) {
+        let lut = match evolight_pipeline::lut::Lut3d::parse_cube(&text) {
             Ok(l) => l,
             Err(e) => {
                 failed.push(json!([name, e]));
@@ -125,14 +125,14 @@ fn import(s: &mut Session, p: &Value) -> Result<Value> {
                 let f = d.join(format!("{}.cube", id.trim_start_matches("lut:")));
                 // a new file renamed into place: an entry already under the name (a link planted
                 // in the Profiles folder) is replaced, never written through
-                lightcraft_catalog::safe_file::write_atomic(&f, text.as_bytes()).map_err(|e| bad(C, format!("{}: {e}", f.display())))?;
+                evolight_catalog::safe_file::write_atomic(&f, text.as_bytes()).map_err(|e| bad(C, format!("{}: {e}", f.display())))?;
                 f.to_string_lossy().to_string()
             }
             // no library on disk: the registered LUT is all this session needs (a copy would only
             // be read back when a library opens, and that takes its own list from its prefs)
             None => String::new(),
         };
-        lightcraft_pipeline::lut::register(&id, lut);
+        evolight_pipeline::lut::register(&id, lut);
         s.lut_profiles.push(LutProfile { id: id.clone(), name: display.clone(), group: group.clone(), file });
         imported.push(json!({"id": id, "name": display, "group": group}));
     }
@@ -169,7 +169,7 @@ pub fn specs() -> Vec<CommandSpec> {
             if profiles_dir(s).is_some_and(|d| Path::new(&gone.file).starts_with(d)) {
                 let _ = std::fs::remove_file(&gone.file);
             }
-            lightcraft_pipeline::lut::unregister(&id);
+            evolight_pipeline::lut::unregister(&id);
             s.save_prefs()?;
             crate::profile_refs::refresh(s);
             Ok(json!({"deleted": id}))

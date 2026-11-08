@@ -21,13 +21,13 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, SystemTime};
 
-use lightcraft_catalog::{Photo, PhotoId, Source};
-use lightcraft_denoise::bayer::Layout;
-use lightcraft_denoise::manifest::DenoiserManifest;
-use lightcraft_denoise::run::{Control, Params, TileRunner, denoise_bayer};
-use lightcraft_denoise::{Error as RunError, product};
-use lightcraft_develop::DevelopSettings;
-use lightcraft_preview::Hasher128;
+use evolight_catalog::{Photo, PhotoId, Source};
+use evolight_denoise::bayer::Layout;
+use evolight_denoise::manifest::DenoiserManifest;
+use evolight_denoise::run::{Control, Params, TileRunner, denoise_bayer};
+use evolight_denoise::{Error as RunError, product};
+use evolight_develop::DevelopSettings;
+use evolight_preview::Hasher128;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 

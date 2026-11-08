@@ -2,13 +2,13 @@ use super::widgets::{check, choices, heading, hint, row};
 #[cfg(not(target_arch = "wasm32"))]
 use super::widgets::{label_width, path_label};
 use super::{
-    CACHE_SIZES, HOT_PIXEL_LIMIT_DEFAULT, HOT_PIXEL_LIMITS, LABEL_W, LightcraftApp, PREVIEW_LIMITS, RichText, Tokens, Value, json, register,
+    CACHE_SIZES, HOT_PIXEL_LIMIT_DEFAULT, HOT_PIXEL_LIMITS, LABEL_W, EvoLightApp, PREVIEW_LIMITS, RichText, Tokens, Value, json, register,
 };
 
 // --------------------------------------------------------------------------------- Performance
 
-pub(super) fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::gpu;
+pub(super) fn performance_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::gpu;
     heading(ui, t, crate::i18n::tr("Rendering"));
     #[cfg(target_os = "windows")]
     check(ui, "settings.composeWindow", &mut app.ui.settings.compose_window, "Prevent G-SYNC/FreeSync flicker (applies at next launch)");
@@ -47,7 +47,7 @@ pub(super) fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &To
         ),
     );
     row(ui, t, crate::i18n::tr("Memory for caches"), |ui| {
-        let auto = crate::i18n::tr_format!("Automatic ({} MB)", lightcraft_engine::memory::default_budget() >> 20);
+        let auto = crate::i18n::tr_format!("Automatic ({} MB)", evolight_engine::memory::default_budget() >> 20);
         let opts = [(0u32, auto.as_str()), (512, "512 MB"), (1024, "1 GB"), (2048, "2 GB"), (4096, "4 GB")];
         choices(ui, "settingsMemory", &opts, &mut app.ui.settings.memory_mb);
     });
@@ -69,7 +69,7 @@ pub(super) fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &To
     heading(ui, t, crate::i18n::tr("Preview cache"));
     let cur = app.session.cache_mb;
     row(ui, t, crate::i18n::tr("Size limit"), |ui| {
-        let gb = lightcraft_engine::media::default_disk_cache_bytes(app.session.catalog.len()).div_ceil(1 << 30);
+        let gb = evolight_engine::media::default_disk_cache_bytes(app.session.catalog.len()).div_ceil(1 << 30);
         let auto = format!("{} ({gb} GB)", crate::i18n::tr("Automatic"));
         let custom = custom_cache_option(cur);
         let mut opts =
@@ -124,8 +124,8 @@ pub(super) fn performance_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &To
 
 /// Settings ▸ Performance ▸ Prepare photos in the background (notes 47 and 48): per mode, what
 /// is made ready before the user gets to it (`prefs.backgroundPrep`), app-wide or for this library.
-fn background_prep(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::prep::{Mode, Scope};
+fn background_prep(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::prep::{Mode, Scope};
     heading(ui, t, crate::i18n::tr("Prepare photos in the background"));
     hint(
         ui,
@@ -211,7 +211,7 @@ fn background_prep(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
 /// Where this library keeps its smart previews (the offline-editing proxies, which can be large):
 /// the effective folder, what is in it, and choosing another one.
 #[cfg(not(target_arch = "wasm32"))]
-fn smart_previews(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn smart_previews(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     // listing a big folder every frame would be slow: refresh every 2 s and after a change
     let cache = egui::Id::unique("smart-location");
     let now = ui.input(|i| i.time);

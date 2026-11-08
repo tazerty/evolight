@@ -6,9 +6,9 @@
 
 use std::path::PathBuf;
 
-use lightcraft_catalog::{Op, Photo, Source};
+use evolight_catalog::{Op, Photo, Source};
 
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 /// A temporary folder holding small PNGs; removes only its own folder when dropped.
 ///
@@ -41,8 +41,8 @@ impl SyntheticLibrary {
                     [((x * 3 + i * 17) % 256) as u8, ((y * 4 + i * 9) % 256) as u8, ((x + y + i) % 256) as u8, 255]
                 })
                 .collect();
-            let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
-            let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+            let img = evolight_raster::Rgba8 { width: w, height: h, data };
+            let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
             let path = dir.join(name);
             std::fs::write(&path, png).unwrap();
             photos.push(path);
@@ -52,8 +52,8 @@ impl SyntheticLibrary {
 
     /// A session whose library holds only the fixture photos, the first active and selected, with
     /// the file system loaders installed so Detail really decodes the PNGs.
-    pub(crate) fn app(&self) -> LightcraftApp {
-        let mut session = lightcraft_engine::Session::new().with_fs();
+    pub(crate) fn app(&self) -> EvoLightApp {
+        let mut session = evolight_engine::Session::new().with_fs();
         let mut ids = Vec::new();
         for (i, path) in self.photos.iter().enumerate() {
             let id = session.catalog.alloc_photo_id();
@@ -73,9 +73,9 @@ impl SyntheticLibrary {
             ids.push(id);
         }
         if let Some(first) = ids.first() {
-            session.selection = lightcraft_engine::Selection::single(*first);
+            session.selection = evolight_engine::Selection::single(*first);
         }
-        LightcraftApp::new(session, Services { png: None, ..Default::default() })
+        EvoLightApp::new(session, Services { png: None, ..Default::default() })
     }
 }
 

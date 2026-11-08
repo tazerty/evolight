@@ -42,7 +42,7 @@ foreach ($arch in $Architectures) {
     -culture en-US -d 'Version=0.0.1' -d 'DisplayVersion=0.0.1-metadata-test' `
     -d "BinDir=$stage" -d "IconPath=$(Join-Path $root $policy.icon)" `
     -d "DocsDir=$(Join-Path $stage 'docs')" -d "ModelsDir=$(Join-Path $stage 'models')" `
-    -d "AppNoticesDir=$(Join-Path $stage 'notices')" -d 'HasCraftFontLicences=1' -d 'HasCli=1' `
+    -d "AppNoticesDir=$(Join-Path $stage 'notices')" -d 'EvoHasFontLicences=1' -d 'HasCli=1' `
     -d "BannerBmp=$(Join-Path $stage 'banner.bmp')" -d "DialogBmp=$(Join-Path $stage 'dialog.bmp')" `
     -d "UiBannerBmp=$(Join-Path $stage 'banner.bmp')" -d "UiDialogBmp=$(Join-Path $stage 'dialog.bmp')" `
     -d "LicenseRtf=$(Join-Path $stage 'licence.rtf')" -o $msi @($policy.localization | ForEach-Object { '-loc'; Join-Path $PSScriptRoot $_ })

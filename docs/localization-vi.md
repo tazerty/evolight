@@ -1,4 +1,4 @@
-# LightCraft bằng tiếng Việt
+# EvoLight bằng tiếng Việt
 
 Chọn **Chỉnh sửa → Ngôn ngữ → Tiếng Việt** hoặc **Cài đặt → Chung → Ngôn ngữ**.
 Lựa chọn áp dụng ngay và được lưu cho lần mở sau (`language: "vi"` trong `ui.json`).
@@ -7,7 +7,7 @@ Các tag locale hệ thống sau cũng chọn tiếng Việt: `vi`, `vi-VN`, `vi
 
 ## Phạm vi
 
-Catalog tiếng Việt phủ **toàn bộ** bề mặt localization hiện tại của LightCraft
+Catalog tiếng Việt phủ **toàn bộ** bề mặt localization hiện tại của EvoLight
 (đo 2026-10-26: union plain **2 658** + formats **307** = **2 965** thông điệp):
 
 - `crates/ui-egui/locales/vi.json` — thông điệp plain / nhãn hiển thị (2 658 khóa)
@@ -40,7 +40,7 @@ các ngôn ngữ khác.
 | Shutter Speed | Tốc độ màn trập |
 | Smart Previews | Xem trước thông minh |
 
-Tên sản phẩm và chuẩn giữ nguyên khi là định danh: LightCraft, ArtCraft, GitHub, Discord,
+Tên sản phẩm và chuẩn giữ nguyên khi là định danh: EvoLight, Upstream, GitHub, Discord,
 JPEG, PNG, TIFF, WebP, AVIF, HEIF, HEIC, RAW, DNG, RGB, HDR, ICC, EXIF, XMP, GPU, MCP, SAM, ISO, OK.
 
 Tên album / preset / profile do người dùng tạo, tên tệp, command ID và metadata nhập tay
@@ -55,15 +55,15 @@ không được dịch.
 
 ## Font
 
-Tiếng Việt dùng Inter (Latin + dấu). Không cần craft-fonts CJK. Kiểm tra glyph trong
+Tiếng Việt dùng Inter (Latin + dấu). Không cần evo-fonts CJK. Kiểm tra glyph trong
 `vietnamese_panels_dialogs_and_diacritics_paint_with_bundled_fonts`.
 
 ## Kiểm tra
 
 ```sh
-cargo test -p lightcraft-ui-egui i18n::tests -- --nocapture
-LIGHTCRAFT_LANGUAGE=vi lightcraft-cli snapshot --demo -o vi.png --size 1600x1000
-LIGHTCRAFT_LANGUAGE=vi lightcraft-cli snapshot --demo -o vi-narrow.png --size 1280x800
+cargo test -p evolight-ui-egui i18n::tests -- --nocapture
+EVOLIGHT_LANGUAGE=vi evolight-cli snapshot --demo -o vi.png --size 1600x1000
+EVOLIGHT_LANGUAGE=vi evolight-cli snapshot --demo -o vi-narrow.png --size 1280x800
 ```
 
 Các test tiếng Việt kiểm tra đổi ngôn ngữ, lưu `vi`, formats, ngày, dữ liệu người dùng và glyph
@@ -72,6 +72,6 @@ không test nào thất bại vì thiếu bản dịch.
 
 ## Nguồn dịch (clean-room)
 
-Dịch từ chuỗi tiếng Anh nguồn của LightCraft. PhotoCraft / VectorCraft / PDFCraft chỉ dùng
+Dịch từ chuỗi tiếng Anh nguồn của EvoLight. EvoPhoto / EvoVector / EvoPdf chỉ dùng
 làm bộ nhớ thuật ngữ khi cùng nguồn tiếng Anh và cùng ngữ cảnh UI. Không dùng gói ngôn ngữ
 Adobe Lightroom hay tài nguyên độc quyền.

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Compare LightCraft's Sony embedded distortion correction with the camera's own JPEG.
+"""Compare EvoLight's Sony embedded distortion correction with the camera's own JPEG.
 
     python3 -m venv .venv-distortion && .venv-distortion/bin/pip install -r tools/requirements-sony-distortion-check.txt
-    .venv-distortion/bin/python tools/sony_distortion_check.py --cli target/release/lightcraft-cli \
+    .venv-distortion/bin/python tools/sony_distortion_check.py --cli target/release/evolight-cli \
         --work WORKDIR [--json results.json] PHOTO_DIR [PHOTO_DIR…]
 
-Every ARW with a JPG of the same name is rendered by LightCraft twice, embedded correction on
+Every ARW with a JPG of the same name is rendered by EvoLight twice, embedded correction on
 and off, and measured against the camera JPEG (shot with Lens Comp. Distortion on Auto):
 
 * agreement: offsets of matching features after the best similarity (scale, rotation, shift)
@@ -295,9 +295,9 @@ def agreement(s, d, size):
 
 
 def correction_fraction(on, off, size):
-    """How the camera's correction compares with LightCraft's: JPEG ≈ off + α·(on − off) radially,
+    """How the camera's correction compares with EvoLight's: JPEG ≈ off + α·(on − off) radially,
     both renders aligned to the JPEG on the same corners. 1 = the same amount as the camera;
-    above 1, the camera corrects more than LightCraft."""
+    above 1, the camera corrects more than EvoLight."""
     keys = [k for k in on["pairs"] if k in off["pairs"]]
     if len(keys) < 50:
         return None
@@ -382,7 +382,7 @@ def show(o):
     """Print one file's measurements."""
     k = REPORT_WIDTH / o["jpeg_width"]
     print(f"\n{o['file']}  {o['shot']}  [{o['kind']}]")
-    for tag, label in (("on", "LightCraft corrected"), ("off", "LightCraft uncorrected")):
+    for tag, label in (("on", "EvoLight corrected"), ("off", "EvoLight uncorrected")):
         a = o.get("vs_jpeg_" + tag)
         if a:
             print(f"  {label:24s} vs camera JPEG: median {a['median']:.2f} px, p95 {a['p95']:.2f}, max {a['max']:.2f}"
@@ -394,7 +394,7 @@ def show(o):
         if st:
             print(f"  straightness {tag:4s}: worst line {st['max']:.2f} px, median line {st['median']:.2f} px ({st['lines']} lines)")
     if o.get("fraction") is not None:
-        print(f"  camera correction / LightCraft correction: {o['fraction']:.3f}  (1 = same amount)")
+        print(f"  camera correction / EvoLight correction: {o['fraction']:.3f}  (1 = same amount)")
 
 
 def main():

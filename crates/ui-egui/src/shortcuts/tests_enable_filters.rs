@@ -1,17 +1,17 @@
 //! Cmd+L (Library > Enable Filters) switches the filter off and on from the keyboard and the menu.
 use egui::{Key, Modifiers};
-use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+use evolight_catalog::{Op, Photo, PhotoId, Source};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::ViewMode;
 
-fn app() -> lightcraft_engine::Result<LightcraftApp> {
-    let mut s = lightcraft_engine::Session::new();
+fn app() -> evolight_engine::Result<EvoLightApp> {
+    let mut s = evolight_engine::Session::new();
     for id in 1..=3 {
         let photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-enable-filters-keys/{id}.jpg") },
+            Source::File { path: format!("/evolight-enable-filters-keys/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,
@@ -23,12 +23,12 @@ fn app() -> lightcraft_engine::Result<LightcraftApp> {
     s.execute("library.select", &json!({"ids": [1]}))?;
     s.execute("photo.rate", &json!({"ids": [1], "rating": 4}))?;
     s.execute("library.filter", &json!({"rating": 4, "text": "1.jpg"}))?;
-    let mut app = LightcraftApp::new(s, crate::Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(s, crate::Services { png: None, ..Default::default() });
     app.ui.search = "1.jpg".into();
     Ok(app)
 }
 
-fn press(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn press(app: &mut EvoLightApp, ctx: &egui::Context) {
     let events = vec![egui::Event::Key { key: Key::L, physical_key: Some(Key::L), pressed: true, repeat: false, modifiers: Modifiers::COMMAND }];
     let mut out = ctx.run_ui(
         egui::RawInput { events, screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0))), ..Default::default() },

@@ -14,7 +14,7 @@ fn folder(name: &str) -> PathBuf {
 fn builtin(name: &str) -> (BuiltinModel, PathBuf) {
     let dir = folder(name);
     let m = BuiltinModel::new(&dir.join(GPU_SETUP_MARKER));
-    let _ = m.runner.set(lightcraft_denoise::builtin::Builtin::with_noise(CHECK_NOISE));
+    let _ = m.runner.set(evolight_denoise::builtin::Builtin::with_noise(CHECK_NOISE));
     (m, dir)
 }
 
@@ -32,7 +32,7 @@ fn agree(want: &[f32], got: &[f32]) {
 /// and a set-up that ended leaves no marker; where there is no card it stays on the processor.
 #[test]
 fn the_built_in_denoiser_on_the_card_gives_the_cpus_tile() {
-    use lightcraft_denoise::builtin::{Builtin, TILE};
+    use evolight_denoise::builtin::{Builtin, TILE};
     let (m, dir) = builtin("builtin-card");
     let tile = builtin_check_tile(TILE as usize);
     let want = Builtin::with_noise(CHECK_NOISE).run(&tile).unwrap();
@@ -46,7 +46,7 @@ fn the_built_in_denoiser_on_the_card_gives_the_cpus_tile() {
             assert!(device["cardMs"].as_f64().is_some_and(|ms| ms > 0.0) && device["cpuMs"].as_f64().is_some_and(|ms| ms > 0.0), "{device}");
         }
         Some("cpu") => {
-            lightcraft_testkit::skip!(Gpu, "the built-in denoiser stays on the CPU here: {}", device["reason"]);
+            evolight_testkit::skip!(Gpu, "the built-in denoiser stays on the CPU here: {}", device["reason"]);
             assert_eq!(at_once, 16);
         }
         other => panic!("the first photo decides where the work runs, not {other:?}"),
@@ -60,7 +60,7 @@ fn the_built_in_denoiser_on_the_card_gives_the_cpus_tile() {
 /// asked for and never sets the card up.
 #[test]
 fn with_the_processor_chosen_the_built_in_denoiser_runs_on_the_cpu_and_never_starts_the_card() {
-    use lightcraft_denoise::builtin::{Builtin, TILE};
+    use evolight_denoise::builtin::{Builtin, TILE};
     let (m, dir) = builtin("builtin-cpu");
     let tile = builtin_check_tile(TILE as usize);
     let (runner, at_once) = m.runner(RunOn::Cpu, 16);
@@ -97,15 +97,15 @@ fn a_set_up_marker_left_behind_keeps_the_card_off_the_built_in_denoiser_until_a_
 /// gives the same answer every time.
 #[test]
 fn the_cards_filter_agrees_with_the_cpus_on_the_check_tile_and_gives_the_same_answer_every_time() {
-    use lightcraft_denoise::builtin::{Builtin, TILE};
+    use evolight_denoise::builtin::{Builtin, TILE};
     let tile = builtin_check_tile(TILE as usize);
     let b = Builtin::with_noise(CHECK_NOISE);
     let params = b.bm3d_params().unwrap();
-    let gpu = match lightcraft_gpu::bm3d::Bm3dGpu::new(&params, TILE as usize) {
+    let gpu = match evolight_gpu::bm3d::Bm3dGpu::new(&params, TILE as usize) {
         Ok(g) => Arc::new(g),
-        Err(why) => return lightcraft_testkit::skip!(Gpu, "no card for the built-in denoiser here: {why}"),
+        Err(why) => return evolight_testkit::skip!(Gpu, "no card for the built-in denoiser here: {why}"),
     };
-    let runner = lightcraft_gpu::bm3d::BuiltinRunner::new(gpu, b).unwrap();
+    let runner = evolight_gpu::bm3d::BuiltinRunner::new(gpu, b).unwrap();
     let a = runner.agreement(&tile).unwrap();
     eprintln!("the card's filter is off by {:.3} at most and {:.1e} on average (noise deviations)", a.worst, a.mean);
     assert!(a.worst <= BUILTIN_AGREE_WORST && a.mean <= BUILTIN_AGREE_MEAN, "{a:?}");
@@ -119,11 +119,11 @@ fn the_cards_filter_agrees_with_the_cpus_on_the_check_tile_and_gives_the_same_an
 /// the card is stopped for the built-in denoiser.
 #[test]
 fn a_tile_the_card_gets_wrong_is_run_on_the_processor_and_three_stop_the_card_for_the_built_in_denoiser() {
-    use lightcraft_denoise::builtin::Builtin;
+    use evolight_denoise::builtin::Builtin;
     let (m, dir) = builtin("builtin-wrong");
     let (_, _) = m.runner(RunOn::Gpu, 8);
     if m.device(RunOn::Gpu)["kind"] != "gpu" {
-        lightcraft_testkit::skip!(Gpu, "no card for the built-in denoiser here: {}", m.device(RunOn::Gpu)["reason"]);
+        evolight_testkit::skip!(Gpu, "no card for the built-in denoiser here: {}", m.device(RunOn::Gpu)["reason"]);
         forget_builtin_card(&dir.join(GPU_SETUP_MARKER));
         let _ = std::fs::remove_dir_all(&dir);
         return;

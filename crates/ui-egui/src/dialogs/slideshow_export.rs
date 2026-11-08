@@ -7,12 +7,12 @@ use serde_json::{Value, json};
 
 use super::Tokens;
 use super::frame::{choices, field};
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::pick::{PickKind, PickRequest, Picked};
 
 /// `app.slideshowExport {format, size?, quality?, fps?, container?, fullScreen?, speed?, path?}`:
 /// without a path, a save dialog asks for one first.
-pub fn start(app: &mut LightcraftApp, id: &str, p: &Value) -> Result<Value, String> {
+pub fn start(app: &mut EvoLightApp, id: &str, p: &Value) -> Result<Value, String> {
     if app.session.slideshow_export.as_ref().is_some_and(|r| r.running()) {
         return Err("a slideshow export is already running".into());
     }
@@ -45,7 +45,7 @@ pub fn start(app: &mut LightcraftApp, id: &str, p: &Value) -> Result<Value, Stri
 }
 
 /// Each frame: when the export has ended, say how (once).
-pub fn poll(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn poll(app: &mut EvoLightApp, ctx: &egui::Context) {
     if app.slideshow_export_reported {
         return;
     }
@@ -76,8 +76,8 @@ pub fn poll(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// A labelled row (fixed label column).
 /// View ▸ Export Slideshow…: what to write (PDF, JPEG sequence, video) and how big; where comes
 /// after (a save dialog).
-pub(super) fn slideshow_export_body(app: &mut LightcraftApp, ui: &mut egui::Ui, settings: &mut lightcraft_engine::slideshow_export::ExportSettings) {
-    use lightcraft_engine::slideshow_export::{ExportSettings, Format};
+pub(super) fn slideshow_export_body(app: &mut EvoLightApp, ui: &mut egui::Ui, settings: &mut evolight_engine::slideshow_export::ExportSettings) {
+    use evolight_engine::slideshow_export::{ExportSettings, Format};
     let t = Tokens::get(ui.ctx());
     ui.label(egui::RichText::new(slideshow_summary(app)).color(t.text_dim));
     let before = settings.format;
@@ -107,7 +107,7 @@ pub(super) fn slideshow_export_body(app: &mut LightcraftApp, ui: &mut egui::Ui, 
 }
 
 /// How many photos are in view, how many slides they make with the intro and ending screens, and how long it plays.
-fn slideshow_counts(app: &mut LightcraftApp) -> (usize, usize, f64) {
+fn slideshow_counts(app: &mut EvoLightApp) -> (usize, usize, f64) {
     let photos = app.session.visible_cloned().len();
     let slide = app.session.slideshow.slide_duration;
     let (intro, ending) = app.session.slide_titles.durations(slide);
@@ -116,7 +116,7 @@ fn slideshow_counts(app: &mut LightcraftApp) -> (usize, usize, f64) {
 }
 
 /// "N photos in view · M slides · m:ss".
-fn slideshow_summary(app: &mut LightcraftApp) -> String {
+fn slideshow_summary(app: &mut EvoLightApp) -> String {
     let (photos, slides, seconds) = slideshow_counts(app);
     let time = format!("{}:{:02}", (seconds / 60.0).floor() as u64, (seconds % 60.0).round() as u64);
     crate::i18n::tr_format!(
@@ -130,8 +130,8 @@ fn slideshow_summary(app: &mut LightcraftApp) -> String {
 }
 
 /// The size choices of the chosen format, and a video's frame rate and container.
-fn slideshow_size_rows(ui: &mut egui::Ui, settings: &mut lightcraft_engine::slideshow_export::ExportSettings) {
-    use lightcraft_engine::slideshow_export::Format;
+fn slideshow_size_rows(ui: &mut egui::Ui, settings: &mut evolight_engine::slideshow_export::ExportSettings) {
+    use evolight_engine::slideshow_export::Format;
     match settings.format {
         Format::Video => {
             choices(ui, "Size", "slideshowExportSize", &[(720, "720p"), (1080, "1080p")], &mut settings.size);
@@ -156,7 +156,7 @@ mod tests {
 
     /// The app, with two real file-backed photos and a picker that answers `answer` and remembers
     /// what it was asked. Keep the returned fixture alive until the app is dropped.
-    fn app_answering(tag: &str, answer: String) -> (SyntheticLibrary, LightcraftApp, Arc<Mutex<Vec<PickRequest>>>) {
+    fn app_answering(tag: &str, answer: String) -> (SyntheticLibrary, EvoLightApp, Arc<Mutex<Vec<PickRequest>>>) {
         let files = SyntheticLibrary::with_photos(tag, 2);
         let asked = Arc::new(Mutex::new(Vec::<PickRequest>::new()));
         let requests = asked.clone();

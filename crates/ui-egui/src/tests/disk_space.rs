@@ -3,12 +3,12 @@
 
 use std::time::Duration;
 
-use lightcraft_engine::disk_space::DiskSpace;
+use evolight_engine::disk_space::DiskSpace;
 use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const GB: u64 = 1 << 30;
@@ -19,7 +19,7 @@ fn has(h: &Headless, id: &str) -> bool {
 
 #[test]
 fn a_low_drive_is_told_once_with_a_way_to_the_performance_settings() {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
     app.disk_space_notice = true;
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     h.step();
@@ -47,7 +47,7 @@ fn a_low_drive_is_told_once_with_a_way_to_the_performance_settings() {
 
 #[test]
 fn without_the_desktop_flag_no_notice_is_shown() {
-    let mut h = Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default()), [1300.0, 900.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default()), [1300.0, 900.0], 1.0);
     assert!(h.app.session.note_disk_space(DiskSpace { available: GB, total: 500 * GB }));
     h.step();
     assert!(h.app.notices.is_empty(), "headless sessions and tests don't show it");
@@ -60,7 +60,7 @@ fn a_queued_notice_goes_when_another_library_opens() {
     let dir = std::env::temp_dir().join(format!("lc-disk-notice-switch-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo().with_fs(), Services::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo().with_fs(), Services::default());
     app.disk_space_notice = true;
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     h.step();
@@ -86,12 +86,12 @@ fn a_drive_that_runs_low_without_a_preview_build_is_told() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let low = std::sync::Arc::new(AtomicBool::new(false));
-    let mut session = lightcraft_engine::Session::with_demo().with_fs();
+    let mut session = evolight_engine::Session::with_demo().with_fs();
     let l = low.clone();
     session.set_disk_space_reader(Some(std::sync::Arc::new(move |_: &std::path::Path| {
         Some(DiskSpace { available: if l.load(Ordering::Relaxed) { GB } else { 400 * GB }, total: 500 * GB })
     })));
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     app.disk_space_notice = true;
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     h.app.session.open_library(&dir, false).unwrap();
@@ -123,17 +123,17 @@ fn an_idle_window_wakes_for_the_disk_check() {
     std::fs::create_dir_all(&dir).unwrap();
     let (release, wait) = mpsc::channel::<()>();
     let wait = Mutex::new(wait);
-    let mut session = lightcraft_engine::Session::with_demo().with_fs();
+    let mut session = evolight_engine::Session::with_demo().with_fs();
     session.set_disk_space_reader(Some(Arc::new(move |_: &std::path::Path| {
         let _ = wait.lock().unwrap().recv_timeout(Duration::from_secs(10));
         Some(DiskSpace { available: GB, total: 500 * GB })
     })));
-    let mut app = LightcraftApp::new(session, Services::default());
+    let mut app = EvoLightApp::new(session, Services::default());
     app.disk_space_notice = true;
     app.session.open_library(&dir, false).unwrap();
     assert!(app.session.disk_space_reading());
     let ctx = egui::Context::default();
-    let pass = |app: &mut LightcraftApp| {
+    let pass = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |_| crate::panels::notices::logic(app, &ctx));
         out.textures_delta.clear();
         out.viewport_output.values().map(|v| v.repaint_delay).min().unwrap_or(Duration::MAX)

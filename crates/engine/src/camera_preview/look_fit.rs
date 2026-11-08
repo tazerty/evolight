@@ -12,7 +12,7 @@ pub(crate) fn fit_preview(
     bytes: &[u8],
     transform: &CameraTransform,
     lens: Option<&LensGeometry>,
-    embedded: Option<&lightcraft_develop::EmbeddedLens>,
+    embedded: Option<&evolight_develop::EmbeddedLens>,
 ) -> (Option<CameraLook>, bool) {
     if !transform.matrix_is_fallback || !file_local_look(raw.format) {
         return (None, false);
@@ -25,7 +25,7 @@ pub(crate) fn fit_preview(
     let colour = profile.as_ref().and_then(|p| Some((p.matrix().mul(&transform.matrix.inverse()?), p.hue_sat.clone())));
     // Sony's Dynamic Range Optimizer (on by default) brightens the camera JPEG's darker regions,
     // not the raw: keep the colour fitted to the JPEG, take the tone curve without DRO.
-    let dro = lightcraft_raw::embedded_preview_dynamic_range_optimized(bytes) == Some(true);
+    let dro = evolight_raw::embedded_preview_dynamic_range_optimized(bytes) == Some(true);
     let look = match fit_look_with(&sensor, &reference, &clipped, colour.clone(), dro) {
         Some(look) => look,
         // A black-and-white JPEG has no colour to fit: the profile's colour and the JPEG's tone curve
@@ -39,7 +39,7 @@ pub(crate) fn fit_preview(
         None => return (None, black_and_white),
     };
     let look = if dro { with_dro_off_tone(look) } else { look };
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] {:?} camera look: {:?}, {:?}, hue/sat table {}, camera profile available {}, DRO tone replaced {dro}",
             raw.format,
@@ -70,7 +70,7 @@ pub(super) fn fit_look(sensor: &Rgb32f, reference: &Rgb32f, clipped: &[bool], co
 /// colour matrix to pull colours toward grey, and the chroma curve to remove colour at their
 /// display luminance (on a Z 6II forest under a clipped sky the curve cut colourfulness above
 /// display luminance 0.4 to 13–19%, and every one of its samples there was clipped). The render
-/// rebuilds clipped highlights separately (`lightcraft_raw::highlight`), so the look is fitted on
+/// rebuilds clipped highlights separately (`evolight_raw::highlight`), so the look is fitted on
 /// what the sensor measured.
 ///
 /// The search on all pixels decides, as before, whether the photo gets a look and which attempt
@@ -99,7 +99,7 @@ pub(super) fn fit_look_with(
     };
     let Some(unclipped) = unclipped else { return Some(look) };
     let refit = fit_attempt(&unclipped, reference, &colour, attempt, &bright);
-    if refit.is_none() && lightcraft_pipeline::profiling() {
+    if refit.is_none() && evolight_pipeline::profiling() {
         eprintln!("[profile] camera look: no fit without the clipped pixels on the accepted attempt, keeping the fit on all pixels");
     }
     Some(refit.unwrap_or(look))
@@ -117,7 +117,7 @@ pub(super) fn without_clipped(sensor: &Rgb32f, clipped: &[bool]) -> Option<Rgb32
             *p = [f32::NAN; 3];
         }
     }
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] camera look: {} of {} proxy pixels have a clipped sensor channel",
             clipped.iter().filter(|c| **c).count(),
@@ -189,7 +189,7 @@ pub(super) fn dro_off(own_tone: &CameraTone) -> CameraTone {
 /// Whether curve `a` is nowhere brighter than `b` over the scene luminances the finish stage's tone
 /// table covers ([`ToneMap::camera`]).
 pub(super) fn at_most(a: &CameraTone, b: &CameraTone) -> bool {
-    use lightcraft_pipeline::tone::{GREY, LUT_MAX_EV, LUT_MIN_EV, LUT_N};
+    use evolight_pipeline::tone::{GREY, LUT_MAX_EV, LUT_MIN_EV, LUT_N};
     (0..LUT_N).all(|i| {
         let x = GREY * 2f32.powf(LUT_MIN_EV + (LUT_MAX_EV - LUT_MIN_EV) * i as f32 / (LUT_N - 1) as f32);
         a.apply(x) <= b.apply(x) + 1e-5
@@ -210,11 +210,11 @@ pub(super) fn fit_dng_tone(
     raw: &RawImage,
     bytes: &[u8],
     transform: &CameraTransform,
-    lens: Option<&lightcraft_develop::EmbeddedLens>,
+    lens: Option<&evolight_develop::EmbeddedLens>,
 ) -> Option<CameraLook> {
-    // Logged under LIGHTCRAFT_PROFILE so a corpus run can count the outcome per gate.
+    // Logged under EVOLIGHT_PROFILE so a corpus run can count the outcome per gate.
     let refuse = |why: &str| {
-        if std::env::var_os("LIGHTCRAFT_PROFILE").is_some() {
+        if std::env::var_os("EVOLIGHT_PROFILE").is_some() {
             eprintln!("DNGTONE refused {why}");
         }
         None
@@ -223,8 +223,8 @@ pub(super) fn fit_dng_tone(
         return refuse("preview");
     };
     // As the loader renders it: the profile's tables around the baseline exposure.
-    let xy = lightcraft_raw::color::as_shot_white_xy(raw);
-    if let Some(tables) = lightcraft_raw::profile::ProfileTables::new(&raw.color.profile, lightcraft_raw::color::illuminant_weight(&raw.color, xy)) {
+    let xy = evolight_raw::color::as_shot_white_xy(raw);
+    if let Some(tables) = evolight_raw::profile::ProfileTables::new(&raw.color.profile, evolight_raw::color::illuminant_weight(&raw.color, xy)) {
         let gain = 2f32.powf(transform.baseline_exposure as f32);
         sensor.map_in_place(|p| tables.apply(p.map(|v| v / gain), gain));
     }
@@ -253,7 +253,7 @@ pub(super) fn fit_dng_tone(
     if clips_more(&sensor, &reference, &fitted, &plain) {
         return refuse("clip");
     }
-    if std::env::var_os("LIGHTCRAFT_PROFILE").is_some() {
+    if std::env::var_os("EVOLIGHT_PROFILE").is_some() {
         eprintln!("DNGTONE accepted");
     }
     Some(look)
@@ -280,7 +280,7 @@ pub(super) fn look_proxies(
     bytes: &[u8],
     transform: &CameraTransform,
     lens: Option<&LensGeometry>,
-    embedded: Option<&lightcraft_develop::EmbeddedLens>,
+    embedded: Option<&evolight_develop::EmbeddedLens>,
 ) -> Option<(Rgb32f, Rgb32f, Vec<bool>)> {
     proxies(raw, bytes, transform, PROXY, 0.0, lens, embedded)
 }
@@ -288,14 +288,14 @@ pub(super) fn look_proxies(
 /// Multiply the sensor proxy (sensor orientation, default crop) by the embedded vignetting correction, the gain the
 /// pipeline applies to the render (`optics::embedded_vignette_gain`; `lens` is in the oriented, cropped frame): the
 /// camera JPEG has it applied, so a tone fitted without it brightens the render's corners twice.
-pub(super) fn correct_vignetting(sensor: &mut Rgb32f, lens: Option<&lightcraft_develop::EmbeddedLens>, orientation: lightcraft_geom::Orientation) {
+pub(super) fn correct_vignetting(sensor: &mut Rgb32f, lens: Option<&evolight_develop::EmbeddedLens>, orientation: evolight_geom::Orientation) {
     let Some(vignette) = lens.and_then(|l| l.vignette) else { return };
     let (w, h) = (sensor.width as f64, sensor.height as f64);
     let (ow, oh) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
     let width = sensor.width.max(1);
     for (i, p) in sensor.data.iter_mut().enumerate() {
         let (x, y) = orientation.map((i % width) as f64 + 0.5, (i / width) as f64 + 0.5, w, h);
-        let gain = lightcraft_pipeline::optics::embedded_vignette_gain(&vignette, lightcraft_geom::Point::new(x, y), ow, oh) as f32;
+        let gain = evolight_pipeline::optics::embedded_vignette_gain(&vignette, evolight_geom::Point::new(x, y), ow, oh) as f32;
         *p = p.map(|v| v * gain);
     }
 }

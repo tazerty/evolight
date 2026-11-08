@@ -1,7 +1,7 @@
 use super::*;
 
-fn app() -> LightcraftApp {
-    LightcraftApp::new(lightcraft_engine::Session::with_demo(), Default::default())
+fn app() -> EvoLightApp {
+    EvoLightApp::new(evolight_engine::Session::with_demo(), Default::default())
 }
 
 fn find<'a>(nodes: &'a [MenuNode], id: &str) -> Option<&'a MenuNode> {
@@ -108,7 +108,7 @@ fn grid_menu_shortcut_hints_invalidate_native_ownership_cache() {
 #[test]
 fn grid_menu_shortcut_hints_follow_the_cycle_key() {
     let mut a = app();
-    let hint = |a: &LightcraftApp, id: &str| {
+    let hint = |a: &EvoLightApp, id: &str| {
         let bar = menu_bar(a);
         let nodes = &bar.iter().find(|(title, _)| title == "View").expect("View menu").1;
         match find(nodes, id).expect("grid row") {
@@ -132,7 +132,7 @@ fn grid_menu_shortcut_hints_follow_the_cycle_key() {
 #[test]
 fn view_menu_offers_the_hold_and_the_refresh_and_checks_the_hold_while_it_is_on() {
     let mut a = app();
-    let view = |a: &LightcraftApp| menu_bar(a).into_iter().find(|(t, _)| t == "View").expect("View menu").1;
+    let view = |a: &EvoLightApp| menu_bar(a).into_iter().find(|(t, _)| t == "View").expect("View menu").1;
     let items = view(&a);
     assert!(matches!(find(&items, "library.refresh"), Some(MenuNode::Item { enabled: true, .. })));
     assert!(matches!(find(&items, "library.holdView"), Some(MenuNode::Item { checked: Some(false), .. })), "off unless asked for");
@@ -202,21 +202,21 @@ fn file_menu_starts_with_the_import_entry_points() {
 /// absent from the desktop's menus, present and wired to the host where it provides them.
 #[test]
 fn library_backup_items_follow_the_host() {
-    let all = |app: &LightcraftApp| -> Vec<MenuNode> { menu_bar(app).into_iter().flat_map(|(_, v)| v).collect() };
+    let all = |app: &EvoLightApp| -> Vec<MenuNode> { menu_bar(app).into_iter().flat_map(|(_, v)| v).collect() };
     let mut desktop = app();
     assert!(find(&all(&desktop), "file.backupLibrary").is_none() && find(&all(&desktop), "file.restoreLibrary").is_none());
     assert!(run_item(&mut desktop, "file.backupLibrary", Value::Null).is_err(), "not available without the host");
     let calls = std::rc::Rc::new(std::cell::Cell::new(0));
     let c = calls.clone();
     let services = crate::Services {
-        backup_library: Some(Box::new(move |s: &mut lightcraft_engine::Session| {
+        backup_library: Some(Box::new(move |s: &mut evolight_engine::Session| {
             c.set(c.get() + 1);
             Ok(json!({"photos": s.catalog.len()}))
         })),
-        restore_library: Some(Box::new(|_: &mut lightcraft_engine::Session| Ok(json!({"started": true})))),
+        restore_library: Some(Box::new(|_: &mut evolight_engine::Session| Ok(json!({"started": true})))),
         ..Default::default()
     };
-    let mut web = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let mut web = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let bar = all(&web);
     for id in ["file.backupLibrary", "file.restoreLibrary"] {
         assert!(matches!(find(&bar, id), Some(MenuNode::Item { enabled: true, .. })), "{id}");
@@ -235,7 +235,7 @@ fn bar_follows_the_registry_and_state() {
     let all: Vec<MenuNode> = bar.iter().flat_map(|(_, v)| v.clone()).collect();
     // every engine command with a menu path is reachable (parameterized ones via submenus; items
     // that follow the state, like Restore for deleted photos, when it applies)
-    for c in lightcraft_engine::command_specs().iter().filter(|c| !c.menu.is_empty() && !HIDDEN.contains(&c.id) && host_supports(&app, c.id)) {
+    for c in evolight_engine::command_specs().iter().filter(|c| !c.menu.is_empty() && !HIDDEN.contains(&c.id) && host_supports(&app, c.id)) {
         assert!(find(&all, c.id).is_some(), "{} missing from the menu bar", c.id);
     }
     for id in ["photo.rate", "photo.flag", "photo.label", "library.sort", "album.addPhotos", "view.compare", "stack.group", "photo.virtualCopy"] {
@@ -394,7 +394,7 @@ fn help_opens_the_docs_and_merge_last_needs_photos() {
 #[test]
 fn open_log_folder_reveals_the_hosts_log_file() {
     let mut app = app();
-    let help = |app: &LightcraftApp| menu_bar(app).into_iter().find(|(t, _)| t == "Help").map(|(_, items)| items).unwrap_or_default();
+    let help = |app: &EvoLightApp| menu_bar(app).into_iter().find(|(t, _)| t == "Help").map(|(_, items)| items).unwrap_or_default();
     assert!(matches!(find(&help(&app), "app.openLogFolder"), Some(MenuNode::Item { enabled: false, .. })), "listed in Help, off without a log");
     assert!(!crate::menus::ui_enabled(&app, "app.openLogFolder"));
     assert!(run_item(&mut app, "app.openLogFolder", Value::Null).is_err());
@@ -408,7 +408,7 @@ fn open_log_folder_reveals_the_hosts_log_file() {
     assert!(!crate::menus::ui_enabled(&app, "app.openLogFolder"));
     assert!(run_item(&mut app, "app.openLogFolder", Value::Null).is_err());
     assert!(shown.lock().unwrap().is_empty());
-    let log = "/home/a/.config/lightcraft/logs/lightcraft.log";
+    let log = "/home/a/.config/evolight/logs/evolight.log";
     app.services.log_file = Some(log.into());
     assert!(crate::menus::ui_enabled(&app, "app.openLogFolder"));
     assert!(matches!(find(&help(&app), "app.openLogFolder"), Some(MenuNode::Item { enabled: true, .. })));
@@ -426,10 +426,10 @@ fn find_missing_and_locate() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("a")).unwrap();
     std::fs::create_dir_all(dir.join("b")).unwrap();
-    let img = lightcraft_raster::Rgba8::from_fn(16, 12, |x, y| [(x * 9) as u8, (y * 11) as u8, 50, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
-    std::fs::write(dir.join("a/one.png"), lightcraft_engine::export::encode_image(&img, &o).unwrap()).unwrap();
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Default::default());
+    let img = evolight_raster::Rgba8::from_fn(16, 12, |x, y| [(x * 9) as u8, (y * 11) as u8, 50, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
+    std::fs::write(dir.join("a/one.png"), evolight_engine::export::encode_image(&img, &o).unwrap()).unwrap();
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Default::default());
     app.session.execute("library.import", &json!({"paths": [dir.join("a").to_string_lossy()]})).unwrap();
     std::fs::rename(dir.join("a/one.png"), dir.join("b/one.png")).unwrap();
     let r = run_item(&mut app, "file.findMissing", json!({"folder": dir.join("b").to_string_lossy(), "wait": true})).unwrap();
@@ -468,8 +468,8 @@ fn a_refused_backup_from_the_menu_shows_why() {
     // the host refuses, as the web one does while changes are still unsaved (issue #1508)
     let refusal = "Backup not started: 1 change could not be saved to browser storage yet";
     let services =
-        crate::Services { backup_library: Some(Box::new(move |_: &mut lightcraft_engine::Session| Err(refusal.to_string()))), ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+        crate::Services { backup_library: Some(Box::new(move |_: &mut evolight_engine::Session| Err(refusal.to_string()))), ..Default::default() };
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = crate::headless::Headless::new(app, [1400.0, 900.0], 1.0);
     let t = std::time::Duration::from_secs(30);
     h.settle(t);
@@ -491,17 +491,17 @@ fn find_missing_waited_invalid_folder_returns_error_with_zero_mutations() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let dummy = dir.join("dummy.png");
-    let img = lightcraft_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
-    std::fs::write(&dummy, lightcraft_engine::export::encode_image(&img, &o).unwrap()).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
+    std::fs::write(&dummy, evolight_engine::export::encode_image(&img, &o).unwrap()).unwrap();
 
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Default::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Default::default());
     app.session.execute("library.import", &json!({"paths": [dummy.to_string_lossy()]})).unwrap();
     // remove the file on disk so the photo is missing
     std::fs::remove_file(&dummy).unwrap();
     let id = app.session.catalog.photos().next().unwrap().id;
     let original_path = match &app.session.catalog.photo(id).unwrap().source {
-        lightcraft_catalog::Source::File { path } => path.clone(),
+        evolight_catalog::Source::File { path } => path.clone(),
         _ => panic!("expected file source"),
     };
     let undo_count_before = app.session.undo.len();
@@ -524,7 +524,7 @@ fn find_missing_waited_invalid_folder_returns_error_with_zero_mutations() {
     // Catalog and photo path must not have been mutated
     assert_eq!(app.session.undo.len(), undo_count_before, "no undo steps added on failed search");
     let path_after = match &app.session.catalog.photo(id).unwrap().source {
-        lightcraft_catalog::Source::File { path } => path.clone(),
+        evolight_catalog::Source::File { path } => path.clone(),
         _ => panic!("expected file source"),
     };
     assert_eq!(path_after, original_path, "missing photo path must not change on failure");
@@ -540,11 +540,11 @@ fn find_missing_waited_structured_results_and_background_mode() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("orig")).unwrap();
     std::fs::create_dir_all(dir.join("found")).unwrap();
-    let img = lightcraft_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
-    std::fs::write(dir.join("orig/pic.png"), lightcraft_engine::export::encode_image(&img, &o).unwrap()).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
+    std::fs::write(dir.join("orig/pic.png"), evolight_engine::export::encode_image(&img, &o).unwrap()).unwrap();
 
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Default::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Default::default());
     app.session.execute("library.import", &json!({"paths": [dir.join("orig").to_string_lossy()]})).unwrap();
     std::fs::rename(dir.join("orig/pic.png"), dir.join("found/pic.png")).unwrap();
 
@@ -578,7 +578,7 @@ fn find_missing_waited_timeout_behavior() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
 
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Default::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Default::default());
     // Injected test-only worker delay so wait times out deterministically
     app.ui.find_missing_test_delay = Some(std::time::Duration::from_millis(100));
     let err = run_item(&mut app, "file.findMissing", json!({"folder": dir.to_string_lossy(), "wait": true, "timeout": 0.005})).unwrap_err();
@@ -605,11 +605,11 @@ fn find_missing_waited_completes_while_unrelated_task_remains_active() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("orig")).unwrap();
     std::fs::create_dir_all(dir.join("found")).unwrap();
-    let img = lightcraft_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
-    let o = lightcraft_engine::export::ExportOptions { format: lightcraft_engine::export::ExportFormat::Png, ..Default::default() };
-    std::fs::write(dir.join("orig/pic.png"), lightcraft_engine::export::encode_image(&img, &o).unwrap()).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(8, 8, |_, _| [10, 20, 30, 255]);
+    let o = evolight_engine::export::ExportOptions { format: evolight_engine::export::ExportFormat::Png, ..Default::default() };
+    std::fs::write(dir.join("orig/pic.png"), evolight_engine::export::encode_image(&img, &o).unwrap()).unwrap();
 
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Default::default());
+    let mut app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Default::default());
     app.session.execute("library.import", &json!({"paths": [dir.join("orig").to_string_lossy()]})).unwrap();
     std::fs::rename(dir.join("orig/pic.png"), dir.join("found/pic.png")).unwrap();
 
@@ -673,7 +673,7 @@ fn auto_tag_from_tracklog() {
     let d = app.ui.dialog.take().unwrap();
     let r = crate::panels::dialogs::confirm_dialog(&mut app, &d).unwrap();
     assert_eq!(r["tagged"], 1, "{r}");
-    let p = app.session.catalog.photo(lightcraft_engine::catalog::PhotoId(id)).unwrap();
+    let p = app.session.catalog.photo(evolight_engine::catalog::PhotoId(id)).unwrap();
     assert_eq!(p.meta.gps, Some((46.001, 7.002)));
     let _ = std::fs::remove_dir_all(&dir);
 }

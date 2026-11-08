@@ -19,8 +19,8 @@ pub struct Exported {
 }
 
 /// Output size of photo `p` under `o` (its cropped full size when `o.resize` is `None`).
-pub fn output_size(p: &lightcraft_catalog::Photo, o: &ExportOptions) -> (usize, usize) {
-    let (w, h) = lightcraft_pipeline::native_output_size(p.width.max(1) as usize, p.height.max(1) as usize, &p.develop);
+pub fn output_size(p: &evolight_catalog::Photo, o: &ExportOptions) -> (usize, usize) {
+    let (w, h) = evolight_pipeline::native_output_size(p.width.max(1) as usize, p.height.max(1) as usize, &p.develop);
     // whole pixels first: a crop's float noise (5999.999… for 6000) must not decide a half-pixel tie
     let (w, h) = (w.round().max(1.0), h.round().max(1.0));
     match &o.resize {
@@ -31,7 +31,7 @@ pub fn output_size(p: &lightcraft_catalog::Photo, o: &ExportOptions) -> (usize, 
 
 /// Render photo `id` at the requested size and encode it (or copy / convert its original for
 /// [`ExportFormat::Original`] / [`ExportFormat::Dng`]).
-pub fn export_photo(session: &mut crate::Session, id: lightcraft_catalog::PhotoId, o: &ExportOptions, seq: usize) -> Result<Exported, String> {
+pub fn export_photo(session: &mut crate::Session, id: evolight_catalog::PhotoId, o: &ExportOptions, seq: usize) -> Result<Exported, String> {
     prepare_export(session, id, o, seq)?.run()
 }
 
@@ -39,7 +39,7 @@ pub fn export_photo(session: &mut crate::Session, id: lightcraft_catalog::PhotoI
 /// the heavy part (read, decode, render, encode) without the session, so it can run on another
 /// thread.
 pub struct PreparedExport {
-    pub photo: lightcraft_catalog::PhotoId,
+    pub photo: evolight_catalog::PhotoId,
     pub file_name: String,
     /// The folder of the photo's original on disk ([`DestinationMode::SameAsOriginal`]); `None`
     /// for a demo photo or one in the browser's storage.
@@ -83,7 +83,7 @@ enum Work {
 /// [`prepare_batch`]: it looks at the library's originals once.)
 pub fn prepare_export(
     session: &mut crate::Session,
-    id: lightcraft_catalog::PhotoId,
+    id: evolight_catalog::PhotoId,
     o: &ExportOptions,
     seq: usize,
 ) -> Result<PreparedExport, String> {
@@ -92,14 +92,14 @@ pub fn prepare_export(
 }
 
 /// [`prepare_export`] for each of `ids` in order (`{seq}` = position, from 1).
-pub fn prepare_batch(session: &mut crate::Session, ids: &[lightcraft_catalog::PhotoId], o: &ExportOptions) -> Result<Vec<PreparedExport>, String> {
+pub fn prepare_batch(session: &mut crate::Session, ids: &[evolight_catalog::PhotoId], o: &ExportOptions) -> Result<Vec<PreparedExport>, String> {
     let guard = std::sync::Arc::new(session.original_guard());
     ids.iter().enumerate().map(|(i, id)| prepare_guarded(session, *id, o, i + 1, guard.clone())).collect()
 }
 
 fn prepare_guarded(
     session: &mut crate::Session,
-    id: lightcraft_catalog::PhotoId,
+    id: evolight_catalog::PhotoId,
     o: &ExportOptions,
     seq: usize,
     guard: std::sync::Arc<crate::originals::OriginalGuard>,
@@ -118,7 +118,7 @@ fn prepare_guarded(
     let (full_px, long) = ((p.width as usize).saturating_mul(p.height as usize), p.width.max(p.height) as usize);
     let (work, weight) = if o.format.is_rendered() {
         let (w, h) = output_size(p, o);
-        let (nw, nh) = lightcraft_pipeline::native_output_size(p.width.max(1) as usize, p.height.max(1) as usize, &p.develop);
+        let (nw, nh) = evolight_pipeline::native_output_size(p.width.max(1) as usize, p.height.max(1) as usize, &p.develop);
         let native_px = (nw.round().max(1.0) * nh.round().max(1.0)) as usize;
         let label = p.file_name.clone();
         let meta = export_metadata(p, &session.catalog, o);
@@ -140,7 +140,7 @@ fn prepare_guarded(
         };
         (Work::Render(Box::new(RenderWork { job, hdr_job, meta, opts: o.clone() })), weight)
     } else {
-        let lightcraft_catalog::Source::File { path } = &p.source else {
+        let evolight_catalog::Source::File { path } = &p.source else {
             return Err(format!("{} is a generated demo photo: it has no original file to export", p.file_name));
         };
         let dng = (o.format == ExportFormat::Dng).then_some(o.dng_compression);
@@ -167,8 +167,8 @@ fn prepare_guarded(
 
 /// The folder a photo's original is in, for [`DestinationMode::SameAsOriginal`]. None for a demo
 /// photo, and on the web, where an original lives in the browser's storage, not in a folder.
-fn original_folder(source: &lightcraft_catalog::Source) -> Option<String> {
-    let lightcraft_catalog::Source::File { path } = source else { return None };
+fn original_folder(source: &evolight_catalog::Source) -> Option<String> {
+    let evolight_catalog::Source::File { path } = source else { return None };
     if cfg!(target_arch = "wasm32") {
         return None;
     }
@@ -234,12 +234,12 @@ impl PreparedExport {
                 let Some(dng) = dng else {
                     // the file is copied byte for byte: refuse rather than leak a location it embeds
                     if remove_location {
-                        let metadata = lightcraft_meta::try_extract(&bytes)
+                        let metadata = evolight_meta::try_extract(&bytes)
                             .map_err(|e| format!("{label}: can't verify location metadata in this original file: {e}"))?;
                         if !bytes.starts_with(b"8BPS") {
-                            let embedded = lightcraft_meta::embedded(&bytes);
+                            let embedded = evolight_meta::embedded(&bytes);
                             if let Some(xmp) = embedded.xmp.as_deref() {
-                                lightcraft_meta::parse_xmp(xmp).map_err(|e| {
+                                evolight_meta::parse_xmp(xmp).map_err(|e| {
                                     format!("{label}: can't verify location metadata in this original file: malformed embedded XMP: {e}")
                                 })?;
                             }
@@ -264,21 +264,21 @@ impl PreparedExport {
                         gpu_fallback: None,
                     });
                 };
-                if lightcraft_raw::probe(&bytes).is_none() {
+                if evolight_raw::probe(&bytes).is_none() {
                     return Err(format!("{label}: DNG export needs a raw photo"));
                 }
-                let mut raw = lightcraft_raw::decode(&bytes).map_err(|e| format!("{label}: {e}"))?;
+                let mut raw = evolight_raw::decode(&bytes).map_err(|e| format!("{label}: {e}"))?;
                 crate::camera_preview::with_starting_colour(&mut raw, &bytes);
                 drop(bytes);
                 let compression = match dng {
-                    DngCompression::Lossless => lightcraft_raw::DngCompression::Lj92 { tile: 256 },
-                    DngCompression::Deflate => lightcraft_raw::DngCompression::Deflate { tile: 256, half: false },
-                    DngCompression::Uncompressed => lightcraft_raw::DngCompression::Uncompressed,
+                    DngCompression::Lossless => evolight_raw::DngCompression::Lj92 { tile: 256 },
+                    DngCompression::Deflate => evolight_raw::DngCompression::Deflate { tile: 256, half: false },
+                    DngCompression::Uncompressed => evolight_raw::DngCompression::Uncompressed,
                     DngCompression::Lossy => {
-                        lightcraft_raw::DngCompression::LossyJpeg { tile: 256, quality: quality.clamp(1, 100), long_edge: lossy_edge }
+                        evolight_raw::DngCompression::LossyJpeg { tile: 256, quality: quality.clamp(1, 100), long_edge: lossy_edge }
                     }
                 };
-                let dng = lightcraft_raw::write_dng(&raw, &lightcraft_raw::DngWriteOptions { xmp: Some(packet), compression, ..Default::default() })
+                let dng = evolight_raw::write_dng(&raw, &evolight_raw::DngWriteOptions { xmp: Some(packet), compression, ..Default::default() })
                     .map_err(|e| e.to_string())?;
                 Ok(Exported { file_name, bytes: dng, width: raw.width, height: raw.height, sidecars: Vec::new(), gpu_fallback: None })
             }
@@ -348,7 +348,7 @@ impl AfterExport {
 
     /// Do it now for an export's per-photo results ([`run_batch`]'s: only the files written
     /// count), waiting for Photos: for a worker thread (the app's background export) or a caller
-    /// without a window (MCP, lightcraft-cli). `None` when there was nothing to do, else the
+    /// without a window (MCP, evolight-cli). `None` when there was nothing to do, else the
     /// outcome to report as the export's `applePhotos`: the finished job (`{job, running: false,
     /// requested, album}` with `{imported, ids, warning?}`, `{error}`, or `{skipped}` when the
     /// export was cancelled or wrote nothing). Never fails the export: its files are written
@@ -413,7 +413,7 @@ impl crate::Session {
 /// Export `ids` in order ([`prepare_batch`] + [`run_batch`]), stopping at the first error.
 pub fn export_batch(
     session: &mut crate::Session,
-    ids: &[lightcraft_catalog::PhotoId],
+    ids: &[evolight_catalog::PhotoId],
     o: &ExportOptions,
     to: &Destination,
     write: &mut dyn FnMut(&str, &[u8]) -> Result<(), String>,

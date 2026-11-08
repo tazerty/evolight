@@ -1,7 +1,7 @@
 //! A filter Enable Filters (Cmd+L) put aside and a folder moved on disk meanwhile: switched back
 //! on, the filter is the one put aside, and a folder it names is where the folder went.
 
-use lightcraft_catalog::{Op, Photo, Source};
+use evolight_catalog::{Op, Photo, Source};
 use serde_json::json;
 
 use crate::Session;

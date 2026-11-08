@@ -1,7 +1,7 @@
-use super::{ControlResponse, GESTURE_TIMEOUT_MS, GestureFrame, LightcraftApp, MAX_PENDING_GESTURES, PendingGesture, Sender, Value};
+use super::{ControlResponse, GESTURE_TIMEOUT_MS, GestureFrame, EvoLightApp, MAX_PENDING_GESTURES, PendingGesture, Sender, Value};
 use crate::control;
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// Take the control receiver for this frame, run every queued request whose sender still
     /// wants it, and reply directly or admit its screenshot/gesture to a later completed pass.
     /// Requests abandoned by their sender are skipped rather than executed late.
@@ -349,7 +349,7 @@ impl LightcraftApp {
     /// Cancel a press that reached egui without making it a click or starting a drag. The reset
     /// itself happens before egui's next input pass in [`Self::raw_input_hook`], where replacing
     /// the pointer state and stopping the drag is safe (the same approach as the sibling
-    /// SoundCraft/VectorCraft apps). No pointer movement is injected: moving beyond
+    /// EvoSound/EvoVector apps). No pointer movement is injected: moving beyond
     /// `max_click_dist` suppresses a click but can also start a drag on a slider or curve.
     pub(super) fn queue_pointer_cleanup(&mut self) {
         self.pointer_cleanup = true;

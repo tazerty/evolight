@@ -3,8 +3,8 @@
 //! components use the same weights. Symmetric fluxes preserve the grid's channel sums, including
 //! at its boundaries; no nonnegative clamp or square-root bias correction is involved.
 
-use lightcraft_color::luminance_2020;
-use lightcraft_raster::{Rgb32f, blur::gaussian, resample::Filter};
+use evolight_color::luminance_2020;
+use evolight_raster::{Rgb32f, blur::gaussian, resample::Filter};
 
 use crate::{
     for_rows,
@@ -342,7 +342,7 @@ pub(crate) fn pilot_pick(o: [f32; 3], mh: [f32; 3], vh: f32, mv: [f32; 3], vvar:
 
 /// The two chroma components `R − Y`, `B − Y`, or a pair of per-axis values (horizontal, vertical).
 type Pair = [f32; 2];
-type PairImage = lightcraft_raster::Image<Pair>;
+type PairImage = evolight_raster::Image<Pair>;
 
 fn rgb2(y: f32, uv: Pair) -> [f32; 3] {
     let r = y + uv[0];
@@ -769,7 +769,7 @@ fn denoise_with(img: &mut Rgb32f, params: &NrcParams, step: usize, detail: f32, 
             });
             let share = gaussian(&share, 0.8);
             // Resize one output row at a time using the raster resampler's exact pixel centres.
-            use lightcraft_raster::resample::weights;
+            use evolight_raster::resample::weights;
             let ux = weights(w, img.width, Filter::Bilinear);
             let uy = weights(h, img.height, Filter::Bilinear);
             let ow = img.width;

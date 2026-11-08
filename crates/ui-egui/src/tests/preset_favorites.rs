@@ -1,12 +1,12 @@
 //! Issue #1999: starred presets are listed in a Favorites section at the top of the Presets panel,
 //! as starred profiles are in the Profile browser, and stay in their own group too.
 
-use crate::{LightcraftApp, Services, headless::Headless};
+use crate::{EvoLightApp, Services, headless::Headless};
 use serde_json::json;
 
 /// A headless app on the demo library with the Presets panel open and laid out.
 fn app() -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1400.0, 1000.0], 1.0);
     h.app.run("panel.presets", json!({})).unwrap();
     for _ in 0..5 {

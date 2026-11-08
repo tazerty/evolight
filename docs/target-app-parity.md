@@ -1,8 +1,8 @@
-# Target-app parity: LightCraft vs Adobe Lightroom
+# Target-app parity: EvoLight vs Adobe Lightroom
 
 > **Last reviewed:** 2026-10-10 · **Target:** Adobe Lightroom Classic 15.5 (August 2026) and Lightroom 9.6 (desktop) · **Changes:** [revision history](#revision-history)
 
-The authoritative assessment of how close LightCraft is to Lightroom. The row-by-row checklist is
+The authoritative assessment of how close EvoLight is to Lightroom. The row-by-row checklist is
 [parity-checklist.md](parity-checklist.md); the ranked work list is [gaps.md](gaps.md); deep areas
 have their own documents: [raw-parity.md](raw-parity.md), [file-format-parity.md](file-format-parity.md),
 [ui-parity.md](ui-parity.md), [hardware-parity.md](hardware-parity.md),
@@ -25,14 +25,14 @@ have their own documents: [raw-parity.md](raw-parity.md), [file-format-parity.md
 
 - **Target:** Lightroom Classic 15.5 (August 2026; latest per Adobe's release notes) for the
   library, modules and depth; Lightroom 9.6 (the cloud-library desktop app), installed on the
-  owner's Mac at `/Applications/Adobe Lightroom CC`, for the interface LightCraft's layout follows.
+  owner's Mac at `/Applications/Adobe Lightroom CC`, for the interface EvoLight's layout follows.
   Both share the Camera Raw engine.
 - **Installed bundle, inspected by listing only** (the clean-room rule forbids reading contents):
   `Info.plist` document types (31 raw extensions, jpg, tif, heic, xmp, catalog bundles); 16
   `.lproj` localizations; `CameraProfiles` (1,500 Adobe Standard and 395 Camera Matching model
   names); `LensProfiles` (3,635 files, 56 makers); `ModelZoo` (37 AI model names). The app was not
   launched.
-- **LightCraft side:** origin/main at `b70ae174` (2026-10-10): code counts (226 engine commands, 143
+- **EvoLight side:** origin/main at `b70ae174` (2026-10-10): code counts (226 engine commands, 143
   UI commands, 122 + 10 develop controls, 2,561 tests, ≈ 202,000 Rust lines in 24 crates + 3 apps),
   the checklist rows, raw corpus manifests, locale catalogs, CI workflows, docs.
 - **Behaviour and output** were not compared against a running Lightroom in this pass; the
@@ -88,7 +88,7 @@ portrait, skin and object selection with refinement, depth estimation, denoise, 
 reflections removal, distraction / people detection, culling scores (eyes open, blur, aesthetics) and
 search embeddings; generative remove runs in Adobe's cloud.
 
-| Feature | LightCraft | Status |
+| Feature | EvoLight | Status |
 |---|---|---|
 | 2026-10-12 | minor | Mamiya MEF decoded (raw-parity.md): 241 verified, 35 unsupported; rounded numbers unchanged |
 | 2026-10-12 | minor | Epson ERF decoded (raw-parity.md): 240 models verified, 229 preview-only; shares and rounded numbers unchanged |
@@ -143,7 +143,7 @@ valued from the model-by-model measurement in [raw-parity.md](raw-parity.md):
 | Ecosystem / plug-ins | 2% | 15% |
 | **Weighted sum** | 100% | **62.0% ≈ 62%** (range 57–67%) |
 
-Mainstream comes out lower than full: its scope is the raw-develop core, where LightCraft is weakest
+Mainstream comes out lower than full: its scope is the raw-develop core, where EvoLight is weakest
 (camera colour, CR3 coverage), and its discounts are multiplicative, while the full sum is lifted by
 strong library, presets, UI and format dimensions.
 
@@ -302,7 +302,7 @@ P2 items 12–25 h; look tuning, performance, packaging, hardening 25–45 h.
 | 2026-11-04 | minor | Compressed ORF decoded (`crates/raw/src/vendor/orfc.rs`): OM-D E-M1 and E-M10 Mark III verified; 58 bodies newly unlocked (78 total across Olympus and OM); RAW coverage 77% → 80%, weighted camera coverage 94% → 97% |
 | 2026-10-24 | patch | Stability, the stability discount, the Beta-needs list and the estimate history: tests run in CI on Linux x64 since #2667 (FreeBSD nightly), not on macOS or Windows (gap 9); percentages and hours unchanged |
 | 2026-10-23 | minor | AI Denoise runs without a model (built-in denoiser); percentages unchanged, since it is a classical filter and Bayer-only |
-| 2026-10-13 | minor | Canon CRW decoded (clean-room, craft-libs `crates/crw/clean-room/`): 551 models verified with the coverage sweep (557 with MRW after merging main), Canon preview rows 21 → 6; RAW decoding unchanged |
+| 2026-10-13 | minor | Canon CRW decoded (clean-room, evo-libs `crates/crw/clean-room/`): 551 models verified with the coverage sweep (557 with MRW after merging main), Canon preview rows 21 → 6; RAW decoding unchanged |
 | 2026-10-19 | patch | Stability note: tests run in CI on Linux x64 (every PR) as well as FreeBSD; macOS and Windows remain (gap 9) |
 | 2026-10-19 | minor | Localization ~55% → ~64% (mean of the 12 key languages): Indonesian (`id`) catalog, every message but What's New; full target 61.2% → 61.5% (still ~61%) |
 | 2026-10-19 | patch | Platforms: the Windows installer is no longer listed as unverified (the 0.9.1 x64 MSI is tested on Windows 11; a confirmation after uninstalling from Settings → Apps, #892, remains); #790 noted as fixed in 0.9.1; percentages and hours unchanged |
@@ -322,4 +322,4 @@ P2 items 12–25 h; look tuning, performance, packaging, hardening 25–45 h.
 | 2026-10-10 | minor | Stage re-checked against the core-workflow alpha gate: passes, stays alpha |
 | 2026-10-10 | major | Created as progress docs: full re-measure (checklist recount, installed Lightroom 9.6 bundle listing, code counts, catalogs, CI), feature areas with weights, dimensions, AI, stage, calibration; merged ROADMAP's *Where we stand* and *Parity estimate* |
 | 2026-10-14 | minor | RAW: 82% of Adobe's models decode, 36% verified (integration batch 36) |
-| 2026-10-26 | minor | Canon CRW decoder moved to craft-libs as `craft-crw` (shared with the other Craft apps); LightCraft keeps the adapter, the EOS D60 colour work and its records; numbers unchanged |
+| 2026-10-26 | minor | Canon CRW decoder moved to evo-libs as `evo-crw` (shared with the other Evo apps); EvoLight keeps the adapter, the EOS D60 colour work and its records; numbers unchanged |

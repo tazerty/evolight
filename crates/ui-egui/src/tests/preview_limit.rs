@@ -42,7 +42,7 @@ fn render_sizes_move_in_steps() {
 // would evict the open photo's single full-resolution source (review of #323)
 #[test]
 fn prefetch_and_stand_ins_never_ask_for_the_full_source_level() {
-    use lightcraft_engine::SourceLevel;
+    use evolight_engine::SourceLevel;
     let s = with_limit(0);
     for wanted in [1000.0, 2560.0, 3024.0, 6000.0, 48000.0] {
         assert!(s.prefetch_edge(wanted, 6000, BIG) <= SourceLevel::Preview.max_edge(), "{wanted}");
@@ -146,9 +146,9 @@ mod in_the_loupe {
     use crate::headless::Headless;
     use crate::render::{RenderOffload, Renderer, Slot};
     use crate::tests_render_fixtures::{HEIGHT, LONG_EDGE, RenderFixture, WIDTH};
-    use crate::{LightcraftApp, Services};
-    use lightcraft_engine::SourceLevel;
-    use lightcraft_engine::media::{RenderJob, RenderResult, SourceRef};
+    use crate::{EvoLightApp, Services};
+    use evolight_engine::SourceLevel;
+    use evolight_engine::media::{RenderJob, RenderResult, SourceRef};
 
     const T: Duration = Duration::from_secs(20);
     const SETTLE: Duration = Duration::from_secs(120);
@@ -158,7 +158,7 @@ mod in_the_loupe {
     /// and neighbour prefetch.
     fn demo_detail_in(size: [f32; 2]) -> (Headless, usize) {
         let services = Services { png: None, ..Default::default() };
-        let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+        let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
         let mut h = Headless::new(app, size, 1.0);
         let r = h.request("ui.set", json!({"view": "detail", "right": "none", "filmstrip": false}), T);
         assert_eq!(r["ok"], true, "{r}");
@@ -184,7 +184,7 @@ mod in_the_loupe {
 
     fn detail_with(fixture: RenderFixture, size: [f32; 2]) -> (RenderFixture, Headless, usize) {
         let services = Services { png: None, ..Default::default() };
-        let app = LightcraftApp::new(fixture.session(), services);
+        let app = EvoLightApp::new(fixture.session(), services);
         let mut h = Headless::new(app, size, 1.0);
         let r = h.request("ui.set", json!({"view": "detail", "right": "none", "filmstrip": false}), T);
         assert_eq!(r["ok"], true, "{r}");
@@ -243,7 +243,7 @@ mod in_the_loupe {
         h.settle(SETTLE);
         let id = h.app.session.active().expect("a photo");
         let d = h.app.session.develop_of(id).expect("settings");
-        assert!(matches!(crate::panels::detail::view_overlay(&h.app, &d), lightcraft_pipeline::Overlay::Mask { .. }), "the mask overlay is shown");
+        assert!(matches!(crate::panels::detail::view_overlay(&h.app, &d), evolight_pipeline::Overlay::Mask { .. }), "the mask overlay is shown");
         assert_eq!((h.app.ui.zoom, h.app.ui.pan), (zoom, pan), "showing the overlay keeps zoom and pan");
         let main = rendered_long_edge(&h);
         assert!(main <= 2560 && main < native, "native {native}: the whole-frame render is {main}");
@@ -281,7 +281,7 @@ mod in_the_loupe {
         let id = h.app.session.active().expect("a photo");
         let d = h.app.session.develop_of(id).expect("settings");
         assert!(
-            matches!(crate::panels::detail::view_overlay(&h.app, &d), lightcraft_pipeline::Overlay::AllMasks { .. }),
+            matches!(crate::panels::detail::view_overlay(&h.app, &d), evolight_pipeline::Overlay::AllMasks { .. }),
             "the all-masks overlay is shown"
         );
         let main = rendered_long_edge(&h);
@@ -485,10 +485,10 @@ mod in_the_loupe {
         let (_fx, mut h, _) = detail();
         let id = h.app.session.active().unwrap();
         let mut s = (*h.app.session.develop_of(id).unwrap()).clone();
-        s.spots.push(lightcraft_develop::Spot {
-            points: vec![lightcraft_geom::Point::new(0.5, 0.5)],
+        s.spots.push(evolight_develop::Spot {
+            points: vec![evolight_geom::Point::new(0.5, 0.5)],
             size: 0.01,
-            source_offset: Some(lightcraft_geom::Point::new(0.05, 0.0)),
+            source_offset: Some(evolight_geom::Point::new(0.05, 0.0)),
             ..Default::default()
         });
         h.app.session.set_develop(id, s, "Spot").unwrap();
@@ -577,7 +577,7 @@ mod in_the_loupe {
     fn a_slow_drag_drafts_small() {
         // the GPU device up front (the loupe never waits for it): with one, it is the earlier
         // drag's time that makes this drag small
-        let _ = lightcraft_engine::gpu::available();
+        let _ = evolight_engine::gpu::available();
         let (_fx, mut h, _) = detail();
         let id = h.app.session.active().expect("a photo is open");
         h.app.drag_scale.remember_slow(id, "Exposure");
@@ -591,10 +591,10 @@ mod in_the_loupe {
     fn a_drag_soft_proofed_to_a_device_profile_drafts_small() {
         // the GPU device up front (the loupe never waits for it): with one, this is the case where
         // the GPU is there and the render still goes to the CPU
-        let _ = lightcraft_engine::gpu::available();
+        let _ = evolight_engine::gpu::available();
         let (_fx, mut h, _) = detail();
-        let lut = lightcraft_pipeline::ProofLut::new(2, vec![[0.5, 0.5, 0.5, 0.0]; 8]).expect("a valid table");
-        h.app.ui.proof.profile = lightcraft_pipeline::register_proof_profile(0x5eed_9f01, lut);
+        let lut = evolight_pipeline::ProofLut::new(2, vec![[0.5, 0.5, 0.5, 0.0]; 8]).expect("a valid table");
+        h.app.ui.proof.profile = evolight_pipeline::register_proof_profile(0x5eed_9f01, lut);
         h.app.ui.soft_proof = true;
         h.settle(SETTLE);
         let (main, small) = drag_exposure(&mut h);
@@ -606,14 +606,14 @@ mod in_the_loupe {
     // drafted small, as if the proof went to the CPU)
     #[test]
     fn a_drag_soft_proofed_into_a_colour_space_drafts_full_size_on_the_gpu() {
-        let gpu = lightcraft_engine::gpu::available();
+        let gpu = evolight_engine::gpu::available();
         let (_fx, mut h, _) = detail();
         assert_eq!(h.app.ui.proof.profile, 0, "a colour space, no device profile");
         h.app.ui.soft_proof = true;
         h.settle(SETTLE);
         let (main, small) = drag_exposure(&mut h);
         if !gpu {
-            lightcraft_testkit::skip!(Gpu, "no GPU: every drag drafts small");
+            evolight_testkit::skip!(Gpu, "no GPU: every drag drafts small");
             return;
         }
         assert!(main > small, "the draft is {main} px, a small one would be at most {small}");
@@ -657,7 +657,7 @@ mod in_the_loupe {
                 break;
             }
         }
-        assert!(!h.app.session.media.has_source(id, lightcraft_engine::SourceLevel::Full), "the original is still decoding");
+        assert!(!h.app.session.media.has_source(id, evolight_engine::SourceLevel::Full), "the original is still decoding");
         assert_eq!(pending(&h), 1, "one window job decodes it");
         h.settle(SETTLE);
         assert!(tile(&h, Slot::Region).is_some() && tile(&h, Slot::RegionBefore).is_some(), "both windows arrived");
@@ -726,19 +726,19 @@ mod in_the_loupe {
 
     #[derive(Default)]
     struct PinchWork {
-        jobs: Vec<(Slot, lightcraft_engine::media::RenderJob)>,
-        finished: Vec<(Slot, lightcraft_engine::media::RenderResult, f64)>,
+        jobs: Vec<(Slot, evolight_engine::media::RenderJob)>,
+        finished: Vec<(Slot, evolight_engine::media::RenderResult, f64)>,
     }
 
     struct PinchOffload(std::rc::Rc<std::cell::RefCell<PinchWork>>);
 
     impl crate::render::RenderOffload for PinchOffload {
-        fn try_start(&mut self, slot: Slot, job: lightcraft_engine::media::RenderJob) -> Option<lightcraft_engine::media::RenderJob> {
+        fn try_start(&mut self, slot: Slot, job: evolight_engine::media::RenderJob) -> Option<evolight_engine::media::RenderJob> {
             self.0.borrow_mut().jobs.push((slot, job));
             None
         }
 
-        fn finished(&mut self) -> Vec<(Slot, lightcraft_engine::media::RenderResult, f64)> {
+        fn finished(&mut self) -> Vec<(Slot, evolight_engine::media::RenderResult, f64)> {
             std::mem::take(&mut self.0.borrow_mut().finished)
         }
     }
@@ -950,7 +950,7 @@ mod in_the_loupe {
         assert_eq!(region_tile(&h), None);
     }
 
-    /// `cargo test -p lightcraft-ui-egui --release profile_slider_drag -- --ignored --nocapture`:
+    /// `cargo test -p evolight-ui-egui --release profile_slider_drag -- --ignored --nocapture`:
     /// milliseconds from a slider tick to the loupe showing it, at 100 % and 400 % of the demo
     /// library's 24 MP photos (what the maintainers asked for in the review of #351).
     #[test]
@@ -1069,7 +1069,7 @@ mod in_the_loupe {
         }
     }
 
-    fn drag_first_window(h: &mut Headless, work: &Rc<RefCell<OffloadWork>>, id: lightcraft_catalog::PhotoId) -> RenderJob {
+    fn drag_first_window(h: &mut Headless, work: &Rc<RefCell<OffloadWork>>, id: evolight_catalog::PhotoId) -> RenderJob {
         let first = next_region_job(h, work);
         let view = h.app.region_view.expect("Detail asked for a window");
         assert_eq!(view.photo, id);
@@ -1078,7 +1078,7 @@ mod in_the_loupe {
         assert!(view.window.x + view.window.w <= view.full.0 && view.window.y + view.window.h <= view.full.1, "inside the frame: {:?}", view.window);
         assert_eq!(first.request.window, Some(view.window), "the job is the window on screen");
         assert_eq!((first.request.max_w, first.request.max_h), view.full, "the job renders the frame the view uses");
-        assert_eq!(first.request.quality, lightcraft_pipeline::Quality::Draft, "a drag drafts the window");
+        assert_eq!(first.request.quality, evolight_pipeline::Quality::Draft, "a drag drafts the window");
         assert_eq!(first.level, SourceLevel::Full);
         assert!(matches!(&first.source, SourceRef::File { .. }), "the first window decodes the real file");
         assert_ne!(first.request_id, 0, "the renderer gave the request its own identity");
@@ -1089,7 +1089,7 @@ mod in_the_loupe {
     fn drag_accepts_first_original(
         h: &mut Headless,
         work: &Rc<RefCell<OffloadWork>>,
-        id: lightcraft_catalog::PhotoId,
+        id: evolight_catalog::PhotoId,
         first: RenderJob,
     ) -> (u64, u64) {
         // An edit changes the desired window key while the first original is still held.
@@ -1168,8 +1168,8 @@ mod in_the_loupe {
         let id = session.active().expect("a photo");
         session.media.set_on_screen(Some(id));
         let (full_w, full_h) = (WIDTH as usize, HEIGHT as usize);
-        let window = lightcraft_pipeline::PixelWindow { x: 1000, y: 800, w: 1300, h: 700 };
-        let next_window = lightcraft_pipeline::PixelWindow { x: 1200, y: 800, w: 1300, h: 700 };
+        let window = evolight_pipeline::PixelWindow { x: 1000, y: 800, w: 1300, h: 700 };
+        let next_window = evolight_pipeline::PixelWindow { x: 1200, y: 800, w: 1300, h: 700 };
         let mut renderer = Renderer::with_worker_threads(1);
         let work = Rc::new(RefCell::new(OffloadWork::default()));
         renderer.set_offload(Box::new(Held(work.clone())));
@@ -1437,10 +1437,10 @@ mod in_the_loupe {
 
     /// Load a Display P3 monitor profile (`app.displayProfile`), as Settings ▸ Display does.
     fn use_display_profile(h: &mut Headless) {
-        let dir = std::env::temp_dir().join(format!("lightcraft-zoom-display-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let dir = std::env::temp_dir().join(format!("evolight-zoom-display-{}-{:?}", std::process::id(), std::thread::current().id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let path = dir.join("p3.icc");
-        std::fs::write(&path, lightcraft_codecs::icc::write_named(lightcraft_codecs::NamedSpace::DisplayP3)).expect("profile written");
+        std::fs::write(&path, evolight_codecs::icc::write_named(evolight_codecs::NamedSpace::DisplayP3)).expect("profile written");
         let r = h.request("engine.execute", json!({"command": "app.displayProfile", "params": {"path": path.to_string_lossy()}}), T);
         assert_eq!(r["ok"], true, "{r}");
         assert!(h.app.renderer.display_id().is_some());
@@ -1488,7 +1488,7 @@ mod in_the_loupe {
     #[test]
     fn with_the_screen_profile_the_window_is_drawn() {
         let (_fx, mut h, native) = detail();
-        h.app.services.screen_profile = Some(Box::new(|| Some(lightcraft_codecs::icc::write_named(lightcraft_codecs::NamedSpace::DisplayP3))));
+        h.app.services.screen_profile = Some(Box::new(|| Some(evolight_codecs::icc::write_named(evolight_codecs::NamedSpace::DisplayP3))));
         h.step();
         assert!(h.app.ui.settings.display_profile.is_empty(), "no profile chosen");
         assert!(h.app.renderer.display_id().is_some(), "the screen's profile is in use");
@@ -1521,7 +1521,7 @@ mod in_the_loupe {
         (fixture, h)
     }
 
-    fn native_of(h: &Headless, id: lightcraft_catalog::PhotoId) -> usize {
+    fn native_of(h: &Headless, id: evolight_catalog::PhotoId) -> usize {
         let p = h.app.session.catalog.photo(id).expect("in the catalog");
         p.width.max(p.height) as usize
     }
@@ -1531,7 +1531,7 @@ mod in_the_loupe {
     #[test]
     fn compare_at_one_to_one_gets_a_sharp_window_per_pane() {
         let (_fx, h) = compare_at(crate::state::Zoom::Percent(100.0));
-        let (sel, cand) = h.app.ui.compare.map(|(a, b)| (lightcraft_catalog::PhotoId(a), lightcraft_catalog::PhotoId(b))).expect("a pair");
+        let (sel, cand) = h.app.ui.compare.map(|(a, b)| (evolight_catalog::PhotoId(a), evolight_catalog::PhotoId(b))).expect("a pair");
         for (i, id) in [(0u8, sel), (1u8, cand)] {
             let whole = h.app.renderer.textures.get(&Slot::Compare(i)).expect("the whole-frame render");
             assert!(whole.size[0].max(whole.size[1]) <= 2560, "pane {i}: the whole frame stays small");
@@ -1541,7 +1541,7 @@ mod in_the_loupe {
             let tex = h.app.renderer.textures.get(&Slot::CompareRegion(i)).unwrap_or_else(|| panic!("pane {i}: its texture"));
             assert_eq!(tex.photo, id);
             assert!(tex.size[0] >= 600 && tex.size[1] >= 600, "pane {i}: it covers the pane: {:?}", tex.size);
-            assert!(h.app.session.media.has_source(id, lightcraft_engine::SourceLevel::Full), "pane {i}: both originals stay decoded");
+            assert!(h.app.session.media.has_source(id, evolight_engine::SourceLevel::Full), "pane {i}: both originals stay decoded");
         }
     }
 

@@ -2,13 +2,13 @@
 //! on-canvas tools (crop, brush/gradient masks, remove spots, white-balance picker).
 
 use egui::{Align2, Color32, Pos2, Rect, Sense, Stroke, StrokeKind, pos2, vec2};
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{DevelopSettings, MaskShape};
-use lightcraft_geom::{Affine, Point};
-use lightcraft_pipeline::geometry::Frame;
+use evolight_catalog::PhotoId;
+use evolight_develop::{DevelopSettings, MaskShape};
+use evolight_geom::{Affine, Point};
+use evolight_pipeline::geometry::Frame;
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::render::Slot;
 use crate::state::{BeforeAfter, RightPanel, ToolOverlay, Zoom};
 use crate::theme::Tokens;
@@ -75,7 +75,7 @@ pub enum Gesture {
     },
     CropHandle {
         handle: u8,
-        start: lightcraft_geom::Rect,
+        start: evolight_geom::Rect,
         angle: f64,
     },
     /// Straighten tool: a line drawn along something that should be level (or plumb).
@@ -131,7 +131,7 @@ pub enum Gesture {
 /// full-screen aware), crop overlays and the render requests for the current view, or, when no
 /// photo is active, the empty-library message if the library is empty and "No photo selected"
 /// otherwise.
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let full = ui.max_rect();
     let fullscreen = app.ui.fullscreen;
@@ -331,9 +331,9 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     let shown = shown_after_windows(shown, camera_full_drawn, drawn);
     app.loupe_shown = Some((id, shown));
     app.loupe_timing.observe(id, shown, now);
-    // the camera's own JPEG is on screen, not LightCraft's rendering of the raw: say so (once), so
+    // the camera's own JPEG is on screen, not EvoLight's rendering of the raw: say so (once), so
     // colour and tone are not judged on it (PERF-CULL-4; Lightroom Classic badges its embedded
-    // previews). Not over a window render, which is LightCraft's own.
+    // previews). Not over a window render, which is EvoLight's own.
     if camera_jpeg_shown(app, &photo, shown, drawn) {
         camera_preview_badge(ui, canvas, img_rect.intersect(canvas));
     }
@@ -380,12 +380,12 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 
 /// Names the loupe for screen readers as the grid names the same photo (file, rating, flag, label), not
 /// just "Photo".
-fn announce_photo(app: &LightcraftApp, resp: &egui::Response, photo: &lightcraft_catalog::Photo) {
+fn announce_photo(app: &EvoLightApp, resp: &egui::Response, photo: &evolight_catalog::Photo) {
     crate::widgets::announce(resp, crate::i18n::tr_format!("Photo: {name}", name = super::grid::cell_description(app, photo)));
 }
 
 /// The loupe's right-click menu: zoom commands and the grid's photo menu.
-fn loupe_context_menu(app: &mut LightcraftApp, resp: &egui::Response, id: PhotoId) {
+fn loupe_context_menu(app: &mut EvoLightApp, resp: &egui::Response, id: PhotoId) {
     crate::widgets::context_menu(resp, |ui| {
         crate::widgets::menu_button(ui, crate::i18n::tr("Zoom"), |ui| {
             for (label, cmd) in [("Fit", "view.zoomFit"), ("100%", "view.zoom100"), ("Zoom In", "view.zoomIn"), ("Zoom Out", "view.zoomOut")] {
@@ -400,7 +400,7 @@ fn loupe_context_menu(app: &mut LightcraftApp, resp: &egui::Response, id: PhotoI
 }
 
 /// A fine grid while a transform (geometry) slider is dragged, to judge verticals.
-fn transform_grid(app: &LightcraftApp, p: &egui::Painter, img_rect: Rect) {
+fn transform_grid(app: &EvoLightApp, p: &egui::Painter, img_rect: Rect) {
     if app.ui.dragging_control.as_deref().is_some_and(|c| c.starts_with("geometry.")) {
         let n = 12;
         let stroke = Stroke::new(1.0, Color32::from_white_alpha(70));
@@ -418,11 +418,11 @@ fn transform_grid(app: &LightcraftApp, p: &egui::Painter, img_rect: Rect) {
 
 /// The photo's face boxes and the name box on them.
 fn face_boxes(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     p: &egui::Painter,
     map: &CanvasMap,
-    photo: &lightcraft_catalog::Photo,
+    photo: &evolight_catalog::Photo,
     d: &DevelopSettings,
 ) {
     let id = photo.id;
@@ -456,7 +456,7 @@ fn face_boxes(
 }
 
 /// A wipe shows the Before whole-frame render on its side of the line.
-fn draw_wipe_before(app: &LightcraftApp, p: &egui::Painter, id: PhotoId, img_rect: Rect, line: Pos2) {
+fn draw_wipe_before(app: &EvoLightApp, p: &egui::Painter, id: PhotoId, img_rect: Rect, line: Pos2) {
     if app.ui.before_after == BeforeAfter::Split
         && let Some(tex) = app.renderer.textures.get(&Slot::Before).filter(|t| t.photo == id)
     {
@@ -477,7 +477,7 @@ fn draw_wipe_before(app: &LightcraftApp, p: &egui::Painter, id: PhotoId, img_rec
 
 /// Once a photo is on screen, prepare its neighbours in filmstrip order (source decoded and kept,
 /// view render cached) so stepping to them is instant.
-fn prefetch_neighbours(app: &mut LightcraftApp, id: PhotoId, main_area: Rect, ppp: f32, texture_side: usize, with_crop: bool) {
+fn prefetch_neighbours(app: &mut EvoLightApp, id: PhotoId, main_area: Rect, ppp: f32, texture_side: usize, with_crop: bool) {
     // only once this photo is on screen
     if app.renderer.is_pending(Slot::Main) || app.renderer.textures.get(&Slot::Main).is_none_or(|t| t.photo != id) {
         return;
@@ -488,11 +488,11 @@ fn prefetch_neighbours(app: &mut LightcraftApp, id: PhotoId, main_area: Rect, pp
     let ahead = prep.ahead(mode);
     // editing: the next photos are decoded and kept, ready for their edits (their view render is not
     // what is wanted, and a cached one would leave the photo undecoded)
-    let develop = mode == lightcraft_engine::prep::Mode::Develop;
+    let develop = mode == evolight_engine::prep::Mode::Develop;
     let Some(i) = ids.iter().position(|p| *p == id).filter(|_| ahead > 0) else { return };
     let mut targets = app.look_ahead.targets_n(&ids, i, ahead, BEHIND);
-    if prep.scope(mode) == lightcraft_engine::prep::Scope::Marked {
-        targets.retain(|t| lightcraft_engine::prep::marked(&app.session, *t));
+    if prep.scope(mode) == evolight_engine::prep::Scope::Marked {
+        targets.retain(|t| evolight_engine::prep::marked(&app.session, *t));
     }
     // a few at a time, nearest first (the pool keeps workers free for the photo the user goes to)
     let mut room = PREFETCH_AT_ONCE.saturating_sub(app.renderer.prefetches_pending());
@@ -517,13 +517,13 @@ fn prefetch_neighbours(app: &mut LightcraftApp, id: PhotoId, main_area: Rect, pp
 
 /// The render a neighbour is prepared with: its loupe render at the size it will be drawn at.
 fn neighbour_job(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     nid: PhotoId,
     main_area: Rect,
     ppp: f32,
     texture_side: usize,
     with_crop: bool,
-) -> Option<lightcraft_engine::media::RenderJob> {
+) -> Option<evolight_engine::media::RenderJob> {
     let np = app.session.catalog.photo(nid)?;
     let nf = Frame::with_lens(np.width.max(1) as usize, np.height.max(1) as usize, &np.develop, with_crop, np.embedded_lens.as_ref());
     let na = nf.aspect() as f32;
@@ -534,7 +534,7 @@ fn neighbour_job(
 }
 
 /// What Settings ▸ Performance lets the mode the user is in prepare ahead.
-fn prepare_ahead(app: &LightcraftApp) -> Prepare {
+fn prepare_ahead(app: &EvoLightApp) -> Prepare {
     let mode = prep_mode(app);
     let prep = app.session.prep_settings();
     Prepare::of(prep.ahead(mode), prep.scope(mode))
@@ -543,7 +543,7 @@ fn prepare_ahead(app: &LightcraftApp) -> Prepare {
 /// The most the loupe shows a whole photo at (the canvas's long side; a photo of another shape than
 /// this one may fill it), noted while it shows one view fitted (`single`): standard previews are
 /// built at least this big.
-fn note_loupe_edge(app: &mut LightcraftApp, canvas_long: f32, single: bool) {
+fn note_loupe_edge(app: &mut EvoLightApp, canvas_long: f32, single: bool) {
     if single && matches!(app.ui.zoom, Zoom::Fit) && canvas_long.is_finite() && canvas_long >= 1.0 {
         app.session.loupe_edge = canvas_long.ceil() as usize;
     }
@@ -615,7 +615,7 @@ fn window_views(mode: ViewMode, v: &Views) -> Vec<WindowView> {
 }
 
 /// What the canvas says when nothing could be drawn: why the photo failed, or that it is rendering.
-fn none_message(app: &LightcraftApp, p: &egui::Painter, t: &Tokens, canvas: Rect, id: PhotoId) {
+fn none_message(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, canvas: Rect, id: PhotoId) {
     match app.renderer.failure_of(Slot::Main, id) {
         Some(e) => {
             p.text(canvas.center() - vec2(0.0, 10.0), Align2::CENTER_CENTER, crate::i18n::tr("This photo can't be opened"), t.semibold(14.0), t.text);
@@ -630,7 +630,7 @@ fn none_message(app: &LightcraftApp, p: &egui::Painter, t: &Tokens, canvas: Rect
 
 /// The render failed while a stand-in is up: what is on screen is all there will be (also while a
 /// library change retries it).
-fn failed_render<'a>(app: &'a LightcraftApp, id: PhotoId, settled: bool, shown: &str) -> Option<&'a str> {
+fn failed_render<'a>(app: &'a EvoLightApp, id: PhotoId, settled: bool, shown: &str) -> Option<&'a str> {
     (settled && !matches!(shown, "render" | "none" | "hover") && (!app.renderer.is_pending(Slot::Main) || app.renderer.retrying(Slot::Main)))
         .then(|| app.renderer.failure_of(Slot::Main, id))
         .flatten()
@@ -640,8 +640,8 @@ fn failed_render<'a>(app: &'a LightcraftApp, id: PhotoId, settled: bool, shown: 
 /// failure, or View Options' "Show message when loading or rendering photos".
 fn status_pill(
     ui: &egui::Ui,
-    app: &LightcraftApp,
-    photo: &lightcraft_catalog::Photo,
+    app: &EvoLightApp,
+    photo: &evolight_catalog::Photo,
     [canvas, over]: [Rect; 2],
     nav: Option<Rect>,
     failed: Option<&str>,
@@ -656,14 +656,14 @@ fn status_pill(
 }
 
 /// Soft proofing: a paper-white surround and the proof's name, as Lightroom shows it.
-fn proof_surround(app: &LightcraftApp, p: &egui::Painter, t: &Tokens, canvas: Rect) {
+fn proof_surround(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, canvas: Rect) {
     p.rect_filled(canvas, 0.0, Color32::from_gray(238));
     let label = crate::i18n::tr_format!("Proof Preview · {}", app.ui.proof.space.label());
     p.text(pos2(canvas.right() - 16.0, canvas.top() + 14.0), Align2::RIGHT_CENTER, label, t.font(12.5), Color32::from_gray(60));
 }
 
 /// Request the window renders, remember which sides have one, and release the slot of a side without.
-fn request_windows(app: &mut LightcraftApp, ctx: &WindowCtx, views: Vec<WindowView>) -> Vec<(WindowView, crate::region::RegionView)> {
+fn request_windows(app: &mut EvoLightApp, ctx: &WindowCtx, views: Vec<WindowView>) -> Vec<(WindowView, crate::region::RegionView)> {
     let mut windows: Vec<(WindowView, crate::region::RegionView)> = Vec::new();
     for v in views {
         if let Some(view) = request_window(app, ctx, &v) {
@@ -686,7 +686,7 @@ fn request_windows(app: &mut LightcraftApp, ctx: &WindowCtx, views: Vec<WindowVi
 }
 
 /// The aspect of the texture on screen for this photo and geometry, if one is.
-fn visible_texture_aspect(app: &LightcraftApp, id: PhotoId, d: &DevelopSettings, crop_tool: bool) -> Option<f32> {
+fn visible_texture_aspect(app: &EvoLightApp, id: PhotoId, d: &DevelopSettings, crop_tool: bool) -> Option<f32> {
     // A previous crop/rotation can stay visible while its replacement renders. Its pixels
     // must not override the current frame geometry, even when it is the same photo.
     let current_texture = |t: &&crate::render::Tex| t.photo == id && t.look == Some((crate::render::geometry_look(d), !crop_tool));
@@ -701,13 +701,13 @@ fn visible_texture_aspect(app: &LightcraftApp, id: PhotoId, d: &DevelopSettings,
 
 /// Whether the GPU draws the view (by the GPU's own rule, `handles`; `ready` first: `available`
 /// would wait for a device still being created).
-fn gpu_draws_view(app: &LightcraftApp, overlay: lightcraft_pipeline::Overlay) -> bool {
-    lightcraft_engine::gpu::handles(
-        lightcraft_pipeline::OutputDepth::U8,
-        app.ui.soft_proof && lightcraft_pipeline::proof_profile(app.ui.proof.profile).is_some(),
+fn gpu_draws_view(app: &EvoLightApp, overlay: evolight_pipeline::Overlay) -> bool {
+    evolight_engine::gpu::handles(
+        evolight_pipeline::OutputDepth::U8,
+        app.ui.soft_proof && evolight_pipeline::proof_profile(app.ui.proof.profile).is_some(),
         overlay,
-    ) && lightcraft_engine::gpu::ready()
-        && lightcraft_engine::gpu::available()
+    ) && evolight_engine::gpu::ready()
+        && evolight_engine::gpu::available()
 }
 
 /// The line of a wipe.
@@ -726,7 +726,7 @@ fn draw_wipe_line(mode: BeforeAfter, p: &egui::Painter, img_rect: Rect, line: Po
 
 /// Whether the render on its way is not what is on screen (a stand-in, the last render after an
 /// edit, a magnified frame under its window).
-fn render_coming(app: &LightcraftApp, shown: &str, windows: &[(WindowView, crate::region::RegionView)], mode: ViewMode) -> bool {
+fn render_coming(app: &EvoLightApp, shown: &str, windows: &[(WindowView, crate::region::RegionView)], mode: ViewMode) -> bool {
     let whole: &[Slot] = if mode.show_before && !mode.split {
         &[Slot::Before]
     } else if mode.split || mode.split_view {
@@ -751,7 +751,7 @@ struct ToolView<'a> {
 }
 
 /// Route the pointer to the right panel's tool on the photo, or to the general interactions.
-fn tool_interaction(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, tv: &ToolView, v: &Views) {
+fn tool_interaction(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, tv: &ToolView, v: &Views) {
     let (map, d) = (tv.map, tv.d);
     match tv.right {
         RightPanel::Crop => crop_overlay(app, ui, resp, map, tv.frame, d, tv.id),
@@ -774,7 +774,7 @@ fn tool_interaction(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Res
 }
 
 /// The loupe's render plan, without a window for a view the GPU already refused one for.
-fn loupe_plan(app: &LightcraftApp, id: PhotoId, look: u64, sizes: crate::region::ViewSizes) -> crate::region::LoupePlan {
+fn loupe_plan(app: &EvoLightApp, id: PhotoId, look: u64, sizes: crate::region::ViewSizes) -> crate::region::LoupePlan {
     let plan = crate::region::plan(&app.ui.settings, sizes);
     if plan.window_edge.is_some_and(|edge| app.window_refused == Some((id, look, edge))) {
         return crate::region::plan(&app.ui.settings, crate::region::ViewSizes { windows: false, ..sizes });
@@ -782,13 +782,13 @@ fn loupe_plan(app: &LightcraftApp, id: PhotoId, look: u64, sizes: crate::region:
     plan
 }
 
-fn whole_frame_edge(app: &LightcraftApp, interacting: bool, plan: &crate::region::LoupePlan, native_long: usize, texture_side: usize) -> usize {
+fn whole_frame_edge(app: &EvoLightApp, interacting: bool, plan: &crate::region::LoupePlan, native_long: usize, texture_side: usize) -> usize {
     if interacting || plan.window_edge.is_some() {
         plan.main_edge
     } else {
         // (a user's explicit Preview size below the preview level still caps it)
         let limit = if app.ui.settings.preview_limit == 0 { usize::MAX } else { app.ui.settings.preview_limit as usize };
-        let floor = lightcraft_engine::SourceLevel::Preview.max_edge().min(limit).min(native_long);
+        let floor = evolight_engine::SourceLevel::Preview.max_edge().min(limit).min(native_long);
         plan.main_edge.max(floor).min(texture_side.max(crate::state::MIN_TEXTURE_SIDE))
     }
 }
@@ -799,13 +799,13 @@ struct LoupeAsk {
     with_crop: bool,
     interacting: bool,
     fit_px: [usize; 2],
-    overlay: lightcraft_pipeline::Overlay,
+    overlay: evolight_pipeline::Overlay,
 }
 
 /// Stepping fast (an arrow held down): the render waits until the photo stays, the camera JPEG or
 /// thumbnail shows meanwhile, and a render queued for a photo already left is dropped. Otherwise
 /// the loupe's own render is requested. Whether the photo is still settling.
-fn request_main_or_settle(app: &mut LightcraftApp, ui: &egui::Ui, a: &LoupeAsk, size: [usize; 2], whole_draft: bool, now: f64) -> bool {
+fn request_main_or_settle(app: &mut EvoLightApp, ui: &egui::Ui, a: &LoupeAsk, size: [usize; 2], whole_draft: bool, now: f64) -> bool {
     let settling = !a.interacting && app.loupe_timing.settling(a.id, now);
     if !settling {
         request_main(app, ui, a, size, whole_draft);
@@ -833,7 +833,7 @@ pub(crate) fn drop_unsettled(renderer: &mut crate::render::Renderer, photo: Phot
 /// size under the window render, so a focus check doesn't wait for the raw (PERF-CULL-5; Capture
 /// One's Cull view shows the embedded JPEG at 100 % too). Released when the view is not zoomed any
 /// more (180 MB). Whether it is wanted.
-fn request_camera_full(app: &mut LightcraftApp, photo: &lightcraft_catalog::Photo, zoomed: bool, edge: usize) -> bool {
+fn request_camera_full(app: &mut EvoLightApp, photo: &evolight_catalog::Photo, zoomed: bool, edge: usize) -> bool {
     let wanted = zoomed && app.session.embedded_thumb_is_final(photo);
     if wanted {
         if let Some(q) = app.session.embedded_full_job(photo.id, edge) {
@@ -849,7 +849,7 @@ fn request_camera_full(app: &mut LightcraftApp, photo: &lightcraft_catalog::Phot
 /// there: only where the window will go (`cover`, see [`window_cover`]). A window capped smaller
 /// than the view leaves strips around it, and those keep the developed whole-frame render rather
 /// than an unlabelled camera JPEG (CodeRabbit on #3544). Whether it was drawn.
-fn draw_camera_full(app: &LightcraftApp, p: &egui::Painter, id: PhotoId, img_rect: Rect, display_aspect: f32, cover: Option<Rect>) -> bool {
+fn draw_camera_full(app: &EvoLightApp, p: &egui::Painter, id: PhotoId, img_rect: Rect, display_aspect: f32, cover: Option<Rect>) -> bool {
     let Some(cover) = cover else { return false };
     let Some(tex) = app.renderer.textures.get(&Slot::QuickFull).filter(|t| t.photo == id) else { return false };
     if !crate::region::same_aspect(tex.size[0].max(1) as f32 / tex.size[1].max(1) as f32, display_aspect) {
@@ -886,7 +886,7 @@ struct WindowsDrawn {
 /// Draw the window renders over the whole-frame ones, each where it belongs in the frame
 /// (clipped to its pane, or its side of the line).
 fn draw_windows(
-    app: &LightcraftApp,
+    app: &EvoLightApp,
     p: &egui::Painter,
     ctx: &WindowCtx,
     windows: &[(WindowView, crate::region::RegionView)],
@@ -921,17 +921,17 @@ fn shown_after_windows(shown: &'static str, camera_full_drawn: bool, drawn: Wind
 }
 
 /// Whether the camera's own JPEG is what is on screen (not under a window render).
-fn camera_jpeg_shown(app: &LightcraftApp, photo: &lightcraft_catalog::Photo, shown: &str, drawn: WindowsDrawn) -> bool {
+fn camera_jpeg_shown(app: &EvoLightApp, photo: &evolight_catalog::Photo, shown: &str, drawn: WindowsDrawn) -> bool {
     !drawn.any && (shown == "embedded" || (shown == "thumb" && app.session.embedded_thumb_is_final(photo)))
 }
 
 /// Request the loupe's own render at `[rw, rh]` (drafts during drags).
-fn request_main(app: &mut LightcraftApp, ui: &egui::Ui, a: &LoupeAsk, [rw, rh]: [usize; 2], whole_draft: bool) {
+fn request_main(app: &mut EvoLightApp, ui: &egui::Ui, a: &LoupeAsk, [rw, rh]: [usize; 2], whole_draft: bool) {
     let (id, interacting, fit_px, overlay) = (a.id, a.interacting, a.fit_px, a.overlay);
     if let Some(mut job) = app.session.loupe_job(id, rw.max(8), rh.max(8), a.with_crop) {
         // editing: the photo is rendered from its source, which stays decoded for the first slider
         // draft (a cached view render would show at once but leave the source unread until then)
-        if prep_mode(app) == lightcraft_engine::prep::Mode::Develop {
+        if prep_mode(app) == evolight_engine::prep::Mode::Develop {
             job.view_cache = None;
         }
         let job = if interacting { job.draft() } else { job };
@@ -959,11 +959,11 @@ fn request_main(app: &mut LightcraftApp, ui: &egui::Ui, a: &LoupeAsk, [rw, rh]: 
     }
 }
 
-/// Tell background preparation the loupe is waiting for its render ([`lightcraft_engine::prep::foreground`]).
+/// Tell background preparation the loupe is waiting for its render ([`evolight_engine::prep::foreground`]).
 fn signal_foreground() {
     #[cfg(test)]
     FOREGROUND_SIGNALS.with(|n| n.set(n.get() + 1));
-    lightcraft_engine::prep::foreground();
+    evolight_engine::prep::foreground();
 }
 
 #[cfg(test)]
@@ -974,7 +974,7 @@ thread_local! {
 
 /// Hovering a preset or profile: the photo with that look, shown instead of the loupe render once
 /// it is ready (nothing is committed). The key of its render and the label to show.
-fn request_hover(app: &mut LightcraftApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) -> Option<(u64, String)> {
+fn request_hover(app: &mut EvoLightApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) -> Option<(u64, String)> {
     match app.hover_preview.clone() {
         Some(h) if !a.interacting => app.session.preview_job(a.id, sw.max(8), sh.max(8), a.with_crop, &h.settings).map(|job| {
             // (the same display fit as the After view, drawn texel for texel like it)
@@ -988,7 +988,7 @@ fn request_hover(app: &mut LightcraftApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) ->
 }
 
 /// The Before render, at the stand-in size.
-fn request_before(app: &mut LightcraftApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) {
+fn request_before(app: &mut EvoLightApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) {
     if let Some(job) = app.session.render_job(a.id, sw.max(8), sh.max(8), true, a.with_crop) {
         // (the same display fit as the After view, so both panes are the same texture size)
         let job = if a.interacting { job } else { job.with_display_fit(a.fit_px[0], a.fit_px[1]) };
@@ -998,7 +998,7 @@ fn request_before(app: &mut LightcraftApp, a: &LoupeAsk, [sw, sh]: [usize; 2]) {
 
 /// What a view slot shows: its own render of this photo, else the stand-ins (no blank frame
 /// between photos, and the full render replaces them in place). Returns what it drew.
-fn draw_slot(app: &LightcraftApp, p: &egui::Painter, id: PhotoId, ppp: f32, slot: Slot, r: Rect, clip: Rect) -> &'static str {
+fn draw_slot(app: &EvoLightApp, p: &egui::Painter, id: PhotoId, ppp: f32, slot: Slot, r: Rect, clip: Rect) -> &'static str {
     let mine = |s: Slot| app.renderer.textures.get(&s).filter(|t| t.photo == id);
     let (tex, what) = if let Some(t) = mine(slot) {
         (t, "render")
@@ -1030,7 +1030,7 @@ fn paint_badge(p: &egui::Painter, bg: Rect, g: std::sync::Arc<egui::Galley>) {
 }
 
 /// No photo is active: the empty-library message if the library is empty, else "No photo selected".
-fn show_no_photo(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect) {
+fn show_no_photo(app: &mut EvoLightApp, ui: &mut egui::Ui, canvas: Rect) {
     if super::empty_library::shown(&app.session) {
         super::empty_library::show(app, ui, canvas);
     } else {
@@ -1058,7 +1058,7 @@ fn split_labels(p: &egui::Painter, t: &Tokens, [before, after]: [(Rect, Rect); 2
 
 /// What is drawn over the photo.
 struct OverPhoto<'a> {
-    photo: &'a lightcraft_catalog::Photo,
+    photo: &'a evolight_catalog::Photo,
     d: &'a DevelopSettings,
     map: &'a CanvasMap,
     canvas: Rect,
@@ -1069,7 +1069,7 @@ struct OverPhoto<'a> {
 
 /// The overlays over the photo: layout image, info, filter pill, faces, focus point and
 /// the transform grid.
-fn photo_overlays(app: &mut LightcraftApp, ui: &mut egui::Ui, p: &egui::Painter, o: &OverPhoto) {
+fn photo_overlays(app: &mut EvoLightApp, ui: &mut egui::Ui, p: &egui::Painter, o: &OverPhoto) {
     let (canvas, img_rect) = (o.canvas, o.img_rect);
     // View ▸ Loupe Overlay ▸ Layout Image, over the photo (the After view in a before/after)
     super::layout_overlay::draw(app, p, img_rect);
@@ -1087,7 +1087,7 @@ fn photo_overlays(app: &mut LightcraftApp, ui: &mut egui::Ui, p: &egui::Painter,
     transform_grid(app, p, img_rect);
 }
 
-fn request_stand_in(app: &mut LightcraftApp, id: PhotoId, edge: usize, with_crop: bool) {
+fn request_stand_in(app: &mut EvoLightApp, id: PhotoId, edge: usize, with_crop: bool) {
     if app.renderer.textures.get(&Slot::Main).is_none_or(|t| t.photo != id)
         && let Some(q) = app.session.quick_view_job(id, edge.max(8), with_crop)
     {
@@ -1111,17 +1111,17 @@ fn prefetch_slot(at: usize) -> Slot {
 
 /// What the user is doing, for the background preparation: editing (a tool panel open), else
 /// culling a folder or browsing the library.
-pub fn prep_mode(app: &LightcraftApp) -> lightcraft_engine::prep::Mode {
+pub fn prep_mode(app: &EvoLightApp) -> evolight_engine::prep::Mode {
     match app.ui.right {
-        RightPanel::Edit | RightPanel::Crop | RightPanel::Remove | RightPanel::Masking | RightPanel::RedEye => lightcraft_engine::prep::Mode::Develop,
-        _ => lightcraft_engine::prep::Mode::of(&app.session),
+        RightPanel::Edit | RightPanel::Crop | RightPanel::Remove | RightPanel::Masking | RightPanel::RedEye => evolight_engine::prep::Mode::Develop,
+        _ => evolight_engine::prep::Mode::of(&app.session),
     }
 }
 
 /// Targeted adjustment tool: dragging up/down on the photo raises/lowers the tone-curve region or
 /// the colour-mixer bands under the press point (`develop.targeted`, one call per whole step, all
 /// in one interaction = one undo step).
-fn targeted_drag(app: &mut LightcraftApp, resp: &egui::Response, map: &CanvasMap, target: &str) {
+fn targeted_drag(app: &mut EvoLightApp, resp: &egui::Response, map: &CanvasMap, target: &str) {
     if resp.drag_started()
         && let Some(q) = resp.interact_pointer_pos()
     {
@@ -1151,8 +1151,8 @@ fn targeted_drag(app: &mut LightcraftApp, resp: &egui::Response, map: &CanvasMap
 
 /// The diagnostic overlay the loupe shows (an Alt-drag preview, the selected mask, Point Color's
 /// visualized range, Visualize Spots, the clipping warnings).
-pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcraft_pipeline::Overlay {
-    use lightcraft_pipeline::{MaskView, Overlay};
+pub(crate) fn view_overlay(app: &EvoLightApp, d: &DevelopSettings) -> evolight_pipeline::Overlay {
+    use evolight_pipeline::{MaskView, Overlay};
     if app.ui.fullscreen {
         return Overlay::None;
     }
@@ -1201,7 +1201,7 @@ pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcra
     Overlay::None
 }
 
-fn general_cursor(app: &LightcraftApp, ui: &egui::Ui, resp: &egui::Response, img: Rect, canvas: Rect) {
+fn general_cursor(app: &EvoLightApp, ui: &egui::Ui, resp: &egui::Response, img: Rect, canvas: Rect) {
     // A panel or overlay under the pointer keeps its own cursor.
     if !resp.dragged() && !resp.hovered() {
         return;
@@ -1232,7 +1232,7 @@ struct PhotoPlacement {
     aspect: f32,
 }
 
-fn general_interaction(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, placement: &PhotoPlacement) {
+fn general_interaction(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, placement: &PhotoPlacement) {
     let PhotoPlacement { img, canvas, native, aspect } = *placement;
     if app.ui.tool == "wbPicker" {
         if resp.clicked()
@@ -1275,7 +1275,7 @@ pub(crate) fn zoomed(img: Rect, canvas: Rect) -> bool {
 
 /// The loupe's own click and drag (also Space's hand over a tool, `space_hand`): a click toggles
 /// Fit ↔ the chosen click-zoom ratio at the clicked point, a drag pans when zoomed.
-pub(crate) fn click_zoom_and_pan(app: &mut LightcraftApp, resp: &egui::Response, img: Rect, canvas: Rect) {
+pub(crate) fn click_zoom_and_pan(app: &mut EvoLightApp, resp: &egui::Response, img: Rect, canvas: Rect) {
     let zoomed = zoomed(img, canvas);
     if resp.double_clicked() || (resp.clicked() && !zoomed) {
         if let Some(q) = resp.interact_pointer_pos() {
@@ -1303,12 +1303,12 @@ mod tests {
         use super::{WindowView, window_cover};
         use crate::region::RegionView;
         use egui::{Rect, pos2};
-        use lightcraft_pipeline::PixelWindow;
+        use evolight_pipeline::PixelWindow;
         assert_eq!(window_cover(&[]), None, "no window: no camera JPEG");
         let img = Rect::from_min_max(pos2(100.0, 50.0), pos2(700.0, 450.0));
         let v = WindowView { slot: crate::render::Slot::Region, before: false, img, target: img, visible: img };
         let w = RegionView {
-            photo: lightcraft_catalog::PhotoId(1),
+            photo: evolight_catalog::PhotoId(1),
             before: false,
             key: 1,
             full: (6000, 4000),

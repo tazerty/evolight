@@ -1,28 +1,28 @@
 [package]
-name = "lightcraft-ui-egui"
+name = "evolight-ui-egui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "LightCraft egui frontend (Lightroom-style UI); swappable — nothing below depends on it (L5)"
+description = "EvoLight egui frontend (Lightroom-style UI); swappable — nothing below depends on it (L5)"
 
 [lints]
 workspace = true
 
 [dependencies]
-craft-ui = { workspace = true }
-craft-window = { workspace = true }
-lightcraft-geom = { workspace = true }
-lightcraft-meta = { workspace = true }
-lightcraft-color = { workspace = true }
-lightcraft-raster = { workspace = true }
-lightcraft-develop = { workspace = true }
-lightcraft-pipeline = { workspace = true }
-lightcraft-catalog = { workspace = true }
+evo-ui = { workspace = true }
+evo-window = { workspace = true }
+evolight-geom = { workspace = true }
+evolight-meta = { workspace = true }
+evolight-color = { workspace = true }
+evolight-raster = { workspace = true }
+evolight-develop = { workspace = true }
+evolight-pipeline = { workspace = true }
+evolight-catalog = { workspace = true }
 web-time = { workspace = true }
-lightcraft-engine = { workspace = true }
-lightcraft-slideshow = { workspace = true }
-lightcraft-preview = { workspace = true }
+evolight-engine = { workspace = true }
+evolight-slideshow = { workspace = true }
+evolight-preview = { workspace = true }
 egui = { workspace = true }
 egui_extras = { workspace = true }
 serde = { workspace = true }
@@ -31,17 +31,17 @@ log = { workspace = true }
 
 [dev-dependencies]
 # tests record why they skip (`cargo xtask ci` lists the skips)
-lightcraft-testkit = { workspace = true }
+evolight-testkit = { workspace = true }
 # The model-setup tests install and resume a real denoise model. Without this the engine's
 # `default_loader` is the "this build cannot run denoise models" stub when the package is tested
-# on its own (`cargo test -p lightcraft-ui-egui`); a workspace test only passed by feature
+# on its own (`cargo test -p evolight-ui-egui`); a workspace test only passed by feature
 # unification with the desktop app's default `denoise` feature.
-lightcraft-engine = { workspace = true, features = ["denoise"] }
+evolight-engine = { workspace = true, features = ["denoise"] }
 egui_kittest = { workspace = true, features = ["wgpu", "snapshot"] }
-lightcraft-denoise = { workspace = true, features = ["runtime"] }
-lightcraft-codecs = { workspace = true }
-lightcraft-faces = { workspace = true }
-lightcraft-merge = { workspace = true }
+evolight-denoise = { workspace = true, features = ["runtime"] }
+evolight-codecs = { workspace = true }
+evolight-faces = { workspace = true }
+evolight-merge = { workspace = true }
 # a device for the GPU-resident view test (`render.rs`)
 pollster = { workspace = true }
 
@@ -50,4 +50,4 @@ serde_json = { workspace = true }
 toml = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-craft-update = { workspace = true }
+evo-update = { workspace = true }

@@ -33,7 +33,7 @@ pub const MAX_TEMPLATES: usize = 200;
 /// File extension of an exported print template (JSON).
 pub const FILE_EXT: &str = "lcprint";
 /// `format` tag of an exported print template file.
-const FILE_FORMAT: &str = "lightcraft.printTemplate";
+const FILE_FORMAT: &str = "evolight.printTemplate";
 /// Version of the template file this build writes and the newest it reads.
 const FILE_VERSION: u64 = 1;
 /// Largest template file read, bytes.
@@ -101,7 +101,7 @@ impl PrintTemplate {
         }
         match v.get("version").and_then(serde_json::Value::as_u64) {
             Some(1..=FILE_VERSION) => {}
-            Some(n) => return Err(format!("print template file version {n} is not one this version of LightCraft reads (1 to {FILE_VERSION})")),
+            Some(n) => return Err(format!("print template file version {n} is not one this version of EvoLight reads (1 to {FILE_VERSION})")),
             None => return Err("a print template file needs a `version` number".into()),
         }
         let name = clean_name(v.get("name").and_then(serde_json::Value::as_str).ok_or("a print template file needs a `name`")?)?;
@@ -209,7 +209,7 @@ mod tests {
         assert!(PrintTemplate::from_file(b"not json").unwrap_err().contains("not a print template file"));
         assert!(PrintTemplate::from_file(&vec![b' '; MAX_FILE as usize + 1]).unwrap_err().contains("too large"));
         assert!(file(json!([1, 2])).contains("format"));
-        assert!(file(ok(json!({"format": "lightcraft.slideshowTemplate"}))).contains("format"));
+        assert!(file(ok(json!({"format": "evolight.slideshowTemplate"}))).contains("format"));
         assert!(file(ok(json!({"version": 2}))).contains("version 2"));
         assert!(file(ok(json!({"version": 0}))).contains("version 0"));
         assert!(file(ok(json!({"version": "1"}))).contains("`version` number"));

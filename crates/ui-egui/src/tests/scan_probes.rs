@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::headless::Headless;
 use crate::import::ScanEnd;
 
@@ -13,11 +13,11 @@ const KEPT: &str = "/nowhere/kept.cr3";
 
 fn demo() -> Headless {
     let services = crate::Services { png: None, ..Default::default() };
-    Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), services), [1000.0, 700.0], 1.0)
+    Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), services), [1000.0, 700.0], 1.0)
 }
 
-fn probes() -> std::collections::HashMap<String, lightcraft_engine::media::ProbeInfo> {
-    [(KEPT.to_string(), lightcraft_engine::media::ProbeInfo { file_size: 7, ..Default::default() })].into_iter().collect()
+fn probes() -> std::collections::HashMap<String, evolight_engine::media::ProbeInfo> {
+    [(KEPT.to_string(), evolight_engine::media::ProbeInfo { file_size: 7, ..Default::default() })].into_iter().collect()
 }
 
 fn kept(h: &Headless) -> bool {
@@ -68,7 +68,7 @@ fn a_scan_closed_with_its_cross_hands_back_its_probes_when_the_worker_ends() {
     h.step();
     assert!(h.app.scan.is_none(), "✕ closes the scan at once");
     // the worker ends later, with the probes it took
-    tx.send(ScanEnd::Done(lightcraft_engine::import::ScanOutput {
+    tx.send(ScanEnd::Done(evolight_engine::import::ScanOutput {
         candidates: Vec::new(),
         probes: probes(),
         truncated: false,
@@ -98,7 +98,7 @@ fn a_cancelled_scan_whose_worker_ends_without_a_result_is_not_a_failure() {
 #[test]
 fn the_later_stopped_scans_probe_wins_whichever_worker_ends_first() {
     let probe = |hash: &str| {
-        let p = lightcraft_engine::media::ProbeInfo { file_size: 7, content_hash: Some(hash.into()), ..Default::default() };
+        let p = evolight_engine::media::ProbeInfo { file_size: 7, content_hash: Some(hash.into()), ..Default::default() };
         [(KEPT.to_string(), p)].into_iter().collect()
     };
     for later_ends_first in [false, true] {
@@ -137,7 +137,7 @@ fn a_browse_whose_folder_resolves_slowly_returns_at_once_and_waits() {
     std::fs::create_dir_all(&dir).unwrap();
     // (spelled with `sub/..`: the worker is handed the path as given, not the view's spelling of it)
     let given = dir.join("sub").join("..").to_string_lossy().to_string();
-    let spelled = lightcraft_engine::import::browse_spelling(&dir).unwrap().to_string_lossy().trim_end_matches(['/', '\\']).to_string();
+    let spelled = evolight_engine::import::browse_spelling(&dir).unwrap().to_string_lossy().trim_end_matches(['/', '\\']).to_string();
     crate::import::HELD_RESOLVES.lock().unwrap().push(given.clone());
     let start = std::time::Instant::now();
     let r = crate::import::browse(&mut h.app, &given, None).unwrap();

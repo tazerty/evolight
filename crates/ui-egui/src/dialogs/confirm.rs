@@ -1,9 +1,9 @@
 use super::cull::cull_params;
 use super::export::export_dialog_params;
-use super::{Dialog, LightcraftApp, json};
+use super::{Dialog, EvoLightApp, json};
 
 /// Runs a command that creates an album and asks the Albums tree to open the folders down to it.
-fn created_in(app: &mut LightcraftApp, command: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+fn created_in(app: &mut EvoLightApp, command: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
     let r = app.run(command, params)?;
     app.ui.reveal_album = r.get("id").and_then(serde_json::Value::as_u64);
     Ok(r)
@@ -11,8 +11,8 @@ fn created_in(app: &mut LightcraftApp, command: &str, params: serde_json::Value)
 
 /// The albums an Album rule in smart album `editing` picks from, in the sidebar's order: the album
 /// itself and any smart album that tests it (testing it back would loop) are blocked, with why.
-pub(crate) fn album_entries(cat: &lightcraft_catalog::Catalog, editing: Option<u64>) -> Vec<crate::album_picker::AlbumEntry> {
-    let editing = editing.map(lightcraft_catalog::AlbumId);
+pub(crate) fn album_entries(cat: &evolight_catalog::Catalog, editing: Option<u64>) -> Vec<crate::album_picker::AlbumEntry> {
+    let editing = editing.map(evolight_catalog::AlbumId);
     crate::album_picker::entries_from(cat, |a| match editing {
         Some(e) if a.id == e => Some(crate::i18n::tr("This is the album you're editing").to_string()),
         Some(e) if cat.album_reaches(a.id, e) => Some(crate::i18n::tr("It tests this album, so testing it back would loop").to_string()),
@@ -20,12 +20,12 @@ pub(crate) fn album_entries(cat: &lightcraft_catalog::Catalog, editing: Option<u
     })
 }
 
-pub fn confirm_dialog(app: &mut LightcraftApp, dlg: &Dialog) -> Result<serde_json::Value, String> {
+pub fn confirm_dialog(app: &mut EvoLightApp, dlg: &Dialog) -> Result<serde_json::Value, String> {
     match dlg {
         Dialog::LightroomResult { first, .. } => {
             if let Some(first) = first {
                 app.run("library.source", json!({"kind": "all"}))?;
-                let mut filter = serde_json::to_value(lightcraft_catalog::Filter::default()).map_err(|e| e.to_string())?;
+                let mut filter = serde_json::to_value(evolight_catalog::Filter::default()).map_err(|e| e.to_string())?;
                 // The filter command merges a patch; these defaults are omitted by serde.
                 filter["only"] = json!([]);
                 filter["labels"] = json!([]);
@@ -82,7 +82,7 @@ pub fn confirm_dialog(app: &mut LightcraftApp, dlg: &Dialog) -> Result<serde_jso
         ),
         Dialog::LabelNames { names, save_as } => {
             let mut m = serde_json::Map::new();
-            for (l, n) in lightcraft_catalog::ColorLabel::ALL.iter().zip(names) {
+            for (l, n) in evolight_catalog::ColorLabel::ALL.iter().zip(names) {
                 m.insert(format!("{l:?}").to_lowercase(), if n.trim().is_empty() { serde_json::Value::Null } else { json!(n.trim()) });
             }
             let r = app.run("label.setNames", json!({"names": m}));
@@ -142,12 +142,12 @@ pub fn confirm_dialog(app: &mut LightcraftApp, dlg: &Dialog) -> Result<serde_jso
         }
         Dialog::DeleteKeyword { keyword, .. } => app.run("keyword.delete", json!({"keyword": keyword})),
         Dialog::KeywordSet { replaces, name, slots, as_new } => {
-            use lightcraft_catalog::keywords::same;
+            use evolight_catalog::keywords::same;
             let name = name.trim();
             if name.is_empty() {
                 return Err(crate::i18n::tr("A keyword set needs a name").to_string());
             }
-            if same(name, lightcraft_engine::cmd::keywords::RECENT) {
+            if same(name, evolight_engine::cmd::keywords::RECENT) {
                 return Err(crate::i18n::tr("Recent Keywords is built in: choose another name").to_string());
             }
             // the set it renames: none when saving as new, or when it was deleted meanwhile (then it is
@@ -184,7 +184,7 @@ pub fn confirm_dialog(app: &mut LightcraftApp, dlg: &Dialog) -> Result<serde_jso
         }
         Dialog::SmartRules { id, name, rules, parent } => {
             // refused before anything changes (not even the name)
-            if let Some(problem) = rules.check_for(&app.session.catalog, id.map(lightcraft_catalog::AlbumId)).first() {
+            if let Some(problem) = rules.check_for(&app.session.catalog, id.map(evolight_catalog::AlbumId)).first() {
                 return Err(problem.to_string());
             }
             let name = if name.trim().is_empty() { "Smart Album".to_string() } else { name.trim().to_string() };

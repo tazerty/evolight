@@ -1,22 +1,22 @@
 //! Built-in presets and profiles (all values are our own; no third-party preset content), and
-//! preset files: our `.lcpreset` JSON (import + export, groups preserved) and XMP presets
+//! preset files: our `.evolightpreset` JSON (import + export, groups preserved) and XMP presets
 //! (`crs:` fields, read only — see [`crate::crs`]).
 
 use std::path::Path;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{DevelopSettings, Preset};
+use evolight_catalog::PhotoId;
+use evolight_develop::{DevelopSettings, Preset};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::Session;
 
-/// File extension of LightCraft preset files.
-pub const LCPRESET_EXT: &str = "lcpreset";
-/// The `format` tag of a `.lcpreset` file.
-pub const LCPRESET_FORMAT: &str = "lightcraft.preset";
+/// File extension of EvoLight preset files.
+pub const EVOLIGHTPRESET_EXT: &str = "evolightpreset";
+/// The `format` tag of a `.evolightpreset` file.
+pub const EVOLIGHTPRESET_FORMAT: &str = "evolight.preset";
 
-/// A `.lcpreset` file: one or more presets with their groups.
+/// A `.evolightpreset` file: one or more presets with their groups.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PresetFile {
     pub format: String,
@@ -105,27 +105,27 @@ pub fn slug(s: &str) -> String {
     if out.is_empty() { "preset".into() } else { out }
 }
 
-/// Serialise presets as a `.lcpreset` file (favourite/built-in flags are not exported).
-pub fn to_lcpreset(presets: &[Preset]) -> String {
+/// Serialise presets as a `.evolightpreset` file (favourite/built-in flags are not exported).
+pub fn to_evolightpreset(presets: &[Preset]) -> String {
     let presets = presets.iter().map(|p| Preset { favorite: false, builtin: false, ..p.clone() }).collect();
-    serde_json::to_string_pretty(&PresetFile { format: LCPRESET_FORMAT.into(), version: 1, presets }).unwrap_or_default()
+    serde_json::to_string_pretty(&PresetFile { format: EVOLIGHTPRESET_FORMAT.into(), version: 1, presets }).unwrap_or_default()
 }
 
-/// Read a preset file by name: `.lcpreset` (a [`PresetFile`], a bare preset object or an array of
+/// Read a preset file by name: `.evolightpreset` (a [`PresetFile`], a bare preset object or an array of
 /// presets) or `.xmp` (a `crs:` preset).
 pub fn parse_preset_file(name: &str, bytes: &[u8]) -> Result<Vec<Preset>, String> {
     let stem = Path::new(name).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "Preset".into());
     let ext = Path::new(name).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
     let text = String::from_utf8_lossy(bytes);
     let text = text.trim_start_matches('\u{feff}');
-    if ext == "xmp" || (ext != LCPRESET_EXT && text.trim_start().starts_with('<')) {
+    if ext == "xmp" || (ext != EVOLIGHTPRESET_EXT && text.trim_start().starts_with('<')) {
         return crate::crs::preset_from_xmp(text, &stem).map(|p| vec![p]).ok_or_else(|| "no develop settings in this XMP file".into());
     }
     let v: Value = serde_json::from_str(text).map_err(|e| format!("not a preset file: {e}"))?;
     let list = match &v {
         Value::Object(o) if o.contains_key("presets") => {
             let f: PresetFile = serde_json::from_value(v.clone()).map_err(|e| e.to_string())?;
-            if f.format != LCPRESET_FORMAT {
+            if f.format != EVOLIGHTPRESET_FORMAT {
                 return Err(format!("unknown preset format `{}`", f.format));
             }
             f.presets
@@ -152,11 +152,11 @@ pub fn parse_preset_file(name: &str, bytes: &[u8]) -> Result<Vec<Preset>, String
 }
 
 /// Expand files/folders (recursively, bounded: see [`crate::walk`]) into preset files
-/// (`.lcpreset`, `.xmp`).
+/// (`.evolightpreset`, `.xmp`).
 pub fn expand_preset_paths(paths: &[String]) -> Vec<String> {
     let preset_file = |p: &Path| {
         let ext = p.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
-        ext == LCPRESET_EXT || ["xmp", "lrtemplate", "zip", "lmp", "mplumpack", crate::cmd::mask_effect_files::EFFECT_EXT].contains(&ext.as_str())
+        ext == EVOLIGHTPRESET_EXT || ["xmp", "lrtemplate", "zip", "lmp", "mplumpack", crate::cmd::mask_effect_files::EFFECT_EXT].contains(&ext.as_str())
     };
     let mut out = Vec::new();
     for p in paths {
@@ -173,7 +173,7 @@ pub fn expand_preset_paths(paths: &[String]) -> Vec<String> {
 
 impl Session {
     /// The settings after applying `preset` to photo `id` at `amount`. The settings the preset
-    /// names are computed on the photo's import state ([`lightcraft_catalog::Photo::import_defaults`])
+    /// names are computed on the photo's import state ([`evolight_catalog::Photo::import_defaults`])
     /// when a default preset recorded one (`import_look`); a photo without one (its settings came
     /// from an XMP sidecar or a catalog import, which record none) composes them on its current
     /// settings instead, since the camera defaults are not its import state. Either way, the
@@ -618,7 +618,7 @@ mod tests {
 
     #[test]
     fn builtin_presets_parse_and_apply() {
-        let base = lightcraft_develop::DevelopSettings::default();
+        let base = evolight_develop::DevelopSettings::default();
         let mut ids = std::collections::HashSet::new();
         for pr in builtin() {
             assert!(ids.insert(pr.id.clone()));
@@ -671,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    fn lcpreset_export_import_roundtrip_keeps_groups() {
+    fn evolightpreset_export_import_roundtrip_keeps_groups() {
         let d = dir("rt");
         let mut s = Session::with_demo();
         s.execute("develop.set", &json!({"control": "light.exposure", "value": 0.6})).unwrap();
@@ -683,9 +683,9 @@ mod tests {
         let path = d.join("mine");
         let r = s.execute("preset.export", &json!({"path": path.to_string_lossy()})).unwrap();
         assert_eq!(r["count"], 2);
-        let file = d.join("mine.lcpreset");
+        let file = d.join("mine.evolightpreset");
         assert!(file.is_file());
-        let one = d.join("travel.lcpreset");
+        let one = d.join("travel.evolightpreset");
         s.execute("preset.export", &json!({"path": one.to_string_lossy(), "group": "Travel"})).unwrap();
         assert!(s.execute("preset.export", &json!({"path": one.to_string_lossy(), "group": "Nope"})).is_err());
 
@@ -711,9 +711,9 @@ mod tests {
         let builtin = builtin().remove(0);
         let mut clash = builtin.clone();
         clash.settings = json!({"light": {"exposure": 1.0}});
-        std::fs::write(d.join("a.lcpreset"), serde_json::to_string(&clash).unwrap()).unwrap();
-        std::fs::write(d.join("b.lcpreset"), "{not json").unwrap();
-        std::fs::write(d.join("c.lcpreset"), r#"{"format": "other", "version": 1, "presets": []}"#).unwrap();
+        std::fs::write(d.join("a.evolightpreset"), serde_json::to_string(&clash).unwrap()).unwrap();
+        std::fs::write(d.join("b.evolightpreset"), "{not json").unwrap();
+        std::fs::write(d.join("c.evolightpreset"), r#"{"format": "other", "version": 1, "presets": []}"#).unwrap();
         std::fs::write(d.join("notes.txt"), "ignored inside folders").unwrap();
         let mut s = Session::new();
         let r = s.execute("preset.import", &json!({"paths": [d.to_string_lossy()]})).unwrap();
@@ -754,10 +754,10 @@ mod tests {
         let mut s = Session::with_demo();
         s.execute("preset.apply", &json!({"id": "lc.bw-high-contrast"})).unwrap();
         let dv = s.develop_of(s.active().unwrap()).unwrap();
-        assert_eq!(dv.treatment, lightcraft_develop::Treatment::Bw);
+        assert_eq!(dv.treatment, evolight_develop::Treatment::Bw);
         s.execute("preset.apply", &json!({"id": "lc.warm-glow"})).unwrap();
         let dv = s.develop_of(s.active().unwrap()).unwrap();
-        assert_eq!(dv.treatment, lightcraft_develop::Treatment::Color, "the color preset restores the treatment");
+        assert_eq!(dv.treatment, evolight_develop::Treatment::Color, "the color preset restores the treatment");
         assert_eq!(dv.light.contrast, 8.0, "the color preset's values, not the B&W preset's");
         assert_eq!(dv.light.whites, 20.0, "a setting the color preset doesn't name keeps the B&W preset's value");
     }
@@ -841,8 +841,8 @@ mod tests {
         look.light.blacks = -10.0;
         p.import_look = Some(std::sync::Arc::new(look.clone()));
         p.develop = std::sync::Arc::new(look);
-        s.catalog.apply(lightcraft_catalog::Op::RemovePhoto { id: p.id }).unwrap();
-        s.catalog.apply(lightcraft_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::RemovePhoto { id: p.id }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
         s.execute("develop.set", &json!({"control": "light.exposure", "value": 2.0})).unwrap();
         s.execute("develop.set", &json!({"control": "light.blacks", "value": -30.0})).unwrap();
         s.execute("preset.apply", &json!({"id": "lc.bright-airy", "amount": 50})).unwrap();
@@ -865,11 +865,11 @@ mod tests {
         let look = p.camera_defaults();
         p.import_look = Some(std::sync::Arc::new(look.clone()));
         p.develop = std::sync::Arc::new(look);
-        s.catalog.apply(lightcraft_catalog::Op::RemovePhoto { id: p.id }).unwrap();
-        s.catalog.apply(lightcraft_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::RemovePhoto { id: p.id }).unwrap();
+        s.catalog.apply(evolight_catalog::Op::AddPhoto { photo: Box::new(p) }).unwrap();
         s.execute("crop.aspect", &json!({"aspect": [3, 2]})).unwrap();
         assert!(s.develop_of(id).unwrap().crop.aspect.is_some(), "the aspect is locked for this test");
-        let added = s.add_presets(vec![lightcraft_develop::Preset {
+        let added = s.add_presets(vec![evolight_develop::Preset {
             id: "user.free-aspect".into(),
             name: "Free aspect".into(),
             group: "Test".into(),

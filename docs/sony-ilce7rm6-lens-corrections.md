@@ -1,7 +1,7 @@
 # Sony ARW lens corrections
 
 Sony cameras record three lens-correction tables in the raw IFD of every ARW: distortion, vignetting and lateral
-chromatic aberration (CA). LightCraft reads them and turns distortion into a DNG `WarpRectilinear` opcode, so it
+chromatic aberration (CA). EvoLight reads them and turns distortion into a DNG `WarpRectilinear` opcode, so it
 reaches the same **Optics ▸ Enable Lens Corrections** (`optics.lens_profile`) as a DNG's embedded warp and Panasonic's
 RW2 distortion data. Lateral CA is parsed and converts to the warp's red and blue planes, but it is **off by default**:
 applied after demosaic it made the render's CA worse (Verification). Vignetting is read but not applied (below). The
@@ -129,7 +129,7 @@ the APS-C half diagonal / 10 = 372.09 px:
 | Uncorrected | 3.8–5.6 px (19 photos; on the other 11 the shift exceeds the method's ±20 px search) |
 | Sensor-fixed 400 px (the ILCE-7RM6's pixel spacing) | 0.56–3.71 px (passes only at 10 mm) |
 | **Half diagonal / 10 = 372 px, unit 15000** (exact table) | **0.23–0.68 px on 27 photos (median 0.43); 1.34–1.42 px on the three 10 mm photos** |
-| The same as LightCraft renders it (`lightcraft-cli render`, Enable Lens Corrections on, fitted polynomial) | **0.22–0.73 px on 27 photos (median 0.44); 1.36–1.38 px at 10 mm** |
+| The same as EvoLight renders it (`evolight-cli render`, Enable Lens Corrections on, fitted polynomial) | **0.22–0.73 px on 27 photos (median 0.44); 1.36–1.38 px at 10 mm** |
 
 Units 14000–17000 and a reading that drops the first table value as a non-knot (10 knots over the half diagonal,
 413 px) were also scanned; none keeps all 30 within 0.75 px, and 15000 gives the lowest worst case at 372 px. The
@@ -153,7 +153,7 @@ over spacing 372–426 px and unit 14000–16500 was measured on the exact table
 shooting location: 63 to choose the values, 34 to check them. A larger spacing with a smaller unit fits about as well
 (a ridge in the grid): 420 px / 14000 was best on the 63 choice photos (0.445 px worst) but put 2 of the 34 check photos
 above 0.75 px, so the pick is **416 px / 14250**, within 0.51 px on both sets.
-As rendered (`lightcraft-cli render`, Enable Lens Corrections on):
+As rendered (`evolight-cli render`, Enable Lens Corrections on):
 
 | Sigma 10–18 mm | p95 at 1440 px |
 |---|---|
@@ -212,7 +212,7 @@ weaker correction) than the 24–70 GM II's pincushion end with similar table va
 at the corner), under both indexings and every knot spacing tried (0.94–1.12 ×: the ratio of the two lenses' best
 units stays 1.053–1.073). A's 15000 is the compromise that keeps every photo within 0.6 px; 16384 is the 200–600's
 value. That rests on 3 measurable 200–600 photos (594–600 mm). The ILCE-7RM4A's own wide-angle evidence is its
-weakest: its On/Off pairs are all 200–600, and its 24 mm check (LightCraft export against Sony's TIFF) is median 0.35 /
+weakest: its On/Off pairs are all 200–600, and its 24 mm check (EvoLight export against Sony's TIFF) is median 0.35 /
 95th percentile 1.04 px at 2376 px. On its `WIDE` unit-test table the two formulas differ by up to 2.49 px at 1440 at
 the corner (computed from the formulas, not measured).
 
@@ -250,7 +250,7 @@ off (the 12 RawDB files and one private photo). Only aggregate numbers per lens 
   only 0.54 of the half diagonal are not). 108 hypotheses (radius norm, knot placement, relative or absolute, table
   indexed at the corrected or the source radius, zoom rule), each with its best unit, were compared.
 - **Lateral CA (raw CFA).** The demosaiced render shows only 25–60 % of the lens's CA and the JPEG's 4:2:2 chroma
-  and noise reduction hide it, so CA was measured on the raw: from LightCraft's uncompressed CFA DNG export, the
+  and noise reduction hide it, so CA was measured on the raw: from EvoLight's uncompressed CFA DNG export, the
   red (blue) plane against green interpolated at the same sites (4-neighbour mean), square-root encoded, 2 × 2
   binned; 40 px blocks every 24 px, ±3 px NCC search, radial component, median per 16 radial bins.
 - **Vignetting (exposure brackets).** The JPEG is resampled into the render's geometry; per pixel and channel, the
@@ -325,7 +325,7 @@ corrected and uncorrected renders differ on all 54; by default each gets the one
 
 ## Performance
 
-`LIGHTCRAFT_PROFILE=1` renders of the full-frame lossless file and the full-frame Compressed HQ file (corpus
+`EVOLIGHT_PROFILE=1` renders of the full-frame lossless file and the full-frame Compressed HQ file (corpus
 `arw-sony-ilce7rm6-ff-land-lossless.arw`, `arw6-sony-ilce7rm6-ff-land-hq.arw`), on a 4-core laptop shared with other
 builds (so absolute times are high); the fastest of 3–5 runs. The warp runs in the `sample` stage:
 

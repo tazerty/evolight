@@ -1,6 +1,6 @@
-use super::{LightcraftApp, SCREEN_PROFILE, theme};
+use super::{EvoLightApp, SCREEN_PROFILE, theme};
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// The system's appearance: the host's answer first, then egui's (none: unknown).
     pub fn system_theme(&self, ctx: &egui::Context) -> Option<egui::Theme> {
         self.services.system_theme.as_ref().and_then(|read| read(ctx)).or_else(|| ctx.system_theme())
@@ -38,13 +38,13 @@ impl LightcraftApp {
             // GPU device + kernels off the UI thread, once the window is up and only when GPU
             // rendering is on: a broken driver must not keep the window from appearing (issue #136)
             if self.ui.settings.gpu {
-                lightcraft_engine::gpu::warm_up();
+                evolight_engine::gpu::warm_up();
             }
         }
         let mb = self.ui.settings.memory_mb;
         // automatic at startup: leave the engine's default alone
         if self.memory_applied != Some(mb) && (mb > 0 || self.memory_applied.is_some()) {
-            let mb = if mb == 0 { (lightcraft_engine::memory::default_budget() >> 20) as u32 } else { mb };
+            let mb = if mb == 0 { (evolight_engine::memory::default_budget() >> 20) as u32 } else { mb };
             let _ = self.session.execute("app.memoryBudget", &serde_json::json!({"mb": mb}));
         }
         self.memory_applied = Some(mb);
@@ -57,7 +57,7 @@ impl LightcraftApp {
         // the monitor profile (Settings ▸ Display): previews follow it from the next frame
         if self.display_applied.as_ref() != Some(&self.ui.settings.display_profile) {
             let path = self.ui.settings.display_profile.clone();
-            match lightcraft_engine::display::Display::load_opt(&path) {
+            match evolight_engine::display::Display::load_opt(&path) {
                 Ok(d) => {
                     self.renderer.set_display(d);
                     self.display_error = None;
@@ -111,7 +111,7 @@ impl LightcraftApp {
         if icc == self.screen_profile {
             return;
         }
-        let display = icc.as_deref().and_then(|bytes| match lightcraft_engine::display::Display::from_bytes(SCREEN_PROFILE, bytes) {
+        let display = icc.as_deref().and_then(|bytes| match evolight_engine::display::Display::from_bytes(SCREEN_PROFILE, bytes) {
             Ok(d) => Some(std::sync::Arc::new(d)),
             Err(msg) => {
                 // a profile we can't use: previews stay sRGB, as before #787

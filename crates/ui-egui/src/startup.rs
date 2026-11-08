@@ -42,7 +42,7 @@ pub fn parse_version(version: &str) -> Option<(u64, u64, u64)> {
 pub const LEGACY_SEEN_VERSION: &str = "0.0.0";
 
 /// The legacy `seenVersion` migration both settings loaders share — the desktop settings file
-/// (`lightcraft`'s `prefs`) and the browser's stored `ui.json` — applied to the parsed JSON
+/// (`evolight`'s `prefs`) and the browser's stored `ui.json` — applied to the parsed JSON
 /// object before it deserializes into [`crate::state::UiState`]. A saved file from before the
 /// startup dialog existed has no `seenVersion` key, and the file's existence means an
 /// installation that has been run, due What's New — never the first-run tour. A file this

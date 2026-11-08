@@ -4,14 +4,14 @@
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 use serde_json::json;
 use std::time::Duration;
 
 const T: Duration = Duration::from_secs(20);
 
 fn demo() -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 1000.0], 1.0);
     h.settle(T);
     h
@@ -136,7 +136,7 @@ fn export_confirm_says_how_many_photos() {
 fn the_move_confirm_counts_restored_photos_apart_from_moved_ones() {
     let mut h = demo();
     let review = |copy: bool, move_files: bool, on_deleted: &str, checked: [bool; 3]| {
-        let candidates = (0..3).map(|i| lightcraft_engine::import::ImportCandidate { path: format!("img{i}.jpg"), ..Default::default() }).collect();
+        let candidates = (0..3).map(|i| evolight_engine::import::ImportCandidate { path: format!("img{i}.jpg"), ..Default::default() }).collect();
         let mut opts = crate::import::ImportDialog::new(candidates);
         opts.copy = copy;
         opts.move_files = move_files;
@@ -210,7 +210,7 @@ fn counts_agree_with_their_nouns() {
     // contact sheet: one photo, then two
     for n in [1usize, 2] {
         select(&mut h, n);
-        let options = serde_json::to_value(lightcraft_engine::contact_sheet::Options::default()).unwrap();
+        let options = serde_json::to_value(evolight_engine::contact_sheet::Options::default()).unwrap();
         show(&mut h, dialog(json!({"kind": "contactSheet", "options": options})));
         let text = text_with(&h, &format!("{n} selected photo"));
         assert_eq!(text, if n == 1 { "1 selected photo · 1 page" } else { "2 selected photos · 1 page" });
@@ -226,7 +226,7 @@ fn counts_agree_with_their_nouns() {
     show(
         &mut h,
         dialog(
-            json!({"kind": "slideshowExport", "settings": serde_json::to_value(lightcraft_engine::slideshow_export::ExportSettings::default()).unwrap()}),
+            json!({"kind": "slideshowExport", "settings": serde_json::to_value(evolight_engine::slideshow_export::ExportSettings::default()).unwrap()}),
         ),
     );
     let text = h.painted_text().into_iter().find(|t| t.contains("in view")).unwrap_or_default();

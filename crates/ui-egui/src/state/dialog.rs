@@ -3,7 +3,7 @@ use super::{Deserialize, Serialize};
 /// Settings group ids (`SettingsGroup` serde names) a new preset includes by default: everything
 /// but crop, masks, spots and red eye.
 pub fn default_preset_groups() -> Vec<String> {
-    lightcraft_develop::SettingsGroup::default_copy().iter().filter_map(|g| serde_json::to_value(g).ok()?.as_str().map(str::to_string)).collect()
+    evolight_develop::SettingsGroup::default_copy().iter().filter_map(|g| serde_json::to_value(g).ok()?.as_str().map(str::to_string)).collect()
 }
 
 impl Dialog {
@@ -37,11 +37,11 @@ pub enum Dialog {
     /// and the selected cell are [`UiState::print`].
     Print,
     ContactSheet {
-        options: lightcraft_engine::contact_sheet::Options,
+        options: evolight_engine::contact_sheet::Options,
     },
     /// View ▸ Export Slideshow…: format, size, quality, frame rate, container.
     SlideshowExport {
-        settings: lightcraft_engine::slideshow_export::ExportSettings,
+        settings: evolight_engine::slideshow_export::ExportSettings,
     },
     /// `parent`: the folder to create it in (none: the top level). `include_selected`: the new album
     /// holds the selected photos (Lightroom's "Include selected photos"; folders hold none).
@@ -205,7 +205,7 @@ pub enum Dialog {
     SmartRules {
         id: Option<u64>,
         name: String,
-        rules: lightcraft_catalog::RuleSet,
+        rules: evolight_catalog::RuleSet,
         /// The folder a new smart album is created in (ignored when editing).
         #[serde(default)]
         parent: Option<u64>,
@@ -226,9 +226,9 @@ pub enum Dialog {
     },
     /// `resize` is used unless `full_size`; `limit_kb` 0 = no limit; `dir` empty = default export folder.
     Export {
-        opts: lightcraft_engine::export::ExportOptions,
+        opts: evolight_engine::export::ExportOptions,
         full_size: bool,
-        resize: lightcraft_engine::export::Resize,
+        resize: evolight_engine::export::Resize,
         /// Name typed for "Save as Preset".
         #[serde(default)]
         preset_name: String,

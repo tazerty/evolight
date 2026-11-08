@@ -1,18 +1,18 @@
 //! The lens database is offered once, on the first launch, and downloaded only after a click: Download in the offer
 //! or in Settings. Not Now downloads nothing and the next start doesn't ask; an installed database and headless
-//! hosts (CLI, MCP) never ask (`crate::lens_db`, `lightcraft_engine::lensfun_download::fetch_on_start`).
+//! hosts (CLI, MCP) never ask (`crate::lens_db`, `evolight_engine::lensfun_download::fetch_on_start`).
 
-use lightcraft_engine::lensfun_download::{self, Offer, Start};
-use lightcraft_engine::{Session, lens_profiles};
+use evolight_engine::lensfun_download::{self, Offer, Start};
+use evolight_engine::{Session, lens_profiles};
 
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 /// A desktop-like app (allowed to ask) and a folder of this test's own for the database.
-fn desktop(name: &str) -> (LightcraftApp, std::path::PathBuf) {
+fn desktop(name: &str) -> (EvoLightApp, std::path::PathBuf) {
     let mut session = Session::with_demo();
     session.lens_auto_download = true;
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     let root = std::env::temp_dir().join(format!("lc-lens-offer-{name}-{}-{unique}", std::process::id()));
     (app, root)
@@ -23,7 +23,7 @@ fn offline() -> Vec<String> {
     vec!["http://127.0.0.1:1/db".into()]
 }
 
-fn wait_idle(app: &LightcraftApp) {
+fn wait_idle(app: &EvoLightApp) {
     let t0 = std::time::Instant::now();
     while app.session.lensfun.running() && t0.elapsed() < std::time::Duration::from_secs(60) {
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -100,7 +100,7 @@ fn an_installed_database_is_not_offered() {
 /// A headless app (CLI snapshot, MCP) never shows the offer and never fetches, whatever the settings say.
 #[test]
 fn a_headless_app_never_offers_or_fetches() {
-    let mut app = LightcraftApp::new(Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(Session::with_demo(), Services { png: None, ..Default::default() });
     assert!(!app.session.lens_auto_download);
     for offer in [Offer::Ask, Offer::Accepted] {
         app.ui.settings.lens_database = offer;
@@ -117,7 +117,7 @@ fn a_headless_app_never_offers_or_fetches() {
 fn a_download_that_cannot_start_keeps_the_offer_open_and_says_why() {
     use crate::headless::Headless;
     let t = std::time::Duration::from_secs(20);
-    let app = LightcraftApp::new(Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 900.0], 1.0);
     h.step();
     let root = std::env::temp_dir().join(format!("lc-lens-offer-fail-{}", std::process::id()));

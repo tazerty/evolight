@@ -3,11 +3,11 @@
 
 use std::time::Duration;
 
-use lightcraft_catalog::Rule;
+use evolight_catalog::Rule;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -54,7 +54,7 @@ struct Library {
 /// [UTILS] > Excluded (smart), Uncurated (smart); Trip; and the rule editor on a new album with one
 /// Album rule.
 fn library() -> Library {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     let utils = id(exec(&mut h, "album.create", json!({"name": "[UTILS]", "folder": true})));
     let excluded = id(exec(&mut h, "album.createSmart", json!({"name": "Excluded", "rules": {"rating": 1}, "parent": utils})));
@@ -194,7 +194,7 @@ mod import_review {
 
     /// Build the import review fixture at the requested logical size and display density.
     fn review_at(size: [f32; 2], density: f32) -> Review {
-        let app = LightcraftApp::new(lightcraft_engine::Session::with_demo().with_fs(), Services { png: None, ..Default::default() });
+        let app = EvoLightApp::new(evolight_engine::Session::with_demo().with_fs(), Services { png: None, ..Default::default() });
         let mut h = Headless::new(app, size, density);
         let folder = id(exec(&mut h, "album.create", json!({"name": "Travel", "folder": true})));
         let nested = id(exec(&mut h, "album.create", json!({"name": "2026", "folder": true, "parent": folder})));
@@ -408,7 +408,7 @@ mod import_review {
     /// An empty catalog still offers None and New without inventing an existing destination.
     #[test]
     fn import_album_picker_handles_an_empty_catalog() {
-        let app = LightcraftApp::new(lightcraft_engine::Session::new(), Services { png: None, ..Default::default() });
+        let app = EvoLightApp::new(evolight_engine::Session::new(), Services { png: None, ..Default::default() });
         let mut h = Headless::new(app, [1000.0, 800.0], 1.0);
         h.app.ui.dialog = Some(crate::state::Dialog::Import { opts: Box::new(crate::import::ImportDialog::new(Vec::new())) });
         assert!(h.settle(SETTLE));
@@ -436,8 +436,8 @@ mod import_review {
         let path = std::env::temp_dir().join(format!("lc-import-tree-{}-{unique}", std::process::id()));
         std::fs::create_dir(&path).unwrap();
         let pixels =
-            lightcraft_raster::Rgba8 { width: 40, height: 30, data: (0..1200).map(|i| [(i % 40 * 6) as u8, 31, (i / 40 * 8) as u8, 255]).collect() };
-        let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&pixels), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+            evolight_raster::Rgba8 { width: 40, height: 30, data: (0..1200).map(|i| [(i % 40 * 6) as u8, 31, (i / 40 * 8) as u8, 255]).collect() };
+        let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&pixels), &evolight_codecs::EncodeMeta::default()).unwrap();
         std::fs::write(path.join("hierarchy.png"), png).unwrap();
         Fixture(path)
     }
@@ -447,7 +447,7 @@ mod import_review {
     /// A destination deleted while the review is open falls back to no album before confirmation.
     #[test]
     fn import_album_picker_delivers_to_the_chosen_destination_and_undoes() {
-        use lightcraft_catalog::PhotoId;
+        use evolight_catalog::PhotoId;
         for choice in ["existing", "new", "none", "deleted"] {
             let fixture = fixture();
             let Review { mut h, album, other, .. } = review();
@@ -484,7 +484,7 @@ mod import_review {
             assert!(h.settle(SETTLE));
             let added: Vec<PhotoId> = h.app.session.catalog.photos().filter(|p| !before.contains(&p.id)).map(|p| p.id).collect();
             assert_eq!(added.len(), 1, "{choice}: exactly the scanned photo is imported");
-            let receives = |id| h.app.session.catalog.album(lightcraft_catalog::AlbumId(id)).unwrap().photos.contains(&added[0]);
+            let receives = |id| h.app.session.catalog.album(evolight_catalog::AlbumId(id)).unwrap().photos.contains(&added[0]);
             assert!(!receives(other), "same-named album outside the chosen folder is untouched");
             match choice {
                 "existing" => assert!(receives(album)),

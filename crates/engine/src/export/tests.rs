@@ -19,7 +19,7 @@ fn opaque_eight_bit_exports_are_rgb() {
         for compression in [TiffCompression::None, TiffCompression::Lzw, TiffCompression::Deflate, TiffCompression::PackBits] {
             let options = ExportOptions { format, tiff_compression: compression, ..Default::default() };
             let bytes = encode_with_metadata(&img, &options, Some(&metadata)).unwrap();
-            let decoded = lightcraft_codecs::decode(&bytes, Default::default()).unwrap();
+            let decoded = evolight_codecs::decode(&bytes, Default::default()).unwrap();
             assert!(!decoded.has_alpha, "{format:?}/{compression:?} must be RGB");
             assert_eq!((decoded.width, decoded.height, decoded.bit_depth), (96, 64, 8));
             assert_eq!(decoded.to_srgb8().data, img.data, "{format:?}/{compression:?} pixels");
@@ -41,7 +41,7 @@ fn eight_bit_exports_preserve_real_alpha() {
     img.data[0][3] = 128;
     for format in [ExportFormat::Png, ExportFormat::Tiff, ExportFormat::Webp] {
         let bytes = encode_image(&img, &ExportOptions { format, ..Default::default() }).unwrap();
-        let decoded = lightcraft_codecs::decode(&bytes, Default::default()).unwrap();
+        let decoded = evolight_codecs::decode(&bytes, Default::default()).unwrap();
         assert!(decoded.has_alpha, "{format:?} must retain real alpha");
         assert_eq!(decoded.to_srgb8().data, img.data, "{format:?} samples");
     }
@@ -77,14 +77,14 @@ fn hdr_jpeg_size_limit_respected() {
         width: img.width,
         height: img.height,
         space: OutputSpace::Srgb,
-        samples: DeepSamples::F32(img.data.iter().flat_map(|p| p[..3].iter().map(|v| lightcraft_color::transfer::decode_srgb8(*v) * 4.0)).collect()),
+        samples: DeepSamples::F32(img.data.iter().flat_map(|p| p[..3].iter().map(|v| evolight_color::transfer::decode_srgb8(*v) * 4.0)).collect()),
     };
     let opts = ExportOptions { hdr: true, quality: 100, limit_kb: Some(u32::MAX), ..Default::default() };
     let full = encode_gain_map_jpeg(&img, &hdr, &opts, None).unwrap();
     let kb = (full.len() / 2048) as u32;
     let limited = encode_gain_map_jpeg(&img, &hdr, &ExportOptions { limit_kb: Some(kb), ..opts.clone() }, None).unwrap();
     assert!(limited.len() <= kb as usize * 1024, "{} bytes exceeds {kb} KB", limited.len());
-    let decoded = lightcraft_codecs::gainmap::read_jpeg(&limited).unwrap();
+    let decoded = evolight_codecs::gainmap::read_jpeg(&limited).unwrap();
     assert!(decoded.meta.alternate_headroom > 1.0, "the gain map must survive size limiting");
     let impossible = encode_gain_map_jpeg(&img, &hdr, &ExportOptions { limit_kb: Some(1), ..opts }, None);
     assert!(impossible.is_err_and(|e| e.contains("cannot fit within 1 KB")));
@@ -96,9 +96,9 @@ fn graphic_watermark_honours_exif_orientation() {
     std::fs::create_dir_all(&dir).unwrap();
     let logo = Rgba8::from_fn(40, 20, |x, _| if x < 20 { [255, 0, 0, 255] } else { [0, 0, 255, 255] });
     for orientation in [2, 6] {
-        let meta = Metadata { orientation: Some(lightcraft_geom::Orientation::from_exif(orientation)), ..Default::default() };
-        let exif = lightcraft_meta::write_exif(&meta);
-        let bytes = lightcraft_codecs::encode_jpeg(
+        let meta = Metadata { orientation: Some(evolight_geom::Orientation::from_exif(orientation)), ..Default::default() };
+        let exif = evolight_meta::write_exif(&meta);
+        let bytes = evolight_codecs::encode_jpeg(
             &EncodeImage::rgba8(&logo),
             100,
             ChromaSubsampling::S444,
@@ -132,7 +132,7 @@ fn graphic_watermark_keeps_aspect_when_fitted_and_rotated() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("tall.png");
     let logo = Rgba8::from_fn(40, 160, |_, _| [255, 0, 0, 255]);
-    std::fs::write(&path, lightcraft_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap()).unwrap();
+    std::fs::write(&path, evolight_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap()).unwrap();
     for (rotation, expected) in [(0, (20, 80)), (90, (120, 30)), (180, (20, 80)), (270, (120, 30))] {
         let wm = Watermark {
             image: path.to_string_lossy().into(),
@@ -161,7 +161,7 @@ fn graphic_watermark_fit_preserves_anchor_insets() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("tall.png");
     let logo = Rgba8::from_fn(40, 160, |_, _| [255, 0, 0, 255]);
-    std::fs::write(&path, lightcraft_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap()).unwrap();
+    std::fs::write(&path, evolight_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap()).unwrap();
     use Anchor::*;
     for (anchor, rotation, expected) in [
         (BottomRight, 90, (0, 44, 111, 71)),
@@ -250,7 +250,7 @@ const SHARPENED: [u64; 9] = [
 /// a keyword left out of export. They used to carry the `a|b` paths in `dc:subject`.
 #[test]
 fn exported_keywords_follow_their_options() {
-    use lightcraft_catalog::{Catalog, Op, Photo, PhotoId, Source, keywords::KeywordInfo};
+    use evolight_catalog::{Catalog, Op, Photo, PhotoId, Source, keywords::KeywordInfo};
     let mut c = Catalog::new();
     c.apply(Op::SetKeyword { path: "Places".into(), info: Some(KeywordInfo { include_on_export: false, ..KeywordInfo::default() }) }).unwrap();
     c.apply(Op::SetKeyword { path: "draft".into(), info: Some(KeywordInfo { include_on_export: false, ..KeywordInfo::default() }) }).unwrap();
@@ -260,17 +260,17 @@ fn exported_keywords_follow_their_options() {
     assert_eq!(m.keywords, ["Lisbon", "Italy", "travel"]);
     assert_eq!(m.hierarchical_keywords, ["Places|Lisbon", "travel|Italy"]);
     let jpg = encode_with_metadata(&test_image(), &ExportOptions::default(), Some(&m)).unwrap();
-    let back = lightcraft_meta::extract(&jpg);
+    let back = evolight_meta::extract(&jpg);
     assert_eq!((back.keywords, back.hierarchical_keywords), (m.keywords.clone(), m.hierarchical_keywords.clone()));
 }
 
 #[test]
 fn metadata_policies() {
-    use lightcraft_catalog::{Catalog, Photo, PhotoId, Source};
+    use evolight_catalog::{Catalog, Photo, PhotoId, Source};
     let mut p = Photo::new(PhotoId(1), Source::Demo { scene: 0 }, "a.jpg", "jpeg", 10, 10, "2026-09-30T00:00:00");
     p.meta.camera = "Synthetic X2".into();
     p.meta.copyright = "(c) Me".into();
-    p.meta.copyright_status = lightcraft_catalog::CopyrightStatus::Copyrighted;
+    p.meta.copyright_status = evolight_catalog::CopyrightStatus::Copyrighted;
     p.meta.usage_terms = "Editorial use only".into();
     p.meta.copyright_url = "https://example.com/rights".into();
     p.meta.shutter = "1/250".into();
@@ -292,7 +292,7 @@ fn metadata_policies() {
     assert!(export_metadata(&p, &Catalog::new(), &ExportOptions { metadata: MetadataPolicy::None, ..Default::default() }).is_none());
     // embedded and readable back from the JPEG
     let jpg = encode_with_metadata(&test_image(), &ExportOptions::default(), Some(&all)).unwrap();
-    let back = lightcraft_meta::extract(&jpg);
+    let back = evolight_meta::extract(&jpg);
     assert_eq!(back.model.as_deref(), Some("Synthetic X2"));
     assert_eq!(back.copyright.as_deref(), Some("(c) Me"));
     assert_eq!((back.copyright_marked, back.usage_terms.as_deref()), (Some(true), Some("Editorial use only")));
@@ -306,7 +306,7 @@ fn watermark_draws_in_the_anchored_corner_only() {
     for p in img.data.iter_mut() {
         *p = [0, 0, 0, 255];
     }
-    let o = ExportOptions::from_json(&serde_json::json!({"watermark": {"text": "LightCraft", "size": 0.08, "opacity": 1.0, "shadow": false}}));
+    let o = ExportOptions::from_json(&serde_json::json!({"watermark": {"text": "EvoLight", "size": 0.08, "opacity": 1.0, "shadow": false}}));
     let wm = o.watermark.clone().unwrap();
     draw_watermark(&mut img, &wm);
     let lit = |x0: usize, x1: usize, y0: usize, y1: usize| {
@@ -365,7 +365,7 @@ fn watermark_rotation_turns_the_text_in_its_corner() {
         let (y0, y1) = (on.iter().map(|p| p.1).min().unwrap(), on.iter().map(|p| p.1).max().unwrap());
         (x0, x1, y0, y1, img)
     };
-    let base = Watermark { text: "LightCraft".into(), size: 0.08, opacity: 1.0, shadow: false, inset_x: 0.0, inset_y: 0.0, ..Default::default() };
+    let base = Watermark { text: "EvoLight".into(), size: 0.08, opacity: 1.0, shadow: false, inset_x: 0.0, inset_y: 0.0, ..Default::default() };
     let (a0, a1, b0, b1, flat) = lit(&base);
     assert!(a1 - a0 > 2 * (b1 - b0), "unturned text is wide");
     for rotation in [90, 270] {
@@ -391,7 +391,7 @@ fn watermark_rotation_turns_the_text_in_its_corner() {
 /// clamped to 6 px in a 150 px export covers the same share of a 600 px preview.
 #[test]
 fn watermark_preview_scales_the_minimum_text_size() {
-    let wm = Watermark { text: "LightCraft".into(), size: 0.01, opacity: 1.0, shadow: false, ..Default::default() };
+    let wm = Watermark { text: "EvoLight".into(), size: 0.01, opacity: 1.0, shadow: false, ..Default::default() };
     let rows = |img: &Rgba8| (0..img.height).filter(|&y| (0..img.width).any(|x| img.get(x, y)[0] > 64)).count() as f32;
     let mut export = Rgba8::new(200, 150);
     draw_watermark(&mut export, &wm);
@@ -423,12 +423,12 @@ fn japanese_watermark_options_and_legacy_defaults() {
     assert!(round.vertical);
 }
 
-/// Built without craft-fonts, a Japanese watermark still lays out and draws (Inter's
+/// Built without evo-fonts, a Japanese watermark still lays out and draws (Inter's
 /// missing-glyph boxes), and Latin text is unaffected.
 #[test]
-fn watermarks_work_without_craft_fonts() {
+fn watermarks_work_without_evo_fonts() {
     assert_eq!(watermark_fonts(&[]).len(), 1, "Inter only");
-    for wm in [vertical_japanese(), Watermark { text: "LightCraft 日本語".into(), ..Watermark::default() }] {
+    for wm in [vertical_japanese(), Watermark { text: "EvoLight 日本語".into(), ..Watermark::default() }] {
         let mut covered = 0usize;
         watermark_coverage(400, 300, &wm, &[], 1.0, |_, _, k, _| covered += usize::from(k > 0.0));
         assert!(covered > 0, "{:?} draws something", wm.text);
@@ -438,8 +438,8 @@ fn watermarks_work_without_craft_fonts() {
 #[test]
 fn biz_ud_vertical_watermarks_place_punctuation_at_the_top_right() {
     use ab_glyph::Font;
-    let Some(entry) = crate::fonts::CRAFT_FONTS.iter().find(|f| f.family == "BIZ UDMincho") else {
-        lightcraft_testkit::skip!(Fonts, "built without BIZ UDMincho from craft-fonts");
+    let Some(entry) = crate::fonts::EVO_FONTS.iter().find(|f| f.family == "BIZ UDMincho") else {
+        evolight_testkit::skip!(Fonts, "built without BIZ UDMincho from evo-fonts");
         return;
     };
     let font = ab_glyph::FontRef::try_from_slice(entry.bytes).unwrap();
@@ -453,8 +453,8 @@ fn biz_ud_vertical_watermarks_place_punctuation_at_the_top_right() {
         let rect = font.outline_glyph(glyph).unwrap().px_bounds();
         assert!(rect.min.x > 50.0 && rect.max.y < 50.0, "{ch} in the upper right: {rect:?}");
     }
-    let craft = Box::leak(
-        vec![crate::fonts::CraftFont { family: entry.family, style: entry.style, scripts: entry.scripts, bytes: entry.bytes }].into_boxed_slice(),
+    let evo = Box::leak(
+        vec![crate::fonts::EvoFont { family: entry.family, style: entry.style, scripts: entry.scripts, bytes: entry.bytes }].into_boxed_slice(),
     );
     let wm = Watermark {
         text: "、。".into(),
@@ -468,7 +468,7 @@ fn biz_ud_vertical_watermarks_place_punctuation_at_the_top_right() {
         ..Default::default()
     };
     let mut pixels = Vec::new();
-    watermark_coverage(400, 300, &wm, craft, 1.0, |x, y, k, _| {
+    watermark_coverage(400, 300, &wm, evo, 1.0, |x, y, k, _| {
         if k > 0.5 {
             pixels.push((x, y));
         }
@@ -481,7 +481,7 @@ fn biz_ud_vertical_watermarks_place_punctuation_at_the_top_right() {
 
 #[test]
 fn vertical_watermarks_keep_combining_marks_in_one_cell() {
-    let coverage = |text: &str, craft| {
+    let coverage = |text: &str, evo| {
         let wm = Watermark {
             text: text.into(),
             vertical: true,
@@ -494,24 +494,24 @@ fn vertical_watermarks_keep_combining_marks_in_one_cell() {
             ..Default::default()
         };
         let mut pixels = vec![0.0f32; 400 * 300];
-        watermark_coverage(400, 300, &wm, craft, 1.0, |x, y, k, _| pixels[y * 400 + x] = k);
+        watermark_coverage(400, 300, &wm, evo, 1.0, |x, y, k, _| pixels[y * 400 + x] = k);
         assert!(pixels.iter().any(|&k| k > 0.0));
         pixels
     };
-    let compare = |a: &str, b: &str, craft| {
-        let (a_pixels, b_pixels) = (coverage(a, craft), coverage(b, craft));
+    let compare = |a: &str, b: &str, evo| {
+        let (a_pixels, b_pixels) = (coverage(a, evo), coverage(b, evo));
         let difference = a_pixels.iter().zip(&b_pixels).position(|(a, b)| a != b);
         assert!(difference.is_none(), "{a:?} vs {b:?}: first differing pixel {difference:?}");
     };
     for (composed, decomposed) in [("éA", "e\u{301}A"), ("Å\nA", "A\u{30a}\nA"), ("A\nB", "A\r\nB"), ("日A", "日\u{e0100}A")] {
         compare(composed, decomposed, &[]);
     }
-    if crate::fonts::CRAFT_FONTS.iter().any(|f| f.family == "BIZ UDMincho") {
+    if crate::fonts::EVO_FONTS.iter().any(|f| f.family == "BIZ UDMincho") {
         for (composed, decomposed) in [("が日", "か\u{3099}日"), ("ぱ\n日", "は\u{309a}\n日")] {
-            compare(composed, decomposed, crate::fonts::CRAFT_FONTS);
+            compare(composed, decomposed, crate::fonts::EVO_FONTS);
         }
     } else {
-        lightcraft_testkit::skip!(Fonts, "Japanese comparisons: built without BIZ UDMincho from craft-fonts");
+        evolight_testkit::skip!(Fonts, "Japanese comparisons: built without BIZ UDMincho from evo-fonts");
     }
 }
 
@@ -533,13 +533,13 @@ fn upright_watermark_cell_retains_multiple_glyphs() {
 #[test]
 fn japanese_watermarks_support_vertical_columns() {
     use ab_glyph::Font;
-    let fonts = watermark_fonts(crate::fonts::CRAFT_FONTS);
+    let fonts = watermark_fonts(crate::fonts::EVO_FONTS);
     if fonts.len() < 2 {
-        lightcraft_testkit::skip!(Fonts, "built without CRAFT_FONTS_DIR, so there is no Japanese watermark face");
+        evolight_testkit::skip!(Fonts, "built without EVO_FONTS_DIR, so there is no Japanese watermark face");
         return;
     }
     for c in "日本語の文字".chars() {
-        assert!(fonts[1..].iter().any(|f| f.glyph_id(c).0 != 0), "a craft-fonts face has {c}");
+        assert!(fonts[1..].iter().any(|f| f.glyph_id(c).0 != 0), "a evo-fonts face has {c}");
     }
     let wm = vertical_japanese();
     let mut img = Rgba8::new(400, 300);
@@ -572,7 +572,7 @@ fn graphic_watermark_is_placed_scaled_and_blended() {
     let logo_path = dir.join("logo.png");
     // 40×20: left half opaque red, right half fully transparent
     let logo = Rgba8::from_fn(40, 20, |x, _| if x < 20 { [255, 0, 0, 255] } else { [0, 255, 0, 0] });
-    let png = lightcraft_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap();
+    let png = evolight_codecs::encode_png(&EncodeImage::rgba8(&logo), &EncodeMeta::default()).unwrap();
     std::fs::write(&logo_path, png).unwrap();
     let mut img = Rgba8::new(400, 300);
     img.data.iter_mut().for_each(|p| *p = [0, 0, 0, 255]);
@@ -628,8 +628,8 @@ fn naming_and_params() {
     assert_eq!(ExportOptions { format: ExportFormat::Dng, ..Default::default() }.file_name_for(&named("a.cr2"), 1), "a.dng");
 }
 
-fn named(file_name: &str) -> lightcraft_catalog::Photo {
-    use lightcraft_catalog::{Photo, PhotoId, Source};
+fn named(file_name: &str) -> evolight_catalog::Photo {
+    use evolight_catalog::{Photo, PhotoId, Source};
     Photo::new(PhotoId(1), Source::Demo { scene: 0 }, file_name, "", 1, 1, "2026-01-01T00:00:00")
 }
 
@@ -764,9 +764,9 @@ fn resize_size_survives_the_render() {
     let cropped = |r: Resize, w: u32, h: u32, x1: f64| {
         let mut p = named("IMG.ARW");
         (p.width, p.height) = (w, h);
-        std::sync::Arc::make_mut(&mut p.develop).crop.geometry.rect = lightcraft_geom::Rect::new(0.0, 0.0, x1, 1.0);
+        std::sync::Arc::make_mut(&mut p.develop).crop.geometry.rect = evolight_geom::Rect::new(0.0, 0.0, x1, 1.0);
         let (bw, bh) = output_size(&p, &ExportOptions { resize: Some(r), ..Default::default() });
-        lightcraft_pipeline::output_size(w as usize, h as usize, &p.develop, &lightcraft_pipeline::RenderRequest::fit(bw, bh))
+        evolight_pipeline::output_size(w as usize, h as usize, &p.develop, &evolight_pipeline::RenderRequest::fit(bw, bh))
     };
     let rendered = |r: Resize, w: u32, h: u32| cropped(r, w, h, 1.0);
     let mode = |mode: ResizeMode, value: f32, height: u32| Resize { mode, value, height, dont_enlarge: true };
@@ -829,18 +829,18 @@ fn resize_survives_photos_too_long_for_the_encoders() {
 
 /// A flat field of a saturated green inside Display P3 but outside sRGB, rendered into `space`.
 fn p3_green(space: OutputSpace) -> Rgba8 {
-    use lightcraft_color::{DISPLAY_P3, REC2020};
+    use evolight_color::{DISPLAY_P3, REC2020};
     let c = DISPLAY_P3.to_space(&REC2020).apply_f32([0.04, 0.45, 0.04]);
-    let src = lightcraft_raster::Rgb32f::filled(16, 16, c);
-    let req = lightcraft_pipeline::RenderRequest { space, ..lightcraft_pipeline::RenderRequest::fit(16, 16) };
-    lightcraft_pipeline::render(&src, &Default::default(), &Default::default(), &req).image
+    let src = evolight_raster::Rgb32f::filled(16, 16, c);
+    let req = evolight_pipeline::RenderRequest { space, ..evolight_pipeline::RenderRequest::fit(16, 16) };
+    evolight_pipeline::render(&src, &Default::default(), &Default::default(), &req).image
 }
 
 /// Decode `bytes` and return the centre pixel in linear sRGB primaries (unclamped), plus the
 /// recognised space of the embedded profile.
 fn decoded_in_srgb(bytes: &[u8]) -> ([f32; 3], Option<NamedSpace>) {
-    let d = lightcraft_codecs::decode(bytes, Default::default()).expect("decodes");
-    let m = d.space.to_space(&lightcraft_color::SRGB);
+    let d = evolight_codecs::decode(bytes, Default::default()).expect("decodes");
+    let m = d.space.to_space(&evolight_color::SRGB);
     (m.apply_f32(d.image.get(8, 8)), d.space.named)
 }
 
@@ -860,10 +860,10 @@ fn p3_colour_survives_a_p3_export_and_is_clipped_in_srgb() {
 #[test]
 fn every_space_embeds_its_own_profile_and_round_trips() {
     let grey = {
-        let src = lightcraft_raster::Rgb32f::filled(16, 16, [0.18; 3]);
-        let base = lightcraft_pipeline::RenderRequest::fit(16, 16);
+        let src = evolight_raster::Rgb32f::filled(16, 16, [0.18; 3]);
+        let base = evolight_pipeline::RenderRequest::fit(16, 16);
         move |space| {
-            lightcraft_pipeline::render(&src, &Default::default(), &Default::default(), &lightcraft_pipeline::RenderRequest { space, ..base }).image
+            evolight_pipeline::render(&src, &Default::default(), &Default::default(), &evolight_pipeline::RenderRequest { space, ..base }).image
         }
     };
     let reference =
@@ -903,14 +903,14 @@ fn srgb_watermark_colour_is_converted() {
 }
 
 /// A shallow horizontal grey ramp (few 8-bit levels), rendered at `depth`.
-fn ramp(depth: OutputDepth, space: OutputSpace) -> lightcraft_pipeline::Rendered {
-    let src = lightcraft_raster::Rgb32f::from_fn(1024, 4, |x, _| [0.10 + 0.03 * x as f32 / 1023.0; 3]);
-    let req = lightcraft_pipeline::RenderRequest { depth, space, ..lightcraft_pipeline::RenderRequest::fit(1024, 4) };
-    lightcraft_pipeline::render(&src, &Default::default(), &Default::default(), &req)
+fn ramp(depth: OutputDepth, space: OutputSpace) -> evolight_pipeline::Rendered {
+    let src = evolight_raster::Rgb32f::from_fn(1024, 4, |x, _| [0.10 + 0.03 * x as f32 / 1023.0; 3]);
+    let req = evolight_pipeline::RenderRequest { depth, space, ..evolight_pipeline::RenderRequest::fit(1024, 4) };
+    evolight_pipeline::render(&src, &Default::default(), &Default::default(), &req)
 }
 
-fn distinct_levels(bytes: &[u8]) -> (usize, lightcraft_codecs::Decoded) {
-    let d = lightcraft_codecs::decode(bytes, Default::default()).expect("decodes");
+fn distinct_levels(bytes: &[u8]) -> (usize, evolight_codecs::Decoded) {
+    let d = evolight_codecs::decode(bytes, Default::default()).expect("decodes");
     let mut v: Vec<u32> = (0..d.image.width).map(|x| d.image.get(x, 1)[1].to_bits()).collect();
     // sorted first: 8-bit output is dithered, so equal levels aren't all side by side
     v.sort_unstable();
@@ -921,7 +921,7 @@ fn distinct_levels(bytes: &[u8]) -> (usize, lightcraft_codecs::Decoded) {
 /// A 16-bit render of a photo-like scene: smooth colour gradients plus sensor-like noise of
 /// `noise` (linear, about 0.002 to 0.03 for clean to high-ISO raws), the case where the low
 /// byte of every 16-bit sample is mostly noise.
-fn noisy_render(noise: f32) -> lightcraft_pipeline::Rendered {
+fn noisy_render(noise: f32) -> evolight_pipeline::Rendered {
     let (w, h) = (512, 384);
     // a hash of the position and channel: the same noise every run
     let hash = |x: usize, y: usize, c: usize| {
@@ -930,13 +930,13 @@ fn noisy_render(noise: f32) -> lightcraft_pipeline::Rendered {
         z = (z ^ (z >> 33)).wrapping_mul(0xc4ce_b9fe_1a85_ec53);
         (z ^ (z >> 33)) as f32 / u64::MAX as f32 - 0.5
     };
-    let src = lightcraft_raster::Rgb32f::from_fn(w, h, |x, y| {
+    let src = evolight_raster::Rgb32f::from_fn(w, h, |x, y| {
         let (u, v) = (x as f32 / w as f32, y as f32 / h as f32);
         let base = [0.05 + 0.4 * u, 0.1 + 0.3 * v, 0.2 + 0.2 * (u * v)];
         [0, 1, 2].map(|c| (base[c] + noise * hash(x, y, c)).max(0.0))
     });
-    let req = lightcraft_pipeline::RenderRequest { depth: OutputDepth::U16, ..lightcraft_pipeline::RenderRequest::fit(w, h) };
-    lightcraft_pipeline::render(&src, &Default::default(), &Default::default(), &req)
+    let req = evolight_pipeline::RenderRequest { depth: OutputDepth::U16, ..evolight_pipeline::RenderRequest::fit(w, h) };
+    evolight_pipeline::render(&src, &Default::default(), &Default::default(), &req)
 }
 
 /// Issue #2882: a 16-bit TIFF with ZIP (the default) is never larger than the same render
@@ -1047,7 +1047,7 @@ fn jxl_every_space_round_trips() {
         let png = ExportOptions { format: ExportFormat::Png, color_space: space, ..Default::default() };
         let img = p3_green(space);
         let bytes = encode_image(&img, &o).unwrap();
-        assert_eq!(lightcraft_codecs::sniff(&bytes), Some(lightcraft_codecs::Format::Jxl));
+        assert_eq!(evolight_codecs::sniff(&bytes), Some(evolight_codecs::Format::Jxl));
         let (got, _) = decoded_in_srgb(&bytes);
         let (want, _) = decoded_in_srgb(&encode_image(&img, &png).unwrap());
         for c in 0..3 {
@@ -1365,7 +1365,7 @@ fn watermark_params_are_validated() {
 #[allow(clippy::type_complexity)]
 fn lanes_batch(
     s: &mut crate::Session,
-    ids: &[lightcraft_catalog::PhotoId],
+    ids: &[evolight_catalog::PhotoId],
     o: &ExportOptions,
     lanes: usize,
     stop_on_error: bool,
@@ -1397,15 +1397,15 @@ fn shape(files: &[serde_json::Value]) -> Vec<serde_json::Value> {
 /// entry (`gpuFallback`, the render's own reason) and says nothing on the others.
 #[test]
 fn a_batch_reports_a_gpu_fallback_on_the_file_it_hit() {
-    if !lightcraft_gpu::available() {
-        lightcraft_testkit::skip!(Gpu, "no GPU adapter ({})", lightcraft_gpu::unavailable_reason().unwrap_or_default());
+    if !evolight_gpu::available() {
+        evolight_testkit::skip!(Gpu, "no GPU adapter ({})", evolight_gpu::unavailable_reason().unwrap_or_default());
         return;
     }
     let mut s = crate::Session::with_demo();
     let ids: Vec<_> = s.visible().iter().copied().take(2).collect();
     let o = ExportOptions::from_json(&json!({"format": "png", "width": 64}));
     // one lane: both photos render on this thread, and the fault hits the first render here
-    lightcraft_gpu::inject_fault(lightcraft_gpu::Fault::Limit(1 << 10));
+    evolight_gpu::inject_fault(evolight_gpu::Fault::Limit(1 << 10));
     let (files, _, _) = lanes_batch(&mut s, &ids, &o, 1, true, usize::MAX);
     let files = files.unwrap();
     assert_eq!(files.len(), 2, "{files:?}");
@@ -1413,7 +1413,7 @@ fn a_batch_reports_a_gpu_fallback_on_the_file_it_hit() {
     assert_eq!(why.len(), 1, "exactly one file fell back: {files:?}");
     assert!(why[0].contains("limit"), "{files:?}");
     assert!(files[1].get("gpuFallback").is_none(), "the second render was fine: {files:?}");
-    assert!(lightcraft_gpu::available(), "a limit is no device failure");
+    assert!(evolight_gpu::available(), "a limit is no device failure");
 }
 
 // Issue #496: photos rendered side by side give the same files, names, order and progress as
@@ -1425,14 +1425,14 @@ fn rendered_dng_matches_the_rendered_tiff() {
     let dng = export_photo(&mut s, id, &ExportOptions::from_json(&json!({"format": "rendereddng", "width": 64})), 1).unwrap();
     assert!(dng.file_name.ends_with(".dng"), "{}", dng.file_name);
     let png = export_photo(&mut s, id, &ExportOptions::from_json(&json!({"format": "png", "width": 64})), 1).unwrap();
-    let raw = lightcraft_raw::decode(&dng.bytes).unwrap();
+    let raw = evolight_raw::decode(&dng.bytes).unwrap();
     assert_eq!((raw.width, raw.height, raw.cpp), (dng.width, dng.height, 3));
     assert!(raw.color.profile.tone_curve.is_some(), "identity tone curve keeps converters from adding one");
-    let back = raw.develop(lightcraft_raw::Method::Bilinear).unwrap();
-    let reference = lightcraft_codecs::decode_thumbnail(&png.bytes, 4096).unwrap().image;
+    let back = raw.develop(evolight_raw::Method::Bilinear).unwrap();
+    let reference = evolight_codecs::decode_thumbnail(&png.bytes, 4096).unwrap().image;
     assert_eq!((reference.width, reference.height), (back.width, back.height));
     // mean brightness: the PNG holds 8-bit sRGB, the DNG linear sRGB
-    let mean_dng: f32 = back.data.iter().map(|p| lightcraft_color::transfer::linear_to_srgb(p[1].min(1.0))).sum::<f32>() / back.data.len() as f32;
+    let mean_dng: f32 = back.data.iter().map(|p| evolight_color::transfer::linear_to_srgb(p[1].min(1.0))).sum::<f32>() / back.data.len() as f32;
     let mean_tif: f32 = reference.data.iter().map(|p| p[1] as f32 / 255.0).sum::<f32>() / reference.data.len() as f32;
     assert!((mean_dng - mean_tif).abs() < 0.02, "{mean_dng} vs {mean_tif}");
 }
@@ -1490,7 +1490,7 @@ fn a_panic_in_progress_does_not_hang_the_lanes() {
 // stop_on_error the batch ends there and nothing after it is written
 #[test]
 fn side_by_side_batches_report_failures_in_order() {
-    use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+    use evolight_catalog::{Op, Photo, PhotoId, Source};
     let mut s = crate::Session::with_demo();
     let mut ids: Vec<_> = s.visible().iter().copied().take(3).collect();
     let gone = Photo::new(PhotoId(9_496), Source::File { path: "no/such/dir/gone.jpg".into() }, "gone.jpg", "JPEG", 600, 400, "2026-10-09T00:00:00");

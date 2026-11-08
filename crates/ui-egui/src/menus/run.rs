@@ -1,8 +1,8 @@
 use super::files::{edit_in, open_log_folder, open_original_in, show_in_finder, show_in_folders};
 use super::ui_commands::{UI_COMMANDS, language_from_command};
-use super::{BeforeAfter, Dialog, LightcraftApp, PickRequest, Picked, RightPanel, Value, ViewMode, Zoom, json, thumb_size_view};
+use super::{BeforeAfter, Dialog, EvoLightApp, PickRequest, Picked, RightPanel, Value, ViewMode, Zoom, json, thumb_size_view};
 
-fn panel(app: &mut LightcraftApp, ctx: &egui::Context, p: RightPanel, name: &str) {
+fn panel(app: &mut EvoLightApp, ctx: &egui::Context, p: RightPanel, name: &str) {
     if app.ui.right == p && crate::docking::exposed(app, crate::docking::Panel::Tools) {
         app.ui.right = RightPanel::None;
         app.toast(ctx, crate::i18n::tr_format!("{name} Off", name = crate::i18n::tr(name)));
@@ -21,7 +21,7 @@ fn panel(app: &mut LightcraftApp, ctx: &egui::Context, p: RightPanel, name: &str
 
 /// `[` / `]` (size ×`k`) and ⇧`[` / ⇧`]` (feather +`df`) for the brush in use: the Remove tool's
 /// (and its selected spot's) or the Masking brush's.
-fn adjust_brush(app: &mut LightcraftApp, k: f32, df: f32) -> Value {
+fn adjust_brush(app: &mut EvoLightApp, k: f32, df: f32) -> Value {
     if app.ui.right == RightPanel::Remove {
         app.ui.remove_size = (app.ui.remove_size * k).clamp(0.001, 0.25);
         app.ui.remove_feather = (app.ui.remove_feather + df).clamp(0.0, 100.0);
@@ -51,7 +51,7 @@ fn parent_param(p: &Value) -> Option<u64> {
 /// `file.addPhotos` / `file.addFolder` / `file.addFromDevice` `{album?}`: the review of the scan
 /// just started opens with that album chosen (an album's context menu ▸ Import ▸ …). An error
 /// means another scan is running.
-fn import_into_album(app: &mut LightcraftApp, p: &Value, r: Result<Value, String>) -> Result<Value, String> {
+fn import_into_album(app: &mut EvoLightApp, p: &Value, r: Result<Value, String>) -> Result<Value, String> {
     if r.is_ok()
         && let Some(t) = &mut app.scan
     {
@@ -109,14 +109,14 @@ fn tool_overlay_toast(mode: crate::state::ToolOverlay) -> String {
     .to_string()
 }
 
-fn appearance_json(app: &LightcraftApp) -> Value {
+fn appearance_json(app: &EvoLightApp) -> Value {
     let s = &app.ui.settings;
     json!({"mode": s.appearance_mode, "darkTheme": s.dark_theme, "lightTheme": s.light_theme})
 }
 
 /// `view.appearance {mode?}`: set Appearance Mode, or step to the next one (Auto, Light, Dark).
-/// The theme follows on the next frame ([`LightcraftApp::sync_theme`]).
-fn appearance_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+/// The theme follows on the next frame ([`EvoLightApp::sync_theme`]).
+fn appearance_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     use crate::state::AppearanceMode;
     let mode = match p.get("mode") {
         None | Some(Value::Null) => app.ui.settings.appearance_mode.next(),
@@ -132,7 +132,7 @@ fn appearance_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, Strin
 }
 
 /// `view.theme {theme}`: pick a theme; the mode becomes its family's (Dark or Light).
-fn theme_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn theme_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let ids = crate::theme::ThemeKind::ALL.map(|k| k.id()).join("|");
     let Some(id) = p.get("theme").and_then(Value::as_str) else {
         return Err(format!("view.theme: `theme` is required ({ids})"));
@@ -145,7 +145,7 @@ fn theme_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
 }
 
 /// Handle UI commands; `None` means "not a UI command — send it to the engine".
-pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Result<Value, String>> {
+pub fn run_ui_command(app: &mut EvoLightApp, id: &str, p: &Value) -> Option<Result<Value, String>> {
     if matches!(id, "ui.dock" | "ui.dock.reset") {
         return Some(crate::docking::command(app, id == "ui.dock.reset", p));
     }
@@ -175,7 +175,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
     // the app's own context: a toast's time comes from its clock (a fresh context's clock is at 0,
     // and a toast set by it was long over by the app's clock: it never showed)
     let ctx = app.tasks.repaint.clone().unwrap_or_default();
-    const PARTS: [fn(&mut LightcraftApp, &egui::Context, &str, &Value) -> Option<Result<Value, String>>; 12] = [
+    const PARTS: [fn(&mut EvoLightApp, &egui::Context, &str, &Value) -> Option<Result<Value, String>>; 12] = [
         ui_commands_1,
         ui_commands_2,
         ui_commands_3,
@@ -193,7 +193,7 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
 }
 
 /// Part 1 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_1(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_1(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "view.photoGrid" => {
             app.ui.view = ViewMode::PhotoGrid;
@@ -338,7 +338,7 @@ fn ui_commands_1(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 2 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_2(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_2(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "view.detail" => {
             app.ui.view = ViewMode::Detail;
@@ -385,7 +385,7 @@ fn ui_commands_2(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
         "view.reference" => {
             // the reference: the one set before, else the active photo (the next one becomes active)
             let vis = app.session.visible_cloned();
-            let live = |id: u64| crate::panels::compare::live(app, lightcraft_catalog::PhotoId(id));
+            let live = |id: u64| crate::panels::compare::live(app, evolight_catalog::PhotoId(id));
             let active = app.session.active().map(|a| a.0);
             let reference = app.ui.reference.filter(|r| live(*r)).or_else(|| active.filter(|a| live(*a)));
             let Some(r) = reference else {
@@ -414,7 +414,7 @@ fn ui_commands_2(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
                 None => app.session.active().map(|a| a.0),
             };
             let Some(id) = id else { return Some(Err("select a photo to use as the reference".into())) };
-            match app.session.catalog.photo(lightcraft_catalog::PhotoId(id)) {
+            match app.session.catalog.photo(evolight_catalog::PhotoId(id)) {
                 None => return Some(Err(format!("no photo {id}"))),
                 Some(p) if p.deleted => return Some(Err(format!("photo {id} is in Recently Deleted: restore it to use it as the reference"))),
                 Some(_) => {}
@@ -425,7 +425,7 @@ fn ui_commands_2(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
         "compare.swap" => crate::panels::compare::swap(app),
         "compare.set" => {
             let Some(id) = p.get("id").and_then(Value::as_u64) else { return Some(Err("compare.set needs `id`".into())) };
-            crate::panels::compare::set_photo(app, lightcraft_catalog::PhotoId(id), p.get("side").and_then(Value::as_str))
+            crate::panels::compare::set_photo(app, evolight_catalog::PhotoId(id), p.get("side").and_then(Value::as_str))
         }
         "compare.makeSelect" => crate::panels::compare::make_select(app),
         "view.autoAdvance" => {
@@ -453,7 +453,7 @@ fn ui_commands_2(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 3 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_3(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_3(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "view.slideshowOptions" => {
             app.ui.dialog = Some(Dialog::Settings { tab: "slideshow".into() });
@@ -564,7 +564,7 @@ fn ui_commands_3(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 4 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_4(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_4(app: &mut EvoLightApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "app.settings" => {
             let tab = p.get("tab").and_then(Value::as_str).unwrap_or("general");
@@ -676,7 +676,7 @@ fn ui_commands_4(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// Part 5 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_5(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_5(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "view.clickZoom" => {
             // {ratio?: 1|2|3|4|8} → {ratio}
@@ -772,7 +772,7 @@ fn ui_commands_5(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
             Ok(json!({"maskOverlayAll": app.ui.mask_overlay_all}))
         }
         "view.maskOverlayMode" => {
-            use lightcraft_engine::pipeline::MaskView;
+            use evolight_engine::pipeline::MaskView;
             let cur = MaskView::parse(&app.ui.mask_overlay_mode).unwrap_or_default();
             let next = match p.get("mode").and_then(Value::as_str) {
                 Some(m) => match MaskView::parse(m) {
@@ -795,7 +795,7 @@ fn ui_commands_5(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 6 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_6(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_6(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "view.maskOverlayColor" => {
             // no params: the next of the panel's swatch colours
@@ -911,7 +911,7 @@ fn ui_commands_6(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 7 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_7(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_7(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "local.restoreHidden" => {
             // one path, or (no path) every hidden location
@@ -1035,7 +1035,7 @@ fn ui_commands_7(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Val
 }
 
 /// Part 8 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_8(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_8(app: &mut EvoLightApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         s if s.starts_with("section.") => bool_param(s, p, "solo").and_then(|solo| {
             // only the Edit sections listed above: an unknown one would close the real ones
@@ -1065,7 +1065,7 @@ fn ui_commands_8(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
                         .session
                         .active()
                         .and_then(|id| app.session.develop_of(id))
-                        .is_some_and(|d| d.geometry.upright == lightcraft_develop::Upright::Guided);
+                        .is_some_and(|d| d.geometry.upright == evolight_develop::Upright::Guided);
                     if !guided && let Err(e) = app.run("geometry.upright", json!({"mode": "guided"})) {
                         return Some(Err(e));
                     }
@@ -1148,7 +1148,7 @@ fn ui_commands_8(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// Part 9 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_9(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_9(app: &mut EvoLightApp, _ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "dialog.captureTime" => {
             // a time that doesn't fully read isn't offered as the starting point (`10:0` would read as midnight)
@@ -1157,7 +1157,7 @@ fn ui_commands_9(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
                 .active()
                 .and_then(|id| app.session.catalog.photo(id))
                 .map(|p| p.date())
-                .filter(|d| lightcraft_catalog::dates::shift_iso(d, 0).is_some())
+                .filter(|d| evolight_catalog::dates::shift_iso(d, 0).is_some())
                 .map(|d| d.replace('T', " "))
                 .unwrap_or_default();
             let mode = p.get("mode").and_then(Value::as_str).unwrap_or("set").to_string();
@@ -1167,7 +1167,7 @@ fn ui_commands_9(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
         }
         "dialog.labelNames" => {
             let names =
-                lightcraft_catalog::ColorLabel::ALL.iter().map(|l| app.session.catalog.custom_label_name(*l).unwrap_or("").to_string()).collect();
+                evolight_catalog::ColorLabel::ALL.iter().map(|l| app.session.catalog.custom_label_name(*l).unwrap_or("").to_string()).collect();
             app.ui.dialog = Some(Dialog::LabelNames { names, save_as: String::new() });
             Ok(Value::Null)
         }
@@ -1199,16 +1199,16 @@ fn ui_commands_9(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
         }
         "dialog.slideshowExport" => {
             let format = match p.get("format").and_then(Value::as_str) {
-                Some("jpeg") => lightcraft_engine::slideshow_export::Format::Jpeg,
-                Some("video") => lightcraft_engine::slideshow_export::Format::Video,
-                _ => lightcraft_engine::slideshow_export::Format::Pdf,
+                Some("jpeg") => evolight_engine::slideshow_export::Format::Jpeg,
+                Some("video") => evolight_engine::slideshow_export::Format::Video,
+                _ => evolight_engine::slideshow_export::Format::Pdf,
             };
-            app.ui.dialog = Some(Dialog::SlideshowExport { settings: lightcraft_engine::slideshow_export::ExportSettings::for_format(format) });
+            app.ui.dialog = Some(Dialog::SlideshowExport { settings: evolight_engine::slideshow_export::ExportSettings::for_format(format) });
             Ok(Value::Null)
         }
         "app.slideshowExport" => crate::slideshow_export::start(app, id, p),
         "dialog.contactSheet" => {
-            app.ui.dialog = Some(Dialog::ContactSheet { options: lightcraft_engine::contact_sheet::Options::default() });
+            app.ui.dialog = Some(Dialog::ContactSheet { options: evolight_engine::contact_sheet::Options::default() });
             Ok(Value::Null)
         }
         "dialog.print" => {
@@ -1256,16 +1256,16 @@ fn ui_commands_9(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// Part 10 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_10(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_10(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "dialog.export" => {
             let prev = app.session.last_export.clone().unwrap_or_default();
             let u = |k: &str, d: u64| prev.get(k).and_then(Value::as_u64).unwrap_or(d);
             let dir = prev.get("dir").and_then(Value::as_str).map(str::to_string).unwrap_or_else(crate::control::default_export_dir);
             // stored settings: a depth the format lacks (saved before #1952) opens at the format's own
-            let opts = lightcraft_engine::export::ExportOptions::from_json(&lightcraft_engine::export::ExportOptions::known_keys_only(&prev));
+            let opts = evolight_engine::export::ExportOptions::from_json(&evolight_engine::export::ExportOptions::known_keys_only(&prev));
             // no previous export: 2048 px long edge; a previous full-size export: full size
-            let full_size = opts.resize.is_none() && lightcraft_engine::export::ExportOptions::has_size_param(&prev);
+            let full_size = opts.resize.is_none() && evolight_engine::export::ExportOptions::has_size_param(&prev);
             let resize = opts.resize.unwrap_or_default();
             app.ui.dialog = Some(Dialog::Export { opts, full_size, resize, preset_name: String::new(), limit_kb: u("limitKb", 0) as u32, dir });
             Ok(Value::Null)
@@ -1293,7 +1293,7 @@ fn ui_commands_10(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
             Ok(Value::Null)
         }
         "app.checkForUpdates" => crate::updates_ui::check(app),
-        "photo.editInPhotoCraft" => edit_in(app, ctx, p, true),
+        "photo.editInEvoPhoto" => edit_in(app, ctx, p, true),
         "photo.editInExternal" => edit_in(app, ctx, p, false),
         "photo.openOriginalInExternal" => open_original_in(app, ctx, p),
         "dialog.cull" => {
@@ -1330,7 +1330,7 @@ fn ui_commands_10(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
             let paths = match p.get("paths").and_then(Value::as_array) {
                 Some(a) => a.iter().filter_map(Value::as_str).map(str::to_string).collect(),
                 None => {
-                    let req = PickRequest::files(None, crate::i18n::tr("Photos"), lightcraft_engine::import::EXTENSIONS);
+                    let req = PickRequest::files(None, crate::i18n::tr("Photos"), evolight_engine::import::EXTENSIONS);
                     match crate::pick::ask(app, id, p, "paths", req, |s| s.pick_files.as_mut().map(|f| f())) {
                         Picked::Now(paths) => paths,
                         Picked::Later | Picked::Unavailable => return Some(Ok(Value::Null)),
@@ -1372,7 +1372,7 @@ fn ui_commands_10(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// Part 11 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_11(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_11(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "app.quit" => {
             app.ui.quit = true;
@@ -1395,7 +1395,7 @@ fn ui_commands_11(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
             // a camera / card: review its DCIM folder, copying into the library by default
             let path = match p.get("path").and_then(Value::as_str) {
                 Some(x) => x.to_string(),
-                None => match lightcraft_engine::devices::devices_now().into_iter().next() {
+                None => match evolight_engine::devices::devices_now().into_iter().next() {
                     Some(d) => d.path,
                     None => return Some(Err("no camera or memory card found".into())),
                 },
@@ -1448,8 +1448,8 @@ fn ui_commands_11(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
             let path = match p.get("path").and_then(Value::as_str) {
                 Some(x) => Some(x.to_string()),
                 None => {
-                    let name = format!("{}.lcpreset", group.as_deref().unwrap_or("LightCraft Presets"));
-                    let req = PickRequest::save(crate::i18n::tr("Export Presets"), crate::i18n::tr("LightCraft Preset"), &["lcpreset"], name.clone());
+                    let name = format!("{}.evolightpreset", group.as_deref().unwrap_or("EvoLight Presets"));
+                    let req = PickRequest::save(crate::i18n::tr("Export Presets"), crate::i18n::tr("EvoLight Preset"), &["evolightpreset"], name.clone());
                     match crate::pick::ask(app, id, p, "path", req, |s| s.save_preset_file.as_mut().map(|f| f(&name).into_iter().collect())) {
                         Picked::Now(v) => v.into_iter().next(),
                         Picked::Later => return Some(Ok(Value::Null)),
@@ -1478,19 +1478,19 @@ fn ui_commands_11(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// Part 12 of 12 of the UI commands; `None` means the id is not one of this part's.
-fn ui_commands_12(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
+fn ui_commands_12(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Option<Result<Value, String>> {
     let r: Result<Value, String> = match id {
         "file.exportCurvePresets" => file_export_curve_presets_command(app, ctx, id, p),
         "app.export" => crate::control::export_active(app, p),
         "app.showInFinder" => show_in_finder(app),
-        "app.showInFolders" => show_in_folders(app, p.get("id").and_then(Value::as_u64).map(lightcraft_catalog::PhotoId)),
+        "app.showInFolders" => show_in_folders(app, p.get("id").and_then(Value::as_u64).map(evolight_catalog::PhotoId)),
         "app.openLogFolder" => open_log_folder(app),
         "app.github" | "app.help" | "app.feedback" => match crate::links::url_of(id) {
             Some(url) => crate::links::open(app, url),
             None => Err(format!("no link for {id}")),
         },
         "app.exportPrevious" => match app.session.last_export.clone() {
-            Some(prev) => crate::control::export_active(app, &lightcraft_engine::export::ExportOptions::known_keys_only(&prev)),
+            Some(prev) => crate::control::export_active(app, &evolight_engine::export::ExportOptions::known_keys_only(&prev)),
             None => Err("nothing exported yet — use Export…".into()),
         },
         _ => return None,
@@ -1499,7 +1499,7 @@ fn ui_commands_12(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Va
 }
 
 /// The `view.back` command.
-fn view_back_command(app: &mut LightcraftApp, ctx: &egui::Context) -> Result<Value, String> {
+fn view_back_command(app: &mut EvoLightApp, ctx: &egui::Context) -> Result<Value, String> {
     if app.ui.dialog.is_some() {
         app.ui.dialog = None;
     } else if app.ui.lights_out != crate::state::LightsOut::On {
@@ -1533,7 +1533,7 @@ fn view_back_command(app: &mut LightcraftApp, ctx: &egui::Context) -> Result<Val
 }
 
 /// The `view.viewOptions` command.
-fn view_view_options_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn view_view_options_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     // `info1` / `info2` set the lines, `briefly` the Info that Show Briefly When Photo Changes
     // shows and `loupeMessages` Show message when loading or rendering photos, for an agent;
     // without any of them the window opens
@@ -1577,12 +1577,12 @@ fn view_view_options_command(app: &mut LightcraftApp, p: &Value) -> Result<Value
 }
 
 /// The `view.softProof` command.
-fn view_soft_proof_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> Result<Value, String> {
+fn view_soft_proof_command(app: &mut EvoLightApp, _id: &str, p: &Value) -> Result<Value, String> {
     // {on?, space?, profile?: ICC path | null, intent?: perceptual|relative, paperInk?,
     // destWarning?, displayWarning?}; no params toggles
     let has = |k: &str| p.get(k).is_some();
     if let Some(s) = p.get("space").and_then(Value::as_str) {
-        match lightcraft_engine::pipeline::OutputSpace::parse(s) {
+        match evolight_engine::pipeline::OutputSpace::parse(s) {
             Some(sp) => {
                 app.ui.proof.space = sp;
                 // a standard space replaces a device profile (unless one is given too)
@@ -1592,7 +1592,7 @@ fn view_soft_proof_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> Res
         }
     }
     if let Some(i) = p.get("intent") {
-        match i.as_str().and_then(lightcraft_engine::proof::ProofIntent::parse) {
+        match i.as_str().and_then(evolight_engine::proof::ProofIntent::parse) {
             Some(i) => app.ui.proof_intent = i,
             None => return Err("view.softProof: intent must be perceptual or relative".into()),
         }
@@ -1610,7 +1610,7 @@ fn view_soft_proof_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> Res
         None => app.ui.proof_profile.as_ref().map(|(f, _)| f.clone()),
     };
     match path {
-        Some(path) => match lightcraft_engine::proof::load(&path, app.ui.proof_intent, app.ui.proof_paper_ink) {
+        Some(path) => match evolight_engine::proof::load(&path, app.ui.proof_intent, app.ui.proof_paper_ink) {
             Ok(pp) => {
                 app.ui.proof.profile = pp.id;
                 app.ui.proof_profile = Some((path, pp.name));
@@ -1640,12 +1640,12 @@ fn view_soft_proof_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> Res
 }
 
 /// The `dialog.smartAlbum` command.
-fn dialog_smart_album_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> Result<Value, String> {
+fn dialog_smart_album_command(app: &mut EvoLightApp, _id: &str, p: &Value) -> Result<Value, String> {
     // {id?}: edit that smart album's rules; without: a new one starting at Rating ≥ 3
     let album = p
         .get("id")
         .and_then(Value::as_u64)
-        .and_then(|id| app.session.catalog.album(lightcraft_catalog::AlbumId(id)).filter(|a| a.is_smart()).cloned());
+        .and_then(|id| app.session.catalog.album(evolight_catalog::AlbumId(id)).filter(|a| a.is_smart()).cloned());
     app.ui.dialog = Some(match album {
         Some(a) => Dialog::SmartRules {
             id: Some(a.id.0),
@@ -1665,7 +1665,7 @@ fn dialog_smart_album_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> 
         None => Dialog::SmartRules {
             id: None,
             name: p.get("name").and_then(Value::as_str).unwrap_or("").into(),
-            rules: lightcraft_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
+            rules: evolight_catalog::RuleSet { rules: vec![crate::panels::rules_editor::new_rule()], ..Default::default() },
             parent: parent_param(p),
         },
     });
@@ -1673,9 +1673,9 @@ fn dialog_smart_album_command(app: &mut LightcraftApp, _id: &str, p: &Value) -> 
 }
 
 /// The `app.systemInfo` command.
-fn app_system_info_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn app_system_info_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let info = app.session.execute("library.info", &json!({})).unwrap_or_default();
-    let gpu = (lightcraft_engine::gpu::ready() && lightcraft_engine::gpu::available()).then(lightcraft_engine::gpu::adapter_name).flatten();
+    let gpu = (evolight_engine::gpu::ready() && evolight_engine::gpu::available()).then(evolight_engine::gpu::adapter_name).flatten();
     let mb = |b: u64| format!("{:.0} MB", b as f64 / (1u64 << 20) as f64);
     let mut rows = vec![
         ("Version".to_string(), env!("CARGO_PKG_VERSION").to_string()),
@@ -1683,13 +1683,13 @@ fn app_system_info_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, 
         ("CPU threads".to_string(), std::thread::available_parallelism().map(|n| n.get().to_string()).unwrap_or_else(|_| "?".into())),
         (
             "GPU".to_string(),
-            gpu.unwrap_or_else(|| match lightcraft_engine::gpu::unavailable_reason() {
+            gpu.unwrap_or_else(|| match evolight_engine::gpu::unavailable_reason() {
                 Some(why) => crate::i18n::tr_format!("none (CPU rendering): {why}", why = why),
                 None => "none (CPU rendering)".into(),
             }),
         ),
         ("GPU rendering".to_string(), if app.ui.settings.gpu { "on".into() } else { "off".into() }),
-        ("Memory budget".to_string(), mb(lightcraft_engine::memory::default_budget() as u64)),
+        ("Memory budget".to_string(), mb(evolight_engine::memory::default_budget() as u64)),
         (
             "Preview size".to_string(),
             match app.ui.settings.preview_limit {
@@ -1709,7 +1709,7 @@ fn app_system_info_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, 
         format!("{:.1} ms (logic {:.1} ms; slowest {:.0} ms)", app.perf.update_ms, app.perf.logic_ms, app.perf.max_update_ms),
     ));
     rows.push(("Last loupe render".into(), format!("{:.0} ms", app.renderer.last_main_ms)));
-    if let Some(f) = lightcraft_engine::gpu::last_fallback() {
+    if let Some(f) = evolight_engine::gpu::last_fallback() {
         rows.push(("Last GPU fallback".into(), f));
     }
     let r = json!(rows.iter().map(|(k, v)| json!({"label": k, "value": v})).collect::<Vec<_>>());
@@ -1744,7 +1744,7 @@ fn find_missing_timeout(p: &Value) -> Result<std::time::Duration, String> {
 }
 
 /// The toast for a finished search, and the result it leaves for a caller that waits.
-fn find_missing_done(app: &mut LightcraftApp, ctx: &egui::Context, plan: Result<lightcraft_engine::cmd::missing::FindPlan, String>) {
+fn find_missing_done(app: &mut EvoLightApp, ctx: &egui::Context, plan: Result<evolight_engine::cmd::missing::FindPlan, String>) {
     // relinked under the session as it is now: photos relinked meanwhile and files
     // now in use are skipped
     let r = plan.and_then(|plan| app.run("library.findMissing", plan.to_json()));
@@ -1779,12 +1779,12 @@ fn find_missing_done(app: &mut LightcraftApp, ctx: &egui::Context, plan: Result<
 }
 
 /// The `photo.locate` command.
-fn photo_locate_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+fn photo_locate_command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let Some(id) = app.session.active() else { return Err("no photo selected".into()) };
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => Some(x.to_string()),
         None => {
-            let req = PickRequest::file(crate::i18n::tr("Locate Missing File…"), crate::i18n::tr("Photos"), lightcraft_engine::import::EXTENSIONS);
+            let req = PickRequest::file(crate::i18n::tr("Locate Missing File…"), crate::i18n::tr("Photos"), evolight_engine::import::EXTENSIONS);
             match crate::pick::ask(app, "photo.locate", p, "path", req, |s| s.pick_files.as_mut().map(|f| f())) {
                 Picked::Now(v) => v.into_iter().next(),
                 Picked::Later | Picked::Unavailable => None,
@@ -1798,7 +1798,7 @@ fn photo_locate_command(app: &mut LightcraftApp, p: &Value) -> Result<Value, Str
 }
 
 /// The `file.findMissing` command.
-fn file_find_missing_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Result<Value, String> {
+fn file_find_missing_command(app: &mut EvoLightApp, id: &str, p: &Value) -> Result<Value, String> {
     let within = find_missing_within(p)?;
     let wait = p.get("wait").and_then(Value::as_bool).unwrap_or(false);
     let timeout = find_missing_timeout(p)?;
@@ -1819,9 +1819,9 @@ fn file_find_missing_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Re
     if app.tasks.is_running(LABEL) {
         return Err("Find Missing Photos is already searching".into());
     }
-    let mut candidates = lightcraft_engine::cmd::missing::find_candidates(&app.session.catalog);
+    let mut candidates = evolight_engine::cmd::missing::find_candidates(&app.session.catalog);
     if let Some(within) = within {
-        candidates.retain(|candidate| lightcraft_catalog::query::folder_within(&candidate.path, &within));
+        candidates.retain(|candidate| evolight_catalog::query::folder_within(&candidate.path, &within));
     }
     #[cfg(test)]
     let test_delay = app.ui.find_missing_test_delay;
@@ -1830,7 +1830,7 @@ fn file_find_missing_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Re
         if let Some(d) = test_delay {
             std::thread::sleep(d);
         }
-        lightcraft_engine::cmd::missing::plan_find_missing(&candidates, &folder)
+        evolight_engine::cmd::missing::plan_find_missing(&candidates, &folder)
     };
     app.ui.last_find_missing = None;
     app.ui.last_find_missing_result = None;
@@ -1846,7 +1846,7 @@ fn file_find_missing_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Re
 }
 
 /// The `photo.tagFromTracklog` command.
-fn photo_tag_from_tracklog_command(app: &mut LightcraftApp, _ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn photo_tag_from_tracklog_command(app: &mut EvoLightApp, _ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     // a GPX file → GPS for the selected photos by capture time (one undo step)
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => Some(x.to_string()),
@@ -1898,7 +1898,7 @@ fn photo_tag_from_tracklog_command(app: &mut LightcraftApp, _ctx: &egui::Context
 /// The files a command names in `paths`, else the ones picked in a dialog. `Err` is the command's own answer when
 /// there is nothing to import (the dialog is still open or was cancelled, or none is available).
 fn paths_or_pick(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     id: &str,
     p: &Value,
     request: PickRequest,
@@ -1936,7 +1936,7 @@ fn failed_files(v: &Value) -> impl Iterator<Item = String> + '_ {
 }
 
 /// Import the `.cube` LUTs (and those inside zips / folders) as profiles; the answer to report back.
-fn import_luts(app: &mut LightcraftApp, lut_paths: &[&String], news: &mut ImportNews) -> Value {
+fn import_luts(app: &mut EvoLightApp, lut_paths: &[&String], news: &mut ImportNews) -> Value {
     match app.session.execute("profile.import", &json!({"paths": lut_paths})) {
         Ok(v) => {
             let profiles = v["imported"].as_array().map_or(0, Vec::len);
@@ -1996,7 +1996,7 @@ fn presets_sentence(v: &Value, profile_news: bool) -> Option<String> {
 }
 
 /// Import the preset files; adds to what `news` reports.
-fn import_preset_files(app: &mut LightcraftApp, preset_paths: &[&String], news: &mut ImportNews) -> Result<Value, String> {
+fn import_preset_files(app: &mut EvoLightApp, preset_paths: &[&String], news: &mut ImportNews) -> Result<Value, String> {
     if preset_paths.is_empty() {
         return Ok(json!({"imported": [], "failed": [], "skipped": 0}));
     }
@@ -2016,7 +2016,7 @@ fn import_preset_files(app: &mut LightcraftApp, preset_paths: &[&String], news: 
 }
 
 /// Show what an import did: errors if any file failed, else the parts.
-fn toast_import_news(app: &mut LightcraftApp, ctx: &egui::Context, news: &ImportNews) {
+fn toast_import_news(app: &mut EvoLightApp, ctx: &egui::Context, news: &ImportNews) {
     let mut msg = news.parts.join(" · ");
     if news.problems.is_empty() {
         if !msg.is_empty() {
@@ -2035,7 +2035,7 @@ fn toast_import_news(app: &mut LightcraftApp, ctx: &egui::Context, news: &Import
 }
 
 /// The `file.importPresets` command.
-fn file_import_presets_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_import_presets_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     let request =
         PickRequest::files(Some(crate::i18n::tr("Import Presets").into()), crate::i18n::tr("Presets & Profiles"), crate::pick::PRESET_EXTENSIONS);
     let paths = match paths_or_pick(app, id, p, request, |s| s.pick_preset_files.as_mut().map(|f| f())) {
@@ -2073,7 +2073,7 @@ fn file_import_presets_command(app: &mut LightcraftApp, ctx: &egui::Context, id:
 }
 
 /// The `file.importKeywords` command.
-fn file_import_keywords_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_import_keywords_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     // a keyword list file: Lightroom Classic's, Capture One's, Photo Supreme's (.utf8)
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => x.to_string(),
@@ -2105,7 +2105,7 @@ fn file_import_keywords_command(app: &mut LightcraftApp, ctx: &egui::Context, id
 }
 
 /// The `file.exportKeywords` command.
-fn file_export_keywords_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_export_keywords_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => x.to_string(),
         None => {
@@ -2151,14 +2151,14 @@ fn file_export_keywords_command(app: &mut LightcraftApp, ctx: &egui::Context, id
 }
 
 /// The `file.exportMaskEffects` command.
-fn file_export_mask_effects_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_export_mask_effects_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => Some(x.to_string()),
         None => {
             let name = format!("{}.lceffect", p.get("group").and_then(Value::as_str).unwrap_or("Effect Presets"));
             let req = PickRequest::save(
                 crate::i18n::tr("Export Effect Presets"),
-                crate::i18n::tr("LightCraft Effect Presets"),
+                crate::i18n::tr("EvoLight Effect Presets"),
                 &["lceffect"],
                 name.clone(),
             );
@@ -2185,7 +2185,7 @@ fn file_export_mask_effects_command(app: &mut LightcraftApp, ctx: &egui::Context
 }
 
 /// The `file.importCurvePresets` command.
-fn file_import_curve_presets_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_import_curve_presets_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     let request = PickRequest::files(
         Some(crate::i18n::tr("Import Point Curve Presets").into()),
         crate::i18n::tr("Point Curve Presets"),
@@ -2214,7 +2214,7 @@ fn curve_import_message(v: &Value) -> String {
 }
 
 /// The `file.exportCurvePresets` command.
-fn file_export_curve_presets_command(app: &mut LightcraftApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
+fn file_export_curve_presets_command(app: &mut EvoLightApp, ctx: &egui::Context, id: &str, p: &Value) -> Result<Value, String> {
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => Some(x.to_string()),
         None => {

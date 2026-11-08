@@ -3,7 +3,7 @@
 //! whose compressed bytes are damaged or absent fails without first reserving the (multi-megabyte) output. One test
 //! per binary (dhat's profiler is global).
 
-use lightcraft_denoise_core::product::read_window;
+use evolight_denoise_core::product::read_window;
 
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
@@ -31,7 +31,7 @@ fn damaged_product() -> Vec<u8> {
     for _ in 0..8 {
         bytes.extend_from_slice(&[0xAAu8; STRIP_LEN]);
     }
-    assert_eq!(bytes.len(), expected_len, "the crafted file lies about its length");
+    assert_eq!(bytes.len(), expected_len, "the built file lies about its length");
     bytes
 }
 

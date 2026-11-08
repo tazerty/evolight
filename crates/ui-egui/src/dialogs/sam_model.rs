@@ -1,16 +1,16 @@
-use super::{LightcraftApp, Tokens, json};
+use super::{EvoLightApp, Tokens, json};
 
 /// No SAM 3 model, no download running and nowhere to download it from: installing it by hand is
 /// all the dialog can offer.
-pub(super) fn sam_by_hand(sam: &lightcraft_engine::segment::Segmenter) -> bool {
+pub(super) fn sam_by_hand(sam: &evolight_engine::segment::Segmenter) -> bool {
     !sam.installed() && !sam.download_status().running && sam.mirrors().is_empty()
 }
 
 /// The model installation guide.
-const SAM_HELP: &str = "https://github.com/storytold/lightcraft/blob/main/docs/ai-masks.md#getting-the-model";
+const SAM_HELP: &str = "https://github.com/tazerty/evolight/blob/main/docs/ai-masks.md#getting-the-model";
 
 /// Open the configured SAM 3 folder itself; revealing a file opens its parent instead.
-pub(crate) fn show_model_folder(app: &mut LightcraftApp) -> Result<serde_json::Value, String> {
+pub(crate) fn show_model_folder(app: &mut EvoLightApp) -> Result<serde_json::Value, String> {
     let dir = app.session.segmenter.dir.as_ref().ok_or("no folder is set for the SAM 3 model")?;
     let path = dir.to_str().ok_or("the model folder path is not valid UTF-8")?;
     let open = app.services.open_with.as_mut().ok_or("opening model folders is not available here")?;
@@ -38,8 +38,8 @@ pub(crate) fn show_model_folder(app: &mut LightcraftApp) -> Result<serde_json::V
 }
 
 /// The SAM 3 dialog: what the model is, its size and licence, and the download's progress.
-pub(super) fn sam_model_body(app: &mut LightcraftApp, ui: &mut egui::Ui, error: Option<&str>) {
-    use lightcraft_engine::segment::{LICENSE_NAME, LICENSE_URL, MODEL_BYTES};
+pub(super) fn sam_model_body(app: &mut EvoLightApp, ui: &mut egui::Ui, error: Option<&str>) {
+    use evolight_engine::segment::{LICENSE_NAME, LICENSE_URL, MODEL_BYTES};
     let t = Tokens::get(ui.ctx());
     let seg = &app.session.segmenter;
     let d = seg.download_status();
@@ -49,7 +49,7 @@ pub(super) fn sam_model_body(app: &mut LightcraftApp, ui: &mut egui::Ui, error: 
     }
     let gb = |b: u64| b as f64 / 1e9;
     ui.label(crate::i18n::tr(
-        "Object and Describe masks use SAM 3, Meta's segmentation model. It isn't part of LightCraft, and everything else works without it.",
+        "Object and Describe masks use SAM 3, Meta's segmentation model. It isn't part of EvoLight, and everything else works without it.",
     ));
     let dir = seg.dir.as_ref().map(|d| d.display().to_string()).unwrap_or_default();
     ui.label(format!("{} {:.1} GB, {} {dir}", crate::i18n::tr("A one-time download of about"), gb(MODEL_BYTES), crate::i18n::tr("saved in")));
@@ -57,7 +57,7 @@ pub(super) fn sam_model_body(app: &mut LightcraftApp, ui: &mut egui::Ui, error: 
         egui::RichText::new(format!(
             "{} {LICENSE_NAME} — {}",
             crate::i18n::tr("Licence:"),
-            crate::i18n::tr("Meta's terms, not LightCraft's. Downloading it means accepting them.")
+            crate::i18n::tr("Meta's terms, not EvoLight's. Downloading it means accepting them.")
         ))
         .color(t.text_label),
     );

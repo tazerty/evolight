@@ -463,7 +463,7 @@ fn a_files_keywords_keep_their_hierarchy() {
     assert_eq!(from_file(&v(&["Rome", "Italy", "travel", "beach"]), &v(&["travel|Italy|Rome"])), ["travel|Italy|Rome", "beach"]);
     assert_eq!(from_file(&v(&["ROME"]), &v(&["travel|Rome", " travel | rome "])), ["travel|Rome"], "each once, cleaned");
     assert_eq!(from_file(&v(&["beach", " sea "]), &[]), ["beach", "sea"]);
-    assert_eq!(from_file(&v(&["a|b"]), &[]), ["a|b"], "sidecars from LightCraft 0.13 and older wrote paths flat");
+    assert_eq!(from_file(&v(&["a|b"]), &[]), ["a|b"], "sidecars from EvoLight 0.13 and older wrote paths flat");
 }
 
 /// A sidecar's keywords: names in `dc:subject`, never paths, and the paths in

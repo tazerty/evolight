@@ -49,7 +49,7 @@ pub(crate) trait MoveFs {
         if !file.metadata()?.is_file() {
             return Err(std::io::Error::other(format!("{} is not a regular file", path.display())));
         }
-        let mut hash = lightcraft_preview::Hasher128::new();
+        let mut hash = evolight_preview::Hasher128::new();
         let mut len = 0u64;
         let mut buffer = [0u8; 16 * 1024];
         loop {
@@ -283,7 +283,7 @@ mod open_regular_tests {
 
     #[test]
     fn a_link_swapped_in_after_the_check_is_not_followed() {
-        let dir = std::env::temp_dir().join(format!("lightcraft-open-regular-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-open-regular-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (file, other, link) = (dir.join("a.xmp"), dir.join("secret"), dir.join("link.xmp"));
         std::fs::write(&file, b"x").unwrap();

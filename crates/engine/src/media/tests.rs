@@ -70,7 +70,7 @@ fn hidden_grading_wheels_render_neutral_without_touching_the_photo() {
 
 #[test]
 fn decoder_info_survives_render_jobs_cache_and_eviction() {
-    let tone = lightcraft_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
+    let tone = evolight_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
         let x = 0.01 * (i + 1) as f32;
         [x, (x * 2.0).min(0.9)]
     }))
@@ -98,7 +98,7 @@ fn decoder_info_survives_render_jobs_cache_and_eviction() {
     job.settings = Arc::new(DevelopSettings::default());
     let r = job.clone().run();
     assert_eq!(r.loaded.as_ref().unwrap().info.as_ref(), Some(&info));
-    let expected = lightcraft_pipeline::render(&r.loaded.as_ref().unwrap().image, &info, &job.settings, &job.request);
+    let expected = evolight_pipeline::render(&r.loaded.as_ref().unwrap().image, &info, &job.settings, &job.request);
     assert_eq!(r.rendered.as_ref().unwrap().image.data, expected.image.data);
     s.accept(&r);
     job.source = s.media.source_ref(s.catalog.photo(id).unwrap(), job.level);
@@ -115,14 +115,14 @@ fn decoder_info_survives_render_jobs_cache_and_eviction() {
 /// and the panel then reads As Shot in Kelvin while the stored settings keep their look.
 #[test]
 fn old_relative_white_balance_on_a_kelvin_camera_keeps_its_look_and_learns_the_as_shot_white() {
-    use lightcraft_develop::{WbMode, WbScale};
+    use evolight_develop::{WbMode, WbScale};
     let mut s = crate::Session::new();
     let id = s.catalog.alloc_photo_id();
     let mut p = Photo::new(id, Source::File { path: "/photos/DSC00001.ARW".into() }, "DSC00001.ARW", "ARW", 64, 64, "2026-01-01T00:00:00");
     p.kind = MediaKind::Raw;
     p.meta.camera = "SONY ILCE-7M3".into();
     p.as_shot_wb = Some((6500.0, 0.0));
-    let mut d = lightcraft_develop::DevelopSettings::for_raw(6500.0, 0.0);
+    let mut d = evolight_develop::DevelopSettings::for_raw(6500.0, 0.0);
     (d.wb.mode, d.wb.temp, d.wb.tint) = (WbMode::Custom, 5800.0, 3.0);
     assert_eq!(d.wb.scale, WbScale::Legacy);
     p.develop = Arc::new(d.clone());
@@ -158,9 +158,9 @@ fn old_relative_white_balance_on_a_kelvin_camera_keeps_its_look_and_learns_the_a
     let new = r.rendered.as_ref().unwrap().image.data.clone();
     // the old pipeline: the same settings against the relative-scale source facts of an older build
     let old_info = SourceInfo { raw: true, relative_wb: true, as_shot_temp: 6500.0, as_shot_tint: 0.0, ..Default::default() };
-    let old = lightcraft_pipeline::render(&pixels, &old_info, &d, &request).image.data;
+    let old = evolight_pipeline::render(&pixels, &old_info, &d, &request).image.data;
     assert_eq!(new, old, "the look of an existing edit changed");
-    assert_ne!(new, lightcraft_pipeline::render(&pixels, &decoded, &lightcraft_develop::DevelopSettings::for_raw(4986.0, -2.0), &request).image.data);
+    assert_ne!(new, evolight_pipeline::render(&pixels, &decoded, &evolight_develop::DevelopSettings::for_raw(4986.0, -2.0), &request).image.data);
     // accepting the result records the as-shot white, journaled but not undoable, and the settings are untouched
     s.accept(&r);
     let p = s.catalog.photo(id).unwrap();
@@ -172,15 +172,15 @@ fn old_relative_white_balance_on_a_kelvin_camera_keeps_its_look_and_learns_the_a
     // the panel reads the white balance in effect in Kelvin: the value the relative edit renders as
     let info = s.source_info(id);
     assert_eq!((info.as_shot_temp, info.as_shot_tint), (4986.0, -2.0));
-    let shown = lightcraft_pipeline::local::effective_wb(&info, &d);
-    assert_eq!(shown, lightcraft_pipeline::local::legacy_to_kelvin(5800.0, 3.0, (4986.0, -2.0)));
+    let shown = evolight_pipeline::local::effective_wb(&info, &d);
+    assert_eq!(shown, evolight_pipeline::local::legacy_to_kelvin(5800.0, 3.0, (4986.0, -2.0)));
     assert!(shown.0 < 4986.0 && shown.0 > 4000.0, "{shown:?}");
     // accepting again changes nothing more
     let log = s.pending_log.len();
     s.accept(&r);
     assert_eq!(s.pending_log.len(), log);
     // a catalog-only (proxy) render of the same settings before the decode gave the same pixels too
-    let proxy = lightcraft_pipeline::render(&pixels, &header, &d, &request).image.data;
+    let proxy = evolight_pipeline::render(&pixels, &header, &d, &request).image.data;
     assert_eq!(proxy, old, "a smart preview of an existing edit changed");
 }
 
@@ -199,7 +199,7 @@ fn budget_evicts_least_recently_used_across_caches() {
     assert!(m.get(PhotoId(1), SourceLevel::Preview).is_some() && m.get(PhotoId(3), SourceLevel::Preview).is_some());
     // a thumbnail source and a rendered preview compete in the same budget
     m.insert(PhotoId(4), SourceLevel::Thumb, img(500));
-    m.rendered.put(Hash128(7), Arc::new(lightcraft_raster::Rgba8::new(1000, 1000)));
+    m.rendered.put(Hash128(7), Arc::new(evolight_raster::Rgba8::new(1000, 1000)));
     assert!(m.held() <= 30 * mb, "{}", m.held());
     // the newest preview (the one on screen) is never evicted, even alone over budget
     m.set_budget(mb);
@@ -378,7 +378,7 @@ fn levels_cover_sizes_and_large_exports_use_the_original() {
 // from the original, with a key of its own
 #[test]
 fn region_jobs_render_a_window_of_the_zoomed_frame() {
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let mut s = crate::Session::with_demo();
     let p = s.catalog.photos().next().unwrap().clone();
     let (w, h) = (p.width as usize, p.height as usize);
@@ -411,7 +411,7 @@ fn a_tight_crop_reads_the_source_level_its_pixels_need() {
     // the uncropped photo at 1600 px: the preview is plenty
     assert_eq!(s.render_job(id, 1600, 1600, false, true).unwrap().level, SourceLevel::Preview);
     // a crop to 30 % of each side shown 1600 px long needs 1600 / 0.3 px of the source
-    d.crop.geometry.rect = lightcraft_geom::Rect { x0: 0.2, y0: 0.2, x1: 0.5, y1: 0.5 };
+    d.crop.geometry.rect = evolight_geom::Rect { x0: 0.2, y0: 0.2, x1: 0.5, y1: 0.5 };
     s.set_develop(id, d, "Crop").unwrap();
     assert_eq!(s.render_job(id, 1600, 1600, false, true).unwrap().level, SourceLevel::Full);
     // …but with the crop tool open (the whole photo shown) it does not
@@ -427,7 +427,7 @@ fn a_tight_crop_reads_the_source_level_its_pixels_need() {
 fn a_crop_far_past_the_photo_reads_the_source_its_bounded_frame_needs() {
     let mut s = crate::Session::with_demo();
     let id = s.catalog.photos().next().unwrap().id;
-    let wild = lightcraft_geom::CropGeometry { rect: lightcraft_geom::Rect::new(0.0, 0.0, 1000.0, 1000.0), angle: 5.0 };
+    let wild = evolight_geom::CropGeometry { rect: evolight_geom::Rect::new(0.0, 0.0, 1000.0, 1000.0), angle: 5.0 };
     let mut d = (*s.develop_of(id).unwrap()).clone();
     d.crop.geometry = wild;
     s.set_develop(id, d, "Crop").unwrap();
@@ -436,9 +436,9 @@ fn a_crop_far_past_the_photo_reads_the_source_its_bounded_frame_needs() {
     let p = s.catalog.photo(id).unwrap().clone();
     let (w, h) = (f64::from(p.width), f64::from(p.height));
     assert_ne!(w, h, "a square photo can't tell the two frames apart");
-    for orientation in [lightcraft_geom::Orientation::Normal, lightcraft_geom::Orientation::Rotate90] {
+    for orientation in [evolight_geom::Orientation::Normal, evolight_geom::Orientation::Rotate90] {
         let (ow, oh) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
-        let mut d = lightcraft_develop::DevelopSettings { orientation, ..Default::default() };
+        let mut d = evolight_develop::DevelopSettings { orientation, ..Default::default() };
         d.crop.geometry = wild;
         let r = wild.bounded(ow, oh).rect;
         let expected = (1600.0 * w.max(h) / (r.width() * ow).max(r.height() * oh)) as usize;
@@ -450,7 +450,7 @@ fn a_crop_far_past_the_photo_reads_the_source_its_bounded_frame_needs() {
 // quarter, still asks for exactly the source its own rect needs
 #[test]
 fn crops_on_the_photo_keep_the_source_size_they_need() {
-    use lightcraft_geom::{Orientation, crop_fit_angle};
+    use evolight_geom::{Orientation, crop_fit_angle};
     let s = crate::Session::with_demo();
     let p = s.catalog.photos().next().unwrap().clone();
     let (w, h) = (f64::from(p.width), f64::from(p.height));
@@ -458,7 +458,7 @@ fn crops_on_the_photo_keep_the_source_size_they_need() {
         let (ow, oh) = if orientation.swaps_axes() { (h, w) } else { (w, h) };
         for angle in [-45.0, -12.5, 0.0, 7.0, 45.0] {
             for aspect in [None, Some(1.0), Some(3.0), Some(0.25)] {
-                let mut d = lightcraft_develop::DevelopSettings { orientation, ..Default::default() };
+                let mut d = evolight_develop::DevelopSettings { orientation, ..Default::default() };
                 d.crop.geometry = crop_fit_angle(ow, oh, angle, aspect);
                 // the rect is in the photo as shown, so its pixels are counted in the turned size
                 let r = d.crop.geometry.rect;
@@ -469,7 +469,7 @@ fn crops_on_the_photo_keep_the_source_size_they_need() {
     }
     // a square crop of the photo turned a quarter is the photo's short side across: shown 2000 px
     // long it needs more than the 2560 px preview (counted in the unturned size, it asked for 2000)
-    let mut d = lightcraft_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
+    let mut d = evolight_develop::DevelopSettings { orientation: Orientation::Rotate90, ..Default::default() };
     d.crop.geometry = crop_fit_angle(h, w, 0.0, Some(1.0));
     let needed = super::source::source_edge_needed(&p, &d, true, 2000);
     assert_eq!(needed, (2000.0 * w.max(h) / w.min(h)) as usize);
@@ -479,16 +479,16 @@ fn crops_on_the_photo_keep_the_source_size_they_need() {
 // a window whose spot reads from further away than a render can hold is refused
 #[test]
 fn a_region_job_is_refused_when_a_spot_reads_beyond_what_fits() {
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let mut s = crate::Session::with_demo();
     let id = s.active().unwrap();
     let p = s.catalog.photo(id).unwrap().clone();
     let (w, h) = (p.width as usize * 8, p.height as usize * 8);
     let mut d = (*s.develop_of(id).unwrap()).clone();
-    d.spots.push(lightcraft_develop::Spot {
-        points: vec![lightcraft_geom::Point::new(0.2, 0.5)],
+    d.spots.push(evolight_develop::Spot {
+        points: vec![evolight_geom::Point::new(0.2, 0.5)],
         size: 0.01,
-        source_offset: Some(lightcraft_geom::Point::new(0.6, 0.0)),
+        source_offset: Some(evolight_geom::Point::new(0.6, 0.0)),
         ..Default::default()
     });
     s.set_develop(id, d, "Spot").unwrap();
@@ -502,7 +502,7 @@ fn a_region_job_is_refused_when_a_spot_reads_beyond_what_fits() {
 // without its edits (the crop is kept), with a key of its own
 #[test]
 fn a_before_window_shows_the_unedited_look() {
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let mut s = crate::Session::with_demo();
     let id = s.active().unwrap();
     let p = s.catalog.photo(id).unwrap().clone();
@@ -525,7 +525,7 @@ fn a_before_window_shows_the_unedited_look() {
 // at a corner, with tone, colour and detail edits on a camera-sized photo
 #[test]
 fn one_to_one_window_pixels_are_export_pixels() {
-    use lightcraft_pipeline::{OutputDepth, OutputSpace, PixelWindow};
+    use evolight_pipeline::{OutputDepth, OutputSpace, PixelWindow};
     let mut s = crate::Session::with_demo();
     let id = s.active().unwrap();
     let p = s.catalog.photo(id).unwrap().clone();
@@ -560,7 +560,7 @@ fn one_to_one_window_pixels_are_export_pixels() {
 fn a_thumbnail_is_cut_from_the_decoded_preview() {
     let mut s = crate::Session::new();
     let p = Photo::new(PhotoId(1), Source::File { path: "/nowhere/a.ARW".into() }, "a.ARW", "ARW", 2400, 1600, "");
-    s.catalog.apply(lightcraft_catalog::Op::AddPhoto { photo: Box::new(p.clone()) }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::AddPhoto { photo: Box::new(p.clone()) }).unwrap();
     s.media.insert(p.id, SourceLevel::Preview, Arc::new(Rgb32f::from_fn(2400, 1600, |x, _| [x as f32 / 2400.0, 0.5, 0.25])));
     let job = s.thumb_job(p.id, 512).unwrap();
     assert!(matches!(job.source, SourceRef::Fit { .. }));
@@ -631,7 +631,7 @@ fn variant_jobs_have_their_own_keys_and_hit_the_cache() {
 /// while on-screen views keep the cheap preview.
 #[test]
 fn an_export_develops_from_a_source_twice_its_size() {
-    use lightcraft_pipeline::{OutputDepth, OutputSpace};
+    use evolight_pipeline::{OutputDepth, OutputSpace};
     let mut s = crate::Session::with_demo();
     let id = s.active().unwrap();
     let p = s.catalog.photo(id).unwrap().clone();
@@ -649,7 +649,7 @@ fn an_export_develops_from_a_source_twice_its_size() {
 fn a_thumbnail_is_cut_from_the_decoded_full_source() {
     let mut s = crate::Session::new();
     let p = Photo::new(PhotoId(1), Source::File { path: "/nowhere/a.ARW".into() }, "a.ARW", "ARW", 2400, 1600, "");
-    s.catalog.apply(lightcraft_catalog::Op::AddPhoto { photo: Box::new(p.clone()) }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::AddPhoto { photo: Box::new(p.clone()) }).unwrap();
     s.media.insert(p.id, SourceLevel::Full, Arc::new(Rgb32f::from_fn(2400, 1600, |x, _| [x as f32 / 2400.0, 0.5, 0.25])));
     let job = s.thumb_job(p.id, 512).unwrap();
     assert!(matches!(job.source, SourceRef::Fit { .. }));

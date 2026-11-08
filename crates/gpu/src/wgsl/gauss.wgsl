@@ -1,5 +1,5 @@
 // Exact separable Gaussian with explicit taps over a one-channel plane (clamped edges); mirrors
-// `lightcraft_raster::blur::gaussian_taps` (same taps, same accumulation order).
+// `evolight_raster::blur::gaussian_taps` (same taps, same accumulation order).
 // P: w, h, r (taps has 2r+1 entries). Bindings: src, taps, dst.
 
 @compute @workgroup_size(16, 16)

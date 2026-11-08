@@ -1,8 +1,8 @@
 //! Sharpening: an unsharp mask at the pixel scale, with Radius (source pixels), Detail (halo
 //! damping) and Masking (edge mask), the same at every preview and export size.
 
-use lightcraft_develop::DevelopSettings;
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_develop::DevelopSettings;
+use evolight_raster::{Rgb32f, Rgba8};
 
 use crate::{RenderRequest, SourceInfo, render};
 
@@ -145,7 +145,7 @@ fn sharpening_is_the_same_at_every_size() {
 #[test]
 fn subpixel_blur_response_is_continuous_and_does_not_vanish() {
     use crate::local::{sharpen_gain, sharpen_sigma};
-    use lightcraft_raster::{
+    use evolight_raster::{
         Plane,
         blur::{gauss_taps, gaussian_taps},
     };
@@ -189,7 +189,7 @@ fn reduced_source_uses_the_original_pixel_radius() {
 #[test]
 fn old_processes_keep_their_sharpening_and_cache_switches_are_exact() {
     use crate::{StageCache, render_cached};
-    use lightcraft_develop::Process;
+    use evolight_develop::Process;
     use std::sync::Arc;
     let src = Arc::new(scene(256));
     let req = RenderRequest::fit(256, 256);
@@ -227,8 +227,8 @@ fn texture_does_not_depend_on_sharpening_settings() {
 
 #[test]
 fn local_sharpness_uses_the_sharpen_band() {
-    use lightcraft_develop::{LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape};
-    use lightcraft_geom::Point;
+    use evolight_develop::{LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape};
+    use evolight_geom::Point;
     let src = scene(256);
     let mut s = DevelopSettings {
         masks: vec![Mask {

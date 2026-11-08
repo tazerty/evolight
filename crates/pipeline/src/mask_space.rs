@@ -1,10 +1,10 @@
 //! Moving a mask's coordinates between frames: [`attach`] puts an old mask's coordinates (on the
-//! corrected frame) on the photo before the warp ([`lightcraft_develop::Mask::on_photo`]), and
+//! corrected frame) on the photo before the warp ([`evolight_develop::Mask::on_photo`]), and
 //! [`turn`] follows a quarter turn or flip of the photo (Rotate Left / Right). Gradients, brush
 //! strokes and clicks move point by point; stored AI segmentations are resampled.
 
-use lightcraft_develop::{Mask, MaskShape, SegMask};
-use lightcraft_geom::{Orientation, Point};
+use evolight_develop::{Mask, MaskShape, SegMask};
+use evolight_geom::{Orientation, Point};
 
 use crate::geometry::Frame;
 use crate::masks::SegGrid;
@@ -254,7 +254,7 @@ fn moved(s: &SegMask, fwd: &dyn Fn(Point) -> Point, back: &dyn Fn(Point) -> Poin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lightcraft_develop::{BrushStroke, DevelopSettings, MaskComponent, MaskOp};
+    use evolight_develop::{BrushStroke, DevelopSettings, MaskComponent, MaskOp};
 
     fn comp(shape: MaskShape) -> MaskComponent {
         MaskComponent { name: None, op: MaskOp::Add, invert: false, shape }
@@ -385,8 +385,8 @@ mod tests {
     fn alpha_diff(a: &Mask, b: &Mask, s: &DevelopSettings) -> (f32, f32) {
         let frame = Frame::new(300, 200, s, true);
         let (w, h) = frame.fit(300, 200);
-        let img = lightcraft_raster::Rgb32f::new(w, h);
-        let log_l = lightcraft_raster::Plane::new(w, h);
+        let img = evolight_raster::Rgb32f::new(w, h);
+        let log_l = evolight_raster::Plane::new(w, h);
         let pa = crate::masks::evaluate_one(a, &frame, w, h, &img, &log_l, 0.0, None);
         let pb = crate::masks::evaluate_one(b, &frame, w, h, &img, &log_l, 0.0, None);
         let d: Vec<f32> = pa.data.iter().zip(&pb.data).map(|(x, y)| (x - y).abs()).collect();

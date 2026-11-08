@@ -39,12 +39,12 @@ pub fn manifest() -> DenoiserManifest {
             name: "MIT OR Apache-2.0".into(),
             commercial: Commercial::Yes,
             url: None,
-            notice: "Part of LightCraft: no download, no weights.".into(),
+            notice: "Part of EvoLight: no download, no weights.".into(),
         },
         source: None,
         sha256: None,
         size_bytes: None,
-        provenance: "Block-matching collaborative filtering with a noise level measured from each photo, written for LightCraft.".into(),
+        provenance: "Block-matching collaborative filtering with a noise level measured from each photo, written for EvoLight.".into(),
         domain: Domain::BayerToRgb,
         tile: TILE,
         overlap: OVERLAP,
@@ -68,7 +68,7 @@ impl Builtin {
     }
 
     /// The block-matching filter's parameters when this one uses it (the only filter with a graphics-card version, see
-    /// `lightcraft_gpu::bm3d`), else `None`.
+    /// `evolight_gpu::bm3d`), else `None`.
     pub fn bm3d_params(&self) -> Option<crate::bm3d::Params> {
         self.tuning.bm3d
     }

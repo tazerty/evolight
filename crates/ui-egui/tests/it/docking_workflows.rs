@@ -1,13 +1,13 @@
 //! Real library/tool panel moves preserve the selected tool and saved arrangement.
-use craft_ui::docking::{DockArea, Hit, Node, Side};
+use evo_ui::docking::{DockArea, Hit, Node, Side};
 use egui::{Event, Modifiers, PointerButton, vec2};
 use egui_kittest::{Harness, kittest::Queryable};
-use lightcraft_ui_egui::{LightcraftApp, Services, UiState, docking::Panel, state::RightPanel};
+use evolight_ui_egui::{EvoLightApp, Services, UiState, docking::Panel, state::RightPanel};
 use serde_json::json;
 use std::time::{Duration, Instant};
 
-fn harness(state: Option<UiState>, width: f32, scale: f32) -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn harness(state: Option<UiState>, width: f32, scale: f32) -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     // a headless host never gains the first-run tour: its modal would take the pointer the drags aim at
     app.headless_host = true;
     if let Some(state) = state {
@@ -17,7 +17,7 @@ fn harness(state: Option<UiState>, width: f32, scale: f32) -> Harness<'static, L
         app.ui.right = RightPanel::Edit;
     }
     let mut h = Harness::builder().with_size(vec2(width, 900.0)).with_pixels_per_point(scale).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -27,7 +27,7 @@ fn harness(state: Option<UiState>, width: f32, scale: f32) -> Harness<'static, L
     h
 }
 
-fn drag(h: &mut Harness<'_, LightcraftApp>, from: egui::Pos2, to: egui::Pos2) {
+fn drag(h: &mut Harness<'_, EvoLightApp>, from: egui::Pos2, to: egui::Pos2) {
     h.event(Event::PointerMoved(from));
     h.run_steps(2);
     h.event(Event::PointerButton { pos: from, button: PointerButton::Primary, pressed: true, modifiers: Modifiers::NONE });
@@ -40,7 +40,7 @@ fn drag(h: &mut Harness<'_, LightcraftApp>, from: egui::Pos2, to: egui::Pos2) {
     h.run_steps(4);
 }
 
-fn settle_photo(h: &mut Harness<'_, LightcraftApp>) {
+fn settle_photo(h: &mut Harness<'_, EvoLightApp>) {
     let started = Instant::now();
     let mut quiet = 0;
     while quiet < 4 {
@@ -105,7 +105,7 @@ fn dragging_a_group_by_its_bar_moves_the_whole_group() {
     h.run_steps(4);
     h.state_mut().run("ui.dock", json!({"operation":"move","panel":"presets","target":"tools","zone":"center"})).unwrap();
     h.run_steps(6);
-    let bar = DockArea::<Panel>::hit_rects(&h.ctx, egui::Id::unique("lightcraft-docking"))
+    let bar = DockArea::<Panel>::hit_rects(&h.ctx, egui::Id::unique("evolight-docking"))
         .into_iter()
         .find_map(|(hit, rect)| matches!(hit, Hit::DragBar(Panel::Tools | Panel::Presets)).then_some(rect))
         .expect("the Tools and Presets group draws its drag bar");
@@ -118,7 +118,7 @@ fn dragging_a_group_by_its_bar_moves_the_whole_group() {
 }
 
 /// The start dock's columns from the window edge inwards, each as its groups' panels.
-fn start_dock(h: &Harness<'_, LightcraftApp>) -> Vec<Vec<Vec<Panel>>> {
+fn start_dock(h: &Harness<'_, EvoLightApp>) -> Vec<Vec<Vec<Panel>>> {
     let layout = &h.state().ui.docking.as_ref().unwrap().layout;
     let mut nodes: Vec<_> = layout.root.iter().collect();
     while let Some(node) = nodes.pop() {
@@ -148,7 +148,7 @@ fn a_tab_dropped_on_a_dock_group_stacks_adds_a_column_or_joins_by_where_it_lands
         let source = h.get_by_role_and_label(egui::accesskit::Role::Tab, "Tools").rect().center();
         drag(&mut h, source, at(library));
         assert_eq!(start_dock(&h), expected, "dropped at {:?} of {library:?}", at(library));
-        lightcraft_ui_egui::docking::validate(h.state().ui.docking.as_ref().unwrap()).unwrap();
+        evolight_ui_egui::docking::validate(h.state().ui.docking.as_ref().unwrap()).unwrap();
         assert_eq!(h.state().ui.right, RightPanel::Edit);
     }
 }
@@ -182,8 +182,8 @@ fn docking_renders_real_photo_panels_default_floating_and_redocked() {
                 }
                 h.run_steps(8);
                 settle_photo(&mut h);
-                lightcraft_ui_egui::docking::validate(h.state().ui.docking.as_ref().unwrap()).unwrap();
-                if let Ok(directory) = std::env::var("CRAFT_UI_DOCKING_DIR") {
+                evolight_ui_egui::docking::validate(h.state().ui.docking.as_ref().unwrap()).unwrap();
+                if let Ok(directory) = std::env::var("EVO_UI_DOCKING_DIR") {
                     std::fs::create_dir_all(&directory).unwrap();
                     h.render().unwrap().save(format!("{directory}/light-{width}-{scale}-{state}.png")).unwrap();
                 }

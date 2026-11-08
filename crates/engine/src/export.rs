@@ -4,11 +4,11 @@
 //! published primaries and curves, optional output sharpening and a JPEG file-size limit. Pure (bytes in, bytes out) so the desktop
 //! app, CLI, MCP and the web build share it; writing the file is the caller's job.
 
-use lightcraft_codecs::{ChromaSubsampling, EncodeImage, EncodeMeta, JxlColour, JxlOptions, NamedSpace, Samples, encode, icc};
-pub use lightcraft_codecs::{JxlEffort, TiffCompression};
-use lightcraft_meta::{DateTime, Gps, Metadata};
-pub use lightcraft_pipeline::{DeepImage, DeepSamples, OutputDepth, OutputSpace};
-use lightcraft_raster::Rgba8;
+use evolight_codecs::{ChromaSubsampling, EncodeImage, EncodeMeta, JxlColour, JxlOptions, NamedSpace, Samples, encode, icc};
+pub use evolight_codecs::{JxlEffort, TiffCompression};
+use evolight_meta::{DateTime, Gps, Metadata};
+pub use evolight_pipeline::{DeepImage, DeepSamples, OutputDepth, OutputSpace};
+use evolight_raster::Rgba8;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]

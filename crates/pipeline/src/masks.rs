@@ -6,9 +6,9 @@
 //! AI shapes (Sky, Subject, Background, People) use the segmentation [`Mattes`] the source carries
 //! (DNG semantic masks, e.g. iPhone ProRAW's) when it has a matching one, else a heuristic.
 
-use lightcraft_develop::{BrushStroke, LocalAdjustments, Mask, MaskOp, MaskShape, SegMask};
-use lightcraft_geom::{Orientation, Point};
-use lightcraft_raster::{Image, Plane, Rgb32f};
+use evolight_develop::{BrushStroke, LocalAdjustments, Mask, MaskOp, MaskShape, SegMask};
+use evolight_geom::{Orientation, Point};
+use evolight_raster::{Image, Plane, Rgb32f};
 
 use crate::for_rows;
 use crate::geometry::Frame;
@@ -255,9 +255,9 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
             let tol = color_range_tolerance(*refine);
             // (a settings value built in code can skip the deserializer's cap: cost is pixels x samples)
             let samples: Vec<[f32; 3]> =
-                samples.iter().take(lightcraft_develop::MAX_COLOR_RANGE_SAMPLES).map(|s| [s[0] as f32, s[1] as f32, s[2] as f32]).collect();
+                samples.iter().take(evolight_develop::MAX_COLOR_RANGE_SAMPLES).map(|s| [s[0] as f32, s[1] as f32, s[2] as f32]).collect();
             for (v, c) in out.data.iter_mut().zip(&img.data) {
-                let lab = lightcraft_color::perceptual::oklab_from_2020(tonemap_for_select(c.map(|v| v * gain)));
+                let lab = evolight_color::perceptual::oklab_from_2020(tonemap_for_select(c.map(|v| v * gain)));
                 let d = samples
                     .iter()
                     .map(|s| ((lab[1] - s[1]).powi(2) + (lab[2] - s[2]).powi(2) + 0.25 * (lab[0] - s[0]).powi(2)).sqrt())
@@ -296,7 +296,7 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
         MaskShape::Subject | MaskShape::Object { .. } | MaskShape::People { .. } => {
             // Saliency heuristic: centre-weighted local contrast (replaced by the segmenter in M12).
             let m = frame.out_to_mask(w, h);
-            let blur = lightcraft_raster::blur::gaussian(log_l, 0.03 * frame_px(frame, w));
+            let blur = evolight_raster::blur::gaussian(log_l, 0.03 * frame_px(frame, w));
             for (i, v) in out.data.iter_mut().enumerate() {
                 let (x, y) = (i % w, i / w);
                 let n = m.apply(Point::new(x as f64 + 0.5, y as f64 + 0.5));
@@ -383,7 +383,7 @@ const SEG_EPS: f32 = 0.01;
 fn sample_seg(seg: Option<&SegMask>, detail: &[SegMask], gain: f32, frame: &Frame, w: usize, h: usize, log_l: &Plane, out: &mut Plane) {
     let coarse = seg.and_then(SegGrid::new);
     // (capped: a hostile document can hold many)
-    let patches: Vec<SegGrid> = detail.iter().take(lightcraft_develop::segmask::MAX_DETAIL).filter_map(SegGrid::new).collect();
+    let patches: Vec<SegGrid> = detail.iter().take(evolight_develop::segmask::MAX_DETAIL).filter_map(SegGrid::new).collect();
     if coarse.is_none() && patches.is_empty() {
         return;
     }
@@ -408,7 +408,7 @@ fn frame_px(frame: &Frame, w: usize) -> f32 {
 }
 
 fn smooth_plane(p: &mut Plane, sigma: f32) {
-    *p = lightcraft_raster::blur::gaussian(p, sigma.max(0.5));
+    *p = evolight_raster::blur::gaussian(p, sigma.max(0.5));
 }
 
 /// The union (max) of `mattes` (0..255, over the EXIF-oriented source) at output resolution,
@@ -554,7 +554,7 @@ pub fn push_pressures(pressure: &mut Vec<f32>, added: usize, from: f32, to: f32)
 const STATIONARY_PX: f64 = 1e-6;
 
 /// Most dabs one stroke holds (32 MiB of centres). A segment is capped on its own, but a stroke of
-/// many hostile segments (an agent, a crafted XMP or catalog) would otherwise add up without
+/// many hostile segments (an agent, a built XMP or catalog) would otherwise add up without
 /// bound; past this the rest of the stroke lays nothing (#1520).
 pub const MAX_STROKE_DABS: usize = 2_000_000;
 
@@ -700,7 +700,7 @@ pub const AUTO_TOL_CHROMA: f32 = 0.25;
 /// Chromaticity `rgb / Y` (as colour noise reduction uses it).
 #[inline]
 pub fn chromaticity(c: [f32; 3]) -> [f32; 3] {
-    let y = lightcraft_color::luminance_2020(c).max(1e-6);
+    let y = evolight_color::luminance_2020(c).max(1e-6);
     [c[0] / y, c[1] / y, c[2] / y]
 }
 
@@ -742,7 +742,7 @@ struct Guided {
 /// The guided filter (He, Sun and Tang) of `p` steered by `guide`, both the same size: Gaussian
 /// windows of `sigma` px, `eps` the regularization (in guide units squared).
 fn guided_coeffs(guide: &Plane, p: &Plane, sigma: f32, eps: f32, with_edge: bool) -> Guided {
-    use lightcraft_raster::blur::gaussian;
+    use evolight_raster::blur::gaussian;
     let mi = gaussian(guide, sigma);
     let mp = gaussian(p, sigma);
     let cip = gaussian(&guide.zip_map(p, |a, b| a * b), sigma);
@@ -783,7 +783,7 @@ pub fn guided_cross(guide: &Plane, p: &Plane, sigma: f32, eps: f32) -> Plane {
 /// blur `p`). Extra memory: the reduced planes only (the coefficients are sampled per pixel, not
 /// enlarged into planes).
 fn guided_cross_fast(guide: &Plane, p: &mut Plane, sigma: f32, eps: f32, weight: impl Fn(f32) -> f32 + Sync + Send) {
-    use lightcraft_raster::resample::{Filter, resize};
+    use evolight_raster::resample::{Filter, resize};
     let (w, h) = (p.width, p.height);
     if guide.width != w || guide.height != h || w == 0 || h == 0 || !sigma.is_finite() {
         return;

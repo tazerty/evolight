@@ -2,13 +2,13 @@
 //!
 //! Every CI run builds the workspace several times with one job per CPU. Several worktrees running
 //! it at once (parallel agents) slow each other down far more than waiting in turn would, and make
-//! the machine unusable meanwhile. So `ci` first takes one of `LIGHTCRAFT_CI_SLOTS` (default 1)
+//! the machine unusable meanwhile. So `ci` first takes one of `EVOLIGHT_CI_SLOTS` (default 1)
 //! lock files in a per-user cache directory, shared by every checkout and worktree, and holds it
 //! until it exits. The OS drops the lock when the process ends, crashed or not.
 //!
-//! - `LIGHTCRAFT_CI_SLOTS=N`: N runs at once (1–64).
-//! - `LIGHTCRAFT_CI_LOCK=off`: no lock (e.g. a CI runner that only ever runs one job).
-//! - `LIGHTCRAFT_CI_LOCK=<dir>`: keep the lock files there instead.
+//! - `EVOLIGHT_CI_SLOTS=N`: N runs at once (1–64).
+//! - `EVOLIGHT_CI_LOCK=off`: no lock (e.g. a CI runner that only ever runs one job).
+//! - `EVOLIGHT_CI_LOCK=<dir>`: keep the lock files there instead.
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io::Write;
@@ -31,7 +31,7 @@ impl Drop for Held {
 
 /// Where the lock files live, or `None` when the lock is switched off.
 fn lock_dir() -> Option<PathBuf> {
-    match std::env::var_os("LIGHTCRAFT_CI_LOCK") {
+    match std::env::var_os("EVOLIGHT_CI_LOCK") {
         Some(v) if matches!(v.to_str(), Some("off" | "0" | "false" | "no")) => return None,
         Some(v) if !v.is_empty() => return Some(PathBuf::from(v)),
         _ => {}
@@ -41,11 +41,11 @@ fn lock_dir() -> Option<PathBuf> {
         .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
         .unwrap_or_else(std::env::temp_dir);
-    Some(cache.join("lightcraft"))
+    Some(cache.join("evolight"))
 }
 
 fn slots() -> usize {
-    std::env::var("LIGHTCRAFT_CI_SLOTS").ok().and_then(|s| s.trim().parse().ok()).unwrap_or(1).clamp(1, 64)
+    std::env::var("EVOLIGHT_CI_SLOTS").ok().and_then(|s| s.trim().parse().ok()).unwrap_or(1).clamp(1, 64)
 }
 
 fn slot_path(dir: &Path, slot: usize) -> PathBuf {
@@ -57,7 +57,7 @@ fn owner_path(lock: &Path) -> PathBuf {
 }
 
 /// What to do when the lock itself can't be set up (read-only home, sandbox, network mount).
-const LOCK_HINT: &str = "set LIGHTCRAFT_CI_LOCK=off to run without the lock, or LIGHTCRAFT_CI_LOCK=<dir> to keep it elsewhere";
+const LOCK_HINT: &str = "set EVOLIGHT_CI_LOCK=off to run without the lock, or EVOLIGHT_CI_LOCK=<dir> to keep it elsewhere";
 
 /// Take the first free slot of `slots` in `dir`, or `None` when all are held.
 pub fn try_acquire(dir: &Path, slots: usize, owner: &str) -> Result<Option<Held>, String> {
@@ -104,7 +104,7 @@ pub fn acquire(root: &Path, command: &str) -> Result<Option<Held>, String> {
         return Ok(Some(held));
     }
     let waiting = Instant::now();
-    eprintln!("=== ci: waiting for another CI run to finish ({slots} at a time; LIGHTCRAFT_CI_SLOTS changes it) ===");
+    eprintln!("=== ci: waiting for another CI run to finish ({slots} at a time; EVOLIGHT_CI_SLOTS changes it) ===");
     for h in holders(&dir, slots) {
         eprintln!("  running: {h}");
     }

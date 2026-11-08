@@ -33,16 +33,16 @@ pub struct AlbumEntry {
 /// Every album, smart album and folder of `cat` in the sidebar's order (folders first, the user's
 /// order, else by name), each folder followed by what it holds. `blocked` says why an album can't
 /// be picked, if so.
-pub fn entries_from(cat: &lightcraft_catalog::Catalog, blocked: impl Fn(&lightcraft_catalog::Album) -> Option<String>) -> Vec<AlbumEntry> {
+pub fn entries_from(cat: &evolight_catalog::Catalog, blocked: impl Fn(&evolight_catalog::Album) -> Option<String>) -> Vec<AlbumEntry> {
     let kids = cat.album_children_by_parent();
     let mut out = Vec::new();
     // depth-first, guarded against a parent loop in a damaged catalog
     let mut seen = std::collections::HashSet::new();
     fn walk(
-        parent: Option<lightcraft_catalog::AlbumId>,
-        kids: &std::collections::HashMap<Option<lightcraft_catalog::AlbumId>, Vec<&lightcraft_catalog::Album>>,
-        blocked: &dyn Fn(&lightcraft_catalog::Album) -> Option<String>,
-        seen: &mut std::collections::HashSet<lightcraft_catalog::AlbumId>,
+        parent: Option<evolight_catalog::AlbumId>,
+        kids: &std::collections::HashMap<Option<evolight_catalog::AlbumId>, Vec<&evolight_catalog::Album>>,
+        blocked: &dyn Fn(&evolight_catalog::Album) -> Option<String>,
+        seen: &mut std::collections::HashSet<evolight_catalog::AlbumId>,
         out: &mut Vec<AlbumEntry>,
         depth: usize,
     ) {
@@ -223,7 +223,7 @@ impl<'a> AlbumPicker<'a> {
         }
         let state: State = ui.data(|d| d.get_temp(key)).unwrap_or_default();
         let state = std::cell::RefCell::new(state);
-        let picked = craft_ui::combo::Menu::new(ui, &button)
+        let picked = evo_ui::combo::Menu::new(ui, &button)
             .height(MENU_HEIGHT)
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
             .show_ui_with_header(

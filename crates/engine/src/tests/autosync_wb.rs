@@ -6,8 +6,8 @@
 //! first, never read as Kelvin), moves a photo of another scale (a JPEG beside a raw) by as much as
 //! the active photo, and leaves each photo's own tint.
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{WbMode, WbScale, WhiteBalance};
+use evolight_catalog::PhotoId;
+use evolight_develop::{WbMode, WbScale, WhiteBalance};
 use serde_json::json;
 
 use crate::Session;
@@ -17,21 +17,21 @@ use crate::Session;
 /// tints its pixels, so Auto finds another white on each photo.
 fn raw_as_shot(s: &mut Session, id: PhotoId, temp: f64, tint: f64, legacy: bool, warm: f32) {
     use crate::media::SourceLevel;
-    let mut img = lightcraft_raster::Rgb32f::new(48, 32);
+    let mut img = evolight_raster::Rgb32f::new(48, 32);
     for (i, px) in img.data.iter_mut().enumerate() {
         let v = 0.1 + 0.6 * ((i % 48) as f32 / 48.0);
         *px = [v * warm, v, v / warm];
     }
     let img = std::sync::Arc::new(img);
     let info =
-        lightcraft_pipeline::SourceInfo { raw: true, legacy_relative_wb: legacy, as_shot_temp: temp, as_shot_tint: tint, ..Default::default() };
+        evolight_pipeline::SourceInfo { raw: true, legacy_relative_wb: legacy, as_shot_temp: temp, as_shot_tint: tint, ..Default::default() };
     s.media.insert_with_info(id, SourceLevel::Thumb, img.clone(), info.clone());
     s.media.insert_with_info(id, SourceLevel::Preview, img, info);
 }
 
 /// The white balance photo `id` renders with (Kelvin, tint).
 fn wb(s: &Session, id: PhotoId) -> (f64, f64) {
-    lightcraft_pipeline::local::effective_wb(&s.source_info(id), &s.develop_of(id).unwrap())
+    evolight_pipeline::local::effective_wb(&s.source_info(id), &s.develop_of(id).unwrap())
 }
 
 fn close(x: (f64, f64), y: (f64, f64)) -> bool {
@@ -49,7 +49,7 @@ fn three_raws() -> (Session, [PhotoId; 3]) {
     raw_as_shot(&mut s, c, 6100.0, 8.0, true, 0.7);
     let mut d = (*s.develop_of(c).unwrap()).clone();
     d.wb = WhiteBalance { mode: WbMode::Custom, temp: 7000.0, tint: 0.0, scale: WbScale::Legacy };
-    s.catalog.apply(lightcraft_catalog::Op::SetDevelop { id: c, settings: std::sync::Arc::new(d), label: "x".into(), edited: None }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetDevelop { id: c, settings: std::sync::Arc::new(d), label: "x".into(), edited: None }).unwrap();
     s.execute("library.select", &json!({"ids": [a.0, b.0, c.0], "active": a.0})).unwrap();
     s.execute("develop.autoSync", &json!({"on": true})).unwrap();
     (s, [a, b, c])
@@ -75,7 +75,7 @@ fn auto_sync_white_balance_modes_apply_to_each_photo() {
     s.execute("develop.wb", &json!({"mode": "auto"})).unwrap();
     for id in [b, c] {
         let src = s.source_now(id, crate::media::SourceLevel::Thumb).unwrap();
-        let own = lightcraft_pipeline::auto::auto_wb(&src, &s.source_info(id));
+        let own = evolight_pipeline::auto::auto_wb(&src, &s.source_info(id));
         assert!(close(wb(&s, id), own), "Auto on photo {}: {:?}, its own Auto is {own:?}", id.0, wb(&s, id));
         assert_eq!(s.develop_of(id).unwrap().wb.mode, WbMode::Auto);
     }
@@ -133,8 +133,8 @@ fn auto_sync_temp_moves_a_jpeg_by_as_much_as_the_raw() {
     let (a, b) = (ids[0], ids[1]);
     raw_as_shot(&mut s, a, 5200.0, 4.0, false, 1.0);
     // b: a JPEG (no raw white balance scale: 6500 / 0 = its own colours)
-    let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::filled(48, 32, [0.4, 0.4, 0.4]));
-    let info = lightcraft_pipeline::SourceInfo { raw: false, as_shot_temp: 6500.0, as_shot_tint: 0.0, ..Default::default() };
+    let img = std::sync::Arc::new(evolight_raster::Rgb32f::filled(48, 32, [0.4, 0.4, 0.4]));
+    let info = evolight_pipeline::SourceInfo { raw: false, as_shot_temp: 6500.0, as_shot_tint: 0.0, ..Default::default() };
     s.media.insert_with_info(b, crate::media::SourceLevel::Thumb, img.clone(), info.clone());
     s.media.insert_with_info(b, crate::media::SourceLevel::Preview, img, info);
     assert!(!s.source_info(b).raw);
@@ -172,8 +172,8 @@ fn a_preset_with_its_own_tint_on_a_jpeg_carries_that_tint() {
     let mut s = Session::with_demo();
     let ids: Vec<PhotoId> = s.visible_cloned().into_iter().take(2).collect();
     let (a, b) = (ids[0], ids[1]);
-    let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::filled(48, 32, [0.4, 0.4, 0.4]));
-    let info = lightcraft_pipeline::SourceInfo { raw: false, as_shot_temp: 6500.0, as_shot_tint: 0.0, ..Default::default() };
+    let img = std::sync::Arc::new(evolight_raster::Rgb32f::filled(48, 32, [0.4, 0.4, 0.4]));
+    let info = evolight_pipeline::SourceInfo { raw: false, as_shot_temp: 6500.0, as_shot_tint: 0.0, ..Default::default() };
     for id in [a, b] {
         s.media.insert_with_info(id, crate::media::SourceLevel::Thumb, img.clone(), info.clone());
         s.media.insert_with_info(id, crate::media::SourceLevel::Preview, img.clone(), info.clone());

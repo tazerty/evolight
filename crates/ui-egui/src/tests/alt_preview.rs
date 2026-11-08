@@ -7,14 +7,14 @@ use egui::{Event, Modifiers, PointerButton};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
 
 fn detail() -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = Headless::new(app, [1400.0, 1400.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail", "right": "edit"}), T);
     assert_eq!(r["ok"], true, "{r}");

@@ -1,21 +1,21 @@
 //! The lens database on request: the first launch offers lensfun's database once (its size, Download / Not Now,
 //! [`offer`]), Settings ▸ General can download it any time ([`download_default`]), and nothing is fetched without
-//! that click (`lightcraft_engine::lensfun_download::fetch_on_start` decides; an activity row while it runs).
+//! that click (`evolight_engine::lensfun_download::fetch_on_start` decides; an activity row while it runs).
 //! Whenever the database in use changes
 //! (it arrived, a newer pin replaced it) or Enable Lens Corrections is ticked on a photo without a profile, the
-//! library's raws that have none are looked up again on a worker thread (`lightcraft_engine::cmd::lens_refresh`);
+//! library's raws that have none are looked up again on a worker thread (`evolight_engine::cmd::lens_refresh`);
 //! when its files were replaced, so are those whose profile came from the database and those that named no lens.
 
-use lightcraft_engine::cmd::{lens_refresh, recheck};
-use lightcraft_engine::{lens_profiles, lensfun_download};
+use evolight_engine::cmd::{lens_refresh, recheck};
+use evolight_engine::{lens_profiles, lensfun_download};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 /// The activity stack's label while files are read for their lens.
 pub const LABEL: &str = "Looking up lens profiles";
 
 /// Called every frame.
-pub fn tick(app: &mut LightcraftApp) {
+pub fn tick(app: &mut EvoLightApp) {
     start_download(app);
     refresh(app);
 }
@@ -23,7 +23,7 @@ pub fn tick(app: &mut LightcraftApp) {
 /// Once per run, what the start policy says ([`lensfun_download::fetch_on_start`]): offer the database, fetch it
 /// (the user said yes before), or nothing. The offer waits for the window to be free (another dialog, the library
 /// chooser).
-fn start_download(app: &mut LightcraftApp) {
+fn start_download(app: &mut EvoLightApp) {
     if app.ui.lens_download_checked {
         return;
     }
@@ -41,7 +41,7 @@ fn start_download(app: &mut LightcraftApp) {
 
 /// Act on the start policy's answer, fetching from `mirrors`. The offer counts as answered once it is shown: closing
 /// it any way but Download (Not Now, Esc) is "not now", and the next start doesn't ask again.
-pub(crate) fn begin(app: &mut LightcraftApp, start: lensfun_download::Start, mirrors: Vec<String>) {
+pub(crate) fn begin(app: &mut EvoLightApp, start: lensfun_download::Start, mirrors: Vec<String>) {
     match start {
         lensfun_download::Start::Nothing => {}
         lensfun_download::Start::Ask(dir) => {
@@ -58,7 +58,7 @@ pub(crate) fn begin(app: &mut LightcraftApp, start: lensfun_download::Start, mir
 
 /// Download the database into `dir` from `mirrors` (the offer's Download, Settings' button): remembered as the
 /// user's yes, shown in the activity stack, and read once it is in place.
-pub(crate) fn download(app: &mut LightcraftApp, dir: &std::path::Path, mirrors: Vec<String>) -> Result<(), String> {
+pub(crate) fn download(app: &mut EvoLightApp, dir: &std::path::Path, mirrors: Vec<String>) -> Result<(), String> {
     lens_refresh::start_download(&mut app.session, dir, mirrors, lensfun_download::FILES)?;
     // a yes only once it started: a download that couldn't start isn't fetched again at the next start
     app.ui.settings.lens_database = lensfun_download::Offer::Accepted;
@@ -66,8 +66,8 @@ pub(crate) fn download(app: &mut LightcraftApp, dir: &std::path::Path, mirrors: 
 }
 
 /// Settings' Download Lens Database: into the app's own folder, from the usual mirrors.
-pub fn download_default(app: &mut LightcraftApp) -> Result<(), String> {
-    let dir = lensfun_download::default_dir().ok_or("this computer has no folder for LightCraft's data")?;
+pub fn download_default(app: &mut EvoLightApp) -> Result<(), String> {
+    let dir = lensfun_download::default_dir().ok_or("this computer has no folder for EvoLight's data")?;
     download(app, &dir, lensfun_download::mirrors())
 }
 
@@ -78,7 +78,7 @@ pub fn offer(ui: &mut egui::Ui) {
     ui.add_space(4.0);
     ui.add(
         egui::Label::new(crate::i18n::tr_format!(
-            "LightCraft can correct distortion and vignetting for many lenses using the open lens database (lensfun, about {size} MB).",
+            "EvoLight can correct distortion and vignetting for many lenses using the open lens database (lensfun, about {size} MB).",
             size = lensfun_download::download_megabytes()
         ))
         .wrap(),
@@ -96,8 +96,8 @@ pub fn offer(ui: &mut egui::Ui) {
 /// After Enable Lens Corrections was ticked on photo `id`: the photos to look up again, those of `id` and the
 /// selection that now have corrections on and no profile. With Auto Sync off only `id` was changed, so the other
 /// selected photos are left alone unless their corrections were already on.
-pub fn to_look_up(session: &lightcraft_engine::Session, id: lightcraft_catalog::PhotoId) -> Vec<lightcraft_catalog::PhotoId> {
-    let mut out: Vec<lightcraft_catalog::PhotoId> = Vec::new();
+pub fn to_look_up(session: &evolight_engine::Session, id: evolight_catalog::PhotoId) -> Vec<evolight_catalog::PhotoId> {
+    let mut out: Vec<evolight_catalog::PhotoId> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for t in std::iter::once(id).chain(session.selection.ids.iter().copied()) {
         if seen.insert(t) && session.catalog.photo(t).is_some_and(|p| p.embedded_lens.is_none() && p.develop.optics.lens_profile) {
@@ -109,7 +109,7 @@ pub fn to_look_up(session: &lightcraft_engine::Session, id: lightcraft_catalog::
 
 /// What a lookup's results belong to: the library, the lens database in use and how often its files were replaced.
 /// Results for another key are stale.
-pub(crate) fn lookup_key(app: &LightcraftApp) -> (u64, u64, u64) {
+pub(crate) fn lookup_key(app: &EvoLightApp) -> (u64, u64, u64) {
     (app.session.library_generation(), lens_profiles::generation(), lens_profiles::replacements())
 }
 
@@ -121,7 +121,7 @@ pub(crate) fn look_up_again(last: Option<(u64, u64, u64)>, key: (u64, u64, u64))
 }
 
 /// Look the library's raws up again when the database changed, the library changed, or photos asked for it.
-fn refresh(app: &mut LightcraftApp) {
+fn refresh(app: &mut EvoLightApp) {
     let key = lookup_key(app);
     let asked = std::mem::take(&mut app.ui.lens_lookup_ids);
     if app.ui.lens_refreshed == Some(key) && asked.is_empty() {
@@ -142,7 +142,7 @@ fn refresh(app: &mut LightcraftApp) {
         return;
     }
     let work = move || lens_refresh::probe(&probe, listed);
-    let done = move |app: &mut LightcraftApp, ctx: &egui::Context, results| {
+    let done = move |app: &mut EvoLightApp, ctx: &egui::Context, results| {
         // another library, or a database reloaded while the files were read (the probe may have used either): the
         // next frame looks them up again with the database in use now (asked for here: an idle window draws none)
         if lookup_key(app) != key {
@@ -183,8 +183,8 @@ fn database_name(camera: &str, lens: &str) -> Option<String> {
 
 /// What the Optics panel says about photo `p`'s lens profile: which one is loaded and from where, or why there is
 /// none.
-pub fn readout(app: &LightcraftApp, p: &lightcraft_catalog::Photo) -> String {
-    use lightcraft_develop::LensSource;
+pub fn readout(app: &EvoLightApp, p: &evolight_catalog::Photo) -> String {
+    use evolight_develop::LensSource;
     match p.embedded_lens.map(|l| l.source) {
         Some(LensSource::File) => crate::i18n::tr("Profile: from the file (the camera's own correction)").to_string(),
         Some(LensSource::Database) => {
@@ -193,7 +193,7 @@ pub fn readout(app: &LightcraftApp, p: &lightcraft_catalog::Photo) -> String {
         }
         None if app.session.lensfun.running() => crate::i18n::tr("Downloading the lens database…").to_string(),
         None if matches!(app.session.lensfun.state(), lensfun_download::State::Failed(_)) && lens_profiles::database().is_none() => {
-            crate::i18n::tr("The lens database could not be downloaded. LightCraft tries again the next time it starts.").to_string()
+            crate::i18n::tr("The lens database could not be downloaded. EvoLight tries again the next time it starts.").to_string()
         }
         None => match lens_refresh::no_profile_reason(p) {
             Some(r) if p.meta.lens.trim().is_empty() => crate::i18n::tr(&r).to_string(),
@@ -205,13 +205,13 @@ pub fn readout(app: &LightcraftApp, p: &lightcraft_catalog::Photo) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{LightcraftApp, Services};
-    use lightcraft_develop::{EmbeddedLens, LensSource};
+    use crate::{EvoLightApp, Services};
+    use evolight_develop::{EmbeddedLens, LensSource};
 
     /// The Optics panel says which profile is loaded and from where, or why there is none.
     #[test]
     fn the_optics_readout_names_the_profile_or_the_lens_without_one() {
-        let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+        let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
         let id = app.session.active().expect("a photo");
         let mut p = (**app.session.catalog.photo(id).expect("the photo")).clone();
         p.meta.lens = "EF35mm f/1.4L II USM".into();
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(super::readout(&app, &p), "Profile: from the file (the camera's own correction)");
         p.meta.lens = "EF70-200mm f/2.8L IS II USM".into();
         p.embedded_lens = Some(EmbeddedLens { source: LensSource::Database, ..Default::default() });
-        // the database's name for it, or the file's own without a database (LIGHTCRAFT_LENSFUN_DIR may be set)
+        // the database's name for it, or the file's own without a database (EVOLIGHT_LENSFUN_DIR may be set)
         let r = super::readout(&app, &p);
         assert!(r.starts_with("Profile: ") && r.contains("70-200mm f/2.8L IS II USM") && r.ends_with(" (lens database)"), "{r}");
     }
@@ -231,7 +231,7 @@ mod tests {
     /// A first-run download that failed says so, instead of "no profile" for every lens.
     #[test]
     fn a_failed_download_is_named_in_the_optics_readout() {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
         let id = app.session.active().expect("a photo");
         let mut p = (**app.session.catalog.photo(id).expect("the photo")).clone();
         p.meta.lens = "EF35mm f/1.4L II USM".into();
@@ -244,15 +244,15 @@ mod tests {
         let activity = app.session.activity.clone();
         app.session
             .lensfun
-            .start(&dir, vec!["http://127.0.0.1:1/db".into()], lightcraft_engine::lensfun_download::FILES, &activity)
+            .start(&dir, vec!["http://127.0.0.1:1/db".into()], evolight_engine::lensfun_download::FILES, &activity)
             .expect("started");
         let t0 = std::time::Instant::now();
         while app.session.lensfun.running() && t0.elapsed() < std::time::Duration::from_secs(60) {
             std::thread::sleep(std::time::Duration::from_millis(20));
         }
-        assert!(matches!(app.session.lensfun.state(), lightcraft_engine::lensfun_download::State::Failed(_)), "{:?}", app.session.lensfun.state());
-        if lightcraft_engine::lens_profiles::database().is_none() {
-            assert_eq!(super::readout(&app, &p), "The lens database could not be downloaded. LightCraft tries again the next time it starts.");
+        assert!(matches!(app.session.lensfun.state(), evolight_engine::lensfun_download::State::Failed(_)), "{:?}", app.session.lensfun.state());
+        if evolight_engine::lens_profiles::database().is_none() {
+            assert_eq!(super::readout(&app, &p), "The lens database could not be downloaded. EvoLight tries again the next time it starts.");
         }
         let _ = std::fs::remove_dir_all(&root);
     }

@@ -1,14 +1,14 @@
 //! The lensfun lens database, downloaded on request: the desktop app offers it once on the first launch
 //! ([`fetch_on_start`]: nothing is fetched without the user's click).
 //!
-//! lensfun's `data/db` (CC BY-SA 3.0, <https://github.com/lensfun/lensfun>) is data, never bundled with LightCraft and
+//! lensfun's `data/db` (CC BY-SA 3.0, <https://github.com/lensfun/lensfun>) is data, never bundled with EvoLight and
 //! never committed to its repository: the desktop app fetches it at run time, when the user chooses Download, into its data folder
 //! ([`default_dir`]), with a row in the activity stack, and [`crate::lens_profiles`] reads it from there. The files are
 //! pinned to one lensfun commit ([`COMMIT`]) by name, size and SHA-256 ([`FILES`]), so whatever mirror serves them
-//! ([`URL_ENV`] lists others, e.g. a copy on LightCraft's own server), what arrives is exactly that commit's data or
+//! ([`URL_ENV`] lists others, e.g. a copy on EvoLight's own server), what arrives is exactly that commit's data or
 //! it is thrown away. A new pin in a later build replaces the folder's files once ([`installed`] compares the pin).
 //!
-//! The transfer is [`lightcraft_fetch`] (pure-Rust HTTPS, resume, size and hash checks) on a background thread; the
+//! The transfer is [`evolight_fetch`] (pure-Rust HTTPS, resume, size and hash checks) on a background thread; the
 //! files land in a staging folder beside the database folder, the marker is written there last, and only then does the
 //! staged folder replace the database folder as a whole ([`publish`]): the previous complete database stays in use
 //! until the new one is in place, and comes back if the swap fails. The loader reads the app's folder only when it has
@@ -26,7 +26,7 @@ pub const COMMIT: &str = "43f9e001ab66c4fcdd4f400463f13b72f94b2288";
 /// Where the files are fetched from by default: lensfun's repository at [`COMMIT`].
 pub const DEFAULT_MIRROR: &str = "https://raw.githubusercontent.com/lensfun/lensfun/43f9e001ab66c4fcdd4f400463f13b72f94b2288/data/db";
 /// Other places to fetch the same files from, tried first (base URLs separated by commas or spaces).
-pub const URL_ENV: &str = "LIGHTCRAFT_LENSFUN_URL";
+pub const URL_ENV: &str = "EVOLIGHT_LENSFUN_URL";
 /// The file written once every database file is in place: the pin it holds says which data the folder has.
 pub const MARKER: &str = "SOURCE.txt";
 /// The suffix of the folder beside the database folder where files wait until all have arrived.
@@ -133,7 +133,7 @@ fn beside(dir: &Path, suffix: &str) -> PathBuf {
 
 /// Put back the previous database when a swap ([`publish`]) was interrupted between its two moves (the app quit or
 /// the machine stopped): `dir` is missing and the previous folder is whole. Best effort; says why it couldn't. Done
-/// under the folder's download lock (`DirLock`) and skipped while a download, in this or another LightCraft, holds
+/// under the folder's download lock (`DirLock`) and skipped while a download, in this or another EvoLight, holds
 /// it: that download is between its own two moves, not interrupted, and puts the folder right itself.
 pub fn recover(dir: &Path) {
     if !needs_recovery(dir) {
@@ -191,7 +191,7 @@ pub enum Start {
 
 /// The first-start policy, in one place: what a start does about the database. Nothing touches the network
 /// without the user's click: the host must allow the question at all (`auto`, [`crate::Session::lens_auto_download`],
-/// the desktop app only), a folder of the user's own (`LIGHTCRAFT_LENSFUN_DIR`) is never replaced, an installed
+/// the desktop app only), a folder of the user's own (`EVOLIGHT_LENSFUN_DIR`) is never replaced, an installed
 /// database needs nothing, and otherwise the user's answer (`offer`) decides: ask, download, or nothing.
 pub fn fetch_on_start(auto: bool, offer: Offer) -> Start {
     let own = std::env::var_os(crate::lens_profiles::ENV).is_some_and(|v| !v.is_empty());
@@ -203,7 +203,7 @@ pub fn fetch_on_start(auto: bool, offer: Offer) -> Start {
     decide(auto, own, dir, installed, offer)
 }
 
-/// [`fetch_on_start`] without the file system: `own` (`LIGHTCRAFT_LENSFUN_DIR` is set), the app's folder `dir` and
+/// [`fetch_on_start`] without the file system: `own` (`EVOLIGHT_LENSFUN_DIR` is set), the app's folder `dir` and
 /// whether it holds the pinned data.
 pub fn decide(auto: bool, own: bool, dir: Option<PathBuf>, installed: bool, offer: Offer) -> Start {
     let Some(dir) = dir.filter(|_| auto && !own && !installed) else { return Start::Nothing };
@@ -228,7 +228,7 @@ pub fn download_megabytes() -> u64 {
 pub fn mirrors() -> Vec<String> {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        lightcraft_fetch::mirrors(std::env::var(URL_ENV).ok().as_deref(), None, &[DEFAULT_MIRROR])
+        evolight_fetch::mirrors(std::env::var(URL_ENV).ok().as_deref(), None, &[DEFAULT_MIRROR])
     }
     #[cfg(target_arch = "wasm32")]
     {
@@ -389,7 +389,7 @@ impl DirLock {
             .map_err(|e| format!("could not create {}: {e}", path.display()))?;
         match file.try_lock() {
             Ok(()) => Ok(DirLock { file }),
-            Err(std::fs::TryLockError::WouldBlock) => Err("the lens database is already downloading (in another LightCraft window)".into()),
+            Err(std::fs::TryLockError::WouldBlock) => Err("the lens database is already downloading (in another EvoLight window)".into()),
             Err(std::fs::TryLockError::Error(e)) => Err(format!("could not lock {}: {e}", path.display())),
         }
     }
@@ -402,16 +402,16 @@ fn fetch_all(dir: &Path, mirrors: &[String], files: &[Pin], shared: &Shared) -> 
     recover_locked(dir);
     let staging = beside(dir, STAGING);
     std::fs::create_dir_all(&staging).map_err(|e| format!("could not create {}: {e}", staging.display()))?;
-    let specs: Vec<lightcraft_fetch::FileSpec<'_>> =
-        files.iter().map(|(name, size, sha)| lightcraft_fetch::FileSpec { name, size: Some(*size), sha256: Some(sha), max: MAX_FILE }).collect();
+    let specs: Vec<evolight_fetch::FileSpec<'_>> =
+        files.iter().map(|(name, size, sha)| evolight_fetch::FileSpec { name, size: Some(*size), sha256: Some(sha), max: MAX_FILE }).collect();
     let total = files.iter().map(|f| f.1).fold(0u64, u64::saturating_add);
-    lightcraft_fetch::download(&specs, mirrors, &staging, &lightcraft_fetch::Options::default(), &shared.cancel, &mut |p| {
+    evolight_fetch::download(&specs, mirrors, &staging, &evolight_fetch::Options::default(), &shared.cancel, &mut |p| {
         shared.set(State::Running { bytes: p.done.min(total), total });
     })
     .map_err(|e| match e {
-        lightcraft_fetch::DownloadError::AllMirrorsFailed { errors, .. } => {
+        evolight_fetch::DownloadError::AllMirrorsFailed { errors, .. } => {
             let detail: String = errors.join("; ").chars().take(300).collect();
-            format!("could not download the lens database ({detail}): check the internet connection; LightCraft tries again next time it starts")
+            format!("could not download the lens database ({detail}): check the internet connection; EvoLight tries again next time it starts")
         }
         other => other.to_string(),
     })?;
@@ -421,9 +421,9 @@ fn fetch_all(dir: &Path, mirrors: &[String], files: &[Pin], shared: &Shared) -> 
     remove_stale(&staging, files, |p| std::fs::remove_file(p))?;
     let readme = format!(
         "lensfun lens database (data/db), commit {COMMIT}
-from https://github.com/lensfun/lensfun, downloaded by LightCraft.
+from https://github.com/lensfun/lensfun, downloaded by EvoLight.
          Licence: Creative Commons Attribution-ShareAlike 3.0 (https://creativecommons.org/licenses/by-sa/3.0/), by the lensfun contributors.
-         Data only, read by LightCraft at run time; not part of LightCraft.
+         Data only, read by EvoLight at run time; not part of EvoLight.
 "
     );
     std::fs::write(staging.join(MARKER), readme).map_err(|e| format!("could not write {}: {e}", staging.join(MARKER).display()))?;
@@ -537,7 +537,7 @@ mod tests {
         let _ = std::fs::remove_file(beside(&dir, LOCK));
     }
 
-    /// The lock holds across processes: while another process (another LightCraft) holds the folder, a download
+    /// The lock holds across processes: while another process (another EvoLight) holds the folder, a download
     /// here is refused; once that process is gone (killed, like a crash), the system has let go and it may start.
     #[test]
     fn another_process_holding_the_folder_refuses_a_download_here() {
@@ -663,7 +663,7 @@ mod tests {
         r#"<lensdatabase><camera><maker>Testcam</maker><model>TC-1</model><mount>T</mount><cropfactor>1</cropfactor></camera></lensdatabase>"#;
 
     fn sha(s: &str) -> &'static str {
-        Box::leak(lightcraft_faces::hash::sha256_hex(s.as_bytes()).into_boxed_str())
+        Box::leak(evolight_faces::hash::sha256_hex(s.as_bytes()).into_boxed_str())
     }
 
     fn pins() -> &'static [Pin] {
@@ -692,7 +692,7 @@ mod tests {
         assert_eq!(d.state(), State::Done { files: 2 });
         assert!(installed_with(&dir, pins()), "the marker names the pinned commit and every file is there");
         assert!(!beside(&dir, STAGING).exists() && !beside(&dir, PREVIOUS).exists(), "no staging or previous folder is left");
-        let (db, errors) = lightcraft_lensdb::LensDb::load_dir(&dir).unwrap();
+        let (db, errors) = evolight_lensdb::LensDb::load_dir(&dir).unwrap();
         assert!(errors.is_empty() && db.lenses.len() == 1 && db.cameras.len() == 1);
         assert!(!dir.join("dropped.xml").exists() && !dir.join("old-staged.xml").exists(), "only this pin's files");
         wait("the row stayed", || activity.list().is_empty());

@@ -7,11 +7,11 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use lightcraft_catalog::{Op, Photo, PhotoId, Source};
+use evolight_catalog::{Op, Photo, PhotoId, Source};
 use serde_json::{Value, json};
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(60);
 const PHOTOS: u64 = 40;
@@ -25,7 +25,7 @@ struct Share {
 }
 
 fn app_on_a_slow_share(guard: Duration) -> (Headless, Share) {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(evolight_engine::Session::new(), Services { png: None, ..Default::default() });
     for i in 0..PHOTOS {
         let path = format!("/share/IMG_{i:04}.jpg");
         let p = Photo::new(PhotoId(i + 1), Source::File { path }, &format!("IMG_{i:04}.jpg"), "JPEG", 60, 40, "2026-01-01T00:00:00");
@@ -65,7 +65,7 @@ fn answer(h: &mut Headless, rx: &Receiver<Value>) -> Value {
     }
 }
 
-fn missing_rows(h: &Headless) -> Vec<lightcraft_engine::activity::TaskInfo> {
+fn missing_rows(h: &Headless) -> Vec<evolight_engine::activity::TaskInfo> {
     h.app.session.activity.list().into_iter().filter(|r| r.kind == "missing").collect()
 }
 

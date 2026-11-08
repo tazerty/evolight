@@ -71,9 +71,9 @@ fn the_album_is_a_single_top_level_one() {
     assert!(filter.contains("parent of candidate") && filter.contains("candidateParent is missing value"), "{filter}");
     assert!(filter.contains("considering case"), "exact names: {filter}");
     assert!(filter.contains(&format!(
-        "if (count of topLevel) > 1 then error \"LightCraft: several top-level albums have this name\" number {AMBIGUOUS_ALBUM}"
+        "if (count of topLevel) > 1 then error \"EvoLight: several top-level albums have this name\" number {AMBIGUOUS_ALBUM}"
     )));
-    let m = explain(&failed(&format!("execution error: LightCraft: several top-level albums have this name ({AMBIGUOUS_ALBUM})")), "Trip");
+    let m = explain(&failed(&format!("execution error: EvoLight: several top-level albums have this name ({AMBIGUOUS_ALBUM})")), "Trip");
     assert!(m.contains("More than one album at the top level of Photos is named “Trip”") && m.contains("nothing was added"), "{m}");
 }
 

@@ -7,14 +7,14 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use lightcraft_catalog::{Op, Photo, PhotoId, Source};
-use lightcraft_raster::Rgb32f;
+use evolight_catalog::{Op, Photo, PhotoId, Source};
+use evolight_raster::Rgb32f;
 use serde_json::{Value, json};
 
 use crate::find_similar::LABEL;
 use crate::headless::Headless;
 use crate::state::ViewMode;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(60);
 const PHOTOS: u64 = 12;
@@ -31,7 +31,7 @@ struct Drive {
 }
 
 fn app_on_a_slow_drive(guard: Duration) -> (Headless, Drive) {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(evolight_engine::Session::new(), Services { png: None, ..Default::default() });
     for i in 0..PHOTOS {
         let path = format!("/drive/IMG_{i:04}.arw");
         let p = Photo::new(PhotoId(i + 1), Source::File { path }, &format!("IMG_{i:04}.arw"), "ARW", 64, 64, "2026-01-01T00:00:00");
@@ -64,7 +64,7 @@ fn app_on_a_slow_drive(guard: Duration) -> (Headless, Drive) {
     (Headless::new(app, [1200.0, 800.0], 1.0), drive)
 }
 
-fn rows(h: &Headless) -> Vec<lightcraft_engine::activity::TaskInfo> {
+fn rows(h: &Headless) -> Vec<evolight_engine::activity::TaskInfo> {
     h.app.session.activity.list().into_iter().filter(|r| r.kind == "similar").collect()
 }
 

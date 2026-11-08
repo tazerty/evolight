@@ -21,7 +21,7 @@ removed, and the blocks are put back with weights; a second step matches blocks 
 shrinks by a Wiener filter built from it. How hard it thresholds follows the photo's noise: gently at low noise, to
 keep fine detail, and harder as the noise grows. It then demosaics with
 edge-directed green and colour-difference red and blue. It is written for
-LightCraft, pure Rust, MIT OR Apache-2.0, has no weights and no download, and uses the
+EvoLight, pure Rust, MIT OR Apache-2.0, has no weights and no download, and uses the
 same tiling, cache, queue, preview and export path as a model. Its tile is 256 cells with a
 16-cell overlap. The filter (the grouping, the transforms and the putting back, which are nearly all of its work) runs on
 the graphics card when there is one that agrees with the processor and is faster (`crates/gpu/src/bm3d.rs`, WGSL kernels
@@ -42,7 +42,7 @@ non-local-means filter (`crates/denoise-core/src/nlm.rs`) is still there as a fa
 (`Tuning::bm3d = None`). Why block matching and not something else: see [Why block matching](#why-block-matching).
 
 To measure a change to it, run the opt-in benchmark on a public CC0 raw (see `cargo xtask corpus`):
-`LC_DENOISE_RAW="$(git rev-parse --show-toplevel)/corpus/raw/arw-sony-a7m3-compressed.arw" LC_DENOISE_OUT=/tmp/dn cargo test --release -p lightcraft-engine --test denoise_builtin_quality -- --ignored --nocapture`
+`LC_DENOISE_RAW="$(git rev-parse --show-toplevel)/corpus/raw/arw-sony-a7m3-compressed.arw" LC_DENOISE_OUT=/tmp/dn cargo test --release -p evolight-engine --test denoise_builtin_quality -- --ignored --nocapture`
 (the path must be absolute: tests run from the crate's folder).
 It adds noise of four known levels to the raw, runs the denoiser and prints the PSNR against the
 original, plus a texture figure (how much of the true picture's fine structure the result keeps; noise
@@ -57,7 +57,7 @@ crops. On the Sony A7 III crop (PSNR gain over the noisy picture in dB / texture
 non-local means +3.70 / 0.62, +7.22 / 0.42, +9.69 / 0.22, +10.37 / 0.09; block matching +4.28 / 0.58, +7.60 / 0.44,
 +10.04 / 0.22, +10.62 / 0.12, in about the same time (1 to 2 s for the 1536 × 1024 crop on 4 cores). `LC_GPU=1` (with
 `--features denoise`) runs the block-matching filter on the graphics card instead: the same scores in 0.13 to 0.24 s on an
-RTX 4080 SUPER. The tests `lightcraft-gpu` `bm3d::tests` (the card against `bm3d::filter` on synthetic tiles, shared between
+RTX 4080 SUPER. The tests `evolight-gpu` `bm3d::tests` (the card against `bm3d::filter` on synthetic tiles, shared between
 threads) and the engine's `gpu_tests` (set-up check, fallback after wrong tiles, the processor chosen, a marker left behind)
 need a graphics card and record a skip without one.
 
@@ -110,7 +110,7 @@ neighbour difference: it read the picture's texture as noise, never below about 
 true noise (`estimate_noise_v1`, kept to compare). On 30 different public pictures with known noise added, the ratio of
 estimated to true deviation at mid-grey, at the ISO 6400 level of a Canon R-series body (0.0094), had a 10th to 90th percentile of
 0.97 to 1.29 against 0.94 to 1.96 for the first version, and at the ISO 1600 level (0.0062) 0.99 to 1.45 against 0.97 to 2.77
-(`LC_CORPUS=<corpus/raw> cargo test --release -p lightcraft-engine --test denoise_noise_estimate -- --ignored --nocapture`).
+(`LC_CORPUS=<corpus/raw> cargo test --release -p evolight-engine --test denoise_noise_estimate -- --ignored --nocapture`).
 A picture with no flat area at all still reads somewhat high, never low.
 
 ### Fitted on real cameras
@@ -134,12 +134,12 @@ ISO 6400 up.
 
 **No model weights are bundled.** Choosing a model replaces the built-in denoiser; **Stop using**
 (or removing the model) goes back to it. Models live in the per-user `denoise-models` folder
-(override with `LIGHTCRAFT_DENOISE_MODELS`). Settings provides **Install from file…**
+(override with `EVOLIGHT_DENOISE_MODELS`). Settings provides **Install from file…**
 for a user-supplied ONNX file with a `denoise-model.json` beside it. The default build
 offers no model downloads. The separate `rawnind-model` Cargo feature enables the
 pinned RawNIND offer only when a release's model policy permits it.
 Terms must be acknowledged before installation or
-download. Downloads use the shared pure-Rust `lightcraft-fetch` client, with resume,
+download. Downloads use the shared pure-Rust `evolight-fetch` client, with resume,
 progress, cancellation, size limits and SHA-256 verification.
 
 RawNIND's optional ONNX weights are **GPL-3.0**, as recorded in the pinned model catalog.
@@ -195,8 +195,8 @@ architecture-specific assembly in its dependencies. Tiles share the outer worker
 pool. A scalar implementation checks the optimized operators on synthetic networks.
 Tract is not a workspace dependency or a product feature.
 CPU inference and the GPU model module are feature-gated; ordinary engine/web builds
-do not compile the faer/GEMM backend. The engine depends on the inference crate only through `denoise = ["dep:lightcraft-denoise", …]`;
-lightweight `lightcraft-denoise-core` metadata and cache formats remain available without inference. Pictures are capped at 110 megapixels; at most
+do not compile the faer/GEMM backend. The engine depends on the inference crate only through `denoise = ["dep:evolight-denoise", …]`;
+lightweight `evolight-denoise-core` metadata and cache formats remain available without inference. Pictures are capped at 110 megapixels; at most
 four tile calls run together, chosen within the process-wide working-memory budget.
 One idle CPU workspace is retained, and cache costs reserve room for the blended picture.
 
@@ -235,9 +235,9 @@ from the current workspace. These numbers are not a fresh benchmark of this reba
 Fresh checks can be run using an already installed model and CC0 raw samples:
 
 ```text
-LC_DENOISE_MODEL=<model.onnx> cargo test --release -p lightcraft-gpu --lib real_model_on_the_gpu_matches_cpu -- --ignored --nocapture
-LC_DENOISE_MODEL=<model.onnx> LC_DENOISE_RAW=<corpus/raw> cargo test --release -p lightcraft-engine --features rawnind-model --test it denoise_cpu:: -- --ignored --nocapture
-LC_DENOISE_MODEL=<model.onnx> LC_DENOISE_RAW=<corpus/raw> cargo test --release -p lightcraft-engine --features rawnind-model --test it denoise_real:: -- --ignored --nocapture
+LC_DENOISE_MODEL=<model.onnx> cargo test --release -p evolight-gpu --lib real_model_on_the_gpu_matches_cpu -- --ignored --nocapture
+LC_DENOISE_MODEL=<model.onnx> LC_DENOISE_RAW=<corpus/raw> cargo test --release -p evolight-engine --features rawnind-model --test it denoise_cpu:: -- --ignored --nocapture
+LC_DENOISE_MODEL=<model.onnx> LC_DENOISE_RAW=<corpus/raw> cargo test --release -p evolight-engine --features rawnind-model --test it denoise_real:: -- --ignored --nocapture
 ```
 
 ## Another computer's graphics card
@@ -246,15 +246,15 @@ A laptop can hand tiles to a desktop with a bigger graphics card over a LAN or a
 selected model the way the app does (the card when it can run it, checked against the CPU first; else the CPU):
 
 ```text
-export LIGHTCRAFT_DENOISE_TOKEN='a long random string, at least 16 characters'
-lightcraft-cli denoise-serve --listen 100.101.102.103:7990          # e.g. the machine's Tailscale address
+export EVOLIGHT_DENOISE_TOKEN='a long random string, at least 16 characters'
+evolight-cli denoise-serve --listen 100.101.102.103:7990          # e.g. the machine's Tailscale address
 ```
 
-On the laptop, before LightCraft starts:
+On the laptop, before EvoLight starts:
 
 ```text
-export LIGHTCRAFT_DENOISE_URL=100.101.102.103:7990
-export LIGHTCRAFT_DENOISE_TOKEN='…the same token…'
+export EVOLIGHT_DENOISE_URL=100.101.102.103:7990
+export EVOLIGHT_DENOISE_TOKEN='…the same token…'
 ```
 
 When the laptop first uses the model it greets the server and times a check tile there and back. If that is faster

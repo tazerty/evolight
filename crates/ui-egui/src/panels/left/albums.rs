@@ -1,10 +1,10 @@
 use super::folders::{folder_menu, is_within};
 use super::rows::{INDENT_STEP, Row, indent_x, set_tree_open, tree_open, tree_toggle};
-use super::{Album, AlbumId, Align2, Icon, LibrarySource, LightcraftApp, Rect, Sense, Tokens, json, pos2, register, vec2};
+use super::{Album, AlbumId, Align2, Icon, LibrarySource, EvoLightApp, Rect, Sense, Tokens, json, pos2, register, vec2};
 
 /// Albums: the tree of albums and the folders they are sorted into. `reveal`: an album just made,
 /// whose folders open down to it.
-pub(super) fn albums_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, reveal: Option<u64>) {
+pub(super) fn albums_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, reveal: Option<u64>) {
     let kids: AlbumKids = app.session.catalog.album_children_by_parent().into_iter().map(|(k, v)| (k, v.into_iter().cloned().collect())).collect();
     let cat = &app.session.catalog;
     let mut open_to = Vec::new();
@@ -20,7 +20,7 @@ pub(super) fn albums_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, reveal: Op
 type AlbumKids = std::collections::HashMap<Option<AlbumId>, Vec<Album>>;
 
 /// `open_to`: folders forced open this frame (the way down to an album that was just made).
-fn albums_tree(app: &mut LightcraftApp, ui: &mut egui::Ui, all: &AlbumKids, parent: Option<AlbumId>, indent: f32, open_to: &[AlbumId]) {
+fn albums_tree(app: &mut EvoLightApp, ui: &mut egui::Ui, all: &AlbumKids, parent: Option<AlbumId>, indent: f32, open_to: &[AlbumId]) {
     // 64 folders deep at most (16 points a level): a catalog that loops must not overflow the stack
     if indent > 64.0 * INDENT_STEP {
         return;
@@ -149,7 +149,7 @@ pub fn auto_scroll_speed(y: f32, top: f32, bottom: f32) -> f32 {
 /// While an album, or photos from the grid, are dragged over the sidebar: scrolls it when the
 /// pointer is near its top or bottom edge, so rows beyond the visible part can be reached. Call
 /// inside the scroll area.
-pub(super) fn drag_auto_scroll(app: &LightcraftApp, ui: &egui::Ui) {
+pub(super) fn drag_auto_scroll(app: &EvoLightApp, ui: &egui::Ui) {
     if app.ui.dragging_album.is_none() && app.ui.dragging_photos.is_none() && app.ui.dragging_section.is_none() {
         return;
     }
@@ -180,7 +180,7 @@ const HOVER_OPEN_SECS: f64 = 0.6;
 
 /// Whether the album `dragged` may be dropped into the folder `target` (`None`: the top level):
 /// a folder other than where it already is, and not itself or something inside it.
-fn can_drop_album(app: &LightcraftApp, dragged: AlbumId, target: Option<AlbumId>) -> bool {
+fn can_drop_album(app: &EvoLightApp, dragged: AlbumId, target: Option<AlbumId>) -> bool {
     let Some(d) = app.session.catalog.album(dragged) else { return false };
     match target {
         None => d.parent.is_some(),
@@ -189,7 +189,7 @@ fn can_drop_album(app: &LightcraftApp, dragged: AlbumId, target: Option<AlbumId>
 }
 
 /// Ends a drag that ran `result`: the folders down to the album open so it shows in its new place.
-fn finish_drop(app: &mut LightcraftApp, ui: &egui::Ui, dragged: AlbumId, result: Result<serde_json::Value, String>) {
+fn finish_drop(app: &mut EvoLightApp, ui: &egui::Ui, dragged: AlbumId, result: Result<serde_json::Value, String>) {
     forget_hover(app, ui.ctx());
     match result {
         Ok(_) => {
@@ -202,7 +202,7 @@ fn finish_drop(app: &mut LightcraftApp, ui: &egui::Ui, dragged: AlbumId, result:
 }
 
 /// Forgets how long the pointer rested on each folder (a new drag starts counting again).
-fn forget_hover(app: &LightcraftApp, ctx: &egui::Context) {
+fn forget_hover(app: &EvoLightApp, ctx: &egui::Context) {
     let ids: Vec<u64> = app.session.catalog.albums().filter(|a| a.folder).map(|a| a.id.0).collect();
     ctx.data_mut(|d| {
         for id in ids {
@@ -212,14 +212,14 @@ fn forget_hover(app: &LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Moves the dragged album into a folder (`album.move`, one undo step; `None`: the top level).
-fn drop_album(app: &mut LightcraftApp, ui: &egui::Ui, dragged: AlbumId, target: Option<AlbumId>) {
+fn drop_album(app: &mut EvoLightApp, ui: &egui::Ui, dragged: AlbumId, target: Option<AlbumId>) {
     let r = app.run("album.move", json!({"id": dragged.0, "parent": target.map(|t| t.0)}));
     finish_drop(app, ui, dragged, r);
 }
 
 /// Places the dragged album in `parent` before the sibling `before` (`None`: last of its kind), by
 /// hand (`album.reorder`, one undo step).
-fn place_album(app: &mut LightcraftApp, ui: &egui::Ui, dragged: AlbumId, parent: Option<AlbumId>, before: Option<AlbumId>) {
+fn place_album(app: &mut EvoLightApp, ui: &egui::Ui, dragged: AlbumId, parent: Option<AlbumId>, before: Option<AlbumId>) {
     let r = app.run("album.reorder", json!({"id": dragged.0, "parent": parent.map(|p| p.0), "before": before.map(|b| b.0)}));
     finish_drop(app, ui, dragged, r);
 }
@@ -239,7 +239,7 @@ enum AlbumDrop {
 /// middle and beside it by its edges; an album over an album goes before it by its top half and
 /// after it by its bottom half; a folder over an album does nothing. Placing where it already
 /// is, or inside itself, is nothing too. `expanded`: `target` is a folder shown open.
-fn album_drop_at(app: &LightcraftApp, dragged: AlbumId, target: &Album, frac: f32, expanded: bool) -> Option<AlbumDrop> {
+fn album_drop_at(app: &EvoLightApp, dragged: AlbumId, target: &Album, frac: f32, expanded: bool) -> Option<AlbumDrop> {
     let cat = &app.session.catalog;
     let d = cat.album(dragged)?;
     let into = || can_drop_album(app, dragged, Some(target.id)).then_some(AlbumDrop::Into(target.id));
@@ -273,7 +273,7 @@ fn album_drop_at(app: &LightcraftApp, dragged: AlbumId, target: &Album, frac: f3
 /// inside it, a line above or below the row when it would go beside it, and the move or placement
 /// done on release. A closed folder with something inside (`open`) opens once the pointer rests on
 /// it; returns whether it did.
-fn album_drag_over(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, row: &Album, open: Option<&mut bool>, indent: f32) -> bool {
+fn album_drag_over(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, row: &Album, open: Option<&mut bool>, indent: f32) -> bool {
     let hover_id = egui::Id::unique(("album-hover", row.id.0));
     let Some(dragged) = app.ui.dragging_album.map(AlbumId) else { return false };
     let pos = ui.input(|i| i.pointer.latest_pos()).filter(|_| pointer_over_row(ui, resp.rect));
@@ -331,7 +331,7 @@ fn album_drag_over(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Resp
 /// While an album that sits in a folder is dragged: the "Albums" header takes it back to the top
 /// level (outlined, with a hint). The header stays in view however long the tree is, and nothing
 /// moves when it appears.
-pub(super) fn top_level_drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, header: Rect) {
+pub(super) fn top_level_drop_target(app: &mut EvoLightApp, ui: &mut egui::Ui, header: Rect) {
     let Some(dragged) = app.ui.dragging_album.map(AlbumId) else { return };
     if !can_drop_album(app, dragged, None) {
         return;
@@ -351,7 +351,7 @@ pub(super) fn top_level_drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, 
 
 /// While an album is dragged in the sidebar: its name at the pointer; the drag ends when the
 /// button is up (the drop targets act on the release frame, before this runs).
-pub fn album_drag_feedback(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn album_drag_feedback(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(id) = app.ui.dragging_album else { return };
     let (released, down, pos, esc) =
         ctx.input(|i| (i.pointer.primary_released(), i.pointer.primary_down(), i.pointer.latest_pos(), i.key_pressed(egui::Key::Escape)));
@@ -375,7 +375,7 @@ pub fn album_drag_feedback(app: &mut LightcraftApp, ctx: &egui::Context) {
 
 /// An album row while photos are dragged from the grid: highlighted under the pointer; a
 /// release there adds them.
-fn drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, a: &Album) {
+fn drop_target(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, a: &Album) {
     let Some(ids) = app.ui.dragging_photos.clone() else { return };
     // only where the row can be seen: not scrolled out of the sidebar or beneath the pinned header
     let over = pointer_over_row(ui, resp.rect);
@@ -385,7 +385,7 @@ fn drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response
     let released = ui.input(|i| i.pointer.primary_released());
     // albums hold library photos (issue #684): Local ones can't be dropped in; the row doesn't
     // light up, and a release says why
-    let photos: Vec<lightcraft_catalog::PhotoId> = ids.iter().map(|id| lightcraft_catalog::PhotoId(*id)).collect();
+    let photos: Vec<evolight_catalog::PhotoId> = ids.iter().map(|id| evolight_catalog::PhotoId(*id)).collect();
     if crate::panels::grid::local_only(app, &photos) {
         ui.ctx().set_cursor_icon(egui::CursorIcon::NotAllowed);
         if released {
@@ -403,7 +403,7 @@ fn drop_target(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response
 }
 
 /// Adds the dragged photos to the album and toasts how many went in (and how many Local ones were skipped).
-fn drop_photos_on_album(app: &mut LightcraftApp, ui: &egui::Ui, a: &Album, ids: Vec<u64>) {
+fn drop_photos_on_album(app: &mut EvoLightApp, ui: &egui::Ui, a: &Album, ids: Vec<u64>) {
     match app.run("album.addPhotos", json!({"id": a.id.0, "ids": ids})) {
         Ok(r) => {
             let name = crate::destination::album(&app.session.catalog, a);

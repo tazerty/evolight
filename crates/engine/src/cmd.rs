@@ -216,12 +216,12 @@ pub(crate) fn enabled_unless_ids(s: &Session, p: &Value, id: &str, enabled: Enab
 /// selection, or its own default), else every entry as a photo id. An `ids` that isn't a list of
 /// whole numbers is an error, never `None`: falling back would act on the selection instead of
 /// the photos the call meant (`{"ids": 3}`, `{"ids": ["3"]}`).
-pub(crate) fn photo_ids(p: &Value, cmd: &str) -> Result<Option<Vec<lightcraft_catalog::PhotoId>>> {
+pub(crate) fn photo_ids(p: &Value, cmd: &str) -> Result<Option<Vec<evolight_catalog::PhotoId>>> {
     match p.get("ids") {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Array(a)) => a
             .iter()
-            .map(|v| v.as_u64().map(lightcraft_catalog::PhotoId).ok_or_else(|| bad(cmd, "`ids` must be photo ids (whole numbers)")))
+            .map(|v| v.as_u64().map(evolight_catalog::PhotoId).ok_or_else(|| bad(cmd, "`ids` must be photo ids (whole numbers)")))
             .collect::<Result<Vec<_>>>()
             .map(Some),
         Some(_) => Err(bad(cmd, "`ids` must be a list of photo ids")),
@@ -231,10 +231,10 @@ pub(crate) fn photo_ids(p: &Value, cmd: &str) -> Result<Option<Vec<lightcraft_ca
 /// The photo `id` names: `None` when it is missing or null (the command then uses the active
 /// photo), else that id. An `id` that isn't a whole number is an error, never `None`: falling back
 /// would act on the active photo instead of the one the call meant (`{"id": "5"}`).
-pub(crate) fn photo_id(p: &Value, cmd: &str) -> Result<Option<lightcraft_catalog::PhotoId>> {
+pub(crate) fn photo_id(p: &Value, cmd: &str) -> Result<Option<evolight_catalog::PhotoId>> {
     match p.get("id") {
         None | Some(Value::Null) => Ok(None),
-        Some(v) => v.as_u64().map(|n| Some(lightcraft_catalog::PhotoId(n))).ok_or_else(|| bad(cmd, "`id` must be a photo id (a whole number)")),
+        Some(v) => v.as_u64().map(|n| Some(evolight_catalog::PhotoId(n))).ok_or_else(|| bad(cmd, "`id` must be a photo id (a whole number)")),
     }
 }
 
@@ -282,7 +282,7 @@ pub(crate) fn recipe_param(p: &Value, cmd: &str) -> Result<Vec<(String, f64)>> {
     let Some(items) = v.as_array() else {
         return Err(bad(cmd, "`recipe` must be a list of {id, value}"));
     };
-    let most = lightcraft_develop::controls::CONTROLS.len();
+    let most = evolight_develop::controls::CONTROLS.len();
     if items.len() > most {
         return Err(bad(cmd, format!("a recipe has one entry per control, at most {most} (it has {})", items.len())));
     }
@@ -309,8 +309,8 @@ pub(crate) fn recipe_param(p: &Value, cmd: &str) -> Result<Vec<(String, f64)>> {
 ///   relative to the as-shot white on a rendered photo or a raw without them), so one temperature
 ///   cannot name the same look for every photo of a batch.
 pub(crate) fn check_recipe(recipe: &[(String, f64)]) -> std::result::Result<(), String> {
-    use lightcraft_develop::{Section, controls};
-    let mut scratch = lightcraft_develop::DevelopSettings::default();
+    use evolight_develop::{Section, controls};
+    let mut scratch = evolight_develop::DevelopSettings::default();
     for (id, value) in recipe {
         let Some(spec) = controls::CONTROLS.iter().find(|c| c.id == id.as_str()) else {
             return Err(format!(
@@ -331,9 +331,9 @@ pub(crate) fn check_recipe(recipe: &[(String, f64)]) -> std::result::Result<(), 
     }
     Ok(())
 }
-pub(crate) fn point(p: &Value, key: &str) -> Option<lightcraft_geom::Point> {
+pub(crate) fn point(p: &Value, key: &str) -> Option<evolight_geom::Point> {
     let a = p.get(key)?.as_array()?;
-    Some(lightcraft_geom::Point::new(a.first()?.as_f64()?, a.get(1)?.as_f64()?))
+    Some(evolight_geom::Point::new(a.first()?.as_f64()?, a.get(1)?.as_f64()?))
 }
 
 #[cfg(test)]

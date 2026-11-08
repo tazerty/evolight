@@ -6,13 +6,13 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Zoom;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
 
 fn demo() -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     Headless::new(app, [1400.0, 900.0], 1.0)
 }
 
@@ -22,7 +22,7 @@ fn demo() -> Headless {
 fn filmstrip_click_in_compare_keeps_the_active_photo_on_screen() {
     let mut h = demo();
     let vis: Vec<u64> = h.app.session.visible_cloned().iter().map(|p| p.0).collect();
-    let rating = |h: &Headless, id: u64| h.app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).map(|p| p.rating);
+    let rating = |h: &Headless, id: u64| h.app.session.catalog.photo(evolight_catalog::PhotoId(id)).map(|p| p.rating);
     for zoom in [Zoom::Fit, Zoom::Percent(100.0)] {
         h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [vis[0], vis[1]], "active": vis[0]}}), T);
         let r = h.request("engine.execute", json!({"command": "view.compare"}), T);
@@ -102,10 +102,10 @@ fn modified_filmstrip_clicks_in_compare_change_the_selection_not_the_pair() {
     };
     let selected = |h: &Headless| -> Vec<u64> {
         let s = &h.app.session.selection;
-        vis.iter().copied().filter(|v| s.contains(lightcraft_catalog::PhotoId(*v))).collect()
+        vis.iter().copied().filter(|v| s.contains(evolight_catalog::PhotoId(*v))).collect()
     };
     let active = |h: &Headless| h.app.session.selection.active.map(|p| p.0);
-    let rating = |h: &Headless, id: u64| h.app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).map(|p| p.rating);
+    let rating = |h: &Headless, id: u64| h.app.session.catalog.photo(evolight_catalog::PhotoId(id)).map(|p| p.rating);
     let others: Vec<u64> = vis.iter().copied().filter(|v| *v != sel && *v != cand).collect();
     assert!(others.len() >= 4, "the demo library has {} photos", vis.len());
     let before = active(&h);
@@ -300,8 +300,8 @@ fn compare_zoom_window_tracks_the_zoomed_pane() {
     h.app.ui.zoom = Zoom::Percent(100.0);
     h.settle(SETTLE);
     let candidate = vis[1];
-    let photo = h.app.session.catalog.photo(lightcraft_catalog::PhotoId(candidate)).cloned().expect("photo");
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(
+    let photo = h.app.session.catalog.photo(evolight_catalog::PhotoId(candidate)).cloned().expect("photo");
+    let frame = evolight_pipeline::geometry::Frame::with_lens(
         photo.width.max(1) as usize,
         photo.height.max(1) as usize,
         &photo.develop,
@@ -311,9 +311,9 @@ fn compare_zoom_window_tracks_the_zoomed_pane() {
     let aspect = frame.aspect() as f32;
     let native = crate::panels::detail::output_px(&frame);
     let view = h.app.compare_windows[1].expect("a zoom window");
-    assert_eq!(view.photo, lightcraft_catalog::PhotoId(candidate));
+    assert_eq!(view.photo, evolight_catalog::PhotoId(candidate));
     let tex = h.app.renderer.textures.get(&Slot::CompareRegion(1)).expect("window texture");
-    assert_eq!(tex.photo, lightcraft_catalog::PhotoId(candidate));
+    assert_eq!(tex.photo, evolight_catalog::PhotoId(candidate));
     let tex_id = tex.tex.id();
     // Lay the whole-frame texture over the same reference frame with an aspect just inside the
     // same-frame tolerance: the drawn rect moves, the request stays valid, and the window is
@@ -370,7 +370,7 @@ fn compare_zoom_window_tracks_the_zoomed_pane() {
 /// photo in Compare (#2398: "Can't assign color to photo when culling").
 #[test]
 fn info_panel_label_in_compare_labels_the_active_photo_and_shows_it() {
-    use lightcraft_catalog::{ColorLabel, PhotoId};
+    use evolight_catalog::{ColorLabel, PhotoId};
     let mut h = demo();
     let vis: Vec<u64> = h.app.session.visible_cloned().iter().map(|p| p.0).collect();
     for id in &vis[..2] {

@@ -1,7 +1,7 @@
 //! Organizing commands: stacks (group, ungroup, set top, expand/collapse, auto-stack by capture
 //! time) and virtual copies.
 
-use lightcraft_catalog::{HistoryStep, Op, PhotoId, Stack, StackId};
+use evolight_catalog::{HistoryStep, Op, PhotoId, Stack, StackId};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 

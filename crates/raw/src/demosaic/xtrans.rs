@@ -9,7 +9,7 @@
 
 use super::Mosaic;
 use crate::Rgb32f;
-use lightcraft_raster::par_rows;
+use evolight_raster::par_rows;
 
 const EPS: f32 = 1e-3;
 

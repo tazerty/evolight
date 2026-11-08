@@ -11,7 +11,7 @@
 //! - Given a library that holds a loop, then edits that add none go through, and undo and redo
 //!   bring the loop back and take it away without being refused.
 
-use lightcraft_catalog::{Album, AlbumId, Filter, Op};
+use evolight_catalog::{Album, AlbumId, Filter, Op};
 use serde_json::json;
 
 use crate::Session;
@@ -84,7 +84,7 @@ fn a_library_that_holds_a_loop_goes_on_and_undo_and_redo_cross_it() {
     let on_a_loop = |s: &Session| {
         [a, b]
             .into_iter()
-            .filter(|id| s.catalog.smart_album_problems(AlbumId(*id)).iter().any(|p| p.issue == lightcraft_catalog::rules::Issue::AlbumLoop))
+            .filter(|id| s.catalog.smart_album_problems(AlbumId(*id)).iter().any(|p| p.issue == evolight_catalog::rules::Issue::AlbumLoop))
             .count()
     };
     assert_eq!(on_a_loop(&s), 2);

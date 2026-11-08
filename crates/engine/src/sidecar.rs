@@ -7,8 +7,8 @@
 //! A sidecar is written only beside an original that is an existing file at an absolute path;
 //! otherwise the save fails.
 //!
-//! An existing sidecar is never replaced wholesale (issue #92): LightCraft's properties
-//! ([`OWNED`], [`OWNED_IF_STATED`]) are merged into it ([`lightcraft_meta::merge_xmp`]) and
+//! An existing sidecar is never replaced wholesale (issue #92): EvoLight's properties
+//! ([`OWNED`], [`OWNED_IF_STATED`]) are merged into it ([`evolight_meta::merge_xmp`]) and
 //! everything else — another editor's `crs:` develop settings, `xmpMM` history, unknown
 //! namespaces — is kept byte for byte. A sidecar that can't be read as XMP is first copied to
 //! `<name>.xmp.bak-<time>` (never overwritten), then replaced. Writes are atomic (temp file,
@@ -34,8 +34,8 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use lightcraft_catalog::{ColorLabel, Flag, MediaKind, Op, Photo, PhotoId, Source};
-use lightcraft_develop::DevelopSettings;
+use evolight_catalog::{ColorLabel, Flag, MediaKind, Op, Photo, PhotoId, Source};
+use evolight_develop::DevelopSettings;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -158,13 +158,13 @@ pub struct SidecarData {
     pub alt_text: Option<String>,
     pub extended_description: Option<String>,
     pub keywords: Option<Vec<String>>,
-    pub regions: Option<Vec<lightcraft_meta::Region>>,
+    pub regions: Option<Vec<evolight_meta::Region>>,
     /// The size the regions were drawn on, when they don't say how the photo was turned
-    /// ([`lightcraft_meta::XmpData::regions_drawn_on`]), and how the photo's stored pixels turn upright: the
+    /// ([`evolight_meta::XmpData::regions_drawn_on`]), and how the photo's stored pixels turn upright: the
     /// sidecar's `tiff:Orientation`, or the file's own Exif orientation where the caller knows it. With both,
     /// [`merge_into`] puts boxes drawn on the photo as stored where the upright photo has them (#2674).
     pub regions_drawn_on: Option<(f64, f64)>,
-    pub orientation: Option<lightcraft_meta::Orientation>,
+    pub orientation: Option<evolight_meta::Orientation>,
     /// Capture time (ISO 8601) from `exif:DateTimeOriginal`, `photoshop:DateCreated` or
     /// `xmp:CreateDate` (first found). Used only when the file itself has no capture time.
     pub captured: Option<String>,
@@ -186,7 +186,7 @@ pub enum DevelopPatch {
 /// ([`crate::crs::Target`]: absolute Kelvin for raws with a measured illuminant, a shift from the
 /// as-shot white for everything developed relative to it).
 pub fn parse_sidecar(xmp: &str, target: crate::crs::Target) -> std::result::Result<SidecarData, String> {
-    let d = lightcraft_meta::parse_xmp(xmp).map_err(|e| e.to_string())?;
+    let d = evolight_meta::parse_xmp(xmp).map_err(|e| e.to_string())?;
     let m = &d.metadata;
     let lc = |k: &str| d.properties.get(&format!("lc:{k}")).and_then(|v| v.first()).cloned();
     let mut out = SidecarData {
@@ -204,10 +204,10 @@ pub fn parse_sidecar(xmp: &str, target: crate::crs::Target) -> std::result::Resu
         alt_text: m.alt_text.clone(),
         extended_description: m.extended_description.clone(),
         keywords: (!m.keywords.is_empty() || !m.hierarchical_keywords.is_empty())
-            .then(|| lightcraft_catalog::keywords::from_file(&m.keywords, &m.hierarchical_keywords)),
+            .then(|| evolight_catalog::keywords::from_file(&m.keywords, &m.hierarchical_keywords)),
         // A sidecar that has `mwg-rs:Regions` at all (even an empty list) was written by an app that
         // knows about regions, so it's authoritative: its list, empty or not, replaces the catalog's.
-        // One without it (most writers, LightCraft's own included, which keeps another app's
+        // One without it (most writers, EvoLight's own included, which keeps another app's
         // `mwg-rs:Regions` byte for byte but never writes one) says nothing about regions, and the
         // photo's are kept.
         regions: d.values.contains_key("mwg-rs:Regions").then(|| m.regions.clone()),
@@ -337,7 +337,7 @@ pub fn merge_into(p: &mut Photo, sc: &SidecarData, now: &str) -> bool {
         }
     }
     if let Some(marked) = sc.copyright_marked {
-        m.copyright_status = lightcraft_catalog::CopyrightStatus::from_marked(Some(marked));
+        m.copyright_status = evolight_catalog::CopyrightStatus::from_marked(Some(marked));
     }
     if let Some(k) = &sc.keywords {
         m.keywords = k.clone();
@@ -347,7 +347,7 @@ pub fn merge_into(p: &mut Photo, sc: &SidecarData, now: &str) -> bool {
         // (the photo's size is the upright one)
         if let (Some(drawn_on), Some(o)) = (sc.regions_drawn_on, sc.orientation) {
             let stored = if o.swaps_axes() { (p.height, p.width) } else { (p.width, p.height) };
-            lightcraft_meta::upright_regions(&mut m.regions, drawn_on, o, stored);
+            evolight_meta::upright_regions(&mut m.regions, drawn_on, o, stored);
         }
     }
     let develop = match &sc.develop {
@@ -357,7 +357,7 @@ pub fn merge_into(p: &mut Photo, sc: &SidecarData, now: &str) -> bool {
             if p.width > 0 && p.height > 0 {
                 crate::crs_masks::refit_radials(&mut v, crate::crs_masks::DEFAULT_ASPECT, p.width as f64 / p.height as f64);
             }
-            lightcraft_develop::apply_partial(&p.develop, &v, 1.0)
+            evolight_develop::apply_partial(&p.develop, &v, 1.0)
         }
         None => return false,
     };
@@ -372,14 +372,14 @@ pub fn merge_into(p: &mut Photo, sc: &SidecarData, now: &str) -> bool {
 impl SidecarData {
     /// Read the label through the catalog's label names: other editors write the label's name
     /// (a custom set's "To Do" as well as "Red"); unknown names clear the label.
-    pub fn resolve_label(mut self, cat: &lightcraft_catalog::Catalog) -> Self {
+    pub fn resolve_label(mut self, cat: &evolight_catalog::Catalog) -> Self {
         if let Some(t) = &self.label_text {
             self.label = Some(if t.is_empty() { None } else { cat.label_from_name(t) });
         }
         self
     }
 
-    /// Take the orientation of the photo file at `original` (LightCraft shows the photo turned by it, and the packet
+    /// Take the orientation of the photo file at `original` (EvoLight shows the photo turned by it, and the packet
     /// may not repeat it) when the regions need it: they were drawn on a stated size ([`SidecarData::regions_drawn_on`]).
     /// Only then is the file read ([`file_orientation`]).
     pub fn with_file_orientation(self, original: &str) -> Self {
@@ -391,18 +391,18 @@ impl SidecarData {
 }
 
 /// The orientation the photo file at `path` states, matching what the import stores on [`crate::media::ProbeInfo`]:
-/// for a raw, the decoder's (`lightcraft_raw::probe_info`: CIFF for a CRW, the raw IFD for a MEF, …); otherwise Exif,
-/// else XMP, as [`lightcraft_meta::extract`] reads it. A file shorter than [`ORIENTATION_SPAN`] is read whole. Most
+/// for a raw, the decoder's (`evolight_raw::probe_info`: CIFF for a CRW, the raw IFD for a MEF, …); otherwise Exif,
+/// else XMP, as [`evolight_meta::extract`] reads it. A file shorter than [`ORIENTATION_SPAN`] is read whole. Most
 /// non-raws state it in the Exif of their first [`ORIENTATION_SPAN`]; when that part doesn't, the Exif may come later
 /// ([`late_orientation`]). A WebP's or PNG's chunks are always walked, since the last Exif chunk is the one that counts
 /// ([`webp_orientation`], [`png_orientation`]).
-fn file_orientation(path: &str) -> Option<lightcraft_meta::Orientation> {
+fn file_orientation(path: &str) -> Option<evolight_meta::Orientation> {
     let mut file = std::fs::File::open(path).ok()?;
     let mut head = Vec::new();
     (&mut file).take(ORIENTATION_SPAN).read_to_end(&mut head).ok()?;
     // Import takes a raw's orientation from the decoder, not from Exif IFD0 / XMP alone. Re-read and sync must do the
     // same, or face boxes turned at import are put back and Synchronize Folder reports changes every pass (#2857).
-    if lightcraft_raw::probe(&head).is_some() {
+    if evolight_raw::probe(&head).is_some() {
         let bytes = if (head.len() as u64) < ORIENTATION_SPAN {
             head
         } else {
@@ -411,14 +411,14 @@ fn file_orientation(path: &str) -> Option<lightcraft_meta::Orientation> {
             file.read_to_end(&mut all).ok()?;
             all
         };
-        return match lightcraft_raw::probe_info(&bytes) {
+        return match evolight_raw::probe_info(&bytes) {
             Ok(raw) => Some(raw.orientation),
             // unsupported / preview-only: same fallback the import uses (`ProbeInfo::orientation` from meta)
-            Err(_) => lightcraft_meta::extract(&bytes).orientation,
+            Err(_) => evolight_meta::extract(&bytes).orientation,
         };
     }
     if (head.len() as u64) < ORIENTATION_SPAN {
-        return lightcraft_meta::extract(&head).orientation;
+        return evolight_meta::extract(&head).orientation;
     }
     if head.get(..4) == Some(b"RIFF") && head.get(8..12) == Some(b"WEBP") {
         return webp_orientation(&mut file);
@@ -429,36 +429,36 @@ fn file_orientation(path: &str) -> Option<lightcraft_meta::Orientation> {
     if let Some(o) = exif_orientation(&head) {
         return Some(o);
     }
-    late_orientation(&mut file, &head).or_else(|| lightcraft_meta::extract(&head).orientation)
+    late_orientation(&mut file, &head).or_else(|| evolight_meta::extract(&head).orientation)
 }
 
 /// The orientation the Exif in `bytes` (a file, or the start of one) states, leaving out a separate XMP packet (the
-/// one the Exif holds in tag 700 counts, as in [`lightcraft_meta::read_exif`]).
-fn exif_orientation(bytes: &[u8]) -> Option<lightcraft_meta::Orientation> {
-    lightcraft_meta::embedded(bytes).exif.as_deref().map(lightcraft_meta::read_exif).and_then(|m| m.orientation)
+/// one the Exif holds in tag 700 counts, as in [`evolight_meta::read_exif`]).
+fn exif_orientation(bytes: &[u8]) -> Option<evolight_meta::Orientation> {
+    evolight_meta::embedded(bytes).exif.as_deref().map(evolight_meta::read_exif).and_then(|m| m.orientation)
 }
 
 /// The orientation of a JPEG, TIFF or PSD whose `head` has no Exif stating it, found by the file's structure without
 /// reading its image data (a JPEG's Exif can follow other long segments, many TIFF writers put the first IFD after the
 /// strips, and a PSD's image resources can outgrow `head`). As the import does, a JPEG takes its first Exif segment,
 /// else its first XMP segment.
-fn late_orientation(file: &mut (impl Read + Seek), head: &[u8]) -> Option<lightcraft_meta::Orientation> {
+fn late_orientation(file: &mut (impl Read + Seek), head: &[u8]) -> Option<evolight_meta::Orientation> {
     let len = file.seek(SeekFrom::End(0)).ok()?;
     file.rewind().ok()?;
     match head.get(..4)? {
         [0xff, 0xd8, ..] => {
             let (mut exif_seen, mut xmp) = (false, None);
             let exif = read_jpeg_app1(file, JPEG_XMP_HEADER_SPAN, JPEG_XMP_HEADER_STEPS, |segment| {
-                let embedded = lightcraft_meta::embedded(segment);
+                let embedded = evolight_meta::embedded(segment);
                 if let Some(exif) = embedded.exif
                     && !exif_seen
                 {
                     // the first Exif segment ends the walk if it states one; later ones don't count
                     exif_seen = true;
-                    return lightcraft_meta::read_exif(&exif).orientation;
+                    return evolight_meta::read_exif(&exif).orientation;
                 }
                 if xmp.is_none() {
-                    xmp = embedded.xmp.map(|x| lightcraft_meta::parse_xmp(&x).ok().and_then(|x| x.metadata.orientation));
+                    xmp = embedded.xmp.map(|x| evolight_meta::parse_xmp(&x).ok().and_then(|x| x.metadata.orientation));
                 }
                 None
             });
@@ -474,7 +474,7 @@ fn late_orientation(file: &mut (impl Read + Seek), head: &[u8]) -> Option<lightc
 /// order they come. The chunk headers are walked from the start of `file` (at most [`WEBP_CHUNK_STEPS`], ending at a
 /// chunk that runs past the end of the file); then only the first IFD of the EXIF chunk is read, whatever its size
 /// ([`tiff_orientation`]), and the XMP chunk if it is at most [`ORIENTATION_SPAN`].
-fn webp_orientation(file: &mut (impl Read + Seek)) -> Option<lightcraft_meta::Orientation> {
+fn webp_orientation(file: &mut (impl Read + Seek)) -> Option<evolight_meta::Orientation> {
     let len = file.seek(SeekFrom::End(0)).ok()?;
     let (mut exif, mut xmp) = (None, None);
     let mut at = 12u64;
@@ -506,7 +506,7 @@ const WEBP_CHUNK_STEPS: usize = 4096;
 
 /// The orientation the Exif chunk from `start` to `end` in `file` states: its TIFF stream comes after an `Exif\0\0` if
 /// the chunk starts with one (as `strip_exif_header` takes it).
-fn exif_chunk_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Option<lightcraft_meta::Orientation> {
+fn exif_chunk_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Option<evolight_meta::Orientation> {
     let mut prefix = [0; 5];
     file.seek(SeekFrom::Start(start)).ok()?;
     let prefixed = start + 6 <= end && file.read_exact(&mut prefix).is_ok() && &prefix == b"Exif\0";
@@ -518,7 +518,7 @@ fn exif_chunk_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -
 /// `file` to `IEND` (at most [`png_chunk_steps`], ending at a chunk that runs past the end of the file); then only the
 /// first IFD of the `eXIf` chunk is read, whatever its size ([`tiff_orientation`]), and the `iTXt` chunk if it is at
 /// most [`ORIENTATION_SPAN`].
-fn png_orientation(file: &mut (impl Read + Seek)) -> Option<lightcraft_meta::Orientation> {
+fn png_orientation(file: &mut (impl Read + Seek)) -> Option<evolight_meta::Orientation> {
     let len = file.seek(SeekFrom::End(0)).ok()?;
     let (mut exif, mut xmp) = (None, None);
     let mut at = 8u64;
@@ -547,7 +547,7 @@ fn png_orientation(file: &mut (impl Read + Seek)) -> Option<lightcraft_meta::Ori
     let chunk = read_within_span(file, start, size)?;
     // keyword\0 compression-flag compression-method language\0 translated\0 text
     let text = chunk.get(20..)?.splitn(3, |&c| c == 0).nth(2)?;
-    lightcraft_meta::parse_xmp(&String::from_utf8_lossy(text)).ok()?.metadata.orientation
+    evolight_meta::parse_xmp(&String::from_utf8_lossy(text)).ok()?.metadata.orientation
 }
 
 /// How many chunks [`png_orientation`] passes over in a file of `len` bytes: 4096 and one per KiB of the file, at most
@@ -560,7 +560,7 @@ fn png_chunk_steps(len: u64) -> u64 {
 /// A PSD's or PSB's orientation as the import takes it, from its image resources: the file's start up to their end is
 /// read if it is at most [`PSD_RESOURCES_SPAN`]. They come before the layers and the image data, after the 26-byte
 /// header and the colour-mode data; each of those two sections starts with its length.
-fn psd_orientation(file: &mut (impl Read + Seek)) -> Option<lightcraft_meta::Orientation> {
+fn psd_orientation(file: &mut (impl Read + Seek)) -> Option<evolight_meta::Orientation> {
     let mut length = [0; 4];
     file.seek(SeekFrom::Start(26)).ok()?;
     file.read_exact(&mut length).ok()?;
@@ -574,7 +574,7 @@ fn psd_orientation(file: &mut (impl Read + Seek)) -> Option<lightcraft_meta::Ori
     file.rewind().ok()?;
     let mut bytes = Vec::new();
     (&mut *file).take(end).read_to_end(&mut bytes).ok()?;
-    lightcraft_meta::extract(&bytes).orientation
+    evolight_meta::extract(&bytes).orientation
 }
 
 /// How far into a PSD or PSB [`psd_orientation`] reads.
@@ -582,9 +582,9 @@ const PSD_RESOURCES_SPAN: u64 = 16 * 1024 * 1024;
 
 /// The orientation the TIFF stream from `start` to `end` in `file` states in its first IFD (a TIFF file, or the Exif
 /// block of a WebP's EXIF chunk; its offsets count from `start`, and nothing past `end` is read). Only the IFD's 12-byte
-/// entries are read (at most 65535 of them, under 1 MiB): its orientation tag, else (as [`lightcraft_meta::read_exif`]
+/// entries are read (at most 65535 of them, under 1 MiB): its orientation tag, else (as [`evolight_meta::read_exif`]
 /// does) the XMP packet its tag 700 holds, read if it is at most [`ORIENTATION_SPAN`].
-fn tiff_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Option<lightcraft_meta::Orientation> {
+fn tiff_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Option<evolight_meta::Orientation> {
     // where the `len` bytes at `offset` in the stream are in the file, when all of them are in the stream
     let within = |offset: u32, len: u64| {
         let at = start.checked_add(u64::from(offset))?;
@@ -617,7 +617,7 @@ fn tiff_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Opti
             (274, 3) if count == 1 => {
                 let v = u16_of([v0, v1]);
                 if (1..=8).contains(&v) {
-                    return Some(lightcraft_meta::Orientation::from_exif(v));
+                    return Some(evolight_meta::Orientation::from_exif(v));
                 }
             }
             // BYTE or UNDEFINED, at an offset (a packet longer than the field's four bytes)
@@ -630,9 +630,9 @@ fn tiff_orientation(file: &mut (impl Read + Seek), start: u64, end: u64) -> Opti
 }
 
 /// The orientation the XMP packet of `len` bytes at `at` in `file` states, read if it is at most [`ORIENTATION_SPAN`].
-fn xmp_orientation(file: &mut (impl Read + Seek), at: u64, len: u64) -> Option<lightcraft_meta::Orientation> {
+fn xmp_orientation(file: &mut (impl Read + Seek), at: u64, len: u64) -> Option<evolight_meta::Orientation> {
     let packet = read_within_span(file, at, len)?;
-    lightcraft_meta::parse_xmp(&String::from_utf8_lossy(&packet)).ok()?.metadata.orientation
+    evolight_meta::parse_xmp(&String::from_utf8_lossy(&packet)).ok()?.metadata.orientation
 }
 
 /// The `len` bytes at `at` in `file`, read if they are at most [`ORIENTATION_SPAN`].
@@ -651,18 +651,18 @@ const ORIENTATION_SPAN: u64 = 1 << 20;
 
 /// The sidecar packet for a photo; the colour label is written by its name in `cat` (custom
 /// label names included, as other editors do).
-pub fn sidecar_packet(p: &Photo, cat: &lightcraft_catalog::Catalog) -> String {
+pub fn sidecar_packet(p: &Photo, cat: &evolight_catalog::Catalog) -> String {
     sidecar_packet_with(p, cat, false)
 }
 
 /// [`sidecar_packet`], without any location (GPS, sublocation, city, state, country) when
 /// `remove_location` is set (an export with "Remove location info").
-pub fn sidecar_packet_with(p: &Photo, cat: &lightcraft_catalog::Catalog, remove_location: bool) -> String {
+pub fn sidecar_packet_with(p: &Photo, cat: &evolight_catalog::Catalog, remove_location: bool) -> String {
     let nz = |s: &str| (!s.trim().is_empty()).then(|| s.to_string());
     // Names in `dc:subject`, paths in `lr:hierarchicalSubject` (`keywords::to_file`).
-    let keywords = lightcraft_catalog::keywords::to_file(&p.meta.keywords);
-    let meta = lightcraft_meta::Metadata {
-        software: Some("LightCraft".into()),
+    let keywords = evolight_catalog::keywords::to_file(&p.meta.keywords);
+    let meta = evolight_meta::Metadata {
+        software: Some("EvoLight".into()),
         title: nz(&p.meta.title),
         caption: nz(&p.meta.caption),
         alt_text: nz(&p.meta.alt_text),
@@ -680,8 +680,8 @@ pub fn sidecar_packet_with(p: &Photo, cat: &lightcraft_catalog::Catalog, remove_
         hierarchical_keywords: keywords.hierarchical,
         rating: Some(p.rating.min(5) as i8),
         label: p.label.map(|l| cat.label_name(l)),
-        capture_time: p.captured.as_deref().and_then(lightcraft_meta::DateTime::parse_iso),
-        gps: p.meta.gps.map(|(latitude, longitude)| lightcraft_meta::Gps { latitude, longitude, altitude: None }),
+        capture_time: p.captured.as_deref().and_then(evolight_meta::DateTime::parse_iso),
+        gps: p.meta.gps.map(|(latitude, longitude)| evolight_meta::Gps { latitude, longitude, altitude: None }),
         ..Default::default()
     };
     let mut meta = meta;
@@ -698,11 +698,11 @@ pub fn sidecar_packet_with(p: &Photo, cat: &lightcraft_catalog::Catalog, remove_
     if !remove_location && !p.meta.location.trim().is_empty() {
         lc.push(("location", p.meta.location.as_str()));
     }
-    lightcraft_meta::write_xmp_lc(&meta, &lc)
+    evolight_meta::write_xmp_lc(&meta, &lc)
 }
 
-/// The properties LightCraft writes and owns in a sidecar: replaced on every save (removed when
-/// LightCraft has no value, so clearing a field clears it in the file too). All of them are read
+/// The properties EvoLight writes and owns in a sidecar: replaced on every save (removed when
+/// EvoLight has no value, so clearing a field clears it in the file too). All of them are read
 /// back on import and by Read Metadata from File.
 pub const OWNED: &[&str] = &[
     "xmp:Rating",
@@ -725,14 +725,14 @@ pub const OWNED: &[&str] = &[
     "lc:*",
 ];
 
-/// Properties replaced only when LightCraft has a value (capture time; GPS, which LightCraft
-/// doesn't read from sidecars): otherwise the sidecar's own value stays. Anything else LightCraft
+/// Properties replaced only when EvoLight has a value (capture time; GPS, which EvoLight
+/// doesn't read from sidecars): otherwise the sidecar's own value stays. Anything else EvoLight
 /// writes (`xmp:CreatorTool`) goes only into new sidecars.
 pub const OWNED_IF_STATED: &[&str] = &["exif:DateTimeOriginal", "photoshop:DateCreated", "exif:GPSLatitude", "exif:GPSLongitude"];
 
 /// Write `data` to `path` atomically: a temp file next to it, synced, then renamed over it.
 fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
-    lightcraft_catalog::safe_file::write_atomic(path, data)
+    evolight_catalog::safe_file::write_atomic(path, data)
 }
 
 /// Copy `path` to a new `<name>.bak-<stamp>` (`-1`, `-2`… if taken; never overwriting).
@@ -783,10 +783,10 @@ fn sidecar_contents(path: &Path, fresh: String, stamp: &str) -> std::io::Result<
     if bytes.iter().all(u8::is_ascii_whitespace) {
         return Ok((fresh, false, None));
     }
-    let rules = lightcraft_meta::MergeRules { owned: OWNED, owned_if_present: OWNED_IF_STATED };
+    let rules = evolight_meta::MergeRules { owned: OWNED, owned_if_present: OWNED_IF_STATED };
     match std::str::from_utf8(&bytes)
         .map_err(|e| e.to_string())
-        .and_then(|old| lightcraft_meta::merge_xmp(old, &fresh, rules).map_err(|e| e.to_string()))
+        .and_then(|old| evolight_meta::merge_xmp(old, &fresh, rules).map_err(|e| e.to_string()))
     {
         Ok(merged) => Ok((merged, true, None)),
         Err(why) => {
@@ -844,7 +844,7 @@ pub fn read_packet(original: &str, kind: MediaKind, lookup: SidecarLookup) -> Op
     }
     if kind == MediaKind::Raw {
         let bytes = std::fs::read(original).ok()?;
-        let x = lightcraft_meta::embedded(&bytes).xmp?;
+        let x = evolight_meta::embedded(&bytes).xmp?;
         return Some((x, PathBuf::from(original)));
     }
     if kind == MediaKind::Image {
@@ -863,7 +863,7 @@ const JPEG_XMP_HEADER_STEPS: usize = 4096;
 /// consumes one iteration. Only a complete APP1 payload (at most 65533 bytes) reaches the shared
 /// parser, in a single SOI+APP1 wrapper (at most 65539 bytes). This does not validate the whole JPEG.
 fn read_jpeg_xmp(reader: &mut (impl Read + Seek), header_span: u64, marker_steps: usize) -> Option<String> {
-    read_jpeg_app1(reader, header_span, marker_steps, |segment| lightcraft_meta::jpeg_segments(segment).xmp)
+    read_jpeg_app1(reader, header_span, marker_steps, |segment| evolight_meta::jpeg_segments(segment).xmp)
 }
 
 /// Like [`read_jpeg_xmp`], stopping at the first APP1 segment (in its SOI+APP1 wrapper) that `pick` finds something in.
@@ -947,7 +947,7 @@ impl StemOwners {
     /// [`StemOwners::among`] must agree with for the photos it is asked about (this is how the
     /// owners were worked out before, for every write).
     #[cfg(test)]
-    pub(crate) fn of(cat: &lightcraft_catalog::Catalog) -> StemOwners {
+    pub(crate) fn of(cat: &evolight_catalog::Catalog) -> StemOwners {
         let mut best: HashMap<String, (Rank, PhotoId, usize)> = HashMap::new();
         for p in cat.photos().filter(|p| p.copy_of.is_none()) {
             let Some(path) = file_path(p) else { continue };
@@ -964,7 +964,7 @@ impl StemOwners {
     /// The owners of the stems photos `ids` map to: all that naming those photos needs. The
     /// library is passed over once, and only files of those stems are looked at closer, so a
     /// sidecar written for one photo does not cost a table of the whole library.
-    pub(crate) fn among(cat: &lightcraft_catalog::Catalog, ids: &[PhotoId]) -> StemOwners {
+    pub(crate) fn among(cat: &evolight_catalog::Catalog, ids: &[PhotoId]) -> StemOwners {
         let wanted: std::collections::HashSet<String> =
             ids.iter().filter_map(|id| cat.photo(*id)).filter_map(|p| file_path(p)).map(stem_key).collect();
         if wanted.is_empty() {
@@ -974,7 +974,7 @@ impl StemOwners {
     }
 
     /// The owners of the shared stems in `wanted`.
-    fn where_wanted(cat: &lightcraft_catalog::Catalog, wanted: &std::collections::HashSet<String>) -> StemOwners {
+    fn where_wanted(cat: &evolight_catalog::Catalog, wanted: &std::collections::HashSet<String>) -> StemOwners {
         // per stem: (raw first, then file name, then id) of the best candidate; and how many
         let mut best: HashMap<String, (Rank, PhotoId, usize)> = HashMap::new();
         let mut key = String::new();
@@ -1026,7 +1026,7 @@ impl ImportStems {
     /// library already looked over (a job prepared twice): there is nothing to rank against, so
     /// every arriving file reads as it did before. The library is passed over once, and only the
     /// stems the arriving files map to are looked at closer.
-    pub(crate) fn for_import<'a>(cat: Option<&lightcraft_catalog::Catalog>, incoming: impl Iterator<Item = (&'a str, MediaKind)>) -> ImportStems {
+    pub(crate) fn for_import<'a>(cat: Option<&evolight_catalog::Catalog>, incoming: impl Iterator<Item = (&'a str, MediaKind)>) -> ImportStems {
         // per stem: the best of the library's files, and the best arriving file with its path
         let mut best: HashMap<String, (Option<Rank>, Option<(Rank, &'a str)>)> = HashMap::new();
         let mut arriving_paths = HashSet::new();
@@ -1070,12 +1070,12 @@ impl ImportStems {
 
 /// How the sidecar of each of photos `ids` is named in library `cat`, whose naming is `naming`
 /// ([`Session::sidecar_namings`], for a thread that has the library and not the session).
-pub(crate) fn namings_in(cat: &lightcraft_catalog::Catalog, naming: SidecarNaming, ids: &[PhotoId]) -> Vec<SidecarNaming> {
+pub(crate) fn namings_in(cat: &evolight_catalog::Catalog, naming: SidecarNaming, ids: &[PhotoId]) -> Vec<SidecarNaming> {
     lookups_in(cat, naming, ids).into_iter().map(|l| l.naming).collect()
 }
 
 /// [`namings_in`], with whether each photo may read the stem sidecar of its stem.
-pub(crate) fn lookups_in(cat: &lightcraft_catalog::Catalog, naming: SidecarNaming, ids: &[PhotoId]) -> Vec<SidecarLookup> {
+pub(crate) fn lookups_in(cat: &evolight_catalog::Catalog, naming: SidecarNaming, ids: &[PhotoId]) -> Vec<SidecarLookup> {
     let owners = StemOwners::among(cat, ids);
     ids.iter()
         .map(|id| match cat.photo(*id) {
@@ -1119,7 +1119,7 @@ impl Session {
     }
 
     pub(crate) fn save_sidecar_with(&mut self, id: PhotoId, owners: &StemOwners) -> Result<SidecarSaved> {
-        let p = self.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?;
+        let p = self.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?;
         if p.copy_of.is_some() {
             return Err(EngineError::Other(format!("{} is a virtual copy: its settings live only in the library", p.file_name)));
         }
@@ -1152,7 +1152,7 @@ impl Session {
         let listed = existing.iter().find(|path| crate::rename::RealFs.listed(path)).cloned();
         let path = listed.or_else(|| existing.into_iter().next()).unwrap_or(preferred);
         self.validate_sidecar_packets_for_paths(std::slice::from_ref(&path), &crate::rename::RealFs)?;
-        let p = self.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?;
+        let p = self.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?;
         let err = |e: std::io::Error| EngineError::Other(format!("{}: {e}", path.display()));
         let (data, merged, backup) = sidecar_contents(&path, sidecar_packet(p, &self.catalog), &(self.clock)()).map_err(err)?;
         write_atomic(&path, data.as_bytes()).map_err(err)?;
@@ -1167,7 +1167,7 @@ impl Session {
 
     /// Like [`Session::read_sidecar_op`], retaining transient diagnostics for the command report.
     pub fn read_sidecar_op_with_warnings(&self, id: PhotoId) -> Result<Option<(Op, PathBuf, Vec<crate::import::ImportWarning>)>> {
-        let p = self.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?;
+        let p = self.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?;
         let Some(orig) = file_path(p) else { return Ok(None) };
         let Some((packet, from)) = read_packet(orig, p.kind, self.sidecar_lookup(id)) else { return Ok(None) };
         let sc = parse_sidecar(&packet, crate::crs::Target::for_photo(p)).map_err(|e| EngineError::Other(format!("{}: {e}", from.display())))?;
@@ -1183,7 +1183,7 @@ impl Session {
     /// The op that applies what a sidecar says (already read and parsed, e.g. on a worker
     /// thread) to photo `id`: the sidecar wins. No file is read.
     pub fn sidecar_op(&self, id: PhotoId, sc: SidecarData) -> Result<Op> {
-        let p = self.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?;
+        let p = self.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?;
         let sc = sc.resolve_label(&self.catalog);
         let mut q = (**p).clone();
         let develop_changed = merge_into(&mut q, &sc, &(self.clock)());
@@ -1289,15 +1289,15 @@ mod tests {
     /// EXIF chunk and a JPEG's first Exif segment, and none for a file that states none.
     #[test]
     fn the_file_orientation_is_found_after_the_image_data() {
-        let dir = std::env::temp_dir().join(format!("lightcraft-file-orientation-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-file-orientation-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let exif = lightcraft_meta::write_exif(&lightcraft_meta::Metadata {
-            orientation: Some(lightcraft_meta::Orientation::Rotate90),
+        let exif = evolight_meta::write_exif(&evolight_meta::Metadata {
+            orientation: Some(evolight_meta::Orientation::Rotate90),
             ..Default::default()
         });
         let span = super::ORIENTATION_SPAN as usize;
-        let (o6, o8) = (Some(lightcraft_meta::Orientation::Rotate90), Some(lightcraft_meta::Orientation::Rotate270));
+        let (o6, o8) = (Some(evolight_meta::Orientation::Rotate90), Some(evolight_meta::Orientation::Rotate270));
         // a WebP: VP8X, then `chunks`
         let webp = |chunks: &[(&[u8], Vec<u8>)]| {
             let mut w = b"RIFF\0\0\0\0WEBP".to_vec();
@@ -1315,9 +1315,9 @@ mod tests {
         let exif_chunk = (&b"EXIF"[..], [&b"Exif\0\0"[..], &exif].concat());
         // an EXIF chunk over the span (orientation 6 too), one stating no orientation, and an XMP packet stating 8
         let huge_exif = (&b"EXIF"[..], [&b"Exif\0\0"[..], &exif, &vec![0; span]].concat());
-        let plain = lightcraft_meta::write_exif(&lightcraft_meta::Metadata::default());
+        let plain = evolight_meta::write_exif(&evolight_meta::Metadata::default());
         let plain_chunk = (&b"EXIF"[..], [&b"Exif\0\0"[..], &plain].concat());
-        let packet = lightcraft_meta::write_xmp(&lightcraft_meta::Metadata { orientation: o8, ..Default::default() }, None);
+        let packet = evolight_meta::write_xmp(&evolight_meta::Metadata { orientation: o8, ..Default::default() }, None);
         let xmp_chunk = (&b"XMP "[..], packet.clone().into_bytes());
         // the XMP packet padded with whitespace to `len` bytes
         let padded_xmp = |len: usize| {
@@ -1410,14 +1410,14 @@ mod tests {
             // the first Exif segment counts, though it states no orientation
             ("two-exif.jpg", jpeg(&[plain_app1], &[exif_app1, xmp_app1]), o8),
         ] {
-            assert_eq!(lightcraft_meta::extract(&bytes).orientation, want, "import: {name}");
+            assert_eq!(evolight_meta::extract(&bytes).orientation, want, "import: {name}");
             let path = dir.join(name);
             std::fs::write(&path, bytes).unwrap();
             assert_eq!(super::file_orientation(&path.to_string_lossy()), want, "{name}");
         }
         // a larger XMP chunk isn't read, where the import (reading the whole file) takes its orientation
         let over = webp(&[image(64), padded_xmp(span + 1)]);
-        assert_eq!(lightcraft_meta::extract(&over).orientation, o8);
+        assert_eq!(evolight_meta::extract(&over).orientation, o8);
         std::fs::write(dir.join("over-xmp.webp"), over).unwrap();
         assert_eq!(super::file_orientation(&dir.join("over-xmp.webp").to_string_lossy()), None);
         assert_eq!(super::file_orientation(&dir.join("missing.webp").to_string_lossy()), None);
@@ -1428,14 +1428,14 @@ mod tests {
     /// image resources can outgrow the first [`super::ORIENTATION_SPAN`].
     #[test]
     fn a_png_or_psd_gives_the_orientation_the_import_gives() {
-        let dir = std::env::temp_dir().join(format!("lightcraft-png-psd-orientation-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-png-psd-orientation-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let span = super::ORIENTATION_SPAN as usize;
-        let (o6, o8) = (Some(lightcraft_meta::Orientation::Rotate90), Some(lightcraft_meta::Orientation::Rotate270));
-        let exif = lightcraft_meta::write_exif(&lightcraft_meta::Metadata { orientation: o6, ..Default::default() });
-        let plain = lightcraft_meta::write_exif(&lightcraft_meta::Metadata::default());
-        let packet = lightcraft_meta::write_xmp(&lightcraft_meta::Metadata { orientation: o8, ..Default::default() }, None);
+        let (o6, o8) = (Some(evolight_meta::Orientation::Rotate90), Some(evolight_meta::Orientation::Rotate270));
+        let exif = evolight_meta::write_exif(&evolight_meta::Metadata { orientation: o6, ..Default::default() });
+        let plain = evolight_meta::write_exif(&evolight_meta::Metadata::default());
+        let packet = evolight_meta::write_xmp(&evolight_meta::Metadata { orientation: o8, ..Default::default() }, None);
         // a PNG: its IHDR, then `chunks`, each with a CRC (nothing checks it)
         let png = |chunks: &[(&[u8], Vec<u8>)]| {
             let mut p = b"\x89PNG\r\n\x1a\n".to_vec();
@@ -1530,14 +1530,14 @@ mod tests {
             ("cut.psd", late_psd[..late_psd.len() - 1].to_vec(), None),
             ("two-exif.psd", psd(0, &[long_res, exif_res, exif_res], 0), None),
         ] {
-            assert_eq!(lightcraft_meta::extract(&bytes).orientation, want, "import: {name}");
+            assert_eq!(evolight_meta::extract(&bytes).orientation, want, "import: {name}");
             let path = dir.join(name);
             std::fs::write(&path, bytes).unwrap();
             assert_eq!(super::file_orientation(&path.to_string_lossy()), want, "{name}");
         }
         // a larger XMP chunk isn't read, where the import (reading the whole file) takes its orientation
         let over = png(&[idat(64), padded_xmp(span + 1)]);
-        assert_eq!(lightcraft_meta::extract(&over).orientation, o8);
+        assert_eq!(evolight_meta::extract(&over).orientation, o8);
         std::fs::write(dir.join("over-xmp.png"), over).unwrap();
         assert_eq!(super::file_orientation(&dir.join("over-xmp.png").to_string_lossy()), None);
         std::fs::remove_dir_all(dir).unwrap();
@@ -1550,7 +1550,7 @@ mod tests {
         let (last, past) = (split(walked), split(walked + 1));
         assert_eq!(last.len() as u64, len(walked));
         assert_eq!(super::png_orientation(&mut std::io::Cursor::new(&last)), o6);
-        assert_eq!(lightcraft_meta::extract(&past).orientation, o6);
+        assert_eq!(evolight_meta::extract(&past).orientation, o6);
         assert_eq!(super::png_orientation(&mut std::io::Cursor::new(&past)), None);
         // image data split into chunks of a KiB is walked whatever its length, up to the limit
         let kib_chunks = png(&[vec![idat(1012); 6000], vec![exif_chunk.clone()]].concat());
@@ -1564,13 +1564,13 @@ mod tests {
         assert_eq!(within.len(), limit);
         assert_eq!(super::psd_orientation(&mut std::io::Cursor::new(&within)), o6);
         let past = psd(1, &[(1039, &padding[..]), exif_res], 0);
-        assert_eq!(lightcraft_meta::extract(&past).orientation, o6);
+        assert_eq!(evolight_meta::extract(&past).orientation, o6);
         assert_eq!(super::psd_orientation(&mut std::io::Cursor::new(&past)), None);
     }
 
     #[test]
     fn sidecars_are_written_only_beside_an_existing_original() {
-        let dir = std::env::temp_dir().join(format!("lightcraft-sidecar-local-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-sidecar-local-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("IMG_1.jpg"), b"original").unwrap();
@@ -1596,24 +1596,24 @@ mod tests {
     /// gives the photo its keywords as paths.
     #[test]
     fn sidecar_keywords_keep_their_hierarchy() {
-        let m = lightcraft_meta::Metadata {
+        let m = evolight_meta::Metadata {
             keywords: vec!["Lisbon".into(), "Places".into()],
             hierarchical_keywords: vec!["Places|Lisbon".into()],
             ..Default::default()
         };
-        let sc = super::parse_sidecar(&lightcraft_meta::write_xmp(&m, None), crate::crs::Target::Rendered).unwrap();
+        let sc = super::parse_sidecar(&evolight_meta::write_xmp(&m, None), crate::crs::Target::Rendered).unwrap();
         assert_eq!(sc.keywords, Some(vec!["Places|Lisbon".to_string()]));
     }
 
     /// Issue #2556: a sidecar's `lc:settings` colour-range mask keeps at most `MAX_COLOR_RANGE_SAMPLES` samples.
     #[test]
     fn sidecar_color_range_samples_are_capped() {
-        use lightcraft_develop::{MAX_COLOR_RANGE_SAMPLES, Mask, MaskComponent, MaskOp, MaskShape};
+        use evolight_develop::{MAX_COLOR_RANGE_SAMPLES, Mask, MaskComponent, MaskOp, MaskShape};
         let samples: Vec<[f64; 3]> = (0..1000).map(|i| [i as f64 / 1000.0, 0.1, -0.1]).collect();
         let mut d = DevelopSettings::default();
         let shape = MaskShape::ColorRange { samples: samples.clone(), refine: 50.0 };
         d.masks.push(Mask { id: 1, components: vec![MaskComponent { name: None, op: MaskOp::Add, invert: false, shape }], ..Default::default() });
-        let xmp = lightcraft_meta::write_xmp(&lightcraft_meta::Metadata::default(), Some(&d.to_json().to_string()));
+        let xmp = evolight_meta::write_xmp(&evolight_meta::Metadata::default(), Some(&d.to_json().to_string()));
         let sc = super::parse_sidecar(&xmp, crate::crs::Target::Rendered).unwrap();
         let Some(DevelopPatch::Full(s)) = sc.develop else { panic!("expected full settings") };
         let Some(MaskShape::ColorRange { samples: got, .. }) = s.masks.first().and_then(|m| m.components.first()).map(|c| &c.shape) else {
@@ -1623,7 +1623,7 @@ mod tests {
     }
 
     use super::*;
-    use lightcraft_catalog::Meta;
+    use evolight_catalog::Meta;
 
     fn photo() -> Photo {
         let mut p = Photo::new(PhotoId(7), Source::File { path: "/x/IMG_1.jpg".into() }, "IMG_1.jpg", "JPEG", 40, 30, "2026-01-01T00:00:00");
@@ -1645,7 +1645,7 @@ mod tests {
         d.light.exposure = 0.75;
         d.effects.clarity = 22.0;
         d.crop.geometry.angle = 2.5;
-        d.masks.push(lightcraft_develop::Mask { id: 1, ..Default::default() });
+        d.masks.push(evolight_develop::Mask { id: 1, ..Default::default() });
         p.develop = Arc::new(d);
         p
     }
@@ -1659,7 +1659,7 @@ mod tests {
     #[test]
     fn packet_roundtrip_restores_everything() {
         let p = photo();
-        let x = sidecar_packet(&p, &lightcraft_catalog::Catalog::new());
+        let x = sidecar_packet(&p, &evolight_catalog::Catalog::new());
         let sc = parse_sidecar(&x, crate::crs::Target::Rendered).unwrap();
         assert_eq!(sc.rating, Some(4));
         assert_eq!(sc.flag, Some(Flag::Pick));
@@ -1776,7 +1776,7 @@ mod jpeg_header_tests {
     }
 
     fn packet(rating: i8) -> String {
-        lightcraft_meta::write_xmp(&lightcraft_meta::Metadata { rating: Some(rating), ..Default::default() }, None)
+        evolight_meta::write_xmp(&evolight_meta::Metadata { rating: Some(rating), ..Default::default() }, None)
     }
 
     fn xmp_segment(packet: &str) -> Vec<u8> {
@@ -1834,7 +1834,7 @@ mod jpeg_header_tests {
         let mut bytes = jpeg(&expected);
         let declared = u16::from_be_bytes([bytes[4], bytes[5]]) + 7;
         bytes[4..6].copy_from_slice(&declared.to_be_bytes());
-        let partial = lightcraft_meta::jpeg_segments(&bytes).xmp.unwrap();
+        let partial = evolight_meta::jpeg_segments(&bytes).xmp.unwrap();
         assert_eq!(partial, expected, "the shared extractor tolerates a truncated declared payload");
         assert_eq!(super::parse_sidecar(&partial, crate::crs::Target::Rendered).unwrap().rating, Some(4));
         let len = bytes.len();

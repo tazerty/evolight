@@ -1,20 +1,20 @@
 //! Clear Color Label (`photo.clearLabel`) is a command of its own, so the keyboard shortcuts editor can give it a key (#2980).
 use egui::{Key, Modifiers};
-use lightcraft_catalog::{ColorLabel, Op, Photo, PhotoId, Source};
+use evolight_catalog::{ColorLabel, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::menubar::MenuNode;
 use crate::state::ViewMode;
 
 const KEY: &str = "Alt+Shift+L";
 
-fn app() -> lightcraft_engine::Result<LightcraftApp> {
-    let mut s = lightcraft_engine::Session::new();
+fn app() -> evolight_engine::Result<EvoLightApp> {
+    let mut s = evolight_engine::Session::new();
     for id in 1..=3 {
         let mut photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-clear-label-keys/{id}.jpg") },
+            Source::File { path: format!("/evolight-clear-label-keys/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,
@@ -26,16 +26,16 @@ fn app() -> lightcraft_engine::Result<LightcraftApp> {
     }
     s.execute("library.sort", &json!({"key": "fileName", "ascending": true}))?;
     s.execute("library.select", &json!({"ids": [2]}))?;
-    let mut app = LightcraftApp::new(s, crate::Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(s, crate::Services { png: None, ..Default::default() });
     super::assign(&mut app.ui.settings.keymap, "photo.clearLabel", Some(KEY)).unwrap();
     Ok(app)
 }
 
-fn labels(app: &LightcraftApp) -> Vec<Option<ColorLabel>> {
+fn labels(app: &EvoLightApp) -> Vec<Option<ColorLabel>> {
     (1..=3).map(|id| app.session.catalog.photo(PhotoId(id)).unwrap().label).collect()
 }
 
-fn frame(app: &mut LightcraftApp, ctx: &egui::Context, key: Option<(Key, Modifiers)>, text: Option<&mut String>) {
+fn frame(app: &mut EvoLightApp, ctx: &egui::Context, key: Option<(Key, Modifiers)>, text: Option<&mut String>) {
     let events =
         key.map(|(key, modifiers)| egui::Event::Key { key, physical_key: Some(key), pressed: true, repeat: false, modifiers }).into_iter().collect();
     let mut text = text;
@@ -51,7 +51,7 @@ fn frame(app: &mut LightcraftApp, ctx: &egui::Context, key: Option<(Key, Modifie
     out.textures_delta.clear();
 }
 
-fn press(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn press(app: &mut EvoLightApp, ctx: &egui::Context) {
     frame(app, ctx, Some((Key::L, Modifiers::ALT | Modifiers::SHIFT)), None);
 }
 

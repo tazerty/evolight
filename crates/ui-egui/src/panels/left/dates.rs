@@ -1,8 +1,8 @@
 use super::rows::{INDENT_STEP, Row, tree_open, tree_toggle};
-use super::{Icon, LibrarySource, LightcraftApp, json};
+use super::{Icon, LibrarySource, EvoLightApp, json};
 
 /// By Date: year → month → day; a click filters by that prefix, the triangle opens a level.
-pub(super) fn date_rows(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub(super) fn date_rows(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let groups = app.caches.date_groups(&app.session.catalog);
     for g in groups.iter() {
         if date_row(app, ui, &g.year, &crate::i18n::date_group_label(&g.year, true), g.count, 0.0) {
@@ -20,7 +20,7 @@ pub(super) fn date_rows(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 }
 
 /// One By Date row (`key`: `YYYY`, `YYYY-MM` or `YYYY-MM-DD`); returns whether it is open.
-fn date_row(app: &mut LightcraftApp, ui: &mut egui::Ui, key: &str, label: &str, count: usize, indent: f32) -> bool {
+fn date_row(app: &mut EvoLightApp, ui: &mut egui::Ui, key: &str, label: &str, count: usize, indent: f32) -> bool {
     let open_id = egui::Id::unique(("date-open", key.to_string()));
     let mut open = tree_open(ui, open_id, false);
     let sel = app.session.filter.date.as_deref() == Some(key);
@@ -40,7 +40,7 @@ fn date_row(app: &mut LightcraftApp, ui: &mut egui::Ui, key: &str, label: &str, 
 /// By Date and Keywords count every photo in the library, so choosing a row shows those photos
 /// from All Photos, not from whatever album or folder happened to be open, where they could be
 /// missing (issue #341). Only when choosing (`on`), not when clearing the row again.
-pub(crate) fn browse_all_photos(app: &mut LightcraftApp, on: bool) {
+pub(crate) fn browse_all_photos(app: &mut EvoLightApp, on: bool) {
     if on && app.session.source != LibrarySource::All {
         let _ = app.run("library.source", json!({"kind": "all"}));
     }

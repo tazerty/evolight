@@ -1,11 +1,11 @@
 use super::display::duration_slider;
 use super::widgets::{check, choices, heading, hint, row};
-use super::{LightcraftApp, Tokens, Value, json, register};
+use super::{EvoLightApp, Tokens, Value, json, register};
 
 /// The Slideshow tab: the slide preview, then the settings, in one column the width of the page
 /// (the page scrolls; a column beside the preview would be wider than the window). Without
 /// `with_preview` the preview is left out: [`window`] has pinned it above the page.
-pub(super) fn slideshow_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, with_preview: bool) {
+pub(super) fn slideshow_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, with_preview: bool) {
     if with_preview {
         crate::panels::slide_layout::preview(app, ui, t, f32::INFINITY);
         ui.add_space(6.0);
@@ -24,7 +24,7 @@ pub(super) fn slideshow_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Toke
 }
 
 /// Export: PDF, JPEG sequence or video of the slideshow (View ▸ Export Slideshow…).
-fn export_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+fn export_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, t, crate::i18n::tr("Export"));
     let running = app.session.slideshow_export.as_ref().is_some_and(|r| r.running());
     ui.horizontal_wrapped(|ui| {
@@ -43,8 +43,8 @@ fn export_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
     hint(ui, t, crate::i18n::tr("The photos in view as slides, with the settings above. Progress shows in the activity stack."));
 }
 
-fn playback_section(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::slideshow::{FADE_MAX, SLIDE_MAX, SLIDE_MIN};
+fn playback_section(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::slideshow::{FADE_MAX, SLIDE_MAX, SLIDE_MIN};
     heading(ui, t, crate::i18n::tr("Playback"));
     let s = app.session.slideshow.clone();
     let mut v = s.manual;

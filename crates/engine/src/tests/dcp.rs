@@ -3,9 +3,9 @@
 
 use std::path::PathBuf;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_raw::dcp::{DcpProfile, write_dcp};
-use lightcraft_raw::{ColorData, Mat3};
+use evolight_catalog::PhotoId;
+use evolight_raw::dcp::{DcpProfile, write_dcp};
+use evolight_raw::{ColorData, Mat3};
 use serde_json::json;
 
 use crate::Session;
@@ -25,12 +25,12 @@ fn swapping_profile(name: &str) -> DcpProfile {
     let xyz_to_cam = m.mul(&Mat3([[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]]));
     DcpProfile {
         name: name.into(),
-        camera_model: "LightCraft Test Camera".into(),
+        camera_model: "EvoLight Test Camera".into(),
         color: ColorData { illuminant: [21, 0], color_matrix: [Some(xyz_to_cam), None], ..Default::default() },
     }
 }
 
-fn mean_rgb(img: &lightcraft_raster::Rgb32f) -> [f32; 3] {
+fn mean_rgb(img: &evolight_raster::Rgb32f) -> [f32; 3] {
     let n = img.data.len().max(1) as f32;
     let s = img.data.iter().fold([0.0f32; 3], |a, p| [a[0] + p[0], a[1] + p[1], a[2] + p[2]]);
     [s[0] / n, s[1] / n, s[2] / n]
@@ -52,12 +52,12 @@ fn a_camera_profile_replaces_the_raw_colour_model_when_decoding() {
 
 #[test]
 fn a_profile_without_a_tone_curve_keeps_the_photos_contrast() {
-    use lightcraft_raw::profile::ToneCurve;
+    use evolight_raw::profile::ToneCurve;
     // a DNG with a tone curve of its own (our numbers: 18 % grey → 30 %)
     let plain = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&plain).unwrap();
+    let mut raw = evolight_raw::decode(&plain).unwrap();
     raw.color.profile.tone_curve = ToneCurve::from_tag(&[0.0, 0.0, 0.18, 0.3, 1.0, 1.0]);
-    let dng = lightcraft_raw::write_dng(&raw, &Default::default()).unwrap();
+    let dng = evolight_raw::write_dng(&raw, &Default::default()).unwrap();
     // a chart-style profile (no curve) keeps the file's curve
     let (_, info) = crate::files::load_bytes_with(&dng, 64, Some(&swapping_profile("Swap"))).unwrap();
     let tone = info.camera_tone.expect("the file's tone curve stays");
@@ -93,7 +93,7 @@ fn import_choose_cache_persist_and_delete() {
         assert_eq!(r["failed"].as_array().unwrap().len(), 1, "{r}");
         dcp_id = r["imported"][0]["id"].as_str().unwrap().to_string();
         assert!(dcp_id.starts_with("dcp:"));
-        assert_eq!(r["imported"][0]["cameraModel"], "LightCraft Test Camera");
+        assert_eq!(r["imported"][0]["cameraModel"], "EvoLight Test Camera");
         // importing it again adds nothing
         let again = s.execute("profile.import", &json!({"paths": [files.join("profiles").join("Swap.dcp").to_string_lossy()]})).unwrap();
         assert_eq!(again["imported"][0]["existing"], true);
@@ -215,7 +215,7 @@ fn library_with_profile(dir: &std::path::Path) -> (Session, PhotoId, String) {
 }
 
 /// The thumbnail, browser-thumbnail and loupe cache keys of photo `id` (as it is now), and its source tag.
-fn render_keys(s: &mut Session, id: PhotoId) -> [lightcraft_preview::Hash128; 3] {
+fn render_keys(s: &mut Session, id: PhotoId) -> [evolight_preview::Hash128; 3] {
     let settings = (*s.develop_of(id).unwrap()).clone();
     [
         s.thumb_job(id, 256).unwrap().cache.unwrap().1,
@@ -255,7 +255,7 @@ fn a_deleted_or_replaced_camera_profile_never_reuses_renders_made_with_it() {
         assert_ne!(b, c);
     }
     // nor does a source decoded with the old file
-    let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::new(4, 4));
+    let img = std::sync::Arc::new(evolight_raster::Rgb32f::new(4, 4));
     s.media.insert_source(id, level, crate::media::DecodedSource { camera_profile: old_tag, ..crate::media::DecodedSource::new(img, None) });
     assert!(!matches!(s.render_job(id, 48, 48, false, true).unwrap().source, SourceRef::Loaded(_)), "decoded again with the new file");
     let _ = std::fs::remove_dir_all(&dir);
@@ -269,7 +269,7 @@ fn a_thumbnail_is_not_cut_from_a_preview_decoded_with_another_camera_profile() {
     let (mut s, id, _) = library_with_profile(&dir);
     let p = (**s.catalog.photo(id).unwrap()).clone();
     let tag = s.media.camera_profile_of(&p).map(|c| c.0);
-    let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::new(1600, 1000));
+    let img = std::sync::Arc::new(evolight_raster::Rgb32f::new(1600, 1000));
     let preview = |camera_profile| crate::media::DecodedSource { camera_profile, ..crate::media::DecodedSource::new(img.clone(), None) };
     use crate::media::SourceLevel;
     s.media.insert_source(id, SourceLevel::Preview, preview(None));
@@ -317,7 +317,7 @@ fn smart_previews_are_built_without_the_imported_camera_profile() {
     s.execute("library.smartPreviews", &json!({"ids": [id.0], "discard": true})).unwrap();
     // a cached preview decoded with the profile (flat magenta, so it shows if the proxy is cut from it)
     let tag = s.media.camera_profile_of(&p).map(|c| c.0);
-    let mut magenta = lightcraft_raster::Rgb32f::new(8, 8);
+    let mut magenta = evolight_raster::Rgb32f::new(8, 8);
     magenta.data.iter_mut().for_each(|px| *px = [1.0, 0.0, 1.0]);
     s.media.insert_source(id, SourceLevel::Preview, DecodedSource { camera_profile: tag, ..DecodedSource::new(std::sync::Arc::new(magenta), None) });
     let r = s.execute("library.smartPreviews", &json!({"ids": [id.0]})).unwrap();
@@ -350,7 +350,7 @@ fn a_cached_smart_preview_stands_in_while_the_original_is_offline() {
     let (mut s, id, _) = library_with_profile(&dir);
     let p = (**s.catalog.photo(id).unwrap()).clone();
     assert!(s.media.camera_profile_of(&p).is_some());
-    let proxy = DecodedSource { from_proxy: true, ..DecodedSource::new(std::sync::Arc::new(lightcraft_raster::Rgb32f::new(8, 8)), None) };
+    let proxy = DecodedSource { from_proxy: true, ..DecodedSource::new(std::sync::Arc::new(evolight_raster::Rgb32f::new(8, 8)), None) };
     s.media.insert_source(id, SourceLevel::Preview, proxy);
     let offline = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
     let probe_offline = offline.clone();
@@ -373,10 +373,10 @@ fn source_facts_come_from_a_source_developed_with_the_current_camera_profile() {
     let dir = temp_dir("facts");
     let (mut s, id, _) = library_with_profile(&dir);
     let tag = s.media.camera_profile_of(s.catalog.photo(id).unwrap()).map(|c| c.0);
-    let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::new(4, 4));
+    let img = std::sync::Arc::new(evolight_raster::Rgb32f::new(4, 4));
     let facts = |temp: f64, camera_profile| DecodedSource {
         camera_profile,
-        ..DecodedSource::new(img.clone(), Some(lightcraft_pipeline::SourceInfo { as_shot_temp: temp, ..Default::default() }))
+        ..DecodedSource::new(img.clone(), Some(evolight_pipeline::SourceInfo { as_shot_temp: temp, ..Default::default() }))
     };
     s.media.insert_source(id, SourceLevel::Thumb, facts(3100.0, None));
     s.media.insert_source(id, SourceLevel::Preview, facts(6200.0, tag));
@@ -404,7 +404,7 @@ fn the_before_side_decodes_with_its_own_camera_profile() {
     assert_eq!(camera(&before), None, "the Before side develops with the file's own colour");
     // nor does a cached source developed with the edit's profile stand in for it
     for level in [SourceLevel::Thumb, SourceLevel::Preview, SourceLevel::Full] {
-        let img = std::sync::Arc::new(lightcraft_raster::Rgb32f::new(4, 4));
+        let img = std::sync::Arc::new(evolight_raster::Rgb32f::new(4, 4));
         s.media.insert_source(id, level, DecodedSource { camera_profile: tag.clone(), ..DecodedSource::new(img, None) });
     }
     let before = s.render_job(id, 256, 256, true, true).unwrap();
@@ -426,7 +426,7 @@ fn a_profile_that_cannot_be_copied_fails_on_its_own() {
     let mut s = Session::new().with_fs();
     s.open_library(&lib, false).unwrap();
     // a folder where B's copy goes: writing it fails
-    let blocked = lib.join("Profiles").join(format!("{}.dcp", crate::presets::slug("LightCraft Test Camera-B")));
+    let blocked = lib.join("Profiles").join(format!("{}.dcp", crate::presets::slug("EvoLight Test Camera-B")));
     std::fs::create_dir_all(&blocked).unwrap();
     let r = s.execute("profile.import", &json!({"paths": [files.to_string_lossy()]})).unwrap();
     let imported: Vec<&str> = r["imported"].as_array().unwrap().iter().filter_map(|p| p["name"].as_str()).collect();
@@ -554,7 +554,7 @@ fn an_oversized_camera_profile_is_refused_while_it_is_read() {
     let mut bytes = write_dcp(&swapping_profile("Big")).unwrap();
     bytes.truncate(4);
     std::fs::write(&big, &bytes).unwrap();
-    std::fs::OpenOptions::new().write(true).open(&big).unwrap().set_len(lightcraft_raw::dcp::MAX_DCP_BYTES + 1).unwrap();
+    std::fs::OpenOptions::new().write(true).open(&big).unwrap().set_len(evolight_raw::dcp::MAX_DCP_BYTES + 1).unwrap();
     let mut s = Session::new();
     let r = s.execute("profile.import", &json!({"paths": [big.to_string_lossy()]})).unwrap();
     assert_eq!(r["imported"], json!([]), "{r}");

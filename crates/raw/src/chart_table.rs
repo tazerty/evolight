@@ -3,7 +3,7 @@
 // clean-room/crw/10-chart-calibration.md (scripts local-only). Reference colours: X-Rite's published L*a*b* (D50) for
 // the chart, as packaged by colour-science (BSD-3-Clause). No number comes from Adobe or from a GPL raw decoder.
 use super::Camera;
-use lightcraft_color::Mat3;
+use evolight_color::Mat3;
 
 #[rustfmt::skip]
 pub(super) const CAMERAS: &[Camera] = &[

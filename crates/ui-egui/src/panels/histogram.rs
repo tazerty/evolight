@@ -8,11 +8,11 @@
 //! one undo step (`end_interaction`).
 
 use egui::{Painter, Pos2, Rect, Response, pos2};
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{ControlSpec, controls};
+use evolight_catalog::PhotoId;
+use evolight_develop::{ControlSpec, controls};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::panels::detail::Gesture;
 use crate::theme::Tokens;
 use crate::widgets::{register, shown_value};
@@ -20,7 +20,7 @@ use crate::widgets::{register, shown_value};
 /// One tonal zone across the histogram's plot.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Zone {
-    /// The develop control the zone adjusts: an id of [`lightcraft_develop::controls`].
+    /// The develop control the zone adjusts: an id of [`evolight_develop::controls`].
     pub control: &'static str,
     /// The zone's span of the plot's width, normalized 0 (left) to 1 (right).
     pub from: f32,
@@ -129,7 +129,7 @@ pub fn clipping_rects_in(plot: Rect, scroll_bar_width: f32, scroll_bar_outer_mar
 ///
 /// `plot` is the plot's rect: the strip under it (the readout and the EXIF line) is not a zone, and
 /// neither are the clipping buttons in the plot's top corners, which take their own presses.
-pub fn interact(app: &mut LightcraftApp, ui: &egui::Ui, resp: &Response, plot: Rect, id: PhotoId) -> Option<Active> {
+pub fn interact(app: &mut EvoLightApp, ui: &egui::Ui, resp: &Response, plot: Rect, id: PhotoId) -> Option<Active> {
     let width = plot.width();
     let clips = clipping_rects(ui, plot);
     let in_plot = |q: Pos2| plot.contains(q) && !clips.iter().any(|c| c.contains(q));
@@ -207,14 +207,14 @@ pub fn interact(app: &mut LightcraftApp, ui: &egui::Ui, resp: &Response, plot: R
 }
 
 /// End the histogram drag: the interaction commits the whole drag as one undo step.
-fn finish(app: &mut LightcraftApp) {
+fn finish(app: &mut EvoLightApp) {
     app.gesture = None;
     app.ui.dragging_control = None;
     let _ = app.run("develop.endInteraction", json!({}));
 }
 
 /// A control's value on the photo, or its default when the photo has no settings yet.
-fn value_of(app: &LightcraftApp, id: PhotoId, spec: &ControlSpec) -> f64 {
+fn value_of(app: &EvoLightApp, id: PhotoId, spec: &ControlSpec) -> f64 {
     controls::get(&app.session.develop_of(id).unwrap_or_default(), spec.id).unwrap_or(spec.default)
 }
 
@@ -245,7 +245,7 @@ mod tests {
         }
         for zone in ZONES {
             let spec = spec_of(zone.control);
-            assert_eq!(spec.section, lightcraft_develop::Section::Light, "{}", spec.id);
+            assert_eq!(spec.section, evolight_develop::Section::Light, "{}", spec.id);
             assert_eq!(spec.default, 0.0, "{}", spec.id);
             let (min, max) = if spec.id == "light.exposure" { (-5.0, 5.0) } else { (-100.0, 100.0) };
             assert_eq!((spec.min, spec.max), (min, max), "{}", spec.id);

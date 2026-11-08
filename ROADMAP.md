@@ -1,10 +1,10 @@
-# LightCraft roadmap
+# EvoLight roadmap
 
 **Stage: alpha** · next: beta, ~14 points and ~340–600 h away
 
 > **Last reviewed:** 2026-10-10 · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6 · **Changes:** [revision history](#revision-history)
 
-One-page summary of how close LightCraft is to Adobe Lightroom. Agents: read this, then pick work
+One-page summary of how close EvoLight is to Adobe Lightroom. Agents: read this, then pick work
 from [docs/gaps.md](docs/gaps.md). The full assessment, method and evidence are in
 [docs/target-app-parity.md](docs/target-app-parity.md).
 
@@ -121,7 +121,7 @@ Ranked toward beta; detail in [docs/roadmap.md](docs/roadmap.md), gaps in [docs/
   and `print.set` take their customary names, and names are matched case-, space- and
   punctuation-insensitively (`L判`, `l`, `L-size` are one paper).
 - 2026-10-13: Canon CRW (the 2000–2004 CIFF bodies) decodes from sensor data: compression
-  derived clean-room against a black-box reference and frozen (`craft-libs crates/crw/clean-room/02-crw-format.md`);
+  derived clean-room against a black-box reference and frozen (`evo-libs crates/crw/clean-room/02-crw-format.md`);
   EOS D30/D60/10D/300D and PowerShot G1/G6 verified pixel-exact on 28 of 29 corpus files (18 of
   them the maintainer's D60 shots); as-shot white balance, black level, rotation and capture time
   from the CIFF records; the PowerShot G5's anomalous coding stays preview-only. With the
@@ -153,7 +153,7 @@ Ranked toward beta; detail in [docs/roadmap.md](docs/roadmap.md), gaps in [docs/
   preview): the CRX QP map's first-symbol literal and limited-length escape; four CC0 R5 Mark II files
   pinned, the QP maps of 33,665 private C-RAW files decode exactly ([cr3.md](docs/cr3.md)). 235 models
   verified; RAW decoding 76% → 77%; headline numbers unchanged.
-- **2026-10-10 (UI docking):** Library, Tools, and Presets panels can be regrouped, split, floated within the app window, closed, and reopened. Tools keeps the current Edit/Crop/Masking mode; the photo view and filmstrip stay together. Panel moves and reset are available as UI commands, and saved UI preferences retain arrangements. Widget state styling uses the shared `craft-ui` theme helper, retaining the dark palette, typography, spacing and per-state borders. No readiness percentage change.
+- **2026-10-10 (UI docking):** Library, Tools, and Presets panels can be regrouped, split, floated within the app window, closed, and reopened. Tools keeps the current Edit/Crop/Masking mode; the photo view and filmstrip stay together. Panel moves and reset are available as UI commands, and saved UI preferences retain arrangements. Widget state styling uses the shared `evo-ui` theme helper, retaining the dark palette, typography, spacing and per-state borders. No readiness percentage change.
 - 2026-10-10 (RAW): RAW measured model by model against Adobe's 1,446-model list (234 verified, 943
   unverified, 233 preview-only, 36 unsupported; ~84% of photographers' cameras decode, ~40% on a
   verified body). Full ~61%, mainstream ~49%, essentials ~64%; beta ~14 points away.

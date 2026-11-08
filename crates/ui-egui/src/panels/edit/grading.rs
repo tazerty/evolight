@@ -1,6 +1,6 @@
 use super::sliders::control;
 use super::{
-    Align2, Color32, DevelopSettings, Icon, LightcraftApp, Mesh, PhotoId, Pos2, Rect, Sense, Stroke, Tokens, Vertex, json, paint, pos2, register,
+    Align2, Color32, DevelopSettings, Icon, EvoLightApp, Mesh, PhotoId, Pos2, Rect, Sense, Stroke, Tokens, Vertex, json, paint, pos2, register,
     vec2,
 };
 
@@ -17,7 +17,7 @@ const GRADING_TABS: [(&str, &str, Icon); 4] = [
 /// The wheels, in the order of `UiState::grading_hidden`.
 const GRADING_WHEELS: [(&str, &str); 3] = [("shadows", "Shadows"), ("midtones", "Midtones"), ("highlights", "Highlights")];
 
-pub(super) fn grading(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, photo: PhotoId) {
+pub(super) fn grading(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, photo: PhotoId) {
     let mode = GRADING_TABS.iter().find(|(k, ..)| *k == app.ui.grading_mode).map_or("3way", |(k, ..)| *k);
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 6, bottom: 2 }).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -66,7 +66,7 @@ pub(super) fn grading(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSet
 /// on the photo for viewing. `readout`: show hue and saturation centred above the wheel while
 /// hovered (3-Way); otherwise the wheel is the large one and gets saturation guide rings.
 #[allow(clippy::too_many_arguments)]
-fn grading_wheel(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings, photo: PhotoId, i: usize, c: Pos2, rad: f32, readout: bool) {
+fn grading_wheel(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings, photo: PhotoId, i: usize, c: Pos2, rad: f32, readout: bool) {
     let t = Tokens::get(ui.ctx());
     let Some(&(key, label)) = GRADING_WHEELS.get(i) else { return };
     let wh = match key {
@@ -392,7 +392,7 @@ pub(crate) fn wheel_mesh(c: Pos2, rad: f32) -> Mesh {
     /// Brightness (HSV value) at the centre; the rim is 1.0.
     const CENTRE_V: f32 = 0.6;
     let colour = |hue_deg: f32, t: f32| {
-        let rgb = lightcraft_color::perceptual::hsv_to_rgb(hue_deg, t, CENTRE_V + (1.0 - CENTRE_V) * t);
+        let rgb = evolight_color::perceptual::hsv_to_rgb(hue_deg, t, CENTRE_V + (1.0 - CENTRE_V) * t);
         let u = |x: f32| (x.clamp(0.0, 1.0) * 255.0).round() as u8;
         Color32::from_rgb(u(rgb[0]), u(rgb[1]), u(rgb[2]))
     };

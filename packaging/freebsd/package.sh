@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build and package LightCraft for FreeBSD:
+# Build and package EvoLight for FreeBSD:
 #
-#   $DIST/lightcraft-<version>-freebsd-<arch>.tar.gz   (arch: x86_64 or aarch64) a /usr/local-style tree:
-#       lightcraft-<version>-freebsd-<arch>/{bin, share/applications, share/icons, share/mime,
-#       share/metainfo, share/doc/lightcraft}
+#   $DIST/evolight-<version>-freebsd-<arch>.tar.gz   (arch: x86_64 or aarch64) a /usr/local-style tree:
+#       evolight-<version>-freebsd-<arch>/{bin, share/applications, share/icons, share/mime,
+#       share/metainfo, share/doc/evolight}
 #
 # Install by copying the tree's contents into /usr/local:
-#   tar -xzf lightcraft-<version>-freebsd-<arch>.tar.gz --strip-components 1 -C /usr/local
+#   tar -xzf evolight-<version>-freebsd-<arch>.tar.gz --strip-components 1 -C /usr/local
 #
 # Usage: packaging/freebsd/package.sh [--skip-build] [--dry-run]
 #   --dry-run   stage the tree from stub binaries and list it, without building (works on any OS)
@@ -16,7 +16,7 @@ set -euo pipefail
 # shellcheck source=../env.sh
 . "$(dirname "${BASH_SOURCE[0]}")/../env.sh"
 LINUX="$ROOT/packaging/linux"
-APP_ID=ai.storyteller.lightcraft
+APP_ID=ai.storyteller.evolight
 
 SKIP_BUILD=0
 DRY_RUN=0
@@ -49,14 +49,14 @@ if [[ "$DRY_RUN" = 0 ]] && [[ "$(uname -s)" != FreeBSD ]]; then
   echo "error: build on FreeBSD (or pass --dry-run to check the tree layout)" >&2
   exit 2
 fi
-BASENAME="lightcraft-$VERSION-freebsd-$ARCH"
+BASENAME="evolight-$VERSION-freebsd-$ARCH"
 
-echo "==> LightCraft $VERSION for FreeBSD $ARCH"
+echo "==> EvoLight $VERSION for FreeBSD $ARCH"
 
 # The release VM has 12 GB; full parallelism on the biggest crates runs it out of memory.
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}"
 if [[ "$SKIP_BUILD" = 0 ]]; then
-  (cd "$ROOT" && cargo build --release --locked -p lightcraft -p lightcraft-cli --features lightcraft/heif,lightcraft-cli/heif \
+  (cd "$ROOT" && cargo build --release --locked -p evolight -p evolight-cli --features evolight/heif,evolight-cli/heif \
     ${CARGO_BUILD_TARGET:+--target "$CARGO_BUILD_TARGET"})
 fi
 WORK="$CARGO_TARGET_DIR/freebsd-package"
@@ -71,7 +71,7 @@ if [[ "$DRY_RUN" = 1 ]]; then
   BIN="$WORK/stub-bin"
   OUT_DIR="$WORK"
   mkdir -p "$BIN"
-  for b in lightcraft lightcraft-cli; do
+  for b in evolight evolight-cli; do
     printf '#!/bin/sh\necho "%s %s (dry-run stub)"\n' "$b" "$VERSION" >"$BIN/$b"
     chmod 755 "$BIN/$b"
   done
@@ -80,20 +80,20 @@ fi
 # ---- stage a /usr/local-style tree --------------------------------------------------------------
 # FreeBSD's install(1) has no -D: create the directories first.
 mkdir -p "$STAGE/bin" "$STAGE/share/applications" "$STAGE/share/mime/packages" \
-  "$STAGE/share/metainfo" "$STAGE/share/icons" "$STAGE/share/doc/lightcraft"
-install -m 755 "$BIN/lightcraft" "$BIN/lightcraft-cli" "$STAGE/bin/"
-strip "$STAGE/bin/lightcraft" "$STAGE/bin/lightcraft-cli" 2>/dev/null || true
+  "$STAGE/share/metainfo" "$STAGE/share/icons" "$STAGE/share/doc/evolight"
+install -m 755 "$BIN/evolight" "$BIN/evolight-cli" "$STAGE/bin/"
+strip "$STAGE/bin/evolight" "$STAGE/bin/evolight-cli" 2>/dev/null || true
 # The desktop entry, MIME type, metainfo and icons are the freedesktop files Linux ships.
 install -m 644 "$LINUX/$APP_ID.desktop" "$STAGE/share/applications/$APP_ID.desktop"
 install -m 644 "$LINUX/$APP_ID.mime.xml" "$STAGE/share/mime/packages/$APP_ID.xml"
-sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$LIGHTCRAFT_BUILD_DATE/g" \
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@DATE@/$EVOLIGHT_BUILD_DATE/g" \
   "$LINUX/$APP_ID.metainfo.xml.in" >"$STAGE/share/metainfo/$APP_ID.metainfo.xml"
 cp -R "$ROOT/assets/app-icon/hicolor" "$STAGE/share/icons/"
-copy_docs "$STAGE/share/doc/lightcraft"
+copy_docs "$STAGE/share/doc/evolight"
 
-for f in bin/lightcraft bin/lightcraft-cli "share/applications/$APP_ID.desktop" \
+for f in bin/evolight bin/evolight-cli "share/applications/$APP_ID.desktop" \
   "share/icons/hicolor/256x256/apps/$APP_ID.png" "share/icons/hicolor/scalable/apps/$APP_ID.svg" \
-  share/doc/lightcraft/LICENSE-MIT share/doc/lightcraft/LICENSE-APACHE; do
+  share/doc/evolight/LICENSE-MIT share/doc/evolight/LICENSE-APACHE; do
   if [[ ! -e "$STAGE/$f" ]]; then echo "error: $f is missing from the package" >&2; exit 1; fi
 done
 
@@ -104,7 +104,7 @@ echo "wrote $OUT_DIR/$BASENAME.tar.gz"
 
 # A cross-built binary (e.g. aarch64 on the x86_64 VM) cannot run on the build host.
 if [[ -z "${CARGO_BUILD_TARGET:-}" ]]; then
-  "$STAGE/bin/lightcraft-cli" --version
+  "$STAGE/bin/evolight-cli" --version
 else
   echo "skipping --version: $CARGO_BUILD_TARGET binaries do not run on this host"
 fi

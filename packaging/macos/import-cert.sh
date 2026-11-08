@@ -21,9 +21,9 @@ TMP="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 # A private directory (mktemp -d): a predictable name in a shared TMPDIR can be precreated by another
 # local account, and a plain redirect would then receive the private key archive (CWE-377). Encoded
 # signing material is written only inside the 0700 directory.
-CERTDIR="$(mktemp -d "$TMP/lightcraft-signing.XXXXXX")"
-KEYCHAIN="$CERTDIR/lightcraft-signing.keychain-db"
-CERT="$CERTDIR/lightcraft-signing.p12"
+CERTDIR="$(mktemp -d "$TMP/evolight-signing.XXXXXX")"
+KEYCHAIN="$CERTDIR/evolight-signing.keychain-db"
+CERT="$CERTDIR/evolight-signing.p12"
 KC_PASS="${KEYCHAIN_PASSWORD:-$(openssl rand -hex 24)}"
 
 trap 'rm -f "$CERT"' EXIT

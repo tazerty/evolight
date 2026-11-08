@@ -3,14 +3,14 @@
 
 use egui::epaint::{Mesh, Vertex};
 use egui::{Align2, Color32, Pos2, Rect, RichText, Sense, Stroke, pos2, vec2};
-use lightcraft_catalog::PhotoId;
-use lightcraft_develop::{ControlSpec, DevelopSettings, Section, Track, WbMode, controls};
-use lightcraft_geom::Point;
-use lightcraft_pipeline::{PARAM_AMOUNTS, ParametricCurve};
-use lightcraft_raster::Histogram;
+use evolight_catalog::PhotoId;
+use evolight_develop::{ControlSpec, DevelopSettings, Section, Track, WbMode, controls};
+use evolight_geom::Point;
+use evolight_pipeline::{PARAM_AMOUNTS, ParametricCurve};
+use evolight_raster::Histogram;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::render::Slot;
 use crate::state::RightPanel;
@@ -36,7 +36,7 @@ use sliders::{REL_TEMP, REL_TINT, hdr_row, header_buttons, k_to_rel, profile_men
 pub use sliders::{apply_slider_out, sub_title};
 pub(crate) use sliders::{control, reload_preview_only};
 
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let t = Tokens::get(ui.ctx());
     let d = app.session.develop_of(id).unwrap_or_default();
     // a raw shown from its embedded JPEG (preview only) gets the rendered-file white balance scale
@@ -51,7 +51,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         // numbers can predate a decoder update, or the camera's matrices giving the file its Kelvin scale), a
         // preset its Kelvin value, and a value written on the old relative scale the Kelvin it renders as
         let info = app.session.source_info(id);
-        let (temp, tint) = lightcraft_engine::pipeline::local::effective_wb(&info, &d);
+        let (temp, tint) = evolight_engine::pipeline::local::effective_wb(&info, &d);
         let wb = &mut std::sync::Arc::make_mut(&mut d).wb;
         wb.temp = temp;
         wb.tint = tint;
@@ -262,7 +262,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         }
         sub_title(ui, crate::i18n::tr("Vignette"));
         {
-            use lightcraft_develop::VignetteStyle as V;
+            use evolight_develop::VignetteStyle as V;
             let styles = [
                 (V::HighlightPriority, "Highlight", "highlightPriority"),
                 (V::ColorPriority, "Color", "colorPriority"),
@@ -298,7 +298,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         // AI Denoise is its own tool, apart from the manual noise reduction sliders below it
         sub_title(ui, crate::i18n::tr("AI Denoise"));
         // AI Denoise: how much of the photo's cleaned picture to mix in (raw files only), and what that picture is doing
-        let applicable = !matches!(app.session.denoise_photo_state(id), lightcraft_engine::denoise::PhotoState::NotApplicable);
+        let applicable = !matches!(app.session.denoise_photo_state(id), evolight_engine::denoise::PhotoState::NotApplicable);
         let on = d.enhance.denoise_enabled();
         super::denoise::detail_toggle(app, ui, id, on, applicable);
         control(app, ui, d, "enhance.denoise", applicable && on);

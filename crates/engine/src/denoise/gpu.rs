@@ -25,7 +25,7 @@ pub(crate) const GPU_SETUP_MARKER: &str = "gpu-setup.marker";
 
 /// Why the card is not tried when a set-up marker is found.
 #[cfg(feature = "denoise")]
-pub(super) const GPU_CRASHED: &str = "LightCraft closed while it was setting up the graphics card for AI Denoise last time";
+pub(super) const GPU_CRASHED: &str = "EvoLight closed while it was setting up the graphics card for AI Denoise last time";
 
 /// Why the card is not used when its set-up ran out of time (the start of it).
 #[cfg(feature = "denoise")]
@@ -62,7 +62,7 @@ impl Drop for SetUpEnded {
 
 /// Set the graphics card up with `card` on a thread of its own while `meanwhile` runs here, and give up on the card when
 /// it takes longer than `limit` (a driver building kernels for minutes, or stuck). The `marker` file exists while `card`
-/// runs: one found before it starts was left by a LightCraft that closed during a set-up (a driver crash takes the app
+/// runs: one found before it starts was left by a EvoLight that closed during a set-up (a driver crash takes the app
 /// with it), so the card is not tried again until the user chooses where denoise runs (`denoise.settings {runOn}`).
 #[cfg(feature = "denoise")]
 pub(super) fn set_up_card<T: Send + 'static, R>(
@@ -131,11 +131,11 @@ pub(super) fn card_tile_ms(runner: &dyn TileRunner, input: &[f32]) -> f64 {
 
 /// Set the card up for the model at `path`: kernels built, the check tile run on both and compared, both timed.
 #[cfg(feature = "denoise")]
-pub(super) fn make_gpu(cpu: &lightcraft_denoise::runtime::CpuRunner, path: &Path, tile: usize) -> Result<GpuSide, String> {
-    let input = Arc::new(lightcraft_denoise::runtime::check_tile(tile));
+pub(super) fn make_gpu(cpu: &evolight_denoise::runtime::CpuRunner, path: &Path, tile: usize) -> Result<GpuSide, String> {
+    let input = Arc::new(evolight_denoise::runtime::check_tile(tile));
     let (on_card, net) = (input.clone(), cpu.net().clone());
     let card = move || -> Result<_, String> {
-        let runner = lightcraft_gpu::nn::runner(&net, tile)?;
+        let runner = evolight_gpu::nn::runner(&net, tile)?;
         let got = runner.run(&on_card).map_err(|e| format!("the GPU could not run the check tile: {e}"))?;
         let card_ms = card_tile_ms(&runner, &on_card);
         Ok((runner, got, card_ms))

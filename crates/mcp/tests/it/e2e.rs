@@ -1,4 +1,4 @@
-//! M0.9 acceptance: drive LightCraft over MCP (stdio framing), set exposure and render an image.
+//! M0.9 acceptance: drive EvoLight over MCP (stdio framing), set exposure and render an image.
 //! Runs against the headless backend directly and through the TCP control-channel transport
 //! (`Remote`) to a stand-in control server.
 
@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use lightcraft_mcp::{Backend, Headless, ProgressHook, Remote, Server, base64_decode, call_tool};
+use evolight_mcp::{Backend, Headless, ProgressHook, Remote, Server, base64_decode, call_tool};
 use serde_json::{Value, json};
 
 /// Feed a whole session through `Server::serve` and return the replies by id.
@@ -29,7 +29,7 @@ fn mean_of(result: &Value) -> (f64, u32, u32) {
     assert_eq!(img["mimeType"], "image/png");
     let png = base64_decode(img["data"].as_str().unwrap()).unwrap();
     assert_eq!(&png[1..4], b"PNG");
-    let d = lightcraft_codecs::decode(&png, Default::default()).unwrap();
+    let d = evolight_codecs::decode(&png, Default::default()).unwrap();
     let rgba = d.to_srgb8();
     let sum: u64 = rgba.data.iter().map(|p| p[0] as u64 + p[1] as u64 + p[2] as u64).sum();
     (sum as f64 / (3 * rgba.data.len()) as f64, d.width, d.height)
@@ -46,7 +46,7 @@ fn exposure_roundtrip(server: &mut Server) {
         ],
     );
     assert_eq!(replies.len(), 3, "notifications get no reply");
-    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "lightcraft");
+    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "evolight");
     let tools: Vec<&str> = replies[1]["result"]["tools"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(tools.contains(&"set_develop") && tools.contains(&"render_photo") && tools.contains(&"cmd_develop_set"));
     let id = replies[2]["result"]["structuredContent"]["photos"][0]["id"].as_u64().expect("a photo");
@@ -112,11 +112,11 @@ fn headless_set_exposure_and_render() {
 
 #[test]
 fn import_render_export_real_file() {
-    let dir = std::env::temp_dir().join(format!("lightcraft-mcp-e2e-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-mcp-e2e-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("sub")).unwrap();
     // A synthetic gradient PNG to import.
-    let img = lightcraft_raster::Rgba8::from_fn(96, 64, |x, y| [(x * 2) as u8, (y * 3) as u8, 128, 255]);
-    lightcraft_mcp::write_image(&dir.join("sub/gradient.png"), &img, 90).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(96, 64, |x, y| [(x * 2) as u8, (y * 3) as u8, 128, 255]);
+    evolight_mcp::write_image(&dir.join("sub/gradient.png"), &img, 90).unwrap();
     let out = dir.join("out.jpg");
     let mut server = Server::new(Box::new(Headless::default()));
     let replies = session(
@@ -135,7 +135,7 @@ fn import_render_export_real_file() {
     assert_eq!(replies[2]["result"]["content"][0]["mimeType"], "image/jpeg");
     let jpg = std::fs::read(&out).unwrap();
     assert_eq!(&jpg[..2], &[0xff, 0xd8]);
-    let d = lightcraft_codecs::decode(&jpg, Default::default()).unwrap();
+    let d = evolight_codecs::decode(&jpg, Default::default()).unwrap();
     assert_eq!((d.width, d.height), (48, 32));
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -194,13 +194,13 @@ fn file_backed_photos(dir: &std::path::Path) -> Headless {
     let mut paths = Vec::new();
     for i in 0..8usize {
         let path = originals.join(format!("frame-{i:02}.png"));
-        let img = lightcraft_raster::Rgba8::from_fn(1200, 800, |x, y| {
+        let img = evolight_raster::Rgba8::from_fn(1200, 800, |x, y| {
             [((x + i * 37) % 256) as u8, ((y * 3 + i * 11) % 256) as u8, ((x / 4 + y / 2 + i * 23) % 256) as u8, 255]
         });
-        lightcraft_mcp::write_image(&path, &img, 90).unwrap();
+        evolight_mcp::write_image(&path, &img, 90).unwrap();
         paths.push(path.to_string_lossy().to_string());
     }
-    let mut headless = Headless::new(lightcraft_engine::Session::new().with_fs());
+    let mut headless = Headless::new(evolight_engine::Session::new().with_fs());
     let imported = call_tool(&mut headless, "import", &json!({"paths": paths}));
     assert!(!imported.is_error, "{imported:?}");
     headless
@@ -328,7 +328,7 @@ fn assert_cancelled_output(out: &std::path::Path, decoy: &std::path::Path) {
     let photos: Vec<_> = std::fs::read_dir(out).unwrap().map(|e| e.unwrap().path()).filter(|p| p != decoy).collect();
     assert_eq!(photos.len(), 1, "only the photo completed before the cancel remains: {photos:?}");
     for path in &photos {
-        let d = lightcraft_codecs::decode(&std::fs::read(path).unwrap(), Default::default()).expect("complete image, no partial/temp file");
+        let d = evolight_codecs::decode(&std::fs::read(path).unwrap(), Default::default()).expect("complete image, no partial/temp file");
         assert_eq!((d.width, d.height), (1200, 800), "{}", path.display());
     }
 }
@@ -341,7 +341,7 @@ fn assert_complete_output(dir: &std::path::Path) {
     for path in &complete {
         let bytes = std::fs::read(path).unwrap();
         assert_eq!(&bytes[1..4], b"PNG", "{}", path.display());
-        let d = lightcraft_codecs::decode(&bytes, Default::default()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let d = evolight_codecs::decode(&bytes, Default::default()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert_eq!((d.width, d.height), (1200, 800), "{}", path.display());
         exported.insert(bytes);
     }
@@ -419,10 +419,10 @@ fn export_without_token_finishes_after_eof() {
 /// imports nothing.
 #[test]
 fn a_batch_edit_recipe_is_reachable_over_mcp() {
-    let dir = std::env::temp_dir().join(format!("lightcraft-mcp-recipe-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-mcp-recipe-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let img = lightcraft_raster::Rgba8::from_fn(96, 64, |x, y| [(x * 2) as u8, (y * 3) as u8, 128, 255]);
-    lightcraft_mcp::write_image(&dir.join("gradient.png"), &img, 90).unwrap();
+    let img = evolight_raster::Rgba8::from_fn(96, 64, |x, y| [(x * 2) as u8, (y * 3) as u8, 128, 255]);
+    evolight_mcp::write_image(&dir.join("gradient.png"), &img, 90).unwrap();
     let paths = json!([dir.to_string_lossy()]);
     let mut server = Server::new(Box::new(Headless::default()));
     let replies = session(

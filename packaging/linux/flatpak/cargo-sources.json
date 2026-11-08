@@ -1,15 +1,15 @@
 [
     {
         "type": "git",
-        "url": "https://github.com/storytold/craft-libs",
+        "url": "vendor/evo-libs",
         "commit": "82a24b006eefa036b43c09a67fb9a3fbd17ffe63",
-        "dest": "flatpak-cargo/git/craft-libs-82a24b0"
+        "dest": "flatpak-cargo/git/evo-libs-82a24b0"
     },
     {
         "type": "git",
-        "url": "https://github.com/storytold/craft-libs",
+        "url": "vendor/evo-libs",
         "commit": "25da1314d443171b4adeaad2cd9454b273f35c6f",
-        "dest": "flatpak-cargo/git/craft-libs-25da131"
+        "dest": "flatpak-cargo/git/evo-libs-25da131"
     },
     {
         "type": "git",
@@ -1378,37 +1378,37 @@
     {
         "type": "shell",
         "commands": [
-            "cp -r --reflink=auto \"flatpak-cargo/git/craft-libs-82a24b0/crates/docpath\" \"cargo/vendor/craft-docpath\""
+            "cp -r --reflink=auto \"flatpak-cargo/git/evo-libs-82a24b0/crates/docpath\" \"cargo/vendor/evo-docpath\""
         ]
     },
     {
         "type": "inline",
-        "contents": "[package]\nname = \"craft-docpath\"\ndescription = \"Decide whether a file path or file URL stored in a document refers to a local file.\"\nversion = \"0.1.0\"\nedition = \"2024\"\nlicense = \"MIT OR Apache-2.0\"\nrust-version = \"1.95\"\nrepository = \"https://github.com/storytold/craft-libs\"\n\n[lints.rust]\nunsafe_code = \"forbid\"\n\n[lints.rust.unexpected_cfgs]\nlevel = \"warn\"\ncheck-cfg = [\"cfg(craft_pdf_unicode_fixtures)\"]\n\n[lints.clippy]\ndbg_macro = \"warn\"\ntodo = \"warn\"\n",
-        "dest": "cargo/vendor/craft-docpath",
+        "contents": "[package]\nname = \"evo-docpath\"\ndescription = \"Decide whether a file path or file URL stored in a document refers to a local file.\"\nversion = \"0.1.0\"\nedition = \"2024\"\nlicense = \"MIT OR Apache-2.0\"\nrust-version = \"1.95\"\nrepository = \"vendor/evo-libs\"\n\n[lints.rust]\nunsafe_code = \"forbid\"\n\n[lints.rust.unexpected_cfgs]\nlevel = \"warn\"\ncheck-cfg = [\"cfg(evo_pdf_unicode_fixtures)\"]\n\n[lints.clippy]\ndbg_macro = \"warn\"\ntodo = \"warn\"\n",
+        "dest": "cargo/vendor/evo-docpath",
         "dest-filename": "Cargo.toml"
     },
     {
         "type": "inline",
         "contents": "{\"package\": null, \"files\": {}}",
-        "dest": "cargo/vendor/craft-docpath",
+        "dest": "cargo/vendor/evo-docpath",
         "dest-filename": ".cargo-checksum.json"
     },
     {
         "type": "shell",
         "commands": [
-            "cp -r --reflink=auto \"flatpak-cargo/git/craft-libs-25da131/crates/ui\" \"cargo/vendor/craft-ui\""
+            "cp -r --reflink=auto \"flatpak-cargo/git/evo-libs-25da131/crates/ui\" \"cargo/vendor/evo-ui\""
         ]
     },
     {
         "type": "inline",
-        "contents": "[package]\nname = \"craft-ui\"\nversion = \"0.1.0\"\nedition = \"2024\"\nlicense = \"MIT OR Apache-2.0\"\nrepository = \"https://github.com/storytold/craft-libs\"\nrust-version = \"1.95\"\ndescription = \"Reusable egui controls and icon catalogs for Craft frontends\"\n\n[lints.rust]\nunsafe_code = \"forbid\"\n\n[lints.rust.unexpected_cfgs]\nlevel = \"warn\"\ncheck-cfg = [\"cfg(craft_pdf_unicode_fixtures)\"]\n\n[lints.clippy]\ndbg_macro = \"warn\"\ntodo = \"warn\"\n\n[dependencies.egui]\nversion = \"0.37\"\ndefault-features = false\n\n[dependencies.serde]\nversion = \"1\"\nfeatures = [\"derive\"]\noptional = true\n\n[features]\nserde = [\"dep:serde\"]\n\n[dev-dependencies]\nserde_json = \"1\"\n\n[dev-dependencies.egui]\nfeatures = [\"default_fonts\"]\nversion = \"0.37\"\ndefault-features = false\n\n[dev-dependencies.egui_extras]\nversion = \"0.37\"\ndefault-features = false\nfeatures = [\"svg\"]\n\n[dev-dependencies.egui_kittest]\nversion = \"0.37\"\nfeatures = [\"wgpu\"]\n\n[dev-dependencies.image]\nversion = \"0.25\"\ndefault-features = false\nfeatures = [\"png\"]\n",
-        "dest": "cargo/vendor/craft-ui",
+        "contents": "[package]\nname = \"evo-ui\"\nversion = \"0.1.0\"\nedition = \"2024\"\nlicense = \"MIT OR Apache-2.0\"\nrepository = \"vendor/evo-libs\"\nrust-version = \"1.95\"\ndescription = \"Reusable egui controls and icon catalogs for Evo frontends\"\n\n[lints.rust]\nunsafe_code = \"forbid\"\n\n[lints.rust.unexpected_cfgs]\nlevel = \"warn\"\ncheck-cfg = [\"cfg(evo_pdf_unicode_fixtures)\"]\n\n[lints.clippy]\ndbg_macro = \"warn\"\ntodo = \"warn\"\n\n[dependencies.egui]\nversion = \"0.37\"\ndefault-features = false\n\n[dependencies.serde]\nversion = \"1\"\nfeatures = [\"derive\"]\noptional = true\n\n[features]\nserde = [\"dep:serde\"]\n\n[dev-dependencies]\nserde_json = \"1\"\n\n[dev-dependencies.egui]\nfeatures = [\"default_fonts\"]\nversion = \"0.37\"\ndefault-features = false\n\n[dev-dependencies.egui_extras]\nversion = \"0.37\"\ndefault-features = false\nfeatures = [\"svg\"]\n\n[dev-dependencies.egui_kittest]\nversion = \"0.37\"\nfeatures = [\"wgpu\"]\n\n[dev-dependencies.image]\nversion = \"0.25\"\ndefault-features = false\nfeatures = [\"png\"]\n",
+        "dest": "cargo/vendor/evo-ui",
         "dest-filename": "Cargo.toml"
     },
     {
         "type": "inline",
         "contents": "{\"package\": null, \"files\": {}}",
-        "dest": "cargo/vendor/craft-ui",
+        "dest": "cargo/vendor/evo-ui",
         "dest-filename": ".cargo-checksum.json"
     },
     {
@@ -8586,7 +8586,7 @@
     },
     {
         "type": "inline",
-        "contents": "[source.vendored-sources]\ndirectory = \"cargo/vendor\"\n\n[source.crates-io]\nreplace-with = \"vendored-sources\"\n\n[source.\"https://github.com/storytold/craft-libs?rev=82a24b006eefa036b43c09a67fb9a3fbd17ffe63\"]\ngit = \"https://github.com/storytold/craft-libs\"\nreplace-with = \"vendored-sources\"\nrev = \"82a24b006eefa036b43c09a67fb9a3fbd17ffe63\"\n\n[source.\"https://github.com/storytold/craft-libs?rev=25da1314d443171b4adeaad2cd9454b273f35c6f\"]\ngit = \"https://github.com/storytold/craft-libs\"\nreplace-with = \"vendored-sources\"\nrev = \"25da1314d443171b4adeaad2cd9454b273f35c6f\"\n\n[source.\"https://github.com/storytold/egui.git?rev=6d518fc799681571963842f95b55a6b68431b15a\"]\ngit = \"https://github.com/storytold/egui\"\nreplace-with = \"vendored-sources\"\nrev = \"6d518fc799681571963842f95b55a6b68431b15a\"\n\n[source.\"https://github.com/storytold/winit.git?rev=a517b3846ee8457d84ee4975110bfda6797c44dc\"]\ngit = \"https://github.com/storytold/winit\"\nreplace-with = \"vendored-sources\"\nrev = \"a517b3846ee8457d84ee4975110bfda6797c44dc\"\n",
+        "contents": "[source.vendored-sources]\ndirectory = \"cargo/vendor\"\n\n[source.crates-io]\nreplace-with = \"vendored-sources\"\n\n[source.\"vendor/evo-libs?rev=82a24b006eefa036b43c09a67fb9a3fbd17ffe63\"]\ngit = \"vendor/evo-libs\"\nreplace-with = \"vendored-sources\"\nrev = \"82a24b006eefa036b43c09a67fb9a3fbd17ffe63\"\n\n[source.\"vendor/evo-libs?rev=25da1314d443171b4adeaad2cd9454b273f35c6f\"]\ngit = \"vendor/evo-libs\"\nreplace-with = \"vendored-sources\"\nrev = \"25da1314d443171b4adeaad2cd9454b273f35c6f\"\n\n[source.\"https://github.com/storytold/egui.git?rev=6d518fc799681571963842f95b55a6b68431b15a\"]\ngit = \"https://github.com/storytold/egui\"\nreplace-with = \"vendored-sources\"\nrev = \"6d518fc799681571963842f95b55a6b68431b15a\"\n\n[source.\"https://github.com/storytold/winit.git?rev=a517b3846ee8457d84ee4975110bfda6797c44dc\"]\ngit = \"https://github.com/storytold/winit\"\nreplace-with = \"vendored-sources\"\nrev = \"a517b3846ee8457d84ee4975110bfda6797c44dc\"\n",
         "dest": "cargo",
         "dest-filename": "config"
     }

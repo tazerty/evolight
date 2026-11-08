@@ -10,12 +10,12 @@ use serde_json::{Value, json};
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 fn demo() -> Headless {
-    let mut h = Headless::new(LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default()), [1200.0, 900.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default()), [1200.0, 900.0], 1.0);
     // let the first renders finish (a render still running at exit can crash in GPU teardown)
     h.settle(T);
     h

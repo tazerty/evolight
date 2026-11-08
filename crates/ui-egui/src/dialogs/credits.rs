@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 
 use egui::RichText;
 
-use crate::{LightcraftApp, theme::Tokens};
+use crate::{EvoLightApp, theme::Tokens};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Contributor {
@@ -220,14 +220,14 @@ fn profile_url(c: &Contributor) -> String {
 }
 
 /// A contributor's name as a link to their GitHub profile, with the whole line as its tooltip.
-fn name_link(app: &mut LightcraftApp, ui: &mut egui::Ui, c: &Contributor, names: NameMode) {
+fn name_link(app: &mut EvoLightApp, ui: &mut egui::Ui, c: &Contributor, names: NameMode) {
     if ui.link(c.name(names)).on_hover_text(c.summary()).clicked() {
         let _ = crate::links::open(app, &profile_url(c));
     }
 }
 
 /// About ▸ Contributors: a name toggle, a sort, and the list as a grab bag or a table.
-pub fn contributors_ui(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn contributors_ui(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let id = egui::Id::unique("credits_view");
     let mut v = ui.data_mut(|d| d.get_temp::<View>(id)).unwrap_or_default();
@@ -394,7 +394,7 @@ fn header_text(k: SortKey) -> RichText {
     RichText::new(crate::i18n::tr(k.label().1)).strong()
 }
 
-fn table(app: &mut LightcraftApp, ui: &mut egui::Ui, list: &[&Contributor], v: &mut View) {
+fn table(app: &mut EvoLightApp, ui: &mut egui::Ui, list: &[&Contributor], v: &mut View) {
     let h = row_height(ui);
     let rows: Vec<[String; 9]> = list.iter().map(|c| cells(c)).collect();
     let widths: Vec<f32> = SortKey::ALL

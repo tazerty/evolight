@@ -1,12 +1,12 @@
 //! Modal dialogs (new album, rename, create preset, choose settings to copy, export, about, shortcuts).
 
-use lightcraft_develop::{ControlSpec, Section, SettingsGroup, Track};
+use evolight_develop::{ControlSpec, Section, SettingsGroup, Track};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::Dialog;
 use crate::theme::Tokens;
-use lightcraft_engine::export::{ExportOptions, Resize};
+use evolight_engine::export::{ExportOptions, Resize};
 
 mod confirm;
 mod cull;
@@ -66,7 +66,7 @@ pub(crate) const WELCOME_START: &str = "Get Started";
 /// not bind.
 pub(crate) const WELCOME_PAGES: [(&str, &str, &str); 6] = [
     (
-        "Welcome to LightCraft",
+        "Welcome to EvoLight",
         "A fast, non-destructive photo library and raw developer: your originals stay untouched, and every edit can be revisited or reset.",
         "Bring photos in with File › Import Photos…",
     ),
@@ -92,8 +92,8 @@ pub(crate) const WELCOME_PAGES: [(&str, &str, &str); 6] = [
     ),
     (
         "Put agents to work",
-        "Everything in LightCraft is a command, so AI agents can drive the running app over MCP: culling, editing, exporting on your word.",
-        "Start the app with --control 7980 (or LIGHTCRAFT_CONTROL_PORT), then lightcraft-cli mcp --connect attaches one to it.",
+        "Everything in EvoLight is a command, so AI agents can drive the running app over MCP: culling, editing, exporting on your word.",
+        "Start the app with --control 7980 (or EVOLIGHT_CONTROL_PORT), then evolight-cli mcp --connect attaches one to it.",
     ),
 ];
 
@@ -103,7 +103,7 @@ pub(crate) const WELCOME_PAGES: [(&str, &str, &str); 6] = [
 const WELCOME_DESKTOP_ONLY_PAGE: usize = 5;
 
 /// The tour's pages for `web_host` (the browser build) against the desktop's: the browser has no
-/// `--control` port for `lightcraft-cli` to attach to, so its tour omits [`WELCOME_DESKTOP_ONLY_PAGE`].
+/// `--control` port for `evolight-cli` to attach to, so its tour omits [`WELCOME_DESKTOP_ONLY_PAGE`].
 /// The parameter is the pure decision; the running host passes [`welcome_pages_host`]'s answer.
 pub(crate) fn welcome_pages(web_host: bool) -> &'static [(&'static str, &'static str, &'static str)] {
     if web_host { &WELCOME_PAGES[..WELCOME_DESKTOP_ONLY_PAGE] } else { &WELCOME_PAGES }
@@ -144,7 +144,7 @@ pub(crate) fn welcome_opening(page: usize, opening: &str, keys: Option<&str>, we
 
 /// The first-run tour: one page at a time, Back / Skip / Next under it. `close` is set when the
 /// tour is finished (Next on the last page) or skipped.
-fn welcome_body(app: &LightcraftApp, ui: &mut egui::Ui, t: &Tokens, page: &mut usize, close: &mut bool) {
+fn welcome_body(app: &EvoLightApp, ui: &mut egui::Ui, t: &Tokens, page: &mut usize, close: &mut bool) {
     let pages = welcome_pages_host();
     let last = pages.len() - 1;
     *page = (*page).min(last);
@@ -202,16 +202,16 @@ fn welcome_body(app: &LightcraftApp, ui: &mut egui::Ui, t: &Tokens, page: &mut u
 /// doesn't carry over to the other dialogs.
 fn window_id(dialog: &Dialog) -> egui::Id {
     egui::Id::unique(match dialog {
-        Dialog::Import { .. } => "lightcraft-import-dialog",
-        Dialog::Print => "lightcraft-print-dialog",
-        Dialog::Settings { .. } => "lightcraft-settings-dialog",
-        _ => "lightcraft-dialog",
+        Dialog::Import { .. } => "evolight-import-dialog",
+        Dialog::Print => "evolight-print-dialog",
+        Dialog::Settings { .. } => "evolight-settings-dialog",
+        _ => "evolight-dialog",
     })
 }
 
 /// Block the underlying panels from the first frame, before the window establishes its modal
 /// layer. Close background menus on entry; popups subsequently opened inside the dialog stay usable.
-pub(crate) fn prepare(app: &LightcraftApp, ui: &mut egui::Ui) {
+pub(crate) fn prepare(app: &EvoLightApp, ui: &mut egui::Ui) {
     let Some(dialog) = &app.ui.dialog else { return };
     ui.disable();
     let layer = egui::LayerId::new(egui::Order::Middle, window_id(dialog));
@@ -227,7 +227,7 @@ pub(crate) fn prepare(app: &LightcraftApp, ui: &mut egui::Ui) {
 /// blocking library-problem/launch-list window gets the same raw-input treatment while it is
 /// actually on screen over this dialog; ordinary dialogs without that window keep their normal
 /// Escape and outside-click behaviour.
-pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
+pub fn show(app: &mut EvoLightApp, ctx: &egui::Context, blocked: bool) {
     let Some(mut dlg) = app.ui.dialog.clone() else { return };
     let at_start = dlg.clone();
     let library_blocks = crate::panels::library_problem::blocks_dialog_input(app);
@@ -398,7 +398,7 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
 /// The band of the top bar that doubles as the window's title bar, as drawn last frame: `None`
 /// without the integrated title bar (Windows, Linux, the web), in macOS full screen, and while the
 /// bar isn't on screen (the full-screen photo view).
-fn title_bar_band(app: &LightcraftApp) -> Option<egui::Rect> {
+fn title_bar_band(app: &EvoLightApp) -> Option<egui::Rect> {
     // (the full-screen photo view draws no top bar, so the frame it is entered on still holds last frame's region)
     if !app.integrated_titlebar || app.window_is_fullscreen || app.ui.fullscreen {
         return None;
@@ -427,13 +427,13 @@ fn title_bar_handle(ctx: &egui::Context, band: egui::Rect, dialog: egui::Rect) {
     for (i, (from, to)) in sides.into_iter().enumerate().filter(|(_, (from, to))| to - from > 1.0) {
         let part = egui::Rect::from_x_y_ranges(from..=to, band.y_range());
         egui::Area::new(egui::Id::unique("dialog-title-bar").with(i)).order(egui::Order::Foreground).fixed_pos(part.min).show(ctx, |ui| {
-            craft_window::title_bar::empty_area(ui, part);
+            evo_window::title_bar::empty_area(ui, part);
         });
     }
 }
 
 /// The title of a dialog.
-fn dialog_title(app: &LightcraftApp, dlg: &Dialog) -> String {
+fn dialog_title(app: &EvoLightApp, dlg: &Dialog) -> String {
     match dlg {
         Dialog::TextPrompt { title, .. } => title.as_str(),
         Dialog::NewAlbum { folder: true, .. } => "Create Folder",
@@ -488,14 +488,14 @@ fn dialog_title(app: &LightcraftApp, dlg: &Dialog) -> String {
         // (nothing to download from in this build: the dialog explains the manual install)
         Dialog::SamModel { .. } if sam_by_hand(&app.session.segmenter) => "Install the SAM 3 Model",
         Dialog::SamModel { .. } => "Download the SAM 3 Model?",
-        Dialog::About => "About LightCraft",
+        Dialog::About => "About EvoLight",
         Dialog::Shortcuts => "Keyboard Shortcuts",
         Dialog::ViewOptions => "View Options",
     }
     .to_string()
 }
 
-/// Whether a dialog only shows something: a model file LightCraft cannot use has nothing to confirm, nor has a
+/// Whether a dialog only shows something: a model file EvoLight cannot use has nothing to confirm, nor has a
 /// dialog that only shows something (one Close, no Cancel / OK).
 fn is_informational(dlg: &Dialog) -> bool {
     let unusable_model = matches!(dlg, Dialog::DenoiseModel { info, .. } | Dialog::FaceModel { info, .. } if info["kind"] == "unsupported");
@@ -512,7 +512,7 @@ struct SamState {
 }
 
 impl SamState {
-    fn of(app: &LightcraftApp) -> Self {
+    fn of(app: &EvoLightApp) -> Self {
         let sam = &app.session.segmenter;
         SamState {
             installed: sam.installed(),
@@ -534,7 +534,7 @@ fn cancel_label(dlg: &Dialog, sam: &SamState) -> &'static str {
 }
 
 /// The label of a dialog's confirm button (empty: it has none).
-fn ok_label(app: &LightcraftApp, dlg: &Dialog, informational: bool, sam: &SamState) -> String {
+fn ok_label(app: &EvoLightApp, dlg: &Dialog, informational: bool, sam: &SamState) -> String {
     match dlg {
         Dialog::Import { opts } => import_ok_label(opts),
         Dialog::Export { .. } => photos_ok_label("Export", app.session.selection.ids.len().max(1)),
@@ -565,7 +565,7 @@ fn import_ok_label(opts: &crate::import::ImportDialog) -> String {
 }
 
 /// The confirm labels that are one fixed phrase.
-fn fixed_ok_label(app: &LightcraftApp, dlg: &Dialog, informational: bool) -> &'static str {
+fn fixed_ok_label(app: &EvoLightApp, dlg: &Dialog, informational: bool) -> &'static str {
     match dlg {
         // worded with a count or by the SAM state: `ok_label` builds them
         Dialog::Import { .. } | Dialog::Export { .. } | Dialog::SamModel { .. } => "",
@@ -585,7 +585,7 @@ fn fixed_ok_label(app: &LightcraftApp, dlg: &Dialog, informational: bool) -> &'s
         | Dialog::SmartRules { id: None, .. }
         | Dialog::CreatePreset { .. } => "Create",
         Dialog::SmartRules { .. } | Dialog::LabelNames { .. } => "Save",
-        Dialog::RenameKeyword { from, to } if app.session.catalog.has_keyword(to) && !lightcraft_catalog::keywords::same(from, to) => {
+        Dialog::RenameKeyword { from, to } if app.session.catalog.has_keyword(to) && !evolight_catalog::keywords::same(from, to) => {
             "Merge Keywords"
         }
         Dialog::RenameAlbum { .. } | Dialog::Rename { .. } | Dialog::RenameKeyword { .. } => "Rename",
@@ -637,7 +637,7 @@ fn sam_ok_label(dlg: &Dialog, sam: &SamState) -> &'static str {
 
 /// Whether the confirm button works: installing waits for the licence to be accepted (and Synchronize waits for the
 /// scan), a rename waits for its conflicts to be settled, smart-album rules that can't mean anything wait to be fixed.
-fn can_confirm(app: &LightcraftApp, dlg: &Dialog, informational: bool) -> bool {
+fn can_confirm(app: &EvoLightApp, dlg: &Dialog, informational: bool) -> bool {
     let rename_blocked = match dlg {
         Dialog::RenamePerson { from, to, merge } => {
             let plan = person_rename_plan(&app.session.catalog, from, to);
@@ -650,12 +650,12 @@ fn can_confirm(app: &LightcraftApp, dlg: &Dialog, informational: bool) -> bool {
         Dialog::DenoiseModel { accepted: false, .. } | Dialog::FaceModel { accepted: false, .. } | Dialog::SynchronizeFolder { counts: None, .. }
     );
     let bad_rules =
-        matches!(dlg, Dialog::SmartRules { id, rules, .. } if !rules.check_for(&app.session.catalog, id.map(lightcraft_catalog::AlbumId)).is_empty());
+        matches!(dlg, Dialog::SmartRules { id, rules, .. } if !rules.check_for(&app.session.catalog, id.map(evolight_catalog::AlbumId)).is_empty());
     !rename_blocked && (informational || (!waiting && !bad_rules))
 }
 
 /// The row of buttons under a dialog: Cancel and the confirm; `close` and `confirm` are set when one is clicked.
-fn button_row(app: &LightcraftApp, ui: &mut egui::Ui, dlg: &Dialog, close: &mut bool, confirm: &mut bool) {
+fn button_row(app: &EvoLightApp, ui: &mut egui::Ui, dlg: &Dialog, close: &mut bool, confirm: &mut bool) {
     let informational = is_informational(dlg);
     let sam = SamState::of(app);
     let cancel = cancel_label(dlg, &sam);
@@ -699,7 +699,7 @@ fn button_row(app: &LightcraftApp, ui: &mut egui::Ui, dlg: &Dialog, close: &mut 
 
 /// Say where a folder made on disk is: the new folder holds no photos yet, so the Folders list may not show it.
 /// Shared by the dialog's button and `ui.dialog.confirm`.
-pub(crate) fn toast_created_folder(app: &mut LightcraftApp, ctx: &egui::Context, dlg: &Dialog, made: &serde_json::Value) {
+pub(crate) fn toast_created_folder(app: &mut EvoLightApp, ctx: &egui::Context, dlg: &Dialog, made: &serde_json::Value) {
     if let Dialog::TextPrompt { command, params, .. } = dlg
         && command == "folder.create"
     {
@@ -709,7 +709,7 @@ pub(crate) fn toast_created_folder(app: &mut LightcraftApp, ctx: &egui::Context,
 }
 
 /// The dialog's confirm was pressed: do it. Whether the dialog closes.
-fn confirmed(app: &mut LightcraftApp, ctx: &egui::Context, dlg: &mut Dialog) -> bool {
+fn confirmed(app: &mut EvoLightApp, ctx: &egui::Context, dlg: &mut Dialog) -> bool {
     let mut closed = false;
     match confirm_dialog(app, dlg) {
         // the import review stays open on an error (e.g. an unusable folder template), and so
@@ -807,12 +807,12 @@ fn prompt_verb(command: &str) -> &'static str {
 
 /// Whether a dialog stays open after its action succeeded (the SAM 3 dialog while the model
 /// downloads).
-pub fn keeps_open(app: &LightcraftApp, dlg: &Dialog) -> bool {
+pub fn keeps_open(app: &EvoLightApp, dlg: &Dialog) -> bool {
     matches!(dlg, Dialog::SamModel { .. }) && !app.session.segmenter.installed()
 }
 
 /// The body of the AutoStack dialog.
-fn auto_stack_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn auto_stack_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::AutoStack { gap } = dlg else { return };
     ui.label(egui::RichText::new(crate::i18n::tr("Stack photos taken within this time of each other:")).color(t.text_label));
     let r = ui.add(
@@ -841,7 +841,7 @@ fn auto_stack_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: 
 }
 
 /// The body of the Cull dialog.
-fn cull_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn cull_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::Cull { reject_below, pick_best, burst_gap, similarity } = dlg else { return };
     let n = app.session.selection.ids.len();
     let scope = if n > 1 {
@@ -1006,7 +1006,7 @@ fn all_metadata_body(ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
 }
 
 /// The body of the SmartRules dialog.
-fn smart_rules_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn smart_rules_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::SmartRules { id, name, rules, .. } = dlg else { return };
     let r = crate::widgets::named(
         ui.add(egui::TextEdit::singleline(name).hint_text(crate::i18n::tr("Name")).desired_width(f32::INFINITY)),
@@ -1016,7 +1016,7 @@ fn smart_rules_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg:
     ui.add_space(6.0);
     // the folder an album made from a folder view carries is not in the editor, but it counts
     let folder = id
-        .and_then(|id| app.session.catalog.album(lightcraft_catalog::AlbumId(id)))
+        .and_then(|id| app.session.catalog.album(evolight_catalog::AlbumId(id)))
         .and_then(|a| a.smart.as_deref().and_then(|f| f.library_folder.clone()));
     // problems, count and albums: cached until the catalog or the rules change (not per frame)
     let now = (app.session.clock)();
@@ -1042,7 +1042,7 @@ fn smart_rules_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg:
 }
 
 /// The body of the NewSmartAlbum dialog.
-fn new_smart_album_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
+fn new_smart_album_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::NewSmartAlbum { name, .. } = dlg else { return };
     if dialog_field(ui, "field:smartAlbumName", name, "Name") {
         *confirm = true;
@@ -1052,7 +1052,7 @@ fn new_smart_album_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, 
     let now = (app.session.clock)();
     let minute = if rules.depends_on_now() { now.get(..16).unwrap_or(&now) } else { "" };
     let n = app.caches.dialog_count(&app.session.catalog, ("smartAlbum", format!("{rules:?}"), minute), || {
-        lightcraft_catalog::rules::set_now(Some(now.clone()));
+        evolight_catalog::rules::set_now(Some(now.clone()));
         app.session.catalog.query(&rules, &Default::default()).len()
     });
     ui.label(
@@ -1069,7 +1069,7 @@ fn new_smart_album_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, 
 }
 
 /// The body of the CaptureTime dialog.
-fn capture_time_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn capture_time_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::CaptureTime { mode, time, days, hours, minutes, zone } = dlg else { return };
     let n = app.session.selected().len();
     field(ui, "Change", |ui| {
@@ -1105,18 +1105,18 @@ fn capture_time_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg
     let active = app.session.active().and_then(|id| app.session.catalog.photo(id)).map(|p| (p.file_name.clone(), p.date().to_string()));
     if let Some((name, cur)) = active {
         let delta = match mode.as_str() {
-            "set" => lightcraft_catalog::dates::normalize_iso(time)
-                .and_then(|t| Some(lightcraft_catalog::dates::iso_seconds(&t)? - lightcraft_catalog::dates::iso_seconds(&cur)?)),
+            "set" => evolight_catalog::dates::normalize_iso(time)
+                .and_then(|t| Some(evolight_catalog::dates::iso_seconds(&t)? - evolight_catalog::dates::iso_seconds(&cur)?)),
             "shift" => params["shift"].as_i64(),
             _ => Some((*zone as f64 * 3600.0).round() as i64),
         };
         // the photo's own time is the problem (a Lightroom catalog's capture time
         // is copied verbatim), not what was typed
-        let unreadable = lightcraft_catalog::dates::shift_iso(&cur, 0).is_none();
+        let unreadable = evolight_catalog::dates::shift_iso(&cur, 0).is_none();
         let after = match (mode.as_str(), unreadable && n == 1) {
             // alone, it simply gets the time typed (photo.setCaptureTime repairs it)
-            ("set", true) => lightcraft_catalog::dates::normalize_iso(time),
-            _ => delta.and_then(|d| lightcraft_catalog::dates::shift_iso(&cur, d)),
+            ("set", true) => evolight_catalog::dates::normalize_iso(time),
+            _ => delta.and_then(|d| evolight_catalog::dates::shift_iso(&cur, d)),
         };
         ui.label(
             egui::RichText::new(match after {
@@ -1133,11 +1133,11 @@ fn capture_time_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg
 }
 
 /// The body of the LabelNames dialog.
-fn label_names_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn label_names_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::LabelNames { names, save_as } = dlg else { return };
     names.resize(5, String::new());
     // start from a set
-    let sets = lightcraft_engine::cmd::manage::label_sets_json(&app.session);
+    let sets = evolight_engine::cmd::manage::label_sets_json(&app.session);
     field(ui, "Set", |ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         for set in sets["sets"].as_array().into_iter().flatten() {
@@ -1147,7 +1147,7 @@ fn label_names_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg:
             }
         }
     });
-    for (i, l) in lightcraft_catalog::ColorLabel::ALL.iter().enumerate() {
+    for (i, l) in evolight_catalog::ColorLabel::ALL.iter().enumerate() {
         let colour = format!("{l:?}");
         field(ui, &colour, |ui| {
             let (r, _) = ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
@@ -1175,7 +1175,7 @@ fn label_names_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg:
 }
 
 /// The body of the Rename dialog.
-fn rename_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn rename_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::Rename { template, start } = dlg else { return };
     let n = app.session.selected().len();
     ui.label(egui::RichText::new(crate::i18n::tr_format!("{n} photo{}", if n == 1 { "" } else { "s" }, n = n)).color(t.text_dim));
@@ -1238,7 +1238,7 @@ fn rename_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut
 }
 
 /// The body of the RenamePerson dialog.
-fn rename_person_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
+fn rename_person_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::RenamePerson { from, to, merge } = dlg else { return };
     let submitted = dialog_field(ui, "field:personName", to, "Name");
     let plan = person_rename_plan(&app.session.catalog, from, to);
@@ -1274,10 +1274,10 @@ fn rename_person_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, co
 }
 
 /// The body of the RenameKeyword dialog.
-fn rename_keyword_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
+fn rename_keyword_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::RenameKeyword { from, to } = dlg else { return };
     let n = app.caches.dialog_count(&app.session.catalog, ("renameKeyword", from.as_str()), || {
-        app.session.catalog.photos().filter(|p| p.meta.keywords.iter().any(|k| lightcraft_catalog::keywords::is_under(k, from))).count()
+        app.session.catalog.photos().filter(|p| p.meta.keywords.iter().any(|k| evolight_catalog::keywords::is_under(k, from))).count()
     });
     if dialog_field(ui, "field:keywordName", to, "New name") {
         *confirm = true;
@@ -1294,7 +1294,7 @@ fn rename_keyword_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, c
 }
 
 /// The body of the MergeKeywords dialog.
-fn merge_keywords_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
+fn merge_keywords_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::MergeKeywords { from, into } = dlg else { return };
     ui.label(
         egui::RichText::new(crate::i18n::tr_format!("Replace {} with:", from.iter().map(|f| format!("“{f}”")).collect::<Vec<_>>().join(", ")))
@@ -1307,7 +1307,7 @@ fn merge_keywords_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, c
         .caches
         .suggestions(&app.session.catalog, from, into, 12)
         .iter()
-        .filter(|k| !from.iter().any(|f| lightcraft_catalog::keywords::is_under(k, f)))
+        .filter(|k| !from.iter().any(|f| evolight_catalog::keywords::is_under(k, f)))
         .cloned()
         .collect();
     ui.horizontal_wrapped(|ui| {
@@ -1320,7 +1320,7 @@ fn merge_keywords_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, c
 }
 
 /// The body of the NewAlbum dialog.
-fn new_album_body(app: &mut LightcraftApp, ui: &mut egui::Ui, confirm: &mut bool, dlg: &mut Dialog) {
+fn new_album_body(app: &mut EvoLightApp, ui: &mut egui::Ui, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::NewAlbum { name, folder, include_selected, .. } = dlg else { return };
     if dialog_field(ui, "field:albumName", name, "Name") {
         *confirm = true;
@@ -1334,7 +1334,7 @@ fn new_album_body(app: &mut LightcraftApp, ui: &mut egui::Ui, confirm: &mut bool
 }
 
 /// The body of the PasteSettings dialog.
-fn paste_settings_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn paste_settings_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::PasteSettings { groups } = dlg else { return };
     let n = app.session.selected().len();
     ui.label(
@@ -1349,7 +1349,7 @@ fn paste_settings_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, d
 }
 
 /// The body of the ContactSheet dialog.
-fn contact_sheet_body(app: &mut LightcraftApp, ui: &mut egui::Ui, dlg: &mut Dialog) {
+fn contact_sheet_body(app: &mut EvoLightApp, ui: &mut egui::Ui, dlg: &mut Dialog) {
     let Dialog::ContactSheet { options } = dlg else { return };
     options.columns = options.columns.clamp(1, 8);
     options.rows = options.rows.clamp(1, 10);
@@ -1381,7 +1381,7 @@ fn contact_sheet_summary(n: usize, pages: usize) -> String {
 }
 
 /// The body of the Export dialog.
-fn export_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn export_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::Export { opts, full_size, resize, preset_name, limit_kb, dir } = dlg else { return };
     let n = app.session.selection.ids.len().max(1);
     ui.label(egui::RichText::new(crate::i18n::tr_format!("{n} photo{}", if n == 1 { "" } else { "s" }, n = n)).color(t.text_dim));
@@ -1402,7 +1402,7 @@ fn export_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut
 
 /// Export dialog: load a built-in or saved set of options.
 fn export_preset_row(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     opts: &mut ExportOptions,
     full_size: &mut bool,
@@ -1434,7 +1434,7 @@ fn export_preset_row(
         if let Some(name) = chosen
             && let Ok(params) = app.session.export_params(&json!({"preset": name}))
         {
-            let o = lightcraft_engine::export::ExportOptions::from_json(&params);
+            let o = evolight_engine::export::ExportOptions::from_json(&params);
             *full_size = o.resize.is_none();
             *resize = o.resize.unwrap_or_default();
             *limit_kb = o.limit_kb.unwrap_or(0);
@@ -1445,7 +1445,7 @@ fn export_preset_row(
 
 /// Export dialog: the format, its variants and the bit depth.
 fn export_format_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
-    use lightcraft_engine::export::ExportFormat as F;
+    use evolight_engine::export::ExportFormat as F;
     let before = opts.format;
     // "Rendered DNG" is a DNG option (below), not a format of its own in this list
     let mut shown = if opts.format == F::RenderedDng { F::Dng } else { opts.format };
@@ -1485,7 +1485,7 @@ fn export_format_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
         opts.bit_depth = None;
     }
     let rendered = opts.format.is_rendered();
-    let depths = lightcraft_engine::export::ExportOptions::bit_depths(opts.format);
+    let depths = evolight_engine::export::ExportOptions::bit_depths(opts.format);
     if rendered && depths.len() > 1 {
         let mut bd = opts.bit_depth.filter(|b| depths.iter().any(|d| d.0 == *b)).unwrap_or(depths[0].0);
         choices(ui, "Bit depth", "exportBitDepth", depths, &mut bd);
@@ -1495,7 +1495,7 @@ fn export_format_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
 
 /// Export dialog: HDR output and the color space it implies (or the choice of one).
 fn export_color_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
-    use lightcraft_engine::export::ExportFormat as F;
+    use evolight_engine::export::ExportFormat as F;
     let rendered = opts.format.is_rendered();
     if matches!(opts.format, F::Jpeg | F::Tiff | F::Avif | F::Png | F::Jxl) {
         let tip = crate::i18n::tr(
@@ -1506,13 +1506,13 @@ fn export_color_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
             ui.label(egui::RichText::new(crate::i18n::tr("HDR TIFF needs 32-bit float.")).color(t.text_dim));
         }
         if opts.hdr && opts.format == F::Avif {
-            use lightcraft_engine::export::HdrCurve as H;
+            use evolight_engine::export::HdrCurve as H;
             choices(ui, "HDR curve", "exportHdrCurve", &[(H::Pq, "PQ"), (H::Hlg, "HLG")], &mut opts.hdr_transfer);
         }
     }
     if !rendered {
     } else if opts.format == F::Avif && opts.hdr {
-        let label = if opts.hdr_transfer == lightcraft_engine::export::HdrCurve::Hlg {
+        let label = if opts.hdr_transfer == evolight_engine::export::HdrCurve::Hlg {
             crate::i18n::tr("Color space: Rec. 2020 HLG (HDR AVIF)")
         } else {
             crate::i18n::tr("Color space: Rec. 2020 PQ (HDR AVIF)")
@@ -1526,7 +1526,7 @@ fn export_color_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
     } else if opts.format == F::Avif {
         ui.label(egui::RichText::new(crate::i18n::tr("Color space: sRGB (AVIF)")).color(t.text_dim));
     } else {
-        use lightcraft_engine::export::OutputSpace as C;
+        use evolight_engine::export::OutputSpace as C;
         choices(
             ui,
             "Color space",
@@ -1543,7 +1543,7 @@ fn export_color_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions) {
 
 /// Export dialog: quality and the other options of a lossy or JPEG XL file.
 fn export_quality_rows(ui: &mut egui::Ui, opts: &mut ExportOptions, limit_kb: &mut u32) {
-    use lightcraft_engine::export::ExportFormat as F;
+    use evolight_engine::export::ExportFormat as F;
     if opts.format == F::Jxl {
         let tip = "Mathematically lossless: every pixel is kept exactly (larger files)";
         ui.checkbox(&mut opts.jxl_lossless, crate::i18n::tr("Lossless")).on_hover_text(crate::i18n::tr(tip));
@@ -1555,7 +1555,7 @@ fn export_quality_rows(ui: &mut egui::Ui, opts: &mut ExportOptions, limit_kb: &m
         }
     }
     if opts.format == F::Jxl {
-        use lightcraft_engine::export::JxlEffort as E;
+        use evolight_engine::export::JxlEffort as E;
         choices(ui, "Effort", "exportJxlEffort", &[(E::Fast, "Fast"), (E::Normal, "Normal")], &mut opts.jxl_effort);
         let tip = "Shows a coarse version first and refines it as the file loads";
         ui.checkbox(&mut opts.jxl_progressive, crate::i18n::tr("Progressive")).on_hover_text(crate::i18n::tr(tip));
@@ -1569,8 +1569,8 @@ fn export_quality_rows(ui: &mut egui::Ui, opts: &mut ExportOptions, limit_kb: &m
 }
 
 /// Export dialog: sharpening, metadata and the watermark of a rendered photo.
-fn export_output_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, opts: &mut ExportOptions, full_size: bool, resize: Resize) {
-    use lightcraft_engine::export::{MetadataPolicy as M, SharpenAmount as A, SharpenFor as S};
+fn export_output_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, opts: &mut ExportOptions, full_size: bool, resize: Resize) {
+    use evolight_engine::export::{MetadataPolicy as M, SharpenAmount as A, SharpenFor as S};
     choices(
         ui,
         "Sharpen",
@@ -1595,10 +1595,10 @@ fn export_output_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, opts: &mut Exp
 }
 
 /// Export dialog: the watermark switch, its preview and its settings.
-fn export_watermark(app: &mut LightcraftApp, ui: &mut egui::Ui, opts: &mut ExportOptions, full_size: bool, resize: Resize) {
+fn export_watermark(app: &mut EvoLightApp, ui: &mut egui::Ui, opts: &mut ExportOptions, full_size: bool, resize: Resize) {
     let mut wm_on = opts.watermark.is_some();
     if ui.checkbox(&mut wm_on, crate::i18n::tr("Watermark")).changed() {
-        opts.watermark = wm_on.then(|| lightcraft_engine::export::Watermark { text: "© ".into(), ..Default::default() });
+        opts.watermark = wm_on.then(|| evolight_engine::export::Watermark { text: "© ".into(), ..Default::default() });
     }
     let wm_shown = opts.watermark.clone();
     if let Some(wm) = &wm_shown {
@@ -1666,7 +1666,7 @@ fn export_watermark(app: &mut LightcraftApp, ui: &mut egui::Ui, opts: &mut Expor
         }
         // like Lightroom Classic: a margin from the side edges and one from the top and bottom
         // edges, each unused (greyed) when the position is centred along that axis
-        use lightcraft_engine::export::Anchor as P;
+        use evolight_engine::export::Anchor as P;
         let across = !matches!(wm.anchor, P::Top | P::Center | P::Bottom);
         if let Some(v) = crate::widgets::slider(ui, &WM_INSET_X, wm.inset_x as f64 * 100.0, across, None).value {
             wm.inset_x = (v / 100.0) as f32;
@@ -1687,9 +1687,9 @@ fn export_watermark(app: &mut LightcraftApp, ui: &mut egui::Ui, opts: &mut Expor
 
 /// Export dialog: compression and the file name.
 fn export_naming_rows(ui: &mut egui::Ui, opts: &mut ExportOptions) {
-    use lightcraft_engine::export::ExportFormat as F;
+    use evolight_engine::export::ExportFormat as F;
     if opts.format == F::Tiff {
-        use lightcraft_engine::export::TiffCompression as Z;
+        use evolight_engine::export::TiffCompression as Z;
         choices(ui, "Compression", "exportTiffCompression", &[(Z::None, "None"), (Z::Lzw, "LZW"), (Z::Deflate, "ZIP")], &mut opts.tiff_compression);
         // issue #2882: LZW stays as picked, with a note on what it costs
         if let Some(note) = tiff_lzw_note(opts) {
@@ -1699,7 +1699,7 @@ fn export_naming_rows(ui: &mut egui::Ui, opts: &mut ExportOptions) {
         }
     }
     if opts.format == F::Dng {
-        use lightcraft_engine::export::DngCompression as Z;
+        use evolight_engine::export::DngCompression as Z;
         choices(
             ui,
             "Compression",
@@ -1736,10 +1736,10 @@ fn export_naming_rows(ui: &mut egui::Ui, opts: &mut ExportOptions) {
 }
 
 /// Export dialog: where the files go and what happens when one exists.
-fn export_destination_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions, dir: &mut String) {
+fn export_destination_rows(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOptions, dir: &mut String) {
     // like Lightroom Classic's Export To: one folder, or each photo's own folder (not on
     // the web, where originals live in the browser's storage, not in folders)
-    use lightcraft_engine::export::DestinationMode as D;
+    use evolight_engine::export::DestinationMode as D;
     if !cfg!(target_arch = "wasm32") || opts.destination_mode != D::SpecificFolder {
         choices(
             ui,
@@ -1769,7 +1769,7 @@ fn export_destination_rows(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Token
             crate::i18n::tr("Subfolder"),
         )
     });
-    use lightcraft_engine::export::Conflict as K;
+    use evolight_engine::export::Conflict as K;
     choices(ui, "If file exists", "exportConflict", &[(K::Unique, "Add number"), (K::Overwrite, "Overwrite"), (K::Skip, "Skip")], &mut opts.conflict);
     export_apple_photos_rows(ui, t, opts);
 }
@@ -1787,7 +1787,7 @@ fn export_apple_photos_rows(ui: &mut egui::Ui, t: &Tokens, opts: &mut ExportOpti
             )
         });
         ui.label(
-            egui::RichText::new(crate::i18n::tr("The first time, macOS asks whether LightCraft may control Photos.")).size(11.0).color(t.text_dim),
+            egui::RichText::new(crate::i18n::tr("The first time, macOS asks whether EvoLight may control Photos.")).size(11.0).color(t.text_dim),
         );
     }
 }
@@ -1800,7 +1800,7 @@ fn export_apple_photos_rows(_ui: &mut egui::Ui, _t: &Tokens, opts: &mut ExportOp
 
 /// Export dialog: save the options as a preset.
 fn export_save_preset_row(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     opts: &ExportOptions,
     full_size: bool,
@@ -1831,7 +1831,7 @@ fn export_save_preset_row(
 }
 
 /// The body of the KeywordTag dialog.
-fn keyword_tag_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
+fn keyword_tag_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, confirm: &mut bool, dlg: &mut Dialog) {
     let Dialog::KeywordTag {
         editing,
         name,
@@ -1991,9 +1991,9 @@ fn move_photos_body(ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
 }
 
 /// The body of the LightroomCatalog dialog.
-fn lightroom_catalog_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn lightroom_catalog_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::LightroomCatalog { folder, catalog } = dlg else { return };
-    ui.label(crate::i18n::tr("This is a Lightroom catalog, not a LightCraft library. Import it into a LightCraft library instead?"));
+    ui.label(crate::i18n::tr("This is a Lightroom catalog, not a EvoLight library. Import it into a EvoLight library instead?"));
     ui.label(egui::RichText::new(catalog.as_deref().unwrap_or(folder.as_str())).color(t.text_dim));
     // (the import then asks where the catalog goes, unless Settings says to merge, #2672)
     let asks = app.ui.settings.lightroom_import == crate::state::LightroomImport::Ask && app.session.library.as_ref().is_some_and(|l| l.on_disk);
@@ -2023,7 +2023,7 @@ fn remove_folder_body(ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
 }
 
 /// The body of the About dialog.
-fn about_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
+fn about_body(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut Dialog) {
     let Dialog::About = dlg else { return };
     ui.set_min_width(820.0);
     let tab_id = egui::Id::unique("about_tab");
@@ -2043,7 +2043,7 @@ fn about_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut 
         2 => crate::credits::models_ui(ui),
         _ => {
             // Evora (EVORA-REV-33, E1): the name goes through tr(), so the display catalog (E9) names the build
-            ui.label(egui::RichText::new(crate::i18n::tr("LightCraft")).font(t.semibold(20.0)).color(t.text));
+            ui.label(egui::RichText::new(crate::i18n::tr("EvoLight")).font(t.semibold(20.0)).color(t.text));
             ui.label(crate::i18n::tr_format!("Version {} — a clean-room, pure-Rust photo library and raw developer.", env!("CARGO_PKG_VERSION")));
             ui.label(crate::i18n::tr_format!(
                 "MIT OR Apache-2.0. Fonts: {} (OFL). Icons: original.",
@@ -2062,7 +2062,7 @@ fn about_body(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, dlg: &mut 
 
 /// The body of the open dialog: what each kind of dialog shows between its title and its buttons. `confirm` is set
 /// by a dialog that is confirmed from its body (a text field's Return).
-fn dialog_content(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens, body_max: f32, confirm: &mut bool, close: &mut bool, dlg: &mut Dialog) {
+fn dialog_content(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens, body_max: f32, confirm: &mut bool, close: &mut bool, dlg: &mut Dialog) {
     match dlg {
         Dialog::AutoStack { .. } => auto_stack_body(app, ui, t, dlg),
         Dialog::Cull { .. } => cull_body(app, ui, t, dlg),

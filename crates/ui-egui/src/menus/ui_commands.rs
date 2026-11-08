@@ -213,7 +213,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("app.print", "Print to PDF", None, ""),
     ("dialog.contactSheet", "Contact Sheet PDF…", None, "File"),
     ("app.contactSheet", "Export Contact Sheet PDF", None, ""),
-    ("photo.editInPhotoCraft", "Edit in PhotoCraft", Some("Cmd+Shift+E"), "Photo>Edit In"),
+    ("photo.editInEvoPhoto", "Edit in EvoPhoto", Some("Cmd+Shift+E"), "Photo>Edit In"),
     ("photo.editInExternal", "Edit in Other Editor", Some("Cmd+Alt+E"), "Photo>Edit In"),
     // {ids?, app?}: the original files themselves (a raw stays a raw: no render, no copy), opened
     // in the other editor, e.g. a raw developer
@@ -237,7 +237,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("dialog.saveMetadataPreset", "Save Metadata Preset…", None, ""),
     // the keywords ⇧K adds or removes, typed with commas between them
     ("dialog.keywordShortcut", "Set Keyword Shortcut…", Some("Cmd+Alt+Shift+K"), ""),
-    ("app.quit", "Quit LightCraft", Some("Cmd+Q"), "File"),
+    ("app.quit", "Quit EvoLight", Some("Cmd+Q"), "File"),
     ("file.importPresets", "Import Profiles & Presets…", None, "File"),
     ("file.exportPresets", "Export Presets…", None, "File"),
     // Masking panel ▸ Effect menu
@@ -256,7 +256,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("app.clearRecentLibraries", "Clear Recent Libraries", None, ""),
     // Settings ▸ Display
     ("app.displayProfile", "Display Profile", None, ""),
-    ("app.about", "About LightCraft", None, "Help"),
+    ("app.about", "About EvoLight", None, "Help"),
     ("app.checkForUpdates", "Check for Updates…", None, "Help"),
     ("app.systemInfo", "System Info…", None, "Help"),
     ("app.openLogFolder", "Open Log Folder", None, "Help"),
@@ -264,9 +264,9 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("view.frameRate", "Frame Rate", None, "Help>Debug"),
     ("app.whatsNew", "What's New", None, "Help"),
     ("dialog.cull", "Assisted Culling…", None, "Photo"),
-    ("app.help", "LightCraft Help", Some("F1"), "Help"),
+    ("app.help", "EvoLight Help", Some("F1"), "Help"),
     ("app.feedback", "Send Feedback…", None, "Help"),
-    ("app.github", "LightCraft on GitHub", None, "Help"),
+    ("app.github", "EvoLight on GitHub", None, "Help"),
     ("app.shortcuts", "Keyboard Shortcuts", Some("Cmd+/"), "Help"),
     ("app.setShortcut", "Set Keyboard Shortcut", None, ""),
     ("app.resetShortcuts", "Reset All Keyboard Shortcuts", None, ""),

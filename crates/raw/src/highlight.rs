@@ -21,7 +21,7 @@
 //! pale partly clipped sky, the colour of another reliable surface (bright foliage) and the sky's own faint
 //! colour, which darkening and a camera profile turned teal.
 
-use lightcraft_raster::Rgb32f;
+use evolight_raster::Rgb32f;
 use rayon::prelude::*;
 
 /// Clip every channel of `wb ⊙ img` at `min_c(wb_c) · clip` — i.e. at the lowest channel's clip level after WB —

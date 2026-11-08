@@ -36,7 +36,7 @@ impl SettingsHashes {
 }
 
 /// Add the rendering process `s` renders with in this build to persistent render key `h`, from
-/// process V3 on: a process number from a newer LightCraft renders with an older build's latest
+/// process V3 on: a process number from a newer EvoLight renders with an older build's latest
 /// process, so the same settings (and settings hash) render differently in a build that knows that
 /// process, and the keys must tell those renders apart. Builds before V3 (which have no process in
 /// their keys) resolve every number above V2 to V2: naming V3 and later keeps this build's renders
@@ -44,7 +44,7 @@ impl SettingsHashes {
 /// cached renders stay valid (`docs/process-versions.md`).
 pub(super) fn with_process<'a>(h: &'a mut Hasher128, s: &DevelopSettings) -> &'a mut Hasher128 {
     let v = s.process.process().version().0;
-    if v >= lightcraft_develop::Process::V3.version().0 {
+    if v >= evolight_develop::Process::V3.version().0 {
         h.u64(u64::from(v));
     }
     h

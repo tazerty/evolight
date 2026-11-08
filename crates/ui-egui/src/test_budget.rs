@@ -1,4 +1,4 @@
-//! For tests that change the process-wide memory budget ([`lightcraft_engine::memory::budget`]).
+//! For tests that change the process-wide memory budget ([`evolight_engine::memory::budget`]).
 //!
 //! The budget is one number for the whole test process: the decode, export and GPU gates, every
 //! new session's caches and the demo scene cache size from it, and other tests run at the same
@@ -6,14 +6,14 @@
 //! [`BudgetGuard`] for as long as the change lasts. Tests that change the budget then run one at
 //! a time, so one can't change it under another's assertion. The budget goes back to exactly what
 //! it was before, also when the test fails: putting back the value found, not `default_budget()`,
-//! keeps a budget set from outside (`LIGHTCRAFT_MEMORY_MB`, a test harness) (issue #3065).
+//! keeps a budget set from outside (`EVOLIGHT_MEMORY_MB`, a test harness) (issue #3065).
 //!
 //! Tests that only read the budget don't take the lock; keep the change short.
 //! The lock is per process, so per test binary, which is all the budget is shared by.
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use lightcraft_engine::memory;
+use evolight_engine::memory;
 
 /// Taken by every test that changes the process-wide budget.
 static CHANGING_BUDGET: Mutex<()> = Mutex::new(());

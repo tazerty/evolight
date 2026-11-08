@@ -1,6 +1,6 @@
 #[cfg(test)]
 use super::info::label_badge_rect;
-use super::{Affine, Frame, LightcraftApp, PhotoId, Point, Pos2, Rect, Zoom, json, pos2, vec2};
+use super::{Affine, Frame, EvoLightApp, PhotoId, Point, Pos2, Rect, Zoom, json, pos2, vec2};
 
 /// Screen ↔ normalized-image mapping for the displayed frame.
 #[derive(Clone)]
@@ -11,7 +11,7 @@ pub struct CanvasMap {
     k: f32,
     /// The frame's lens / perspective warp (with the oriented size it works in), when it moves
     /// pixels: a mask on the photo (`Mask::on_photo`) has its coordinates before it.
-    warp: Option<std::sync::Arc<(lightcraft_pipeline::optics::Warp, f64, f64)>>,
+    warp: Option<std::sync::Arc<(evolight_pipeline::optics::Warp, f64, f64)>>,
     /// Whether `norm` / `screen` speak a mask's coordinates on the photo ([`CanvasMap::for_mask`]).
     on_photo: bool,
 }
@@ -35,7 +35,7 @@ impl CanvasMap {
         self.on_photo && self.warp.is_some()
     }
     /// [`Self::for_mask`] for the mask `id` of `d` (none, or a new mask: on the photo).
-    pub(crate) fn for_mask_id(&self, d: &lightcraft_develop::DevelopSettings, id: Option<u32>) -> CanvasMap {
+    pub(crate) fn for_mask_id(&self, d: &evolight_develop::DevelopSettings, id: Option<u32>) -> CanvasMap {
         self.for_mask(id.and_then(|id| d.masks.iter().find(|m| m.id == id)).is_none_or(|m| m.on_photo))
     }
     pub fn norm(&self, p: Pos2) -> Point {
@@ -145,7 +145,7 @@ fn bounded_pan(area: Rect, size: egui::Vec2, pan: (f32, f32)) -> (f32, f32) {
     (bound(area.width(), size.x, pan.0), bound(area.height(), size.y, pan.1))
 }
 
-pub(crate) fn pan_image(app: &mut LightcraftApp, area: Rect, img: Rect, delta: egui::Vec2) {
+pub(crate) fn pan_image(app: &mut EvoLightApp, area: Rect, img: Rect, delta: egui::Vec2) {
     let centre = area.center() - img.min - delta;
     let pan = bounded_pan(area, img.size(), (centre.x / img.width().max(1.0), centre.y / img.height().max(1.0)));
     let _ = app.run("view.navigate", json!({"pan": pan}));
@@ -154,7 +154,7 @@ pub(crate) fn pan_image(app: &mut LightcraftApp, area: Rect, img: Rect, delta: e
 /// A drag with the middle button (the mouse wheel pressed) pans the zoomed photo whatever tool is
 /// active, so the healing brush, mask brushes and crop never paint or move while you look around;
 /// the hand cursor shows while it does.
-pub(super) fn middle_pan(app: &mut LightcraftApp, ui: &egui::Ui, resp: &egui::Response, area: Rect, img: Rect) -> bool {
+pub(super) fn middle_pan(app: &mut EvoLightApp, ui: &egui::Ui, resp: &egui::Response, area: Rect, img: Rect) -> bool {
     if !resp.dragged_by(egui::PointerButton::Middle) {
         return false;
     }
@@ -181,7 +181,7 @@ fn wheel_notches(events: &[egui::Event]) -> f32 {
 }
 
 /// Native pinch (also modifier-wheel zoom) and two-finger scroll, scoped to this image view.
-pub(crate) fn navigate_gesture(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, area: Rect, img: Rect, native: [usize; 2]) -> bool {
+pub(crate) fn navigate_gesture(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, area: Rect, img: Rect, native: [usize; 2]) -> bool {
     if !resp.hovered() {
         return false;
     }
@@ -250,7 +250,7 @@ pub(crate) fn output_px(frame: &Frame) -> [usize; 2] {
 
 /// The camera's focus point of `photo` in the displayed frame (its crop, rotation and flips), as the
 /// normalized box over the drawn image: `None` when the photo has none or it is cropped away.
-pub(crate) fn focus_box(photo: &lightcraft_catalog::Photo) -> Option<lightcraft_geom::Rect> {
+pub(crate) fn focus_box(photo: &evolight_catalog::Photo) -> Option<evolight_geom::Rect> {
     let f = photo.meta.focus.as_ref()?;
     let d = &photo.develop;
     let frame = Frame::with_lens(photo.width.max(1) as usize, photo.height.max(1) as usize, d, true, photo.embedded_lens.as_ref());
@@ -264,7 +264,7 @@ pub(crate) fn focus_box(photo: &lightcraft_catalog::Photo) -> Option<lightcraft_
     });
     let xs = corners.map(|c| c.0);
     let ys = corners.map(|c| c.1);
-    let out = lightcraft_geom::Rect {
+    let out = evolight_geom::Rect {
         x0: xs.iter().copied().fold(f64::INFINITY, f64::min),
         y0: ys.iter().copied().fold(f64::INFINITY, f64::min),
         x1: xs.iter().copied().fold(f64::NEG_INFINITY, f64::max),
@@ -279,7 +279,7 @@ pub(crate) fn focus_box(photo: &lightcraft_catalog::Photo) -> Option<lightcraft_
 }
 
 /// Where Toggle Zoom centres the view on the photo's focus point (`app.ui.pan`), if it has one in frame.
-pub(crate) fn focus_pan(app: &LightcraftApp, id: PhotoId) -> Option<(f32, f32)> {
+pub(crate) fn focus_pan(app: &EvoLightApp, id: PhotoId) -> Option<(f32, f32)> {
     let r = focus_box(app.session.catalog.photo(id)?)?;
     Some((((r.x0 + r.x1) / 2.0) as f32, ((r.y0 + r.y1) / 2.0) as f32))
 }
@@ -427,7 +427,7 @@ mod snap_tests {
 #[cfg(test)]
 mod mask_map_tests {
     use super::*;
-    use lightcraft_develop::DevelopSettings;
+    use evolight_develop::DevelopSettings;
 
     fn close(a: Point, b: Point) -> bool {
         (a.x - b.x).abs() < 1e-4 && (a.y - b.y).abs() < 1e-4
@@ -452,7 +452,7 @@ mod mask_map_tests {
         assert!((m.for_mask(true).screen(on) - q).length() < 0.01, "and its handle draws there");
         // a new mask (no id) and a mask of today are on the photo; an old one isn't
         let mut d = d.clone();
-        d.masks.push(lightcraft_develop::Mask { id: 7, on_photo: false, ..Default::default() });
+        d.masks.push(evolight_develop::Mask { id: 7, on_photo: false, ..Default::default() });
         assert!(close(m.for_mask_id(&d, None).norm(q), on));
         assert!(close(m.for_mask_id(&d, Some(7)).norm(q), plain));
     }

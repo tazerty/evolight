@@ -2,7 +2,7 @@
 //!
 //! A catalog only holds the strings someone translated, so a string no language has yet is in no
 //! catalog and the report could not name it. This reads the source for them: every `tr("…")` /
-//! `.tr("…")` call in `crates/ui-egui/src` and `apps/lightcraft/src` whose argument is one string
+//! `.tr("…")` call in `crates/ui-egui/src` and `apps/evolight/src` whose argument is one string
 //! literal (a trailing comma, as rustfmt leaves in a wrapped call, is fine), or an `if`/`match`
 //! whose branches are literals (`tr(if on { "On" } else { "Off" })`). Test code (`tests.rs` and
 //! `tests_*.rs` files, `tests/` folders and items under exactly `#[cfg(test)]`) is skipped. The scanner lexes
@@ -20,7 +20,7 @@ use std::{
 };
 
 /// Source folders whose `tr` calls are read, relative to the crate.
-const SOURCES: [&str; 2] = ["src", "../../apps/lightcraft/src"];
+const SOURCES: [&str; 2] = ["src", "../../apps/evolight/src"];
 
 #[derive(Debug, Clone, PartialEq)]
 enum Kind {
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn a_file_named_tests_rs_is_test_code_and_is_not_read() {
         // Given a folder with a file of the app and the `tests.rs` of a `#[cfg(test)] mod tests;`
-        let dir = std::env::temp_dir().join(format!("lightcraft-gaps-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("evolight-gaps-{}", std::process::id()));
         fs::create_dir_all(dir.join("sub")).unwrap();
         for file in ["app.rs", "sub/tests.rs", "sub/widget.rs"] {
             fs::write(dir.join(file), "").unwrap();

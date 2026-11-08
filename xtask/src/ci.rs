@@ -67,7 +67,7 @@ fn with_test_targets<'a>(args: &[&'a str]) -> Vec<&'a str> {
     args.iter().copied().chain(TEST_TARGETS).collect()
 }
 
-/// Whether the tests run under `cargo nextest`: only when `LIGHTCRAFT_NEXTEST=1` asks for it and
+/// Whether the tests run under `cargo nextest`: only when `EVOLIGHT_NEXTEST=1` asks for it and
 /// nextest is installed. `cargo test` is the default because the demo library's generated scenes
 /// are cached per process: libtest runs a binary's tests in one process and generates each scene
 /// once, while nextest's process per test regenerates them (measured: the ui-egui tests take about
@@ -75,7 +75,7 @@ fn with_test_targets<'a>(args: &[&'a str]) -> Vec<&'a str> {
 fn nextest() -> bool {
     static FOUND: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *FOUND.get_or_init(|| {
-        if std::env::var_os("LIGHTCRAFT_NEXTEST").is_none_or(|v| v != "1") {
+        if std::env::var_os("EVOLIGHT_NEXTEST").is_none_or(|v| v != "1") {
             return false;
         }
         let found = cargo()
@@ -85,7 +85,7 @@ fn nextest() -> bool {
             .status()
             .is_ok_and(|s| s.success());
         if !found {
-            eprintln!("note: LIGHTCRAFT_NEXTEST=1 but cargo-nextest is not installed, so the tests run under cargo test (cargo install cargo-nextest --locked)");
+            eprintln!("note: EVOLIGHT_NEXTEST=1 but cargo-nextest is not installed, so the tests run under cargo test (cargo install cargo-nextest --locked)");
         }
         found
     })
@@ -165,7 +165,7 @@ fn test_selected(root: &Path, packages: &std::collections::BTreeSet<String>, ski
 /// The test that prints the messages each language lacks (shown in English); it always passes.
 const TRANSLATION_GAPS_TEST: &str = "i18n::tests::translation_gaps_report";
 
-/// Print the translation gaps report into the log: [`TRANSLATION_GAPS_TEST`] of lightcraft-ui-egui,
+/// Print the translation gaps report into the log: [`TRANSLATION_GAPS_TEST`] of evolight-ui-egui,
 /// run from the test binary the test step built (found with `--no-run` and the step's own
 /// arguments, so nothing rebuilds). A report that can't run is a note, never a failed step.
 fn translation_gaps() {
@@ -178,12 +178,12 @@ fn translation_gaps() {
             .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
             .find(|m| {
                 m["reason"] == "compiler-artifact"
-                    && m["target"]["name"] == "lightcraft_ui_egui"
+                    && m["target"]["name"] == "evolight_ui_egui"
                     && m["profile"]["test"] == true
                     && m["target"]["kind"].as_array().is_some_and(|kinds| kinds.iter().any(|kind| kind == "lib"))
             })
             .and_then(|m| m["executable"].as_str().map(PathBuf::from))
-            .ok_or_else(|| format!("no lightcraft-ui-egui test binary in the build (cargo exited with {})", out.status))
+            .ok_or_else(|| format!("no evolight-ui-egui test binary in the build (cargo exited with {})", out.status))
     });
     let ran = binary.and_then(|binary| {
         let mut c = Command::new(&binary);
@@ -231,7 +231,7 @@ pub(crate) fn cmd_ci(args: &[&str]) -> Result<(), String> {
     let report_dir = ci_report::prepare(&root)?;
     let started = std::time::Instant::now();
     let started_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    // test runs append the skips their tests record (`lightcraft_testkit::skip!`) to
+    // test runs append the skips their tests record (`evolight_testkit::skip!`) to
     // target/ci/skips-<step>.jsonl: a file, so it works the same under nextest and cargo test
     let test = |(mut c, what): (Command, String), step: &str| {
         c.env(ci_report::SKIP_LOG_ENV, ci_report::skip_log(&root, step));
@@ -284,14 +284,14 @@ pub(crate) fn cmd_ci(args: &[&str]) -> Result<(), String> {
             Box::new(|| {
                 // the optional HEIC/HEIF decoder is off in the workspace build above
                 let mut c = cargo();
-                c.args(["clippy", "-p", "lightcraft-codecs", "--features", "heif", "--all-targets", "--", "-D", "warnings"]);
-                run(c, "cargo clippy -p lightcraft-codecs --features heif --all-targets -- -D warnings")?;
+                c.args(["clippy", "-p", "evolight-codecs", "--features", "heif", "--all-targets", "--", "-D", "warnings"]);
+                run(c, "cargo clippy -p evolight-codecs --features heif --all-targets -- -D warnings")?;
                 test(
-                    tests(&with_test_targets(&["-p", "lightcraft-codecs", "-p", "lightcraft-heif", "--features", "lightcraft-codecs/heif"])),
+                    tests(&with_test_targets(&["-p", "evolight-codecs", "-p", "evolight-heif", "--features", "evolight-codecs/heif"])),
                     "heif",
                 )?;
                 // the engine's HEIC import test, with the decoder (the workspace run checks the error)
-                test(tests(&["-p", "lightcraft-engine", "--lib", "--features", "lightcraft-codecs/heif", "heic"]), "heif")
+                test(tests(&["-p", "evolight-engine", "--lib", "--features", "evolight-codecs/heif", "heic"]), "heif")
             }),
         ),
         (
@@ -307,7 +307,7 @@ pub(crate) fn cmd_ci(args: &[&str]) -> Result<(), String> {
         steps.push((
             "gpu-backends",
             Box::new(|| {
-                // the GPU tests once per backend with a hardware adapter (`LIGHTCRAFT_GPU_BACKEND`)
+                // the GPU tests once per backend with a hardware adapter (`EVOLIGHT_GPU_BACKEND`)
                 probe();
                 let backends = ci_report::hardware_backends(&gpu.borrow());
                 if backends.is_empty() {
@@ -316,10 +316,10 @@ pub(crate) fn cmd_ci(args: &[&str]) -> Result<(), String> {
                 let mut failed = Vec::new();
                 for (backend, adapter) in backends {
                     let step = format!("gpu-{backend}");
-                    let (mut c, what) = tests(&with_test_targets(&["-p", "lightcraft-gpu", "--features", "denoise"]));
-                    c.env("LIGHTCRAFT_GPU_BACKEND", &backend).env(ci_report::SKIP_LOG_ENV, ci_report::skip_log(&root, &step));
+                    let (mut c, what) = tests(&with_test_targets(&["-p", "evolight-gpu", "--features", "denoise"]));
+                    c.env("EVOLIGHT_GPU_BACKEND", &backend).env(ci_report::SKIP_LOG_ENV, ci_report::skip_log(&root, &step));
                     let t = std::time::Instant::now();
-                    let ok = run(c, &format!("LIGHTCRAFT_GPU_BACKEND={backend} {what}")).is_ok();
+                    let ok = run(c, &format!("EVOLIGHT_GPU_BACKEND={backend} {what}")).is_ok();
                     hardware_runs.borrow_mut().push(serde_json::json!({
                         "backend": backend,
                         "adapter": adapter,
@@ -424,14 +424,14 @@ pub(crate) fn cmd_ci(args: &[&str]) -> Result<(), String> {
     }
 }
 
-/// Run the ignored `gpu_probe` test of lightcraft-gpu: the pipeline's device (`None`) or one
+/// Run the ignored `gpu_probe` test of evolight-gpu: the pipeline's device (`None`) or one
 /// backend's adapters. `--workspace`, like the test step, so its build is reused (every crate's `it`
-/// binary starts; only lightcraft-gpu's has the test). Its stdout, or why
+/// binary starts; only evolight-gpu's has the test). Its stdout, or why
 /// it failed (a driver that crashes while it is enumerated, issue #136, ends up here, not in xtask).
 fn probe_gpu(backend: Option<&str>) -> Result<String, String> {
     let mut c = cargo();
     c.args(["test", "-q", "--workspace", "--test", "it", "--", "--ignored", "--exact", "gpu_probe::gpu_probe", "--nocapture"]);
-    c.env("LIGHTCRAFT_GPU_PROBE", backend.unwrap_or(""));
+    c.env("EVOLIGHT_GPU_PROBE", backend.unwrap_or(""));
     let out = c.output().map_err(|e| format!("gpu_probe: {e}"))?;
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr);

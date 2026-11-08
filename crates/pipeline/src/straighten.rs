@@ -16,7 +16,7 @@
 //! 50 instead of 29 come out straighter, 10 (as before) more tilted, and the mean error is 0.82°
 //! instead of 1.01°. Of 300 photos left as shot, 11 instead of 8 are turned by more than 3°.
 
-use lightcraft_raster::Plane;
+use evolight_raster::Plane;
 
 use crate::upright::{Analysis, Segment, detect_segments, level_angle_within, vanishing_point, vp_error};
 
@@ -105,7 +105,7 @@ fn plumb_roll(vertical: &[Segment]) -> Option<f64> {
 /// The crop angle that levels the horizon of `lum`, if it has one: the straight line across the
 /// width along which the rows above are brighter (or darker) than those below in most columns.
 fn horizon(lum: &Plane) -> Option<f64> {
-    let img = lightcraft_raster::blur::gaussian(lum, HORIZON_SIGMA);
+    let img = evolight_raster::blur::gaussian(lum, HORIZON_SIGMA);
     let (w, h) = (img.width, img.height);
     let k = HORIZON_ROWS;
     if w < 32 || h < 4 * k + 8 || img.data.len() < w * h {

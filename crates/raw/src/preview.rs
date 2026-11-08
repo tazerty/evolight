@@ -3,9 +3,9 @@
 //! or a DNG 1.7 JPEG XL preview IFD stored as a single tile/strip (a standalone `.jxl` file, as the spec
 //! recommends for previews).
 
-use lightcraft_tiff::image::chunk_bytes;
-use lightcraft_tiff::tags as t;
-use lightcraft_tiff::{Ifd, Tiff, makernote};
+use evolight_tiff::image::chunk_bytes;
+use evolight_tiff::tags as t;
+use evolight_tiff::{Ifd, Tiff, makernote};
 
 /// Colour space of an embedded JPEG when the enclosing raw supplies it instead of the JPEG.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub fn embedded_preview_color_space(bytes: &[u8]) -> Option<PreviewColorSpace> {
 /// Adobe RGB writes ColorSpace Uncalibrated (0xFFFF) with no Interoperability IFD (issue #2654), so the Canon
 /// maker note says which, else an EXIF ColorSpace of sRGB is taken.
 fn cr3_color_space(bytes: &[u8]) -> Option<PreviewColorSpace> {
-    let cr3 = lightcraft_meta::cr3::parse_cr3(bytes)?;
+    let cr3 = evolight_meta::cr3::parse_cr3(bytes)?;
     let first = |i: usize| cr3.cmt[i].and_then(|b| Tiff::parse(b).ok()).and_then(|t| t.ifds.into_iter().next());
     if let Some(space) = first(2).and_then(|mn| canon_color_space(&mn)) {
         return Some(space);
@@ -197,7 +197,7 @@ fn jpeg_end(s: &[u8], budget: &mut usize) -> Option<usize> {
 fn candidates<'a>(data: &'a [u8], ifd: &Ifd, base: u64, out: &mut Vec<&'a [u8]>, budget: &mut usize) {
     // whole JPEG files stored as an undefined-type tag value (e.g. Panasonic `JpgFromRaw` 0x002e)
     for e in &ifd.entries {
-        if matches!(e.value, lightcraft_tiff::Value::Undefined(_))
+        if matches!(e.value, evolight_tiff::Value::Undefined(_))
             && e.count() > 1024
             && let Some(s) = file_span(data, e.offset, e.count() as u64, budget)
             && s.starts_with(&[0xff, 0xd8])
@@ -231,7 +231,7 @@ fn candidates<'a>(data: &'a [u8], ifd: &Ifd, base: u64, out: &mut Vec<&'a [u8]>,
 }
 
 /// The largest embedded preview, if any: a JPEG, or (DNG 1.7) a JPEG XL file, or for a Hasselblad 3FR / FFF, which
-/// has no JPEG, its uncompressed RGB preview wrapped as a baseline TIFF — all decode with `lightcraft_codecs::decode`.
+/// has no JPEG, its uncompressed RGB preview wrapped as a baseline TIFF — all decode with `evolight_codecs::decode`.
 pub fn embedded_preview(bytes: &[u8]) -> Option<Vec<u8>> {
     preview_covering(bytes, None)
 }
@@ -304,7 +304,7 @@ fn preview_covering(bytes: &[u8], min_edge: Option<u32>) -> Option<Vec<u8>> {
         if let Some(mn) = makernote::parse_makernote(bytes, e.offset, e.count() as u64, tiff.order, &make) {
             candidates(bytes, &mn.ifd, mn.base, &mut found, &mut budget);
             if let Some(off) = mn.ifd.u64(0x0011)
-                && let Ok((pifd, _)) = lightcraft_tiff::parse_ifd_at(bytes, mn.base + off, mn.order, mn.base, false, &Default::default())
+                && let Ok((pifd, _)) = evolight_tiff::parse_ifd_at(bytes, mn.base + off, mn.order, mn.base, false, &Default::default())
             {
                 candidates(bytes, &pifd, mn.base, &mut found, &mut budget);
             }
@@ -433,7 +433,7 @@ fn walk_jpeg(b: &[u8], i: &mut usize) -> Option<(usize, u8)> {
             loop {
                 let Some(p) = b.get(*i..)?.iter().position(|&x| x == 0xff) else {
                     // the terminal search examined the rest of the slice: charge it before failing,
-                    // or a crafted file can repeat full-file searches while the budget stays positive
+                    // or a built file can repeat full-file searches while the budget stays positive
                     *i = b.len();
                     return None;
                 };
@@ -457,7 +457,7 @@ fn walk_jpeg(b: &[u8], i: &mut usize) -> Option<(usize, u8)> {
 /// `ee`) while the rest is a regular JPEG, so a run is found by its `d8 ff` and starts one byte earlier,
 /// with that byte restored to `ff`.
 ///
-/// A crafted file can hold millions of JPEG-like starts whose walks each run to its end: the walks
+/// A built file can hold millions of JPEG-like starts whose walks each run to its end: the walks
 /// share a budget of eight times the file's size, so the scan stays linear (a real file's candidates
 /// fail within a few bytes, or are the preview itself).
 fn scan_for_jpeg(data: &[u8]) -> Option<Vec<u8>> {
@@ -516,15 +516,15 @@ fn scan_with_budget(data: &[u8], budget: usize) -> (Option<Vec<u8>>, u64) {
     (jpeg, walked)
 }
 
-/// Canon CR3: the full-size JPEG track (see [`lightcraft_meta::cr3`]), else the `PRVW` / `THMB` boxes.
+/// Canon CR3: the full-size JPEG track (see [`evolight_meta::cr3`]), else the `PRVW` / `THMB` boxes.
 fn cr3_preview(bytes: &[u8]) -> Option<&[u8]> {
     cr3_full_jpeg(bytes).or_else(|| cr3_preview_boxes(bytes))
 }
 
 /// A CR3's full-size JPEG track, when it holds a DCT JPEG.
 fn cr3_full_jpeg(bytes: &[u8]) -> Option<&[u8]> {
-    let full = lightcraft_meta::cr3::parse_cr3(bytes)
-        .and_then(|c| c.tracks.iter().find(|t| t.kind == lightcraft_meta::cr3::Cr3TrackKind::Jpeg).and_then(|t| t.data));
+    let full = evolight_meta::cr3::parse_cr3(bytes)
+        .and_then(|c| c.tracks.iter().find(|t| t.kind == evolight_meta::cr3::Cr3TrackKind::Jpeg).and_then(|t| t.data));
     full.and_then(|(at, len)| bytes.get(at..at.checked_add(len)?)).filter(|j| is_dct_jpeg(j))
 }
 

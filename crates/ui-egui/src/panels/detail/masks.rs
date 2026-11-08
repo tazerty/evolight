@@ -1,6 +1,6 @@
 use super::geometry::CanvasMap;
 use super::{
-    Color32, DevelopSettings, Gesture, LightcraftApp, MaskShape, Point, Pos2, Rect, Sense, Stroke, StrokeKind, Tokens, ToolOverlay, json, pos2,
+    Color32, DevelopSettings, Gesture, EvoLightApp, MaskShape, Point, Pos2, Rect, Sense, Stroke, StrokeKind, Tokens, ToolOverlay, json, pos2,
     register, vec2,
 };
 
@@ -9,7 +9,7 @@ pub(super) enum RegionEdit {
     /// The × was clicked.
     Remove(usize),
     /// A handle drag ended: the region's new box (normalized, upright frame).
-    Resize(usize, lightcraft_geom::Rect),
+    Resize(usize, evolight_geom::Rect),
     /// A name was typed or picked for the face.
     Name(usize, String),
     /// The name box's offer to set up face recognition was pressed.
@@ -32,13 +32,13 @@ const REGION_HANDLES: [(f32, f32, egui::CursorIcon); 8] = [
 /// a × in its corner and eight resize handles, and dragging its body moves it (not under a tool that
 /// draws on the photo). A drag previews the new box live and is reported once,
 /// on release (one undo step); the × reports the region to remove. Both are catalog-only edits:
-/// LightCraft doesn't write regions to XMP. Regions are stored on the upright (EXIF-oriented) photo;
+/// EvoLight doesn't write regions to XMP. Regions are stored on the upright (EXIF-oriented) photo;
 /// `orient` is the user's Rotate / Flip on top of it, which the loupe's normalized frame includes.
 /// What the face/pet/focus regions of a photo are drawn from.
 pub(super) struct RegionContext<'a> {
-    pub photo: &'a lightcraft_catalog::Photo,
+    pub photo: &'a evolight_catalog::Photo,
     /// the user's Rotate / Flip on top of the upright photo
-    pub orient: lightcraft_geom::Orientation,
+    pub orient: evolight_geom::Orientation,
     pub hints: Option<&'a crate::panels::faces::Hints>,
     /// the names to offer when a region is named
     pub people: &'a [String],
@@ -54,8 +54,8 @@ fn region_body_drag(
     ui: &egui::Ui,
     map: &CanvasMap,
     rect: Rect,
-    (index, norm): (usize, lightcraft_geom::Rect),
-    orient: lightcraft_geom::Orientation,
+    (index, norm): (usize, evolight_geom::Rect),
+    orient: evolight_geom::Orientation,
     drag_key: egui::Id,
 ) -> Option<RegionEdit> {
     let body_key = egui::Id::unique(("region-body", index));
@@ -68,14 +68,14 @@ fn region_body_drag(
     // (the release frame reports `dragged()` too, so the last position is taken before the stop)
     if body_resp.dragged() || body_resp.drag_stopped() {
         let pp = body_resp.interact_pointer_pos();
-        let shown = ui.data(|d| d.get_temp::<(Point, lightcraft_geom::Rect)>(body_key));
+        let shown = ui.data(|d| d.get_temp::<(Point, evolight_geom::Rect)>(body_key));
         if let (Some(pp), Some((start, shown))) = (pp, shown) {
             let now = map.norm(pp);
             let (w, h) = (shown.x1 - shown.x0, shown.y1 - shown.y0);
             let (x0, y0) = ((shown.x0 + now.x - start.x).clamp(0.0, (1.0 - w).max(0.0)), (shown.y0 + now.y - start.y).clamp(0.0, (1.0 - h).max(0.0)));
-            let moved = lightcraft_geom::Rect { x0, y0, x1: x0 + w, y1: y0 + h };
+            let moved = evolight_geom::Rect { x0, y0, x1: x0 + w, y1: y0 + h };
             if moved == shown {
-                ui.data_mut(|d| d.remove_temp::<(usize, lightcraft_geom::Rect)>(drag_key));
+                ui.data_mut(|d| d.remove_temp::<(usize, evolight_geom::Rect)>(drag_key));
             } else {
                 ui.data_mut(|d| d.insert_temp(drag_key, (index, orient.inverse().map_norm_rect(moved))));
             }
@@ -85,9 +85,9 @@ fn region_body_drag(
     if !body_resp.drag_stopped() {
         return None;
     }
-    let edit = ui.data(|d| d.get_temp::<(usize, lightcraft_geom::Rect)>(drag_key)).map(|(i, new)| RegionEdit::Resize(i, new));
-    ui.data_mut(|d| d.remove_temp::<(usize, lightcraft_geom::Rect)>(drag_key));
-    ui.data_mut(|d| d.remove_temp::<(Point, lightcraft_geom::Rect)>(body_key));
+    let edit = ui.data(|d| d.get_temp::<(usize, evolight_geom::Rect)>(drag_key)).map(|(i, new)| RegionEdit::Resize(i, new));
+    ui.data_mut(|d| d.remove_temp::<(usize, evolight_geom::Rect)>(drag_key));
+    ui.data_mut(|d| d.remove_temp::<(Point, evolight_geom::Rect)>(body_key));
     edit
 }
 
@@ -104,7 +104,7 @@ pub(super) fn region_overlay(
     let pointer = ui.input(|i| i.pointer.hover_pos());
     // the box being dragged: (region index, its box so far)
     let drag_key = egui::Id::unique("region-drag");
-    let live: Option<(usize, lightcraft_geom::Rect)> = ui.data(|d| d.get_temp(drag_key));
+    let live: Option<(usize, evolight_geom::Rect)> = ui.data(|d| d.get_temp(drag_key));
     let mut edit = None;
     for (index, r) in photo.meta.regions.iter().enumerate() {
         let dragging = live.filter(|(i, _)| *i == index);
@@ -143,7 +143,7 @@ pub(super) fn region_overlay(
                         n.max.y = pp.y.max(n.min.y + 12.0);
                     }
                     let (a, b) = (map.norm(n.min), map.norm(n.max));
-                    let shown = lightcraft_geom::Rect {
+                    let shown = evolight_geom::Rect {
                         x0: a.x.min(b.x).clamp(0.0, 1.0),
                         y0: a.y.min(b.y).clamp(0.0, 1.0),
                         x1: a.x.max(b.x).clamp(0.0, 1.0),
@@ -155,10 +155,10 @@ pub(super) fn region_overlay(
                     ui.ctx().request_repaint();
                 }
                 if resp.drag_stopped() {
-                    if let Some((i, new)) = ui.data(|d| d.get_temp::<(usize, lightcraft_geom::Rect)>(drag_key)) {
+                    if let Some((i, new)) = ui.data(|d| d.get_temp::<(usize, evolight_geom::Rect)>(drag_key)) {
                         edit = Some(RegionEdit::Resize(i, new));
                     }
-                    ui.data_mut(|d| d.remove_temp::<(usize, lightcraft_geom::Rect)>(drag_key));
+                    ui.data_mut(|d| d.remove_temp::<(usize, evolight_geom::Rect)>(drag_key));
                 }
             }
         }
@@ -179,7 +179,7 @@ pub(super) fn region_overlay(
             }
         }
         // what the label says: the name, a guess to confirm ("Jane Doe?"), or on hover an invitation to name the face
-        let is_face = r.kind == lightcraft_meta::RegionKind::Face;
+        let is_face = r.kind == evolight_meta::RegionKind::Face;
         let hint = hints.and_then(|h| h.by_index.get(&index));
         let hovered = pointer.is_some_and(|h| rect.expand(3.0).contains(h));
         let editing_this = editing.as_ref().is_some_and(|e| e.photo == photo.id.0 && e.index == index);
@@ -252,7 +252,7 @@ pub(crate) fn component_pin(shape: &MaskShape) -> Option<Point> {
 
 /// The middle of what a segmentation selects (the mean of its cells inside the mask), else of the
 /// part of the image it covers; `None` when it is damaged.
-fn seg_center(seg: &lightcraft_develop::SegMask) -> Option<Point> {
+fn seg_center(seg: &evolight_develop::SegMask) -> Option<Point> {
     let [x0, y0, x1, y1] = seg.bounds()?;
     let logits = seg.logits()?;
     let side = seg.side as usize;
@@ -345,7 +345,7 @@ fn radial_body_contains(shape: &MaskShape, at: Point, map: &CanvasMap) -> bool {
 /// Colour Range eyedropper: a click samples the colour under it for the selected mask's
 /// colour range, at normalized frame coordinates (crop, rotation and zoom aware);
 /// ⇧-click adds a sample (up to 5).
-pub(super) fn color_range_pick(app: &mut LightcraftApp, ui: &egui::Ui, resp: &egui::Response, map: &CanvasMap) {
+pub(super) fn color_range_pick(app: &mut EvoLightApp, ui: &egui::Ui, resp: &egui::Response, map: &CanvasMap) {
     if resp.clicked()
         && let Some(q) = resp.interact_pointer_pos()
     {
@@ -360,7 +360,7 @@ pub(super) fn color_range_pick(app: &mut LightcraftApp, ui: &egui::Ui, resp: &eg
 /// The Masking tool on the photo: outlines and handles of the selected mask, a pin per mask
 /// component (click selects its mask, drag moves the component), and brush painting. The mask
 /// itself shows as a rendered overlay ([`view_overlay`]).
-pub(super) fn mask_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
+pub(super) fn mask_overlay(app: &mut EvoLightApp, ui: &mut egui::Ui, resp: &egui::Response, map: &CanvasMap, d: &DevelopSettings) {
     let active = app.session.active_mask;
     let clip = app.canvas_rect.unwrap_or(map.rect);
     let p = &ui.painter_at(clip);
@@ -572,7 +572,7 @@ pub(super) fn runs(samples: impl IntoIterator<Item = Option<Pos2>>) -> Vec<Vec<P
 
 /// Object selections (SAM 3) of the selected mask: each click, green to include, red to exclude
 /// (clicks still on their way to the model included).
-fn object_marks(app: &LightcraftApp, p: &egui::Painter, map: &CanvasMap, d: &DevelopSettings, active: Option<u32>) {
+fn object_marks(app: &EvoLightApp, p: &egui::Painter, map: &CanvasMap, d: &DevelopSettings, active: Option<u32>) {
     let pending = app.session.segmenter.pending_clicks().cloned();
     for m in d.masks.iter().filter(|m| Some(m.id) == active) {
         let map = &map.for_mask(m.on_photo);
@@ -615,7 +615,7 @@ fn own_pin_at(grips: &[(u32, usize, u8, Pos2)], active: Option<u32>, q: Pos2) ->
 /// click on the selected mask's own pin does nothing: its first click is already there, and a
 /// near-copy of it would use up one of the mask's limited Object clicks.
 fn object_tool(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     resp: &egui::Response,
     map: &CanvasMap,
@@ -656,7 +656,7 @@ fn object_tool(
 
 /// Brush tool: the cursor, the stroke being painted and its commit.
 fn brush_tool(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     resp: &egui::Response,
     map: &CanvasMap,
@@ -698,7 +698,7 @@ fn brush_tool(
     // show it: with the overlay hidden (O, or a mask slider hid it) or a colour overlay at
     // opacity 0, the photo stays untinted while painting, so dodging and burning is judged on
     // the photo (issue #2549)
-    use lightcraft_pipeline::MaskView;
+    use evolight_pipeline::MaskView;
     let colored = matches!(MaskView::parse(&app.ui.mask_overlay_mode).unwrap_or_default(), MaskView::Color | MaskView::ColorOnBw);
     // the all-masks overlay ([`view_overlay`]) shows only visible masks, and gives way to the
     // selected mask's when none has anything in it (a stroke goes into the selected mask, or a new one)
@@ -743,7 +743,7 @@ fn brush_tool(
 
 /// Grabbing mask grips and component bodies: select, drag, release.
 fn grip_gestures(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &egui::Ui,
     resp: &egui::Response,
     map: &CanvasMap,
@@ -836,7 +836,7 @@ fn mask_handle_name(mask: &str, shape: &MaskShape, handle: u8) -> String {
 
 /// Keyboard stand-ins for the mask handles and pins: an arrow press moves the focused one by a
 /// step (one undo step), as dragging it would; Return on a pin selects its mask.
-fn mask_keys(app: &mut LightcraftApp, ui: &mut egui::Ui, map: &CanvasMap, d: &DevelopSettings, grips: &[(u32, usize, u8, Pos2)]) {
+fn mask_keys(app: &mut EvoLightApp, ui: &mut egui::Ui, map: &CanvasMap, d: &DevelopSettings, grips: &[(u32, usize, u8, Pos2)]) {
     for &(mid, ci, handle, q) in grips {
         let Some(m) = d.masks.iter().find(|m| m.id == mid) else { continue };
         let Some(shape) = m.components.get(ci).map(|c| &c.shape) else { continue };
@@ -867,13 +867,13 @@ fn mask_keys(app: &mut LightcraftApp, ui: &mut egui::Ui, map: &CanvasMap, d: &De
 }
 
 /// The shape of component `comp` of mask `mask` of the active photo as the session has it now.
-fn current_shape(app: &LightcraftApp, mask: u32, comp: usize) -> Option<MaskShape> {
+fn current_shape(app: &EvoLightApp, mask: u32, comp: usize) -> Option<MaskShape> {
     let d = app.session.develop_of(app.session.active()?)?;
     d.masks.iter().find(|m| m.id == mask)?.components.get(comp).map(|c| c.shape.clone())
 }
 
 /// Whether mask `mask` of the active photo is on the photo now (`Mask::on_photo`).
-fn current_on_photo(app: &LightcraftApp, mask: u32) -> Option<bool> {
+fn current_on_photo(app: &EvoLightApp, mask: u32) -> Option<bool> {
     let d = app.session.develop_of(app.session.active()?)?;
     d.masks.iter().find(|m| m.id == mask).map(|m| m.on_photo)
 }
@@ -892,7 +892,7 @@ fn frame_long_norm(map: &CanvasMap) -> (f64, f64) {
 
 /// Auto's condition for the Tool Overlay (Shift+H): the pointer is over the photo, or a pin is
 /// being dragged.
-pub(super) fn pins_live(app: &LightcraftApp, resp: &egui::Response, map: &CanvasMap) -> bool {
+pub(super) fn pins_live(app: &EvoLightApp, resp: &egui::Response, map: &CanvasMap) -> bool {
     resp.hover_pos().is_some_and(|q| map.rect.contains(q))
         || matches!(app.gesture, Some(Gesture::SpotMove { .. } | Gesture::MaskHandle { .. }))
         // a handle moved with the keyboard stays shown while it has the focus
@@ -968,20 +968,20 @@ mod region_drag_tests {
         crate::theme::install_fonts(&ctx);
         crate::theme::apply(&ctx);
         let canvas = Rect::from_min_size(pos2(0.0, 0.0), vec2(400.0, 400.0));
-        let frame = lightcraft_pipeline::geometry::Frame::new(100, 100, &DevelopSettings::default(), true);
+        let frame = evolight_pipeline::geometry::Frame::new(100, 100, &DevelopSettings::default(), true);
         let map = CanvasMap::new(&frame, canvas);
-        let mut photo = lightcraft_catalog::Photo::new(
-            lightcraft_catalog::PhotoId(1),
-            lightcraft_catalog::Source::Demo { scene: 0 },
+        let mut photo = evolight_catalog::Photo::new(
+            evolight_catalog::PhotoId(1),
+            evolight_catalog::Source::Demo { scene: 0 },
             "a.jpg",
             "JPEG",
             100,
             100,
             "2026-10-01T00:00:00",
         );
-        photo.meta.regions = vec![lightcraft_meta::Region {
-            rect: lightcraft_geom::Rect { x0: 0.2, y0: 0.2, x1: 0.4, y1: 0.4 },
-            kind: lightcraft_meta::RegionKind::Face,
+        photo.meta.regions = vec![evolight_meta::Region {
+            rect: evolight_geom::Rect { x0: 0.2, y0: 0.2, x1: 0.4, y1: 0.4 },
+            kind: evolight_meta::RegionKind::Face,
             name: Some("Jane".to_string()),
             description: None,
         }];
@@ -993,7 +993,7 @@ mod region_drag_tests {
                     let p = ui.painter_at(canvas);
                     let regions = RegionContext {
                         photo: &photo,
-                        orient: lightcraft_geom::Orientation::Normal,
+                        orient: evolight_geom::Orientation::Normal,
                         hints: None,
                         people: &[],
                         setup: crate::panels::faces::Setup::Running,

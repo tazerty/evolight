@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use lightcraft_catalog::{MediaKind, Op, Photo, PhotoId, Source};
-use lightcraft_develop::{EmbeddedLens, EmbeddedWarp, LensSource};
+use evolight_catalog::{MediaKind, Op, Photo, PhotoId, Source};
+use evolight_develop::{EmbeddedLens, EmbeddedWarp, LensSource};
 use serde_json::json;
 
 use crate::Session;
@@ -125,7 +125,7 @@ fn photos_get_their_profile_when_the_database_arrives() {
     for p in [raw(1, "50mm F1.8", false), raw(2, "50mm F1.8", true), raw(3, "300mm F4", false), raw(4, "", false)] {
         s.catalog.apply(Op::AddPhoto { photo: Box::new(p) }).unwrap();
     }
-    let db = lightcraft_lensdb::LensDb::parse(DB).unwrap();
+    let db = evolight_lensdb::LensDb::parse(DB).unwrap();
     let listed = crate::cmd::lens_refresh::missing(&s.catalog, &db, None, false);
     assert_eq!(listed.iter().map(|m| m.id.0).collect::<Vec<_>>(), [1, 2], "only lenses the database knows");
     assert_eq!(crate::cmd::lens_refresh::missing(&s.catalog, &db, Some(&[PhotoId(2)]), false).len(), 1, "or only the photos asked for");
@@ -179,7 +179,7 @@ fn a_replaced_database_looks_up_database_profiles_and_unnamed_photos_again() {
     ] {
         s.catalog.apply(Op::AddPhoto { photo: Box::new(p) }).unwrap();
     }
-    let db = lightcraft_lensdb::LensDb::parse(DB).unwrap();
+    let db = evolight_lensdb::LensDb::parse(DB).unwrap();
     let ids = |v: Vec<crate::cmd::lens_refresh::Missing>| v.iter().map(|m| m.id.0).collect::<Vec<_>>();
     assert!(crate::cmd::lens_refresh::missing(&s.catalog, &db, None, false).is_empty(), "an ordinary start reads none of them");
     let listed = crate::cmd::lens_refresh::missing(&s.catalog, &db, None, true);
@@ -211,16 +211,16 @@ fn a_replaced_database_looks_up_database_profiles_and_unnamed_photos_again() {
 #[test]
 fn a_decode_never_overrides_the_photos_database_profile() {
     use crate::media::DecodedSource;
-    let img = Arc::new(lightcraft_raster::Rgb32f::new(4, 4));
-    let decoded = |l: EmbeddedLens| DecodedSource::new(img.clone(), Some(lightcraft_pipeline::SourceInfo { lens: Some(l), ..Default::default() }));
-    let header = |l: Option<EmbeddedLens>| lightcraft_pipeline::SourceInfo { lens: l, ..Default::default() };
+    let img = Arc::new(evolight_raster::Rgb32f::new(4, 4));
+    let decoded = |l: EmbeddedLens| DecodedSource::new(img.clone(), Some(evolight_pipeline::SourceInfo { lens: Some(l), ..Default::default() }));
+    let header = |l: Option<EmbeddedLens>| evolight_pipeline::SourceInfo { lens: l, ..Default::default() };
     assert_eq!(decoded(lens(-0.05)).info_or(header(Some(lens(-0.01)))).lens, Some(lens(-0.01)), "the catalog's profile");
     assert_eq!(decoded(lens(-0.05)).info_or(header(None)).lens, None, "none until the photo is given one");
     let file_lens = EmbeddedLens { source: LensSource::File, ..lens(-0.04) };
     assert_eq!(decoded(file_lens).info_or(header(None)).lens, Some(file_lens), "the file's own correction");
     // the original was replaced by one without a correction: the decode finds none, and the catalog's old file
     // correction isn't put back
-    let none = DecodedSource::new(img.clone(), Some(lightcraft_pipeline::SourceInfo { lens: None, ..Default::default() }));
+    let none = DecodedSource::new(img.clone(), Some(evolight_pipeline::SourceInfo { lens: None, ..Default::default() }));
     assert_eq!(none.info_or(header(Some(file_lens))).lens, None, "no file correction the file no longer has");
     assert_eq!(none.info_or(header(Some(lens(-0.01)))).lens, Some(lens(-0.01)), "the database profile stays");
 }
@@ -265,7 +265,7 @@ fn a_new_database_profile_changes_the_render_and_cache_keys() {
 fn the_downloaded_database_is_selected_and_read_only_when_whole() {
     use crate::{lens_profiles, lensfun_download};
     if std::env::var_os(lens_profiles::ENV).is_some_and(|v| !v.is_empty()) {
-        lightcraft_testkit::skip!(Input, "LIGHTCRAFT_LENSFUN_DIR names the folder in use");
+        evolight_testkit::skip!(Input, "EVOLIGHT_LENSFUN_DIR names the folder in use");
         return;
     }
     let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());

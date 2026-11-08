@@ -109,7 +109,7 @@ pub fn draw_watermark_preview(img: &mut Rgba8, wm: &Watermark, export_short_edge
 
 fn blend_watermark(img: &mut Rgba8, wm: &Watermark, floor_scale: f32) {
     let width = img.width;
-    watermark_coverage(img.width, img.height, wm, crate::fonts::CRAFT_FONTS, floor_scale, |x, y, k, col| {
+    watermark_coverage(img.width, img.height, wm, crate::fonts::EVO_FONTS, floor_scale, |x, y, k, col| {
         let p = &mut img.data[y * width + x];
         for c in 0..3 {
             p[c] = (p[c] as f32 + (col[c] as f32 - p[c] as f32) * k).round() as u8;
@@ -121,7 +121,7 @@ fn blend_watermark(img: &mut Rgba8, wm: &Watermark, floor_scale: f32) {
 /// anchored as on an image of that size (a slideshow slide's photo). The area is clipped to `img`.
 pub fn draw_watermark_in(img: &mut Rgba8, wm: &Watermark, x0: usize, y0: usize, w: usize, h: usize) {
     let (width, height) = (img.width, img.height);
-    watermark_coverage(w, h, wm, crate::fonts::CRAFT_FONTS, 1.0, |x, y, k, col| {
+    watermark_coverage(w, h, wm, crate::fonts::EVO_FONTS, 1.0, |x, y, k, col| {
         let (px, py) = (x0.saturating_add(x), y0.saturating_add(y));
         if px >= width || py >= height {
             return;
@@ -139,14 +139,14 @@ pub fn draw_watermark_in(img: &mut Rgba8, wm: &Watermark, x0: usize, y0: usize, 
 pub fn draw_watermark_deep(img: &mut DeepImage, wm: &Watermark) {
     let (width, trc) = (img.width, img.space.trc());
     match &mut img.samples {
-        DeepSamples::U16(v) => watermark_coverage(img.width, img.height, wm, crate::fonts::CRAFT_FONTS, 1.0, |x, y, k, col| {
+        DeepSamples::U16(v) => watermark_coverage(img.width, img.height, wm, crate::fonts::EVO_FONTS, 1.0, |x, y, k, col| {
             let i = (y * width + x) * 3;
             for c in 0..3 {
                 let p = v[i + c] as f32;
                 v[i + c] = (p + (col[c] as f32 * 257.0 - p) * k).round().clamp(0.0, 65535.0) as u16;
             }
         }),
-        DeepSamples::F32(v) => watermark_coverage(img.width, img.height, wm, crate::fonts::CRAFT_FONTS, 1.0, |x, y, k, col| {
+        DeepSamples::F32(v) => watermark_coverage(img.width, img.height, wm, crate::fonts::EVO_FONTS, 1.0, |x, y, k, col| {
             let i = (y * width + x) * 3;
             for c in 0..3 {
                 let target = trc.decode(col[c] as f32 / 255.0);
@@ -157,14 +157,14 @@ pub fn draw_watermark_deep(img: &mut DeepImage, wm: &Watermark) {
 }
 
 /// Lay out `wm` on a `width × height` image and call `blend(x, y, coverage × opacity, colour)` for
-/// every covered pixel (shadow pass first). `craft` is [`crate::fonts::CRAFT_FONTS`] (a parameter
+/// every covered pixel (shadow pass first). `evo` is [`crate::fonts::EVO_FONTS`] (a parameter
 /// so tests can render without it). `floor_scale` is this image's size over the exported file's
 /// (1 when drawing the file itself): the 6 px minimum text size is a minimum in the file.
 pub(super) fn watermark_coverage(
     width: usize,
     height: usize,
     wm: &Watermark,
-    craft: &'static [crate::fonts::CraftFont],
+    evo: &'static [crate::fonts::EvoFont],
     floor_scale: f32,
     mut blend_px: impl FnMut(usize, usize, f32, [u8; 3]),
 ) {
@@ -178,7 +178,7 @@ pub(super) fn watermark_coverage(
     }
     let short = width.min(height) as f32;
     let px = (wm.size.clamp(0.005, 0.5) * short).max(6.0 * floor_scale);
-    let Some(layout) = crate::text::TextLayout::new(text, px, wm.vertical, craft) else { return };
+    let Some(layout) = crate::text::TextLayout::new(text, px, wm.vertical, evo) else { return };
     let (tw, th) = (layout.width, layout.height);
     // laid out unturned in a tw × th box, placed by the box it becomes
     let turns = wm.quarter_turns();
@@ -241,8 +241,8 @@ pub(crate) fn watermark_logo(path: &str) -> Option<std::sync::Arc<Rgba8>> {
 /// The error says why it couldn't be read or decoded.
 pub fn read_graphic(path: &str) -> Result<Rgba8, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("can't read {path}: {e}"))?;
-    let decoded = lightcraft_codecs::decode(&bytes, Default::default()).map_err(|e| format!("can't decode {path}: {e}"))?;
-    Ok(decoded.to_srgb8().into_oriented(lightcraft_geom::Orientation::from_exif(decoded.orientation)))
+    let decoded = evolight_codecs::decode(&bytes, Default::default()).map_err(|e| format!("can't decode {path}: {e}"))?;
+    Ok(decoded.to_srgb8().into_oriented(evolight_geom::Orientation::from_exif(decoded.orientation)))
 }
 
 /// The graphic watermark: scaled (premultiplied, so transparent edges stay clean) to
@@ -268,12 +268,12 @@ fn logo_coverage(width: usize, height: usize, wm: &Watermark, mut blend_px: impl
         (wm.image_width.clamp(0.01, 1.0) as f64 * width as f64 / logo.width as f64).min(max_w / logo.width as f64).min(max_h / logo.height as f64);
     let lw = (logo.width as f64 * scale).round().max(1.0) as usize;
     let lh = (logo.height as f64 * scale).round().max(1.0) as usize;
-    let pre: lightcraft_raster::Image<[f32; 4]> = lightcraft_raster::Image::from_fn(logo.width, logo.height, |x, y| {
+    let pre: evolight_raster::Image<[f32; 4]> = evolight_raster::Image::from_fn(logo.width, logo.height, |x, y| {
         let p = logo.get(x, y);
         let a = p[3] as f32 / 255.0;
         [p[0] as f32 * a, p[1] as f32 * a, p[2] as f32 * a, a]
     });
-    let scaled = lightcraft_raster::resample::resize(&pre, lw, lh, lightcraft_raster::resample::Filter::Mitchell);
+    let scaled = evolight_raster::resample::resize(&pre, lw, lh, evolight_raster::resample::Filter::Mitchell);
     let (bw, bh) = if turns % 2 == 1 { (lh, lw) } else { (lw, lh) };
     let (w, h, lwf, lhf) = (width as f32, height as f32, bw as f32, bh as f32);
     let ox = match wm.anchor {

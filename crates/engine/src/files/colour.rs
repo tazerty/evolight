@@ -5,13 +5,13 @@
 /// `[1, 1, 1]` (the camera's own neutral, as before this existed) when the model can't be trusted with it: not
 /// invertible or nearly so, an answer far from the camera's neutral (a sane colour model moves white by a few per
 /// cent), or one that isn't neutral through the `f32` matrix the decode applies.
-pub(crate) fn clipped_white(model: &lightcraft_color::Mat3) -> [f32; 3] {
+pub(crate) fn clipped_white(model: &evolight_color::Mat3) -> [f32; 3] {
     const CAMERA: [f32; 3] = [1.0; 3];
     /// Largest condition number (max row sum norm) of a model trusted for this.
     const CONDITION: f64 = 1e3;
     /// Largest factor between the answer and the camera's neutral, per channel.
     const SPREAD: f64 = 4.0;
-    let norm = |m: &lightcraft_color::Mat3| m.0.iter().map(|row| row.iter().map(|v| v.abs()).sum::<f64>()).fold(0.0, f64::max);
+    let norm = |m: &evolight_color::Mat3| m.0.iter().map(|row| row.iter().map(|v| v.abs()).sum::<f64>()).fold(0.0, f64::max);
     let Some(inverse) = model.inverse() else { return CAMERA };
     let condition = norm(model) * norm(&inverse);
     if !condition.is_finite() || condition > CONDITION {
@@ -19,7 +19,7 @@ pub(crate) fn clipped_white(model: &lightcraft_color::Mat3) -> [f32; 3] {
     }
     let luma = |v: [f64; 3]| {
         let c = model.apply(v);
-        (0..3).map(|i| c[i] * f64::from(lightcraft_color::LUMA_2020[i])).sum::<f64>()
+        (0..3).map(|i| c[i] * f64::from(evolight_color::LUMA_2020[i])).sum::<f64>()
     };
     let n = inverse.apply([1.0; 3]);
     let (target, own) = (luma([1.0; 3]), luma(n));
@@ -44,7 +44,7 @@ pub(crate) fn clipped_white(model: &lightcraft_color::Mat3) -> [f32; 3] {
 /// cost of Bayer's, so 3× is accepted down to 75 % (a 24 MP X-Trans preview is then ~2000 px
 /// instead of a ~1.2 s full demosaic; zooming in still uses the full-size source).
 /// `None` = demosaic at full size.
-pub fn bin_factor(raw: &lightcraft_raw::RawImage, max_edge: usize) -> Option<usize> {
+pub fn bin_factor(raw: &evolight_raw::RawImage, max_edge: usize) -> Option<usize> {
     let c = raw.crop.clipped(raw.active_area.width, raw.active_area.height);
     let long = if c.width > 1 && c.height > 1 { c.width.max(c.height) } else { raw.active_area.width.max(raw.active_area.height) };
     let need = (max_edge.saturating_mul(9) / 10).max(1);

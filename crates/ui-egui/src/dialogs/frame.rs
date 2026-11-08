@@ -1,5 +1,5 @@
 use super::export::LABEL_W;
-use super::{BACKDROP_SHOWN, ControlSpec, Dialog, LightcraftApp, Tokens};
+use super::{BACKDROP_SHOWN, ControlSpec, Dialog, EvoLightApp, Tokens};
 
 /// A click on the dimmed backdrop around the dialog: it closes the dialog like Esc. Pressed and
 /// released outside the window, so a slider dragged past its edge doesn't close it; a press while a
@@ -98,7 +98,7 @@ pub(super) fn dialog_body(ui: &mut egui::Ui, scroll: Option<&str>, max_height: f
 }
 
 /// Open a one-field dialog that runs `command` with `params` + `{key: typed value}`.
-pub fn prompt(app: &mut LightcraftApp, title: &str, hint: &str, value: &str, command: &str, params: serde_json::Value, key: &str) {
+pub fn prompt(app: &mut EvoLightApp, title: &str, hint: &str, value: &str, command: &str, params: serde_json::Value, key: &str) {
     app.ui.dialog =
         Some(Dialog::TextPrompt { title: title.into(), hint: hint.into(), value: value.into(), command: command.into(), params, key: key.into() });
 }

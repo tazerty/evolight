@@ -12,7 +12,7 @@
 //! error from candle, e.g. a kernel the GPU's compiler can't build, issue #1974) frees the
 //! model and runs once more on the CPU. When that works, the model stays on the CPU for the rest
 //! of the session and the job's outcome says so; when it fails too, the GPU wasn't the cause and
-//! the next job uses it again. `LIGHTCRAFT_GPU=0` or `LIGHTCRAFT_GPU_BACKEND=off` keep the model on
+//! the next job uses it again. `EVOLIGHT_GPU=0` or `EVOLIGHT_GPU_BACKEND=off` keep the model on
 //! the CPU from the start.
 
 use std::collections::VecDeque;
@@ -23,8 +23,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::Duration;
 
-use lightcraft_develop::SegMask;
-use lightcraft_segment::{
+use evolight_develop::SegMask;
+use evolight_segment::{
     Encoded, Sam3,
     remote::{self, Operation, Request, text_logits},
 };
@@ -40,7 +40,7 @@ pub const IDLE_UNLOAD: Duration = Duration::from_secs(10 * 60);
 pub enum Kind {
     /// Load the model and encode the photo (so the first click is fast).
     Prepare,
-    Clicks(Vec<lightcraft_segment::Click>),
+    Clicks(Vec<evolight_segment::Click>),
     Text(String),
     /// A zoomed-in pass over `region` (normalized) of the photo, rendered by the job's `render`.
     Detail {
@@ -85,7 +85,7 @@ pub struct Outcome {
 
 /// The notice of the job after which the model runs on the CPU.
 pub const GPU_FAILED: &str =
-    "The GPU couldn't run the AI mask model, so it runs on the CPU until LightCraft restarts (slower). Details are in the log.";
+    "The GPU couldn't run the AI mask model, so it runs on the CPU until EvoLight restarts (slower). Details are in the log.";
 
 /// Where the model is loaded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,10 +99,10 @@ enum Placement {
 
 impl Placement {
     fn initial() -> Self {
-        if !lightcraft_segment::GPU_BUILD {
+        if !evolight_segment::GPU_BUILD {
             return Placement::Cpu;
         }
-        if let Some(why) = lightcraft_gpu::env_off_reason() {
+        if let Some(why) = evolight_gpu::env_off_reason() {
             log::info!("SAM 3 runs on the CPU ({why})");
             return Placement::Cpu;
         }
@@ -139,9 +139,9 @@ impl From<&str> for Failure {
     }
 }
 
-impl From<lightcraft_segment::Error> for Failure {
-    fn from(e: lightcraft_segment::Error) -> Self {
-        if matches!(e, lightcraft_segment::Error::Candle(_)) { Failure::Model(e.to_string()) } else { Failure::Other(e.to_string()) }
+impl From<evolight_segment::Error> for Failure {
+    fn from(e: evolight_segment::Error) -> Self {
+        if matches!(e, evolight_segment::Error::Candle(_)) { Failure::Model(e.to_string()) } else { Failure::Other(e.to_string()) }
     }
 }
 
@@ -452,8 +452,8 @@ fn remote_job(state: &mut State, shared: &Shared, job: &mut Job, endpoint: &str)
         client.key = Some(job.key);
     }
     Ok(logits.map(|l| match region {
-        Some(r) => SegMask::from_logits_in(lightcraft_segment::MASK_SIDE, &l, r),
-        None => SegMask::from_logits(lightcraft_segment::MASK_SIDE, &l),
+        Some(r) => SegMask::from_logits_in(evolight_segment::MASK_SIDE, &l, r),
+        None => SegMask::from_logits(evolight_segment::MASK_SIDE, &l),
     }))
 }
 
@@ -465,7 +465,7 @@ fn run_job(state: &mut State, shared: &Shared, job: &mut Job, placement: Placeme
         }
         return result.map_err(|e| Failure::Other(format!("Remote SAM 3 failed: {e}. Check the worker and SSH tunnel, then retry.")));
     }
-    let side = lightcraft_segment::MASK_SIDE;
+    let side = evolight_segment::MASK_SIDE;
     match std::mem::replace(&mut job.kind, Kind::Prepare) {
         Kind::Prepare => {
             encoded(state, shared, job, placement)?;
@@ -501,11 +501,11 @@ fn run_job(state: &mut State, shared: &Shared, job: &mut Job, placement: Placeme
             }
             let logits = match prompt {
                 Prompt::Clicks(clicks) => {
-                    let inside: Vec<lightcraft_segment::Click> = clicks
+                    let inside: Vec<evolight_segment::Click> = clicks
                         .iter()
                         .map(|c| ((c.at.x - region[0]) / rw, (c.at.y - region[1]) / rh, c.include))
                         .filter(|(x, y, _)| (0.0..=1.0).contains(x) && (0.0..=1.0).contains(y))
-                        .map(|(x, y, positive)| lightcraft_segment::Click { x: x as f32, y: y as f32, positive })
+                        .map(|(x, y, positive)| evolight_segment::Click { x: x as f32, y: y as f32, positive })
                         .collect();
                     if !inside.iter().any(|c| c.positive) {
                         return Ok(None);
@@ -617,11 +617,11 @@ mod tests {
 
     #[test]
     fn a_worker_on_the_cpu_never_tries_the_gpu() {
-        // no GPU in this build, or LIGHTCRAFT_GPU=0 / LIGHTCRAFT_GPU_BACKEND=off
+        // no GPU in this build, or EVOLIGHT_GPU=0 / EVOLIGHT_GPU_BACKEND=off
         let out = run_kinds(Placement::Cpu, vec![Kind::FailOnGpu { panic: true }]);
         assert!(matches!(out[0].result, Ok(None)));
         assert_eq!(out[0].notice, None);
-        if !lightcraft_segment::GPU_BUILD {
+        if !evolight_segment::GPU_BUILD {
             assert_eq!(Placement::initial(), Placement::Cpu);
         }
     }
@@ -631,7 +631,7 @@ mod tests {
         let out = run_kinds(Placement::Gpu, vec![Kind::Prepare]);
         assert!(out[0].result.as_ref().unwrap_err().contains("not found"));
         assert_eq!(out[0].notice, None);
-        let missing = lightcraft_segment::Error::Missing(PathBuf::from("models"));
+        let missing = evolight_segment::Error::Missing(PathBuf::from("models"));
         assert!(matches!(Failure::from(missing), Failure::Other(_)));
     }
 
@@ -640,10 +640,10 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         let (jtx, jrx) = mpsc::channel();
         let clicks = |n: usize| Tag::Clicks {
-            photo: lightcraft_catalog::PhotoId(1),
+            photo: evolight_catalog::PhotoId(1),
             mask: 1,
             comp: 0,
-            hint: vec![lightcraft_geom::Point::new(0.5, 0.5); n],
+            hint: vec![evolight_geom::Point::new(0.5, 0.5); n],
             exclude: vec![],
         };
         for n in 1..=3 {

@@ -1,7 +1,7 @@
 use super::*;
 
-fn small_scene() -> lightcraft_scenes::Scene {
-    lightcraft_scenes::demo_library().swap_remove(0)
+fn small_scene() -> evolight_scenes::Scene {
+    evolight_scenes::demo_library().swap_remove(0)
 }
 
 #[test]
@@ -45,8 +45,8 @@ fn until_waiting(slot: &SceneSlot, n: usize) {
     }
 }
 
-fn pixels(n: usize) -> lightcraft_raster::Rgb32f {
-    lightcraft_raster::Rgb32f::new(n, 1)
+fn pixels(n: usize) -> evolight_raster::Rgb32f {
+    evolight_raster::Rgb32f::new(n, 1)
 }
 
 /// Rayon workers asking for a scene while it is generated never deadlock. The render is parallel, and a rayon worker
@@ -342,11 +342,11 @@ fn with_a_broken_global_pool() {
 
 #[test]
 fn the_cache_keeps_the_most_recent_scenes_within_its_limit() {
-    let key = |max_edge| SceneKey { kind: lightcraft_scenes::Kind::Dunes, seed: 1, width: 3, height: 2, max_edge };
+    let key = |max_edge| SceneKey { kind: evolight_scenes::Kind::Dunes, seed: 1, width: 3, height: 2, max_edge };
     let entry = |max_edge, used, px: Option<usize>| {
         let slot = Arc::new(SceneSlot::default());
         if let Some(n) = px {
-            slot.lock().generation = Generation::Ready(Arc::new(lightcraft_raster::Rgb32f::new(n, 1)));
+            slot.lock().generation = Generation::Ready(Arc::new(evolight_raster::Rgb32f::new(n, 1)));
         }
         SceneEntry { key: key(max_edge), slot, used }
     };

@@ -300,7 +300,7 @@ fn fully_clipped_and_no_clipping() {
     assert_eq!(reconstruct(&mut empty, [1.0; 3], 0.99), 0);
 }
 
-/// `cargo test --release -p lightcraft-raw --lib -- --ignored bench_reconstruct --nocapture`
+/// `cargo test --release -p evolight-raw --lib -- --ignored bench_reconstruct --nocapture`
 #[test]
 #[ignore]
 fn bench_reconstruct() {

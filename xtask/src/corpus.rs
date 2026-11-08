@@ -1,7 +1,7 @@
 use super::raw_samples::RAW_SAMPLES;
 use super::{Command, Path, root, run};
 
-/// A Nikon D750 ColorChecker set released under CC0 by dieli (github.com/dieli/d750-lightcraft-colorchecker),
+/// A Nikon D750 ColorChecker set released under CC0 by dieli (github.com/dieli/d750-evolight-colorchecker),
 /// pinned to one commit: a matrix-only dual-illuminant DNG camera profile (Cool White Fluorescent + D55)
 /// made with Calibrite PROFILER from the two chart shots, the chart NEFs, and Lightroom Classic 15.6's
 /// renders of them with that profile. Downloaded into `corpus/d750-colorchecker/` (the repository's own
@@ -9,27 +9,27 @@ use super::{Command, Path, root, run};
 const D750_COLORCHECKER: &[(&str, &str, &str)] = &[
     (
         "raw/chart-daylight_flash.NEF",
-        "https://raw.githubusercontent.com/dieli/d750-lightcraft-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/raw/chart-daylight_flash.NEF",
+        "https://raw.githubusercontent.com/dieli/d750-evolight-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/raw/chart-daylight_flash.NEF",
         "ebb6768ca1a82e3dc8b455e03842245a8e0d067045f720fbf2dcf20b90f06624",
     ),
     (
         "raw/chart-indoor.NEF",
-        "https://raw.githubusercontent.com/dieli/d750-lightcraft-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/raw/chart-indoor.NEF",
+        "https://raw.githubusercontent.com/dieli/d750-evolight-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/raw/chart-indoor.NEF",
         "d687c3efd25697208bdd1015856f30d00f1c4d768237c936640b61997b6d713a",
     ),
     (
         "profiles/20261016_NikonD750_DualIllumination_ColorCheckerPassport.dcp",
-        "https://raw.githubusercontent.com/dieli/d750-lightcraft-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/profiles/20261016_NikonD750_DualIllumination_ColorCheckerPassport.dcp",
+        "https://raw.githubusercontent.com/dieli/d750-evolight-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/profiles/20261016_NikonD750_DualIllumination_ColorCheckerPassport.dcp",
         "eb7e9465a42099628ffe61838ae4626a4bb51982492975076808c54ebf8d3d78",
     ),
     (
         "images/daylight_flash-lightroom.jpg",
-        "https://raw.githubusercontent.com/dieli/d750-lightcraft-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/images/daylight_flash-lightroom.jpg",
+        "https://raw.githubusercontent.com/dieli/d750-evolight-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/images/daylight_flash-lightroom.jpg",
         "725ee289efb6edcbbb792a41df5c74df5c865d9e31e55811453a43ddfc5c7bb0",
     ),
     (
         "images/indoor-lightroom.jpg",
-        "https://raw.githubusercontent.com/dieli/d750-lightcraft-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/images/indoor-lightroom.jpg",
+        "https://raw.githubusercontent.com/dieli/d750-evolight-colorchecker/f37f4054b62fa7fb02f35ab8b7ce508f2196459d/images/indoor-lightroom.jpg",
         "213580e9b0d8e2a76c29aa2eaa9884b724e9b605df2b723ac51af975ec84c414",
     ),
 ];
@@ -40,7 +40,7 @@ pub(crate) fn cmd_corpus(download: bool) -> Result<(), String> {
         "Test corpora live under {} (git-ignored, never committed).
 Tests that use a corpus skip cleanly when it is absent.
 
-  corpus/raw/        raw.pixls.us samples (CC0) — lightcraft-raw decodes every file.
+  corpus/raw/        raw.pixls.us samples (CC0) — evolight-raw decodes every file.
   corpus/images/     CC0 / public-domain JPEG/PNG/TIFF/HEIC samples (optional)
   corpus/d750-colorchecker/  Nikon D750 ColorChecker set (CC0, dieli): a .dcp, chart NEFs, Lightroom renders
 ",

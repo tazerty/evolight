@@ -1,13 +1,13 @@
 use super::general::{cameras, preset_combo};
 use super::widgets::{button_width, check, choices, field, heading, hint, path_label, row};
-use super::{LightcraftApp, RichText, Tokens, json, register};
+use super::{EvoLightApp, RichText, Tokens, json, register};
 
-pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(super) fn import_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     let d = app.session.import_defaults.clone();
     heading(ui, t, crate::i18n::tr("Raw defaults"));
     hint(ui, t, crate::i18n::tr("Settings new raw photos start from. Changing them doesn't touch photos already in the library."));
     row(ui, t, crate::i18n::tr("Raw photos"), |ui| {
-        if let Some(v) = preset_combo(app, ui, "settingsRawPreset", crate::i18n::tr("Raw default"), d.raw_preset.as_deref(), "LightCraft Default") {
+        if let Some(v) = preset_combo(app, ui, "settingsRawPreset", crate::i18n::tr("Raw default"), d.raw_preset.as_deref(), "EvoLight Default") {
             let _ = app.run("library.preferences", json!({"import": {"rawPreset": v}}));
         }
     });
@@ -26,7 +26,7 @@ pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens)
             for (i, cam) in cams.iter().enumerate() {
                 let entry = d.cameras.iter().find(|c| c.camera.eq_ignore_ascii_case(cam));
                 row(ui, t, cam, |ui| {
-                    // "Raw default" = no entry; otherwise the entry's preset (None = LightCraft Default)
+                    // "Raw default" = no entry; otherwise the entry's preset (None = EvoLight Default)
                     const RAW_DEFAULT: &str = "\u{1}raw";
                     let current = match entry {
                         None => Some(RAW_DEFAULT),
@@ -35,7 +35,7 @@ pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens)
                     let mut pick = None;
                     let label = match current {
                         Some(RAW_DEFAULT) => crate::i18n::tr("Same as raw default").to_string(),
-                        None => crate::i18n::tr("LightCraft Default").to_string(),
+                        None => crate::i18n::tr("EvoLight Default").to_string(),
                         Some(pid) => app
                             .session
                             .presets
@@ -49,7 +49,7 @@ pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens)
                         if ui.selectable_label(current == Some(RAW_DEFAULT), crate::i18n::tr("Same as raw default")).clicked() {
                             pick = Some(json!({"camera": cam, "remove": true}));
                         }
-                        if ui.selectable_label(current.is_none(), crate::i18n::tr("LightCraft Default")).clicked() {
+                        if ui.selectable_label(current.is_none(), crate::i18n::tr("EvoLight Default")).clicked() {
                             pick = Some(json!({"camera": cam, "preset": null}));
                         }
                         if let Some(pid) = crate::panels::presets::picker_rows(ui, &id, &app.session.presets, current) {
@@ -123,7 +123,7 @@ pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens)
         let _ = app.run("library.xmpPreferences", json!({"autoWrite": xmp.auto_write}));
     }
     row(ui, t, crate::i18n::tr("Sidecar names"), |ui| {
-        use lightcraft_engine::sidecar::SidecarNaming as N;
+        use evolight_engine::sidecar::SidecarNaming as N;
         let mut n = xmp.naming;
         if choices(ui, "settingsXmpNaming", &[(N::Stem, "IMG_1.xmp"), (N::Full, "IMG_1.CR3.xmp")], &mut n) {
             let naming = if n == N::Full { "full" } else { "stem" };
@@ -197,6 +197,6 @@ pub(super) fn import_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens)
         }
     }
     if app.session.library.is_none() {
-        hint(ui, t, crate::i18n::tr("In-memory session: these settings last until LightCraft quits."));
+        hint(ui, t, crate::i18n::tr("In-memory session: these settings last until EvoLight quits."));
     }
 }

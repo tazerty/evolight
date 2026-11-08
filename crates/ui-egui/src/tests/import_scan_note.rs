@@ -13,7 +13,7 @@ use serde_json::json;
 use crate::dialogs::import::{ImportDialog, scan_note};
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -41,14 +41,14 @@ impl Drop for Scratch {
 fn write_png(path: &Path, seed: u8) {
     let (w, h) = (24usize, 16usize);
     let data: Vec<[u8; 4]> = (0..w * h).map(|i| [(i % w * 9) as u8, (i / w * 13) as u8, seed, 255]).collect();
-    let img = lightcraft_raster::Rgba8 { width: w, height: h, data };
-    let bytes = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+    let img = evolight_raster::Rgba8 { width: w, height: h, data };
+    let bytes = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, bytes).unwrap();
 }
 
 fn headless() -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
     Headless::new(app, [1300.0, 900.0], 1.0)
 }
 
@@ -153,7 +153,7 @@ fn the_review_says_when_the_scan_stopped_at_its_limit() {
     let dir = Scratch::new("deep");
     write_png(&dir.0.join("top.png"), 1);
     let mut deepest = dir.0.clone();
-    for _ in 0..lightcraft_engine::walk::MAX_DEPTH {
+    for _ in 0..evolight_engine::walk::MAX_DEPTH {
         deepest = deepest.join("d");
     }
     std::fs::create_dir_all(&deepest).unwrap();

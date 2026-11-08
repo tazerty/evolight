@@ -110,11 +110,11 @@ pub(crate) fn installed_models(dir: &Path) -> Vec<Installed> {
         let p = e.path();
         let Some(name) = p.file_name().and_then(|n| n.to_str()).map(str::to_string) else { continue };
         let onnx = p.join("model.onnx");
-        if name == lightcraft_denoise::builtin::ID || !lightcraft_denoise::licence::valid_id(&name) || !p.is_dir() || !onnx.is_file() {
+        if name == evolight_denoise::builtin::ID || !evolight_denoise::licence::valid_id(&name) || !p.is_dir() || !onnx.is_file() {
             continue;
         }
-        let Some(m) = read_capped(&p.join("denoise-model.json"), lightcraft_denoise::manifest::MAX_MANIFEST_BYTES)
-            .and_then(|b| lightcraft_denoise::manifest::parse(&b).ok())
+        let Some(m) = read_capped(&p.join("denoise-model.json"), evolight_denoise::manifest::MAX_MANIFEST_BYTES)
+            .and_then(|b| evolight_denoise::manifest::parse(&b).ok())
         else {
             continue;
         };
@@ -128,12 +128,12 @@ pub(crate) fn installed_models(dir: &Path) -> Vec<Installed> {
     out
 }
 
-/// Forget that setting the graphics card up for a model closed LightCraft before (the markers [`set_up_card`] leaves):
+/// Forget that setting the graphics card up for a model closed EvoLight before (the markers [`set_up_card`] leaves):
 /// the user chose where denoise runs, so the card may be tried again.
 pub(crate) fn forget_gpu_set_ups(dir: &Path) {
     for i in installed_models(dir) {
         let _ = std::fs::remove_file(i.onnx.with_file_name(GPU_SETUP_MARKER));
     }
     #[cfg(feature = "denoise")]
-    forget_builtin_card(&builtin_marker(&dir.join(lightcraft_denoise::builtin::ID)));
+    forget_builtin_card(&builtin_marker(&dir.join(evolight_denoise::builtin::ID)));
 }

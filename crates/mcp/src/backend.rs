@@ -25,7 +25,7 @@ pub trait Backend {
 /// `(completed photos, total photos, next filename)`; false stops before the next photo.
 pub type ProgressHook = Box<dyn FnMut(usize, usize, &str) -> bool + Send>;
 
-/// A running LightCraft app, reached through its loopback control port.
+/// A running EvoLight app, reached through its loopback control port.
 pub struct Remote {
     addr: String,
     conn: Option<(BufReader<TcpStream>, TcpStream)>,
@@ -92,7 +92,7 @@ impl Remote {
 
     fn unknown_outcome(&self, method: &str, e: &std::io::Error) -> String {
         let addr = &self.addr;
-        format!("lost the LightCraft app at {addr} after sending `{method}` ({e}); the outcome is unknown and it was not resent, check the app")
+        format!("lost the EvoLight app at {addr} after sending `{method}` ({e}); the outcome is unknown and it was not resent, check the app")
     }
 }
 
@@ -136,7 +136,7 @@ fn peer_closed(stream: &TcpStream) -> bool {
     stream.set_nonblocking(false).is_err() || !open
 }
 
-/// The app's idle-close notice (`apps/lightcraft/src/control_server.rs`), matched when a reply lacks
+/// The app's idle-close notice (`apps/evolight/src/control_server.rs`), matched when a reply lacks
 /// the `closed` marker (an app from before it). Keep the two in step.
 const IDLE_CLOSE_ERROR: &str = "control connection idle read timed out; closing the connection";
 
@@ -169,7 +169,7 @@ impl Backend for Remote {
                         return Err(self.unknown_outcome(method, &e));
                     }
                     if resent {
-                        return Err(format!("LightCraft app at {} is not reachable: {e} (start it with `lightcraft --control PORT`)", self.addr));
+                        return Err(format!("EvoLight app at {} is not reachable: {e} (start it with `evolight --control PORT`)", self.addr));
                     }
                     resent = true;
                     continue;
@@ -428,7 +428,7 @@ mod tests {
         serde_json::from_str(&line).unwrap()
     }
 
-    /// The app's idle-close notice, as `apps/lightcraft/src/control_server.rs` writes it.
+    /// The app's idle-close notice, as `apps/evolight/src/control_server.rs` writes it.
     fn idle_notice() -> Value {
         json!({"ok": false, "error": IDLE_CLOSE_ERROR, "closed": "idle"})
     }

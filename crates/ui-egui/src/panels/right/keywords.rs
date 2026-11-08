@@ -1,6 +1,6 @@
-use super::{HOLD, LightcraftApp, PhotoId, Rect, Tokens, fold_header, json, padded, register, text_button, vec2};
+use super::{HOLD, EvoLightApp, PhotoId, Rect, Tokens, fold_header, json, padded, register, text_button, vec2};
 
-pub(super) fn keywords(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn keywords(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     // (the box is the selection's: the active photo only says that there is one)
     if app.session.catalog.photo(id).is_none() {
         return;
@@ -15,7 +15,7 @@ pub(super) fn keywords(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) 
 
 /// The Keywording box: the field that adds keywords, the selection's keywords, the keyword set,
 /// the painter and the suggestions.
-fn keywording(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn keywording(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     padded(ui, |ui| {
         let kid = egui::Id::unique("kw-input");
@@ -106,7 +106,7 @@ fn keywording(app: &mut LightcraftApp, ui: &mut egui::Ui) {
         // this edit (the shared field does)
         let returned = r.ending == Some(crate::text_field::Ending::Return) && !text.trim().is_empty();
         // a new name goes inside the default parent (Put New Keywords Inside This Keyword)
-        let as_typed = |app: &LightcraftApp, text: &str| -> Vec<String> {
+        let as_typed = |app: &EvoLightApp, text: &str| -> Vec<String> {
             text.split(',').map(|s| app.session.catalog.typed_keyword(s)).filter(|s| !s.is_empty()).collect()
         };
         let adding: Option<Vec<String>> = match picked {
@@ -229,22 +229,22 @@ fn hold_list_in_place(ui: &mut egui::Ui, top: f32) {
 
 /// The keyword set: pick a set, then nine buttons (⌥1–⌥9) that toggle its keywords on the
 /// selected photos; "Save as Set…" keeps the current nine under a name.
-fn keyword_set(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn keyword_set(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     // on: every selected photo has it (⌥1–⌥9 then take it off them); partly on: only some do
     let selection = app.session.selected();
     let chips = app.caches.keyword_chips(&app.session.catalog, &selection);
     let t = Tokens::get(ui.ctx());
-    let sets = lightcraft_engine::cmd::keywords::keyword_sets_json(&app.session);
+    let sets = evolight_engine::cmd::keywords::keyword_sets_json(&app.session);
     let current = sets["current"].as_str().unwrap_or_default().to_string();
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(crate::i18n::tr("Keyword Set")).color(t.text_dim));
         let combo = crate::widgets::combo_box("kw-set")
-            .selected_text(crate::i18n::builtin_label(&current, current == lightcraft_engine::cmd::keywords::RECENT))
+            .selected_text(crate::i18n::builtin_label(&current, current == evolight_engine::cmd::keywords::RECENT))
             .show_ui(ui, |ui| {
                 for set in sets["sets"].as_array().into_iter().flatten() {
                     let name = set["name"].as_str().unwrap_or_default();
                     if ui
-                        .selectable_label(name == current, crate::i18n::builtin_label(name, name == lightcraft_engine::cmd::keywords::RECENT))
+                        .selectable_label(name == current, crate::i18n::builtin_label(name, name == evolight_engine::cmd::keywords::RECENT))
                         .clicked()
                     {
                         let _ = app.run("keyword.useSet", json!({"name": name}));
@@ -258,7 +258,7 @@ fn keyword_set(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                     let mut slots: Vec<String> =
                         sets["keywords"].as_array().into_iter().flatten().filter_map(|k| k.as_str().map(str::to_string)).collect();
                     slots.resize(9, String::new());
-                    let named = current != lightcraft_engine::cmd::keywords::RECENT;
+                    let named = current != evolight_engine::cmd::keywords::RECENT;
                     app.ui.dialog = Some(crate::state::Dialog::KeywordSet {
                         replaces: named.then(|| current.clone()),
                         name: if named { current.clone() } else { String::new() },
@@ -276,7 +276,7 @@ fn keyword_set(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                         key: "name".into(),
                     });
                 }
-                if current != lightcraft_engine::cmd::keywords::RECENT
+                if current != evolight_engine::cmd::keywords::RECENT
                     && ui.button(crate::i18n::tr_format!("Delete “{current}”", current = current)).clicked()
                 {
                     let _ = app.run("keyword.deleteSet", json!({"name": current}));
@@ -302,7 +302,7 @@ fn keyword_set(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                 }
                 continue;
             }
-            let chip = chips.iter().find(|c| lightcraft_catalog::keywords::same(&c.path, &lightcraft_catalog::keywords::clean(k)));
+            let chip = chips.iter().find(|c| evolight_catalog::keywords::same(&c.path, &evolight_catalog::keywords::clean(k)));
             let on = chip.is_some_and(|c| c.on_all());
             let some = chip.is_some() && !on;
             let short = format!("{}{}", k.rsplit('|').next().unwrap_or(k), if some { " *" } else { "" });

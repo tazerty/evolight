@@ -97,7 +97,7 @@ pub(super) fn highlights_hold(tone: &CameraTone, check: &HighlightCheck, colour:
         }
     }
     let hold = look.is_finite() && look <= fallback;
-    if !hold && lightcraft_pipeline::profiling() {
+    if !hold && evolight_pipeline::profiling() {
         eprintln!("[profile] camera look: narrow tone curve renders the bright areas worse than the fallback ({look:.3} > {fallback:.3})");
     }
     hold
@@ -223,7 +223,7 @@ pub(super) fn limit_elasticity(mut knots: [[f32; 2]; 32], pairs: &[(f64, f64)]) 
             (false, Some(free)) => free,
             (false, None) => return None,
         };
-        if lightcraft_pipeline::profiling() {
+        if evolight_pipeline::profiling() {
             let moved: Vec<usize> = (0..32).filter(|&k| next[k][1] != knots[k][1]).collect();
             eprintln!("[profile] camera tone: elasticity {:.1} at scene {:.4}, knots {moved:?} moved", slope(&knots, i, i + 1), knots[i][0]);
         }

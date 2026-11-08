@@ -2,7 +2,7 @@
 //! the CPU ([`crate::softpaint`]) — no window, no GPU, no compositor.
 //!
 //! Two users:
-//! - [`Headless`]: a complete windowless app session (`lightcraft-cli snapshot`, tests). It plays
+//! - [`Headless`]: a complete windowless app session (`evolight-cli snapshot`, tests). It plays
 //!   the role eframe plays for the desktop app: builds [`egui::RawInput`], runs `logic` + `ui`,
 //!   keeps a CPU mirror of the textures, executes viewport commands (`Screenshot` is answered with
 //!   a CPU-rendered frame, `InnerSize` resizes, `Close` quits). Control-protocol requests go
@@ -20,7 +20,7 @@ use egui::{Color32, ColorImage, RawInput, TextureId, ViewportCommand, ViewportId
 use serde_json::{Value, json};
 
 use crate::softpaint::{self, CpuTexture, Layered, TextureStore};
-use crate::{ControlRequest, LightcraftApp};
+use crate::{ControlRequest, EvoLightApp};
 
 /// Background behind the panels (eframe's default clear colour, made opaque).
 const CLEAR: Color32 = Color32::from_rgb(12, 12, 12);
@@ -243,7 +243,7 @@ impl HeadlessView {
 /// A windowless app session: the app's `logic` + `ui` driven frame by frame into a
 /// [`HeadlessView`], with control-protocol requests answered by the shared handler.
 pub struct Headless {
-    pub app: LightcraftApp,
+    pub app: EvoLightApp,
     pub view: HeadlessView,
     /// The largest texture the pretend GPU takes (what a WebGL device may report: 2048).
     pub max_texture_side: usize,
@@ -268,10 +268,10 @@ pub struct Headless {
     /// Test-only hook run after `raw_input_hook` and before `logic`/`ui`, as eframe does: it can
     /// create a prompt after the host input was already filtered for the previous frame.
     #[cfg(test)]
-    after_raw_input_hook: Option<Box<dyn FnMut(&mut LightcraftApp)>>,
+    after_raw_input_hook: Option<Box<dyn FnMut(&mut EvoLightApp)>>,
 }
 
-/// A headless run (`lightcraft-cli snapshot`, tests) is a one-shot process: however it ends, it
+/// A headless run (`evolight-cli snapshot`, tests) is a one-shot process: however it ends, it
 /// first waits for an Apple Photos import its script left running (`export.addToPhotos {wait:
 /// false}`), bounded, so it never abandons osascript or the import's result.
 impl Drop for Headless {
@@ -285,7 +285,7 @@ impl Headless {
     /// Wrap `app` (its control channel is replaced by the driver's).
     /// Invalid dimensions fall back to 1600×1000 at scale 1; external callers can use
     /// [`viewport_pixels`] to reject them before constructing the session.
-    pub fn new(app: LightcraftApp, size: [f32; 2], pixels_per_point: f32) -> Self {
+    pub fn new(app: EvoLightApp, size: [f32; 2], pixels_per_point: f32) -> Self {
         let (size, pixels_per_point) = if viewport_pixels(size, pixels_per_point).is_ok() {
             (egui::Vec2::from(size), pixels_per_point)
         } else {
@@ -314,11 +314,11 @@ impl Headless {
         }
     }
 
-    /// Run `hook` once, between the next frame's [`LightcraftApp::raw_input_hook`] and its
+    /// Run `hook` once, between the next frame's [`EvoLightApp::raw_input_hook`] and its
     /// `logic`/`ui` call. This is the production order in eframe: a prompt can be created there
     /// after the host input was already accepted for the frame.
     #[cfg(test)]
-    pub(crate) fn set_after_raw_input_hook(&mut self, hook: impl FnMut(&mut LightcraftApp) + 'static) {
+    pub(crate) fn set_after_raw_input_hook(&mut self, hook: impl FnMut(&mut EvoLightApp) + 'static) {
         self.after_raw_input_hook = Some(Box::new(hook));
     }
 
@@ -460,7 +460,7 @@ impl Headless {
     #[cfg(test)]
     pub(crate) fn hide_home_above(&mut self, path: &std::path::Path) {
         let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
-        if !home.is_empty() && lightcraft_catalog::query::folder_within(&path.to_string_lossy(), &home) {
+        if !home.is_empty() && evolight_catalog::query::folder_within(&path.to_string_lossy(), &home) {
             let r = self.request("engine.execute", json!({"command": "local.hide", "params": {"path": home}}), Duration::from_secs(10));
             assert_eq!(r["ok"], true, "{r}");
         }
@@ -511,7 +511,7 @@ impl Headless {
 pub(crate) struct RenderGate {
     open: std::rc::Rc<std::cell::Cell<bool>>,
     fails: fn(crate::render::Slot) -> bool,
-    jobs: Vec<(crate::render::Slot, lightcraft_engine::media::RenderJob)>,
+    jobs: Vec<(crate::render::Slot, evolight_engine::media::RenderJob)>,
 }
 
 #[cfg(test)]
@@ -526,14 +526,14 @@ impl RenderGate {
 
 #[cfg(test)]
 impl crate::render::RenderOffload for RenderGate {
-    fn try_start(&mut self, slot: crate::render::Slot, job: lightcraft_engine::media::RenderJob) -> Option<lightcraft_engine::media::RenderJob> {
+    fn try_start(&mut self, slot: crate::render::Slot, job: evolight_engine::media::RenderJob) -> Option<evolight_engine::media::RenderJob> {
         if !self.open.get() {
             return Some(job);
         }
         self.jobs.push((slot, job));
         None
     }
-    fn finished(&mut self) -> Vec<(crate::render::Slot, lightcraft_engine::media::RenderResult, f64)> {
+    fn finished(&mut self) -> Vec<(crate::render::Slot, evolight_engine::media::RenderResult, f64)> {
         let fails = self.fails;
         self.jobs
             .drain(..)

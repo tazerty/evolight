@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use lightcraft_develop::{BrushStroke, DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
-use lightcraft_geom::{CropGeometry, Point, Rect};
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_develop::{BrushStroke, DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape, SegMask};
+use evolight_geom::{CropGeometry, Point, Rect};
+use evolight_raster::{Rgb32f, Rgba8};
 
 use crate::{RenderRequest, SourceInfo, StageCache, render, render_cached};
 
@@ -118,7 +118,7 @@ pub(crate) fn geometries() -> Vec<(&'static str, Box<dyn Fn(&mut DevelopSettings
             // Rotate Right: the photo and its masks turn together (`photo.rotateRight`)
             "quarter turn",
             Box::new(|s: &mut DevelopSettings| {
-                let turn = lightcraft_geom::Orientation::Normal.rotated(true);
+                let turn = evolight_geom::Orientation::Normal.rotated(true);
                 s.orientation = s.orientation.rotated(true);
                 for m in &mut s.masks {
                     crate::mask_space::turn(m, turn);

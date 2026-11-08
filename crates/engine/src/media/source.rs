@@ -152,7 +152,7 @@ pub struct DecodedSource {
     pub info: Option<SourceInfo>,
     /// A smart preview's stored camera tone curve: the one decoder fact its pixels need that the
     /// catalog's header facts lack (used when `info` is `None`).
-    pub camera_tone: Option<lightcraft_pipeline::tone::CameraTone>,
+    pub camera_tone: Option<evolight_pipeline::tone::CameraTone>,
     /// The same picture developed from the AI-denoised mosaic, when the photo has one cached.
     pub denoised: Option<Arc<Twin>>,
     /// The imported camera profile (`dcp:…` id) the raw file was developed with, if any: a cached source made with
@@ -199,7 +199,7 @@ impl DecodedSource {
             return img.clone();
         }
         let mut mixed = (*self.image).clone();
-        if !lightcraft_denoise::product::blend(&mut mixed, &twin.image, thousandths as f32 / 1000.0) {
+        if !evolight_denoise::product::blend(&mut mixed, &twin.image, thousandths as f32 / 1000.0) {
             return self.image.clone();
         }
         let mixed = Arc::new(mixed);
@@ -231,18 +231,18 @@ impl DecodedSource {
 }
 
 /// The lens profile a render uses: the file's own correction as decoded (`decoded`, it is part of the file), else the
-/// catalog's database profile (`catalog`, [`lightcraft_catalog::Photo::embedded_lens`]). A file correction the
+/// catalog's database profile (`catalog`, [`evolight_catalog::Photo::embedded_lens`]). A file correction the
 /// catalog still holds but the decode no longer finds (the original was replaced) is not restored. A database profile
 /// is never taken from the decode, so a cached render, a fresh decode and the Optics panel all use the one profile the photo holds, and a
 /// change to it (a database update looked up again, `cmd::lens_refresh`) changes the render keys
 /// ([`super::quick::lens_key`]).
 pub(crate) fn pinned_lens(
-    decoded: Option<lightcraft_develop::EmbeddedLens>,
-    catalog: Option<lightcraft_develop::EmbeddedLens>,
-) -> Option<lightcraft_develop::EmbeddedLens> {
+    decoded: Option<evolight_develop::EmbeddedLens>,
+    catalog: Option<evolight_develop::EmbeddedLens>,
+) -> Option<evolight_develop::EmbeddedLens> {
     match decoded {
-        Some(l) if l.source == lightcraft_develop::LensSource::File => Some(l),
-        _ => catalog.filter(|c| c.source == lightcraft_develop::LensSource::Database),
+        Some(l) if l.source == evolight_develop::LensSource::File => Some(l),
+        _ => catalog.filter(|c| c.source == evolight_develop::LensSource::Database),
     }
 }
 
@@ -257,7 +257,7 @@ pub enum SourceRef {
         max_edge: usize,
     },
     Demo {
-        scene: Box<lightcraft_scenes::Scene>,
+        scene: Box<evolight_scenes::Scene>,
         max_edge: usize,
     },
     File {
@@ -296,7 +296,7 @@ impl SourceRef {
                 }
                 // Lanczos, not a box average: a box at 2-3:1 halves the contrast of detail near
                 // the output's resolution limit and aliases what is finer
-                let image = lightcraft_raster::resample::fit(&from.image, *max_edge, *max_edge, lightcraft_raster::resample::Filter::Lanczos3);
+                let image = evolight_raster::resample::fit(&from.image, *max_edge, *max_edge, evolight_raster::resample::Filter::Lanczos3);
                 return Ok(DecodedSource { image: Arc::new(image), denoised: None, ..(**from).clone() });
             }
             SourceRef::Demo { scene, max_edge } => crate::demo::scene_pixels(scene, *max_edge)?,
@@ -367,7 +367,7 @@ impl SourceRef {
     }
 }
 
-/// What an import learns from a file header (set by the app from `lightcraft-codecs`/`-raw`).
+/// What an import learns from a file header (set by the app from `evolight-codecs`/`-raw`).
 #[derive(Clone, Debug, Default)]
 pub struct ProbeInfo {
     pub width: u32,
@@ -380,21 +380,21 @@ pub struct ProbeInfo {
     /// capture date of a file whose metadata has none, as Lightroom does (exports saved without
     /// metadata would otherwise all land under "Unknown Date").
     pub file_modified: Option<String>,
-    pub meta: lightcraft_catalog::Meta,
+    pub meta: evolight_catalog::Meta,
     pub as_shot_wb: Option<(f64, f64)>,
     /// Hash of the file's bytes (hex), for duplicate detection. When it is a 32-digit
-    /// [`lightcraft_preview::hash_bytes`] of the whole file (as the native probe computes it),
+    /// [`evolight_preview::hash_bytes`] of the whole file (as the native probe computes it),
     /// Import → Copy verifies each copy against it instead of reading the source again.
     pub content_hash: Option<String>,
     /// Lens corrections embedded in the file (DNG opcodes).
-    pub embedded_lens: Option<lightcraft_develop::EmbeddedLens>,
+    pub embedded_lens: Option<evolight_develop::EmbeddedLens>,
     /// The file's embedded XMP packet (raw/DNG files), for develop settings stored inside the file.
     pub xmp: Option<String>,
     /// The file's Exif orientation, when it states one: how its stored pixels turn upright (`width` and `height` are
     /// the upright size).
-    pub orientation: Option<lightcraft_geom::Orientation>,
+    pub orientation: Option<evolight_geom::Orientation>,
     /// A raw variant that can't be decoded yet: why. The file is described (and will be shown and
-    /// edited) from its embedded preview; see [`lightcraft_catalog::Photo::preview_only`].
+    /// edited) from its embedded preview; see [`evolight_catalog::Photo::preview_only`].
     pub preview_only: Option<String>,
 }
 

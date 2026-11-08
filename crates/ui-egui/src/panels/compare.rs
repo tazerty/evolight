@@ -3,10 +3,10 @@
 //! photo only here, and with Auto Advance on they move to the next candidate / photo.
 
 use egui::{Align2, Color32, Rect, Sense, Stroke, pos2, vec2};
-use lightcraft_catalog::{Flag, PhotoId};
+use evolight_catalog::{Flag, PhotoId};
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::icons::{Icon, paint};
 use crate::render::Slot;
 use crate::state::{ViewMode, Zoom};
@@ -17,18 +17,18 @@ use crate::widgets::register;
 pub const SURVEY_MAX: usize = 48;
 
 /// Compare or Survey.
-pub fn culling(app: &LightcraftApp) -> bool {
+pub fn culling(app: &EvoLightApp) -> bool {
     matches!(app.ui.view, ViewMode::Compare | ViewMode::Survey)
 }
 
 /// The (select, candidate) pair, repaired or chosen if needed: the active photo against the next
 /// selected photo, else against its neighbour in the view.
 /// A photo that can be shown or pinned: in the catalog and not in Recently Deleted.
-pub fn live(app: &LightcraftApp, id: PhotoId) -> bool {
+pub fn live(app: &EvoLightApp, id: PhotoId) -> bool {
     app.session.catalog.photo(id).is_some_and(|p| !p.deleted)
 }
 
-pub fn compare_pair(app: &mut LightcraftApp) -> Option<(PhotoId, PhotoId)> {
+pub fn compare_pair(app: &mut EvoLightApp) -> Option<(PhotoId, PhotoId)> {
     if let Some((a, b)) = app.ui.compare {
         let (a, b) = (PhotoId(a), PhotoId(b));
         if a != b && live(app, a) && live(app, b) {
@@ -46,7 +46,7 @@ pub fn compare_pair(app: &mut LightcraftApp) -> Option<(PhotoId, PhotoId)> {
 }
 
 /// Enter Compare with the current selection (the active photo becomes the select).
-pub fn enter_compare(app: &mut LightcraftApp) -> Result<Value, String> {
+pub fn enter_compare(app: &mut EvoLightApp) -> Result<Value, String> {
     app.ui.compare = None;
     let (a, b) = compare_pair(app).ok_or("Compare needs at least two photos")?;
     app.ui.view = ViewMode::Compare;
@@ -55,13 +55,13 @@ pub fn enter_compare(app: &mut LightcraftApp) -> Result<Value, String> {
     Ok(json!({"select": a.0, "candidate": b.0}))
 }
 
-fn select_pair(app: &mut LightcraftApp, a: PhotoId, b: PhotoId, active: PhotoId) {
+fn select_pair(app: &mut EvoLightApp, a: PhotoId, b: PhotoId, active: PhotoId) {
     app.ui.compare = Some((a.0, b.0));
     let _ = app.session.execute("library.select", &json!({"ids": [a.0, b.0], "active": active.0}));
 }
 
 /// Move the candidate `d` photos through the view (skipping the select); it becomes active.
-pub fn compare_step(app: &mut LightcraftApp, d: isize) -> Result<Value, String> {
+pub fn compare_step(app: &mut EvoLightApp, d: isize) -> Result<Value, String> {
     let (sel, cand) = compare_pair(app).ok_or("nothing to compare")?;
     let vis: Vec<PhotoId> = app.session.visible_cloned().into_iter().filter(|x| *x != sel).collect();
     let Some(i) = vis.iter().position(|x| *x == cand).or(if vis.is_empty() { None } else { Some(0) }) else { return Ok(Value::Null) };
@@ -70,7 +70,7 @@ pub fn compare_step(app: &mut LightcraftApp, d: isize) -> Result<Value, String> 
     Ok(json!({"candidate": vis[j].0}))
 }
 
-pub fn swap(app: &mut LightcraftApp) -> Result<Value, String> {
+pub fn swap(app: &mut EvoLightApp) -> Result<Value, String> {
     let (a, b) = compare_pair(app).ok_or("nothing to compare")?;
     let active = app.session.active().unwrap_or(b);
     select_pair(app, b, a, active);
@@ -80,7 +80,7 @@ pub fn swap(app: &mut LightcraftApp) -> Result<Value, String> {
 /// Show photo `id` on one side of the pair: `side` "select" or "candidate", else the side that is
 /// active (the one the Edit panel and the rating keys act on). A photo already on the other side
 /// swaps the two. The photo becomes the active one, so what is edited is always on screen.
-pub fn set_photo(app: &mut LightcraftApp, id: PhotoId, side: Option<&str>) -> Result<Value, String> {
+pub fn set_photo(app: &mut EvoLightApp, id: PhotoId, side: Option<&str>) -> Result<Value, String> {
     if app.session.catalog.photo(id).is_none_or(|p| p.deleted) {
         return Err(format!("no photo {}", id.0));
     }
@@ -105,7 +105,7 @@ pub fn set_photo(app: &mut LightcraftApp, id: PhotoId, side: Option<&str>) -> Re
 /// from the active photo) on the filmstrip in Compare: the selection changes as it does in the
 /// grid, but the two photos shown stay selected and the active one stays active, so the photo the
 /// rating keys act on is still on screen (#744). A plain click is [`set_photo`].
-pub fn select_with_modifier(app: &mut LightcraftApp, id: PhotoId, range: bool) -> Result<Value, String> {
+pub fn select_with_modifier(app: &mut EvoLightApp, id: PhotoId, range: bool) -> Result<Value, String> {
     if app.session.catalog.photo(id).is_none_or(|p| p.deleted) {
         return Err(format!("no photo {}", id.0));
     }
@@ -127,7 +127,7 @@ pub fn select_with_modifier(app: &mut LightcraftApp, id: PhotoId, range: bool) -
 }
 
 /// The candidate becomes the select; the next photo becomes the candidate.
-pub fn make_select(app: &mut LightcraftApp) -> Result<Value, String> {
+pub fn make_select(app: &mut EvoLightApp) -> Result<Value, String> {
     let (_, b) = compare_pair(app).ok_or("nothing to compare")?;
     let vis = app.session.visible_cloned();
     let i = vis.iter().position(|x| *x == b).unwrap_or(0);
@@ -137,7 +137,7 @@ pub fn make_select(app: &mut LightcraftApp) -> Result<Value, String> {
 }
 
 /// The photos a survey shows: the selection (in view order), or the active photo alone.
-pub fn survey_photos(app: &mut LightcraftApp) -> Vec<PhotoId> {
+pub fn survey_photos(app: &mut EvoLightApp) -> Vec<PhotoId> {
     let vis = app.session.visible_cloned();
     let sel = &app.session.selection;
     let mut v: Vec<PhotoId> = vis.iter().copied().filter(|x| sel.contains(*x)).collect();
@@ -152,7 +152,7 @@ pub fn survey_photos(app: &mut LightcraftApp) -> Vec<PhotoId> {
 }
 
 /// Move the active photo `d` steps within the survey.
-pub fn survey_step(app: &mut LightcraftApp, d: isize) -> Result<Value, String> {
+pub fn survey_step(app: &mut EvoLightApp, d: isize) -> Result<Value, String> {
     let v = survey_photos(app);
     if v.is_empty() {
         return Ok(Value::Null);
@@ -166,7 +166,7 @@ pub fn survey_step(app: &mut LightcraftApp, d: isize) -> Result<Value, String> {
 /// After rating/flagging with Auto Advance: next candidate (Compare), next photo in the survey,
 /// else the next photo in the view. `was` is the active photo before the rating: a rating that took
 /// it out of the view made the photo after it active already, and that is the next one (#2312).
-pub fn advance(app: &mut LightcraftApp, was: Option<PhotoId>) {
+pub fn advance(app: &mut EvoLightApp, was: Option<PhotoId>) {
     let _ = match app.ui.view {
         ViewMode::Compare => compare_step(app, 1),
         ViewMode::Survey => survey_step(app, 1),
@@ -176,7 +176,7 @@ pub fn advance(app: &mut LightcraftApp, was: Option<PhotoId>) {
 }
 
 /// In the culling views, point a photo command at the active photo only (not the whole selection).
-pub fn target_active(app: &LightcraftApp, params: &mut Value) {
+pub fn target_active(app: &EvoLightApp, params: &mut Value) {
     if culling(app)
         && params.get("ids").is_none()
         && let Some(a) = app.session.active()
@@ -185,7 +185,7 @@ pub fn target_active(app: &LightcraftApp, params: &mut Value) {
     }
 }
 
-fn area_and_filmstrip(app: &mut LightcraftApp, ui: &mut egui::Ui) -> Rect {
+fn area_and_filmstrip(app: &mut EvoLightApp, ui: &mut egui::Ui) -> Rect {
     let t = Tokens::get(ui.ctx());
     let full = ui.max_rect();
     let film_h = if app.ui.filmstrip { t.film_h } else { 0.0 };
@@ -198,7 +198,7 @@ fn area_and_filmstrip(app: &mut LightcraftApp, ui: &mut egui::Ui) -> Rect {
 }
 
 /// Ask for the render of a tile (about `want` pixels on its long edge) and for the thumbnail shown meanwhile.
-fn request_tile_renders(app: &mut LightcraftApp, id: PhotoId, slot: Slot, want: usize, aspect: f32) {
+fn request_tile_renders(app: &mut EvoLightApp, id: PhotoId, slot: Slot, want: usize, aspect: f32) {
     let (rw, rh) = if aspect >= 1.0 { (want, (want as f32 / aspect) as usize) } else { ((want as f32 * aspect) as usize, want) };
     if let Some(job) = app.session.render_job(id, rw.max(8), rh.max(8), false, true) {
         app.renderer.request(slot, job, 60);
@@ -211,7 +211,7 @@ fn request_tile_renders(app: &mut LightcraftApp, id: PhotoId, slot: Slot, want: 
 /// Draw one photo fitted into `area` (rendered at its display size into `slot`), with its caption
 /// strip below. Returns the image rect and the click/drag response.
 fn photo_tile(
-    app: &mut LightcraftApp,
+    app: &mut EvoLightApp,
     ui: &mut egui::Ui,
     id: PhotoId,
     slot: Slot,
@@ -226,7 +226,7 @@ fn photo_tile(
     let Some(photo) = app.session.catalog.photo(id).cloned() else { return (area, area, resp) };
     let caption_h = 26.0;
     let img_area = Rect::from_min_max(area.min, pos2(area.right(), area.bottom() - caption_h));
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(
+    let frame = evolight_pipeline::geometry::Frame::with_lens(
         photo.width.max(1) as usize,
         photo.height.max(1) as usize,
         &photo.develop,
@@ -304,7 +304,7 @@ fn photo_tile(
     }
     let active = app.session.selection.active == Some(id);
     if active {
-        super::grid::selection_ring(&p, &t, display.intersect(img_area.shrink(3.0)), lightcraft_engine::SelectionState::Active);
+        super::grid::selection_ring(&p, &t, display.intersect(img_area.shrink(3.0)), evolight_engine::SelectionState::Active);
     }
     // Compare and Reference are where sharpness is judged: as in the loupe, say when what is on
     // screen isn't the render on its way (a thumbnail, the last render after an edit, a magnified
@@ -414,7 +414,7 @@ struct TileView {
 /// While a pinch or scroll runs, and while the photo is being edited (a slider drag in Reference
 /// view), the window there is stays: a new one per frame would render the photo's own pixels each
 /// time. It is drawn magnified or with the old value until the gesture is quiet.
-fn request_window(app: &mut LightcraftApp, v: &TileView) -> Option<crate::region::RegionView> {
+fn request_window(app: &mut EvoLightApp, v: &TileView) -> Option<crate::region::RegionView> {
     let drawn_long = v.img.width().max(v.img.height()) * v.ppp;
     let frame_edge = app.ui.settings.window_frame_edge(drawn_long, v.native_long);
     if frame_edge as f32 <= v.whole_edge as f32 * crate::region::WINDOW_RATIO {
@@ -454,7 +454,7 @@ fn request_window(app: &mut LightcraftApp, v: &TileView) -> Option<crate::region
 /// Draw pane `pane`'s window texture over its whole-frame render (`display`), if it shows this
 /// photo with its current look (any look of it while it is being edited). A window made at another
 /// zoom is drawn at its place in the frame, magnified or shrunk, until the new one arrives.
-fn draw_window(p: &egui::Painter, app: &LightcraftApp, pane: u8, id: PhotoId, look: u64, display: Rect) {
+fn draw_window(p: &egui::Painter, app: &EvoLightApp, pane: u8, id: PhotoId, look: u64, display: Rect) {
     let Some(tex) = app.renderer.textures.get(&Slot::CompareRegion(pane)).filter(|t| t.photo == id) else { return };
     let editing = app.session.interaction.is_some() && app.session.active() == Some(id);
     let Some(tile) = app.compare_tiles.get(&(pane, tex.key)).filter(|t| t.photo == id && (editing || t.settings == look)) else {
@@ -470,7 +470,7 @@ fn draw_window(p: &egui::Painter, app: &LightcraftApp, pane: u8, id: PhotoId, lo
 /// decoded (their windows are cut from both); other views keep one and free the panes' windows.
 /// The Detail view's photo keeps its original even over the memory budget (a zoomed 64 MP raw);
 /// other views free the Detail view's windows (while one is shown the GPU copy of its original stays).
-pub fn prepare(app: &mut LightcraftApp) {
+pub fn prepare(app: &mut EvoLightApp) {
     let shown = if app.ui.view == ViewMode::Detail { app.session.active() } else { None };
     app.session.media.set_on_screen(shown);
     if app.ui.view != ViewMode::Detail {
@@ -507,7 +507,7 @@ fn slot_index(s: Slot) -> u8 {
     }
 }
 
-pub fn show_compare(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show_compare(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let canvas = area_and_filmstrip(app, ui);
     let Some((sel, cand)) = compare_pair(app) else {
         super::empty_message(ui, canvas, "Nothing to compare", "Select two photos, then choose View → Compare (Shift+C)");
@@ -561,7 +561,7 @@ pub fn survey_columns(n: usize, area: Rect) -> usize {
     best.0
 }
 
-pub fn show_survey(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show_survey(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let canvas = area_and_filmstrip(app, ui);
     let photos = survey_photos(app);
@@ -620,7 +620,7 @@ pub fn show_survey(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 
 /// Reference view: the reference photo (left, fixed) beside the active photo (right) — the one
 /// the Edit panel works on, so a look can be matched by eye.
-pub fn show_reference(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show_reference(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let canvas = area_and_filmstrip(app, ui);
     let reference = app.ui.reference.map(PhotoId).filter(|r| live(app, *r));
     let (Some(r), Some(active)) = (reference, app.session.active()) else {

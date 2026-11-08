@@ -7,29 +7,29 @@ use egui::{Pos2, Rect};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// Two photos in a fresh folder, an album and a keyword: a grid with Albums, Folders and Keywords
 /// in the sidebar, tall enough for all three.
 fn app(tag: &str) -> (Headless, PathBuf, [String; 3]) {
-    use lightcraft_catalog::{Op, Photo, Source};
+    use evolight_catalog::{Op, Photo, Source};
     let root = std::env::temp_dir().join(format!("lc-drag-right-click-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     let mut ids = Vec::new();
     for file in ["beach.png", "garden.png"] {
-        let img = lightcraft_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 120, 160, 255]; 64] };
-        let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+        let img = evolight_raster::Rgba8 { width: 8, height: 8, data: vec![[90, 120, 160, 255]; 64] };
+        let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
         std::fs::write(root.join(file), png).unwrap();
         let id = session.catalog.alloc_photo_id();
         let p = Photo::new(id, Source::File { path: root.join(file).to_string_lossy().into() }, file, "PNG", 8, 8, "2026-01-01T10:00:00");
         session.catalog.apply(Op::AddPhoto { photo: Box::new(p) }).unwrap();
         ids.push(id.0);
     }
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1600.0], 1.0);
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1600.0], 1.0);
     let r = h.request("engine.execute", json!({"command": "album.create", "params": {"name": "Dropped"}}), T);
     let album = r["result"]["id"].as_u64().unwrap_or_else(|| panic!("{r}"));
     let r = h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [ids[1]]}}), T);

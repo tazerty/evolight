@@ -4,8 +4,8 @@
 //! (no lens corrections, Upright, Transform, crop or flips), so changing those leaves the AI
 //! selections as they are.
 
-use lightcraft_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape};
-use lightcraft_geom::Point;
+use evolight_develop::{DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape};
+use evolight_geom::Point;
 use serde_json::json;
 
 use crate::Session;
@@ -64,14 +64,14 @@ fn an_old_mask_goes_onto_the_photo_at_its_next_edit_without_moving() {
     m.on_photo = false;
     d.masks = vec![m];
     // as a catalog from before keeps it
-    s.catalog.apply(lightcraft_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
     assert!(!active_dev(&s).masks[0].on_photo);
     d.light.exposure = 0.5;
     s.set_develop(id, d.clone(), "Exposure").unwrap();
     let now = active_dev(&s);
     assert!(now.masks[0].on_photo, "attached at the edit");
     let photo = s.catalog.photo(id).unwrap();
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
+    let frame = evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
     let (c, _) = centre(&now);
     let back = frame.for_mask(true).mask_to_norm(c);
     assert!((back.x - p.x).abs() < 1e-6 && (back.y - p.y).abs() < 1e-6, "renders where it did: {back:?}");
@@ -133,7 +133,7 @@ fn old_masks_an_edit_brings_in_go_onto_the_photo_from_the_settings_they_came_wit
     let now = active_dev(&s);
     assert!(now.masks[0].on_photo);
     let photo = s.catalog.photo(id).unwrap();
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &incoming, false, None);
+    let frame = evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &incoming, false, None);
     let back = frame.for_mask(true).mask_to_norm(centre(&now).0);
     assert!((back.x - p.x).abs() < 1e-6 && (back.y - p.y).abs() < 1e-6, "renders where it did under its own settings: {back:?}");
 }
@@ -159,15 +159,15 @@ fn a_click_on_an_old_object_mask_goes_onto_the_photo_with_it() {
         }],
         ..Default::default()
     }];
-    s.catalog.apply(lightcraft_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
     s.active_mask = Some(1);
     // (no model: the command fails at the model, after the mask went onto the photo)
-    s.segmenter.dir = Some(std::env::temp_dir().join("lightcraft-no-model-mask-geometry"));
+    s.segmenter.dir = Some(std::env::temp_dir().join("evolight-no-model-mask-geometry"));
     let _ = s.execute("mask.objectPoint", &json!({"x": 0.6, "y": 0.5}));
     let now = active_dev(&s);
     assert!(now.masks[0].on_photo);
     let photo = s.catalog.photo(id).unwrap();
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
+    let frame = evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
     let MaskShape::Object { hint, .. } = &now.masks[0].components[0].shape else { panic!() };
     let want = frame.for_mask(true).norm_to_mask(p);
     assert!((hint[0].x - want.x).abs() < 1e-9 && (hint[0].y - want.y).abs() < 1e-9, "{hint:?} vs {want:?}");
@@ -187,7 +187,7 @@ fn a_kept_old_mask_attaches_under_the_settings_before_an_edit_that_adds_one() {
     let mut kept = radial_at(p);
     kept.on_photo = false;
     d.masks = vec![kept];
-    s.catalog.apply(lightcraft_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
     // the preset: another Transform and a new old mask
     let mut incoming = d.clone();
     incoming.geometry.vertical = -20.0;
@@ -201,7 +201,7 @@ fn a_kept_old_mask_attaches_under_the_settings_before_an_edit_that_adds_one() {
     let now = active_dev(&s);
     assert!(now.masks.iter().all(|m| m.on_photo));
     let photo = s.catalog.photo(id).unwrap();
-    let frame = |d: &DevelopSettings| lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, d, false, None);
+    let frame = |d: &DevelopSettings| evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, d, false, None);
     let at = |m: &Mask| match &m.components[0].shape {
         MaskShape::Radial { center, .. } => *center,
         other => panic!("{other:?}"),
@@ -236,7 +236,7 @@ fn masks_turn_with_an_orientation_a_sync_brings() {
 /// The change between two orientations is the turn Rotate makes, and none between equal ones.
 #[test]
 fn the_change_between_orientations_is_the_turn_made() {
-    use lightcraft_geom::Orientation;
+    use evolight_geom::Orientation;
     for k in 0..8u8 {
         let o = Orientation::from_parts(k >= 4, k % 4);
         assert_eq!(crate::orientation_change(o, o), None);
@@ -247,7 +247,7 @@ fn the_change_between_orientations_is_the_turn_made() {
 }
 
 /// An old Object mask with a Transform active, and a click.
-fn old_object_mask() -> (Session, lightcraft_catalog::PhotoId, DevelopSettings, Point) {
+fn old_object_mask() -> (Session, evolight_catalog::PhotoId, DevelopSettings, Point) {
     let mut s = Session::with_demo();
     let id = s.active().unwrap();
     let mut d = active_dev(&s);
@@ -265,7 +265,7 @@ fn old_object_mask() -> (Session, lightcraft_catalog::PhotoId, DevelopSettings, 
         }],
         ..Default::default()
     }];
-    s.catalog.apply(lightcraft_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::SetDevelop { id, settings: std::sync::Arc::new(d.clone()), label: "Old".into(), edited: None }).unwrap();
     s.active_mask = Some(1);
     (s, id, d, p)
 }
@@ -276,7 +276,7 @@ fn old_object_mask() -> (Session, lightcraft_catalog::PhotoId, DevelopSettings, 
 fn a_click_off_the_photo_on_an_old_object_mask_is_refused() {
     let (mut s, id, d, _) = old_object_mask();
     let photo = s.catalog.photo(id).unwrap();
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
+    let frame = evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
     let f = frame.for_mask(true);
     let off = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.5, 0.0), (0.5, 1.0)]
         .map(|(x, y)| Point::new(x, y))
@@ -296,7 +296,7 @@ fn a_click_off_the_photo_on_an_old_object_mask_is_refused() {
 #[test]
 fn a_pending_click_on_an_old_object_mask_is_in_the_masks_coordinates() {
     if !crate::segment::Segmenter::AVAILABLE {
-        lightcraft_testkit::skip!(Model, "built without the segmentation model");
+        evolight_testkit::skip!(Model, "built without the segmentation model");
         return;
     }
     let (mut s, id, d, p) = old_object_mask();
@@ -305,7 +305,7 @@ fn a_pending_click_on_an_old_object_mask_is_in_the_masks_coordinates() {
     let r = s.execute("mask.objectPoint", &json!({"x": 0.6, "y": 0.5})).unwrap();
     assert_eq!(r["pending"], true);
     let photo = s.catalog.photo(id).unwrap();
-    let frame = lightcraft_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
+    let frame = evolight_pipeline::geometry::Frame::with_lens(photo.width as usize, photo.height as usize, &d, false, None);
     let f = frame.for_mask(true);
     let pending = s.segmenter.pending_clicks().expect("the click is pending").clone();
     assert_eq!(pending.hint.len(), 2);

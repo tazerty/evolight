@@ -372,7 +372,7 @@ fn resync_recovers_rules_retry_with_many_nested_values_on_the_final_line() {
     assert_eq!(&after[..damaged.len()], &damaged[..]);
 }
 
-/// A crafted final line of many header-shaped markers (`{"seq":1,"crc":2,"op":`) passes the
+/// A built final line of many header-shaped markers (`{"seq":1,"crc":2,"op":`) passes the
 /// record-header filter, so every marker becomes a resync candidate, and each attempt decodes the
 /// whole rest of the line: trying all of them is quadratic in the line length, a stall of
 /// `Journal::open` on a hostile log (CWE-407). The per-line scan budget must bound the candidate

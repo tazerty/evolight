@@ -33,7 +33,7 @@ pub mod unnamed;
 
 use egui::{Align2, Rect, pos2, vec2};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 pub use crate::dialogs;
 pub use crate::dialogs::faces;
 pub use crate::dialogs::keymap;
@@ -87,7 +87,7 @@ pub fn resizable_side(ui: &mut egui::Ui, side: SidePanel, add: impl FnOnce(&mut 
 }
 
 /// The HUD toast at the bottom centre of the canvas.
-pub fn toast(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn toast(app: &mut EvoLightApp, ctx: &egui::Context) {
     let now = app.tick_now();
     let Some((text, until, label)) = app.ui.toast.clone() else { return };
     if now > until {

@@ -18,11 +18,11 @@ use std::time::Duration;
 
 use web_time::Instant;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_engine::cmd::missing;
+use evolight_catalog::PhotoId;
+use evolight_engine::cmd::missing;
 use serde_json::Value;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::control::{self, Outcome};
 
 /// The activity stack's label (the command's name, already translated).
@@ -37,7 +37,7 @@ const KEEP: Duration = Duration::from_secs(10 * 60);
 /// The requests waiting for a check, and the answer kept for the next one.
 #[derive(Default)]
 pub struct State {
-    /// Each request with the library ([`lightcraft_engine::Session::library_generation`]) it asked about.
+    /// Each request with the library ([`evolight_engine::Session::library_generation`]) it asked about.
     pub(crate) waiting: Vec<(u64, Sender<Value>)>,
     /// A finished check's answer that no request received.
     kept: Option<Kept>,
@@ -70,7 +70,7 @@ impl State {
 /// Answer `library.missing` from the control channel: give the answer kept from a check nobody
 /// waited for, or start the check, or join the one running for this library. The answer goes to
 /// `reply` when the check ends.
-pub fn ask(app: &mut LightcraftApp, reply: Sender<Value>) -> Outcome {
+pub fn ask(app: &mut EvoLightApp, reply: Sender<Value>) -> Outcome {
     let library = app.session.library_generation();
     if let Some(kept) = app.missing.kept.take()
         && kept.library == library
@@ -89,14 +89,14 @@ pub fn ask(app: &mut LightcraftApp, reply: Sender<Value>) -> Outcome {
     let exists = app.session.media.availability.probe();
     let cancel = Arc::new(AtomicBool::new(false));
     let flag = cancel.clone();
-    let work = move |task: lightcraft_engine::activity::TaskHandle| {
+    let work = move |task: evolight_engine::activity::TaskHandle| {
         task.progress(0, total);
         // (a panic is this check's failure, answered to the callers: they would wait for it in vain)
-        lightcraft_engine::guard::catch("Missing Photos", || {
+        evolight_engine::guard::catch("Missing Photos", || {
             missing::sweep(files, |f| exists(f), || flag.load(Ordering::Relaxed), |done| task.progress(done as u64, total))
         })
     };
-    let done = move |app: &mut LightcraftApp, _ctx: &egui::Context, checked: Result<Option<Vec<(PhotoId, String)>>, String>| {
+    let done = move |app: &mut EvoLightApp, _ctx: &egui::Context, checked: Result<Option<Vec<(PhotoId, String)>>, String>| {
         let (answer, complete) = match checked {
             _ if app.session.library_generation() != library => {
                 (control::failure("Missing Photos: another library was opened before the check ended"), false)

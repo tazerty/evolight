@@ -3,17 +3,17 @@
 use egui::accesskit::Role;
 use egui::vec2;
 use egui_kittest::{Harness, kittest::NodeT};
-use lightcraft_ui_egui::{
-    LightcraftApp, Services,
+use evolight_ui_egui::{
+    EvoLightApp, Services,
     state::{RightPanel, ViewMode},
 };
 
-fn detail() -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn detail() -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.ui.view = ViewMode::Detail;
     app.ui.right = RightPanel::None;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -24,7 +24,7 @@ fn detail() -> Harness<'static, LightcraftApp> {
 }
 
 /// The names of the photo's nodes ("Photo: <file>…"); the in-window "Photo" menu button is not the photo.
-fn photo_names(h: &Harness<'_, LightcraftApp>) -> Vec<String> {
+fn photo_names(h: &Harness<'_, EvoLightApp>) -> Vec<String> {
     h.root()
         .children_recursive()
         .map(|n| n.accesskit_node())

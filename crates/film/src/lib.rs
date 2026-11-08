@@ -1,6 +1,6 @@
 //! Film-negative conversion: a scanned colour or black-and-white negative to a positive.
 //!
-//! Ported from Film Lab (github.com/smyrgeorge/film-lab, by the same author), whose PhotoCraft
+//! Ported from Film Lab (github.com/smyrgeorge/film-lab, by the same author), whose EvoPhoto
 //! plug-ins run the same maths. Hosts hand over RGB samples in 0..1 and say how they are encoded
 //! ([`Encoding`]); this crate gives back the positive. Nothing in here knows a host's pixel layout;
 //! [`measure`] analyses a whole scan once, so every render (a preview, a zoomed window, an export)

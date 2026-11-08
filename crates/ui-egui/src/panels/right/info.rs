@@ -1,6 +1,6 @@
-use super::{Icon, LightcraftApp, PhotoId, Sense, Tokens, divider, header, json, padded, register, text_button, vec2};
+use super::{Icon, EvoLightApp, PhotoId, Sense, Tokens, divider, header, json, padded, register, text_button, vec2};
 
-pub(super) fn info(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
+pub(super) fn info(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let Some(p) = app.session.catalog.photo(id).cloned() else { return };
     header(ui, "Info");
     let t = Tokens::get(ui.ctx());
@@ -30,7 +30,7 @@ pub(super) fn info(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         ui.add_space(6.0);
         // colour label: one swatch per label (hover shows its name); clicking the current one clears it
         ui.horizontal(|ui| {
-            for l in lightcraft_catalog::ColorLabel::ALL {
+            for l in evolight_catalog::ColorLabel::ALL {
                 let (r, resp) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::click());
                 crate::widgets::announce(&resp, crate::i18n::tr(&format!("{l:?}")));
                 let key = format!("{l:?}").to_lowercase();
@@ -99,8 +99,8 @@ pub(super) fn info(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         small(ui, "File Path");
         ui.horizontal(|ui| {
             let path = match &p.source {
-                lightcraft_catalog::Source::File { path } => path.clone(),
-                lightcraft_catalog::Source::Demo { .. } => crate::i18n::tr("Generated demo photo").into(),
+                evolight_catalog::Source::File { path } => path.clone(),
+                evolight_catalog::Source::Demo { .. } => crate::i18n::tr("Generated demo photo").into(),
             };
             ui.add(egui::Label::new(egui::RichText::new(path).size(12.0).color(t.text_label)).truncate());
             if crate::menus::ui_enabled(app, "app.showInFinder") {
@@ -195,12 +195,12 @@ pub(super) fn info(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
         }
         // offline originals / smart previews
         // (cached answers, checked off the UI thread: unknown counts as online / no smart preview)
-        if let lightcraft_catalog::Source::File { path } = &p.source {
+        if let evolight_catalog::Source::File { path } = &p.source {
             let avail = &app.session.media.availability;
             let online = !avail.is_offline(path);
             let smart = app.session.media.smart_dir.as_ref().is_some_and(|d| {
-                let shard = lightcraft_engine::smart::sharded_file_path(d, &p);
-                let legacy = d.join(lightcraft_engine::smart::file_name(&p));
+                let shard = evolight_engine::smart::sharded_file_path(d, &p);
+                let legacy = d.join(evolight_engine::smart::file_name(&p));
                 avail.exists(&shard.to_string_lossy()) == Some(true) || avail.exists(&legacy.to_string_lossy()) == Some(true)
             });
             if !online || smart {
@@ -225,7 +225,7 @@ pub(super) fn info(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
 
 /// The camera card at the top of Info: camera, lens, size · file size and format, then the
 /// capture settings.
-fn camera_card(ui: &mut egui::Ui, p: &lightcraft_catalog::Photo) {
+fn camera_card(ui: &mut egui::Ui, p: &evolight_catalog::Photo) {
     let t = Tokens::get(ui.ctx());
     let m = &p.meta;
     egui::Frame::NONE.fill(t.canvas).corner_radius(6.0).inner_margin(egui::Margin::symmetric(12, 10)).show(ui, |ui| {
@@ -277,7 +277,7 @@ fn camera_card(ui: &mut egui::Ui, p: &lightcraft_catalog::Photo) {
 
 /// The camera's focus mode, AF area and tracking in the interface language ("AF-C · Wide · Animal Eye
 /// Tracking"), or `None` when the photo has no focus point.
-pub(crate) fn focus_text(f: Option<&lightcraft_meta::FocusPoint>) -> Option<String> {
+pub(crate) fn focus_text(f: Option<&evolight_meta::FocusPoint>) -> Option<String> {
     let f = f?;
     let words: Vec<&str> = f.words().into_iter().map(crate::i18n::tr).collect();
     Some(if words.is_empty() { crate::i18n::tr("Focus point").to_string() } else { words.join(" · ") })
@@ -340,7 +340,7 @@ const META_TEXT_KEYS: [&str; 12] = [
 ];
 
 /// The value of one of [`META_TEXT_KEYS`].
-fn meta_text<'a>(m: &'a lightcraft_catalog::Meta, key: &str) -> Option<&'a str> {
+fn meta_text<'a>(m: &'a evolight_catalog::Meta, key: &str) -> Option<&'a str> {
     Some(match key {
         "title" => &m.title,
         "caption" => &m.caption,
@@ -362,11 +362,11 @@ fn meta_text<'a>(m: &'a lightcraft_catalog::Meta, key: &str) -> Option<&'a str> 
 /// (Selected Photos) the active photo's when it is one of the `selected` photos, else the first
 /// selected photo's.
 pub(crate) fn shown_meta(
-    catalog: &lightcraft_catalog::Catalog,
-    p: &lightcraft_catalog::Photo,
+    catalog: &evolight_catalog::Catalog,
+    p: &evolight_catalog::Photo,
     selected: &[PhotoId],
     for_selected: bool,
-) -> lightcraft_catalog::Meta {
+) -> evolight_catalog::Meta {
     if !for_selected || selected.contains(&p.id) {
         return p.meta.clone();
     }
@@ -375,7 +375,7 @@ pub(crate) fn shown_meta(
 
 /// The Info panel fields (`photo.setMeta` keys, plus `copyrightStatus` and `gps`) where one of
 /// the photos `ids` has a value other than `shown`'s, the metadata the panel draws.
-pub(crate) fn mixed_meta(catalog: &lightcraft_catalog::Catalog, ids: &[PhotoId], shown: &lightcraft_catalog::Meta) -> Vec<&'static str> {
+pub(crate) fn mixed_meta(catalog: &evolight_catalog::Catalog, ids: &[PhotoId], shown: &evolight_catalog::Meta) -> Vec<&'static str> {
     let mut mixed = Vec::new();
     for m in ids.iter().filter_map(|&id| catalog.photo(id)).map(|p| &p.meta) {
         for key in META_TEXT_KEYS {
@@ -398,7 +398,7 @@ pub(crate) fn mixed_meta(catalog: &lightcraft_catalog::Catalog, ids: &[PhotoId],
 
 /// Target Photo / Selected Photos: whose metadata the fields below show while several photos
 /// are selected (`view.infoSelectedPhotos`).
-fn metadata_for(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn metadata_for(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     ui.label(egui::RichText::new(crate::i18n::tr("Show Metadata For")).size(11.5).color(t.text_dim));
     ui.horizontal_wrapped(|ui| {
@@ -415,12 +415,12 @@ fn metadata_for(app: &mut LightcraftApp, ui: &mut egui::Ui) {
 /// Copyright Status: Unknown / Copyrighted / Public Domain (`xmpRights:Marked`). `mixed`: the
 /// selected photos' statuses differ, and any status picked is given to all of them. A status
 /// picked goes to the photos `targets`.
-fn copyright_status(app: &mut LightcraftApp, ui: &mut egui::Ui, current: lightcraft_catalog::CopyrightStatus, mixed: bool, targets: &[PhotoId]) {
+fn copyright_status(app: &mut EvoLightApp, ui: &mut egui::Ui, current: evolight_catalog::CopyrightStatus, mixed: bool, targets: &[PhotoId]) {
     let t = Tokens::get(ui.ctx());
     ui.label(egui::RichText::new(crate::i18n::tr("Copyright Status")).size(11.5).color(t.text_dim));
     let shown = crate::i18n::tr(if mixed { MIXED } else { current.label() });
     let r = crate::widgets::combo_box("info-copyright-status").selected_text(shown).show_ui(ui, |ui| {
-        for st in lightcraft_catalog::CopyrightStatus::ALL {
+        for st in evolight_catalog::CopyrightStatus::ALL {
             let on = !mixed && st == current;
             if ui.selectable_label(on, crate::i18n::tr(st.label())).clicked() && !on {
                 let ids: Vec<u64> = targets.iter().map(|id| id.0).collect();
@@ -438,7 +438,7 @@ fn copyright_status(app: &mut LightcraftApp, ui: &mut egui::Ui, current: lightcr
 /// differ, so the field starts empty and says so, and is saved only when it was typed in (left
 /// empty, it clears the field on every selected photo). The edit is saved to the photos `targets`.
 #[allow(clippy::too_many_arguments)]
-fn meta_field(app: &mut LightcraftApp, ui: &mut egui::Ui, label: &str, key: &str, value: &str, lines: usize, mixed: bool, targets: &[PhotoId]) {
+fn meta_field(app: &mut EvoLightApp, ui: &mut egui::Ui, label: &str, key: &str, value: &str, lines: usize, mixed: bool, targets: &[PhotoId]) {
     let t = Tokens::get(ui.ctx());
     ui.label(egui::RichText::new(crate::i18n::tr(label)).size(11.5).color(t.text_dim));
     let id = egui::Id::unique(("info-field", key));

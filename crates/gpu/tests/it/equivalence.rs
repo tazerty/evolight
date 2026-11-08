@@ -1,18 +1,18 @@
 //! CPU ↔ GPU equivalence: the same settings rendered by the CPU pipeline (the reference) and by
-//! `lightcraft_gpu::render`, compared in 8-bit sRGB.
+//! `evolight_gpu::render`, compared in 8-bit sRGB.
 //!
 //! Bounds (documented in `docs/gpu-pipeline.md`): mean |Δ| < 0.5 LSB and max |Δ| ≤ 3 LSB per
 //! channel for every case. Skips (passes with a note) when no GPU adapter exists;
-//! `LIGHTCRAFT_GPU_ALLOW_SOFTWARE=1` runs them on a software adapter (lavapipe, WARP) instead.
+//! `EVOLIGHT_GPU_ALLOW_SOFTWARE=1` runs them on a software adapter (lavapipe, WARP) instead.
 
 use std::sync::Arc;
 
-use lightcraft_develop::{
+use evolight_develop::{
     BrushStroke, DevelopSettings, Mask, MaskComponent, MaskOp, MaskShape, Process, Spot, Treatment, VignetteStyle, WbMode, Wheel,
 };
-use lightcraft_geom::{Orientation, Point, Rect};
-use lightcraft_pipeline::{Quality, RenderRequest, SourceInfo, StageCache, render};
-use lightcraft_raster::{Rgb32f, Rgba8};
+use evolight_geom::{Orientation, Point, Rect};
+use evolight_pipeline::{Quality, RenderRequest, SourceInfo, StageCache, render};
+use evolight_raster::{Rgb32f, Rgba8};
 
 const MEAN_LSB: f64 = 0.5;
 const MAX_LSB: u8 = 3;
@@ -21,16 +21,16 @@ const HDR_MEAN_STEPS: f64 = 0.02;
 const HDR_MAX_STEPS: f64 = 1.0;
 
 fn gpu() -> bool {
-    let ok = lightcraft_gpu::available();
+    let ok = evolight_gpu::available();
     if !ok {
-        let why = lightcraft_gpu::unavailable_reason().unwrap_or_default();
+        let why = evolight_gpu::unavailable_reason().unwrap_or_default();
         // no adapter (CI) skips; an adapter whose kernels don't build is a bug in them
         assert!(!why.contains("kernels failed to build"), "{why}");
-        lightcraft_testkit::skip!(Gpu, "no GPU adapter");
+        evolight_testkit::skip!(Gpu, "no GPU adapter");
     }
-    // which card the comparisons ran on (`LIGHTCRAFT_GPU_ADAPTER` picks one on a machine with two)
+    // which card the comparisons ran on (`EVOLIGHT_GPU_ADAPTER` picks one on a machine with two)
     static NAMED: std::sync::Once = std::sync::Once::new();
-    NAMED.call_once(|| eprintln!("GPU equivalence tests on {}", lightcraft_gpu::adapter_name().unwrap_or_default()));
+    NAMED.call_once(|| eprintln!("GPU equivalence tests on {}", evolight_gpu::adapter_name().unwrap_or_default()));
     ok
 }
 
@@ -40,7 +40,7 @@ fn check_v3_luminance_cutoff(chroma: f32, pixel: [f32; 3], expected: [u8; 4]) {
     }
     // These uniform nonnegative sources expose cancellation after camera chroma scaling
     // and Contrast, just below the positive Blacks luminance cutoff.
-    let curve = lightcraft_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
+    let curve = evolight_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
         let x = (i + 1) as f32 / 33.0;
         [x, x]
     }))
@@ -54,7 +54,7 @@ fn check_v3_luminance_cutoff(chroma: f32, pixel: [f32; 3], expected: [u8; 4]) {
     s.light.blacks = 80.0;
     let req = RenderRequest::fit(64, 64);
     let cpu = render(&src, &info, &s, &req).image;
-    let gpu = lightcraft_gpu::try_render(&src, &info, &s, &req, None).expect("GPU render without CPU fallback").image;
+    let gpu = evolight_gpu::try_render(&src, &info, &s, &req, None).expect("GPU render without CPU fallback").image;
     for image in [&cpu, &gpu] {
         // (8-bit output is dithered: a flat source varies by a level)
         assert!(image.data.iter().all(|p| p.iter().zip(image.data[0]).all(|(a, b)| a.abs_diff(b) <= 1)));
@@ -82,7 +82,7 @@ fn camera_tone_and_relative_wb() {
         return;
     }
     let src = scene(2, 320, 240);
-    let curve = lightcraft_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
+    let curve = evolight_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
         let x = 0.004 * 1.18f32.powi(i as i32);
         [x, 1.0 - (-2.0 * x).exp()]
     }))
@@ -109,7 +109,7 @@ fn camera_tone_and_relative_wb() {
 }
 
 fn scene(i: usize, w: usize, h: usize) -> Arc<Rgb32f> {
-    Arc::new(lightcraft_scenes::demo_library()[i].render(w, h))
+    Arc::new(evolight_scenes::demo_library()[i].render(w, h))
 }
 
 /// (mean |Δ|, max |Δ|, share of channels with |Δ| > 1).
@@ -130,7 +130,7 @@ fn diff(a: &Rgba8, b: &Rgba8) -> (f64, u8, f64) {
 
 fn check(name: &str, src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest) -> (f64, u8) {
     let cpu = render(src, info, s, req).image;
-    let gpu = lightcraft_gpu::render(src, info, s, req, None).expect("gpu render");
+    let gpu = evolight_gpu::render(src, info, s, req, None).expect("gpu render");
     let (mean, max, over) = diff(&cpu, &gpu.image);
     eprintln!("{name:<28} {}x{}  mean {mean:.4}  max {max}  >1: {:.4}%", cpu.width, cpu.height, over * 100.0);
     assert!(mean < MEAN_LSB && max <= MAX_LSB, "{name}: mean {mean:.4} LSB, max {max} LSB");
@@ -142,7 +142,7 @@ fn check(name: &str, src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, 
 /// Such flips are allowed for at most 0.01 % of the pixels; everything else is held to [`check`]'s bounds.
 fn check_warned(name: &str, src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest) {
     let cpu = render(src, info, s, req).image;
-    let gpu = lightcraft_gpu::render(src, info, s, req, None).expect("gpu render");
+    let gpu = evolight_gpu::render(src, info, s, req, None).expect("gpu render");
     let (mean, _, over) = diff(&cpu, &gpu.image);
     let flips = cpu.data.iter().zip(&gpu.image.data).filter(|(p, q)| (0..3).any(|c| p[c].abs_diff(q[c]) > MAX_LSB)).count();
     let share = flips as f64 / cpu.data.len() as f64;
@@ -204,7 +204,7 @@ fn banded_full_size_render_matches() {
             invert: false,
             shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.9) },
         }],
-        adjust: lightcraft_develop::LocalAdjustments { exposure: -0.6, ..Default::default() },
+        adjust: evolight_develop::LocalAdjustments { exposure: -0.6, ..Default::default() },
         ..Default::default()
     }];
     check("banded 3000×2000", &src, &SourceInfo { raw: true, ..Default::default() }, &s, &RenderRequest::fit(w, h));
@@ -230,7 +230,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
             s.mixer.green.lum = 40.0;
         }),
         ("point color", |s| {
-            use lightcraft_develop::PointColor;
+            use evolight_develop::PointColor;
             s.point_colors = vec![
                 PointColor {
                     lum: 0.62,
@@ -316,7 +316,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                     invert: false,
                     shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.6) },
                 }],
-                adjust: lightcraft_develop::LocalAdjustments { sharpness: 80.0, ..Default::default() },
+                adjust: evolight_develop::LocalAdjustments { sharpness: 80.0, ..Default::default() },
                 ..Default::default()
             }];
         }),
@@ -357,7 +357,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                         invert: false,
                         shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.6) },
                     }],
-                    adjust: lightcraft_develop::LocalAdjustments { exposure: -0.8, temp: -30.0, saturation: 20.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { exposure: -0.8, temp: -30.0, saturation: 20.0, ..Default::default() },
                     ..Default::default()
                 },
                 Mask {
@@ -375,7 +375,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                             shape: MaskShape::Linear { start: Point::new(0.0, 0.0), end: Point::new(1.0, 1.0) },
                         },
                     ],
-                    adjust: lightcraft_develop::LocalAdjustments {
+                    adjust: evolight_develop::LocalAdjustments {
                         shadows: 40.0,
                         clarity: 30.0,
                         contrast: 20.0,
@@ -404,7 +404,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                         invert: false,
                         shape: MaskShape::Brush { strokes: vec![stroke, erase] },
                     }],
-                    adjust: lightcraft_develop::LocalAdjustments { exposure: 0.7, whites: 20.0, blacks: -20.0, dehaze: 30.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { exposure: 0.7, whites: 20.0, blacks: -20.0, dehaze: 30.0, ..Default::default() },
                     ..Default::default()
                 },
                 Mask {
@@ -414,7 +414,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                         invert: false,
                         shape: MaskShape::LuminanceRange { lo: 0.5, hi: 0.8, lo_feather: 0.1, hi_feather: 0.1 },
                     }],
-                    adjust: lightcraft_develop::LocalAdjustments { highlights: -50.0, texture: 30.0, sharpness: 40.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { highlights: -50.0, texture: 30.0, sharpness: 40.0, ..Default::default() },
                     ..Default::default()
                 },
                 Mask {
@@ -424,7 +424,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                         invert: false,
                         shape: MaskShape::ColorRange { samples: vec![[0.6, -0.05, -0.08]], refine: 50.0 },
                     }],
-                    adjust: lightcraft_develop::LocalAdjustments { saturation: 40.0, tint: 20.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { saturation: 40.0, tint: 20.0, ..Default::default() },
                     invert: true,
                     ..Default::default()
                 },
@@ -442,17 +442,17 @@ fn cases() -> Vec<(&'static str, Edit)> {
                             shape: MaskShape::Radial { center: Point::new(0.7, 0.2), rx: 0.1, ry: 0.1, angle: 0.0, feather: 30.0, invert: false },
                         },
                     ],
-                    adjust: lightcraft_develop::LocalAdjustments { exposure: -0.5, dehaze: 40.0, amount: 70.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { exposure: -0.5, dehaze: 40.0, amount: 70.0, ..Default::default() },
                     ..Default::default()
                 },
                 Mask {
                     components: vec![MaskComponent { name: None, op: MaskOp::Intersect, invert: false, shape: MaskShape::Subject }],
-                    adjust: lightcraft_develop::LocalAdjustments { exposure: 0.5, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { exposure: 0.5, ..Default::default() },
                     ..Default::default()
                 },
                 Mask {
                     components: vec![MaskComponent { name: None, op: MaskOp::Add, invert: true, shape: MaskShape::Background }],
-                    adjust: lightcraft_develop::LocalAdjustments { saturation: -60.0, ..Default::default() },
+                    adjust: evolight_develop::LocalAdjustments { saturation: -60.0, ..Default::default() },
                     invert: true,
                     ..Default::default()
                 },
@@ -466,7 +466,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
                 adjust,
                 ..Default::default()
             };
-            use lightcraft_develop::LocalAdjustments as L;
+            use evolight_develop::LocalAdjustments as L;
             s.masks = vec![
                 m(radial, L { noise: 80.0, moire: 60.0, defringe: 100.0, ..Default::default() }),
                 m(linear, L { noise: -60.0, moire: -40.0, ..Default::default() }),
@@ -489,7 +489,7 @@ fn cases() -> Vec<(&'static str, Edit)> {
             ];
             s.masks = vec![Mask {
                 components: vec![MaskComponent { name: None, op: MaskOp::Add, invert: false, shape: MaskShape::Brush { strokes } }],
-                adjust: lightcraft_develop::LocalAdjustments { exposure: 1.0, saturation: -50.0, ..Default::default() },
+                adjust: evolight_develop::LocalAdjustments { exposure: 1.0, saturation: -50.0, ..Default::default() },
                 ..Default::default()
             }];
         }),
@@ -535,8 +535,8 @@ fn clipped_highlights_stay_neutral_on_both() {
         return;
     }
     let wb = [2.4f32, 1.0, 1.6];
-    let look = lightcraft_color::Mat3([[0.42, 0.548, 0.04], [0.246, 0.728, 0.033], [-0.247, 0.679, 0.447]]);
-    let luma = |c: [f64; 3]| (0..3).map(|i| c[i] * f64::from(lightcraft_color::LUMA_2020[i])).sum::<f64>();
+    let look = evolight_color::Mat3([[0.42, 0.548, 0.04], [0.246, 0.728, 0.033], [-0.247, 0.679, 0.447]]);
+    let luma = |c: [f64; 3]| (0..3).map(|i| c[i] * f64::from(evolight_color::LUMA_2020[i])).sum::<f64>();
     let n = look.inverse().unwrap().apply([1.0; 3]);
     let white = n.map(|v| (v * luma(look.apply([1.0; 3])) / luma(look.apply(n))) as f32);
     // a grey wall with a fully clipped light, a light clipped in green only, and a dark bar with a purple fringe
@@ -555,7 +555,7 @@ fn clipped_highlights_stay_neutral_on_both() {
             [0.3 / wb[0], 0.3, 0.3 / wb[2]]
         }
     });
-    lightcraft_raw::highlight::reconstruct_with(&mut cam, wb, 0.99, white);
+    evolight_raw::highlight::reconstruct_with(&mut cam, wb, 0.99, white);
     let m = look.to_f32();
     let src = Arc::new(cam.map(|p| {
         let c = [p[0] * wb[0], p[1] * wb[1], p[2] * wb[2]];
@@ -571,7 +571,7 @@ fn clipped_highlights_stay_neutral_on_both() {
     for (name, s) in [("clipped highlights -100", h100), ("clipped highlights #523", issue)] {
         check(name, &src, &info, &s, &req);
         let cpu = render(&src, &info, &s, &req).image;
-        let gpu = lightcraft_gpu::render(&src, &info, &s, &req, None).expect("gpu render").image;
+        let gpu = evolight_gpu::render(&src, &info, &s, &req, None).expect("gpu render").image;
         for (who, img) in [("CPU", &cpu), ("GPU", &gpu)] {
             let p = img.get(90, 120);
             assert!(p[1] < 250 && p[0].max(p[1]).max(p[2]) - p[0].min(p[1]).min(p[2]) <= 1, "{name} {who}: clipped light {p:?}");
@@ -602,7 +602,7 @@ fn black_pixels_match_under_colour_tools_and_a_light_vignette() {
         s.vignette.style = VignetteStyle::HighlightPriority;
         f(&mut s);
         check(name, &src, &info, &s, &req);
-        let gpu = lightcraft_gpu::render(&src, &info, &s, &req, None).expect("gpu render").image;
+        let gpu = evolight_gpu::render(&src, &info, &s, &req, None).expect("gpu render").image;
         assert!(gpu.get(0, 0)[1] > 0, "{name}: the black corner is not lightened on the GPU");
     }
 }
@@ -652,7 +652,7 @@ fn embedded_lens_perspective_edges_match() {
     if !gpu() {
         return;
     }
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette, EmbeddedWarp};
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette, EmbeddedWarp};
     let src = scene(2, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
     // The unrotated case includes a position only 0.000035 px outside the edge.
@@ -694,8 +694,8 @@ fn cached_renders_match_uncached() {
         s.light.exposure = 0.1 * k as f64;
         s.effects.clarity = 10.0 + 5.0 * (k / 2) as f64;
         s.detail.nr_luminance = 20.0 + 10.0 * (k % 2) as f64;
-        let warm = lightcraft_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
-        let fresh = lightcraft_gpu::render(&src, &info, &s, &req, None).expect("gpu");
+        let warm = evolight_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
+        let fresh = evolight_gpu::render(&src, &info, &s, &req, None).expect("gpu");
         assert_eq!(warm.image, fresh.image, "step {k}");
     }
 }
@@ -707,7 +707,7 @@ fn light_v3_operators_match() {
         return;
     }
     let src = scene(0, 960, 640);
-    let curve = lightcraft_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
+    let curve = evolight_pipeline::tone::CameraTone::new(std::array::from_fn(|i| {
         let x = 0.004 * 1.18f32.powi(i as i32);
         [x, 1.0 - (-2.0 * x).exp()]
     }))
@@ -719,14 +719,14 @@ fn light_v3_operators_match() {
     for id in ["light.contrast", "light.whites", "light.blacks"] {
         for v in [-100.0, -50.0, 50.0, 100.0] {
             let mut s = DevelopSettings { process: Process::V4.version(), ..Default::default() };
-            lightcraft_develop::controls::set(&mut s, id, v);
+            evolight_develop::controls::set(&mut s, id, v);
             check(&format!("V4 {id} {v}"), &src, &info, &s, &req);
             if id == "light.whites" {
                 let mut old = s.clone();
                 old.process = Process::V2.version();
                 assert_eq!(
-                    lightcraft_gpu::render(&src, &info, &s, &req, None).unwrap().image,
-                    lightcraft_gpu::render(&src, &info, &old, &req, None).unwrap().image
+                    evolight_gpu::render(&src, &info, &s, &req, None).unwrap().image,
+                    evolight_gpu::render(&src, &info, &old, &req, None).unwrap().image
                 );
             }
         }
@@ -740,21 +740,21 @@ fn light_v3_operators_match() {
     s.color.vibrance = 30.0;
     s.vignette.amount = -20.0;
     check("V4 combined, colour", &src, &info, &s, &req);
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let win = RenderRequest { window: Some(PixelWindow { x: 1200, y: 800, w: 640, h: 480 }), ..RenderRequest::fit(3000, 2000) };
     check("V4 combined, window", &src, &info, &s, &win);
     s.hdr.enabled = true;
     s.hdr.max_ev = 2.0;
     check("V4 HDR preview", &src, &info, &s, &req);
     // Other high-bit-depth exports use the CPU; the GPU kernel writes 8 bits or the float HDR render.
-    let deep_req = RenderRequest { depth: lightcraft_pipeline::OutputDepth::U16, ..req };
-    assert_eq!(lightcraft_gpu::try_render(&src, &info, &s, &deep_req, None).err(), Some(lightcraft_gpu::Fallback::NotTried));
+    let deep_req = RenderRequest { depth: evolight_pipeline::OutputDepth::U16, ..req };
+    assert_eq!(evolight_gpu::try_render(&src, &info, &s, &deep_req, None).err(), Some(evolight_gpu::Fallback::NotTried));
     s.hdr.enabled = false;
     let cache = StageCache::default();
     for k in 0..3 {
         s.light.exposure = 0.3 * k as f64;
-        let warm = lightcraft_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
-        let fresh = lightcraft_gpu::render(&src, &info, &s, &req, None).expect("gpu");
+        let warm = evolight_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
+        let fresh = evolight_gpu::render(&src, &info, &s, &req, None).expect("gpu");
         assert_eq!(warm.image, fresh.image, "exposure step {k}");
         check(&format!("V4 exposure step {k}"), &src, &info, &s, &req);
     }
@@ -787,7 +787,7 @@ fn highlights_shadows_base_matches_on_every_process() {
                     invert: false,
                     shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.9) },
                 }],
-                adjust: lightcraft_develop::LocalAdjustments { highlights: -70.0, shadows: 40.0, ..Default::default() },
+                adjust: evolight_develop::LocalAdjustments { highlights: -70.0, shadows: 40.0, ..Default::default() },
                 ..Default::default()
             }];
             check(&format!("{p:?} local highlights {w}"), &src, &raw, &s, &req);
@@ -795,8 +795,8 @@ fn highlights_shadows_base_matches_on_every_process() {
         for p in [Process::V1, Process::V2, Process::V4, Process::V1, Process::V2, Process::V4] {
             let mut s = DevelopSettings { process: p.version(), ..DevelopSettings::default() };
             s.light.highlights = -100.0;
-            let warm = lightcraft_gpu::render(&src, &raw, &s, &req, Some(&cache)).expect("gpu");
-            let fresh = lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu");
+            let warm = evolight_gpu::render(&src, &raw, &s, &req, Some(&cache)).expect("gpu");
+            let fresh = evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu");
             assert_eq!(warm.image, fresh.image, "{p:?} at {w} px, cached");
         }
     }
@@ -819,8 +819,8 @@ fn sharpening_matches_each_process_and_reduced_source() {
         for nr in [0.0, 50.0, 20.0] {
             s.detail.nr_luminance = nr;
             check(&format!("{process:?} sharpening NR {nr}"), &src, &info, &s, &req);
-            let warm = lightcraft_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
-            let fresh = lightcraft_gpu::render(&src, &info, &s, &req, None).expect("gpu");
+            let warm = evolight_gpu::render(&src, &info, &s, &req, Some(&cache)).expect("gpu");
+            let fresh = evolight_gpu::render(&src, &info, &s, &req, None).expect("gpu");
             assert_eq!(warm.image, fresh.image, "{process:?} NR {nr}");
         }
     }
@@ -835,18 +835,18 @@ fn overlays_match() {
     let src = scene(0, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
     let s = DevelopSettings {
-        point_colors: vec![lightcraft_develop::PointColor { lum: 0.6, chroma: 0.05, hue: 300.0, hue_shift: 50.0, range: 90.0, ..Default::default() }],
+        point_colors: vec![evolight_develop::PointColor { lum: 0.6, chroma: 0.05, hue: 300.0, hue_shift: 50.0, range: 90.0, ..Default::default() }],
         ..Default::default()
     };
-    let req = RenderRequest { overlay: lightcraft_pipeline::Overlay::PointColorRange(0), ..RenderRequest::fit(640, 640) };
+    let req = RenderRequest { overlay: evolight_pipeline::Overlay::PointColorRange(0), ..RenderRequest::fit(640, 640) };
     check("point color range overlay", &src, &raw, &s, &req);
     // Visualize Spots is a binary threshold of a high-pass: a 1-LSB difference near the threshold
     // flips a pixel, so compare the share of differing pixels instead of LSBs.
     let s = DevelopSettings::default();
     for t in [20u8, 50, 90] {
-        let req = RenderRequest { overlay: lightcraft_pipeline::Overlay::Spots(t), ..RenderRequest::fit(640, 640) };
+        let req = RenderRequest { overlay: evolight_pipeline::Overlay::Spots(t), ..RenderRequest::fit(640, 640) };
         let cpu = render(&src, &raw, &s, &req).image;
-        let gpu = lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
+        let gpu = evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
         let differ = cpu.data.iter().zip(&gpu.data).filter(|(a, b)| a != b).count() as f64 / cpu.data.len() as f64;
         let white = cpu.data.iter().filter(|p| p[0] == 255).count() as f64 / cpu.data.len() as f64;
         eprintln!("visualize spots t={t:<3}          white {:.3}%  differing {:.4}%", white * 100.0, differ * 100.0);
@@ -884,7 +884,7 @@ fn overlays_match() {
         },
     ];
     s.masks[0].adjust.exposure = 0.5;
-    use lightcraft_pipeline::{MaskView, Overlay};
+    use evolight_pipeline::{MaskView, Overlay};
     for (id, view) in
         [(1, MaskView::Color), (2, MaskView::ColorOnBw), (2, MaskView::WhiteOnBlack), (3, MaskView::ImageOnWhite), (1, MaskView::ImageOnBlack)]
     {
@@ -902,7 +902,7 @@ fn overlays_match() {
             if matches!(o, Overlay::ClipHighlights | Overlay::ClipShadows) {
                 // a binary view: a 1-LSB difference at 0 / 255 flips a channel, so compare shares
                 let cpu = render(&src, &raw, &s, &req).image;
-                let gpu = lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
+                let gpu = evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
                 let differ = cpu.data.iter().zip(&gpu.data).filter(|(a, b)| a != b).count() as f64 / cpu.data.len() as f64;
                 assert!(differ < 0.002, "{o:?} sharpen {amount}: {differ}");
             } else if o == Overlay::Grayscale {
@@ -911,7 +911,7 @@ fn overlays_match() {
                 // the sharpening views amplify the detail planes (the mask through a steep
                 // smoothstep): allow a few larger differences where the planes differ slightly
                 let cpu = render(&src, &raw, &s, &req).image;
-                let gpu = lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
+                let gpu = evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu").image;
                 let (mean, max, _) = diff(&cpu, &gpu);
                 let far = cpu.data.iter().zip(&gpu.data).filter(|(a, b)| a[0].abs_diff(b[0]) > 8).count() as f64 / cpu.data.len() as f64;
                 eprintln!("{o:?} sharpen {amount:<4}  mean {mean:.4}  max {max}  >8: {:.4}%", far * 100.0);
@@ -941,8 +941,8 @@ fn red_eye_matches() {
     }));
     let info = SourceInfo::default();
     let eyes = vec![
-        lightcraft_develop::RedEye { center: Point::new(0.31, 0.5), rx: 0.06, ry: 0.05, darken: 70.0, ..Default::default() },
-        lightcraft_develop::RedEye {
+        evolight_develop::RedEye { center: Point::new(0.31, 0.5), rx: 0.06, ry: 0.05, darken: 70.0, ..Default::default() },
+        evolight_develop::RedEye {
             center: Point::new(0.7, 0.48),
             rx: 0.06,
             ry: 0.06,
@@ -954,7 +954,7 @@ fn red_eye_matches() {
     ];
     let s = DevelopSettings { red_eye: eyes.clone(), ..Default::default() };
     check("red + pet eye", &src, &info, &s, &RenderRequest::fit(800, 800));
-    let g = lightcraft_gpu::render(&src, &info, &s, &RenderRequest::fit(800, 800), None).expect("gpu").image;
+    let g = evolight_gpu::render(&src, &info, &s, &RenderRequest::fit(800, 800), None).expect("gpu").image;
     let (red, pet) = (g.data[200 * 800 + 250], g.data[190 * 800 + 560]);
     assert!(red[0] < 80 && red[0].abs_diff(red[1]) < 10, "red pupil fixed on the GPU: {red:?}");
     assert!(pet[1] < 80 && pet[0].abs_diff(pet[1]) < 5, "pet pupil darkened on the GPU: {pet:?}");
@@ -984,7 +984,7 @@ fn output_spaces_match() {
     }
     // Export colour spaces: matrix to the target primaries, gamut mapping into the target gamut and
     // its encoding curve, on both renderers. Saturated edits push colours to the gamut edges.
-    use lightcraft_pipeline::OutputSpace;
+    use evolight_pipeline::OutputSpace;
     let src = scene(0, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
     for space in OutputSpace::ALL {
@@ -1025,7 +1025,7 @@ fn windows_match() {
     if !gpu() {
         return;
     }
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let src = scene(1, 960, 640);
     let info = SourceInfo { raw: true, ..Default::default() };
     let win = PixelWindow { x: 1200, y: 800, w: 640, h: 480 };
@@ -1079,21 +1079,21 @@ fn a_window_does_not_keep_the_whole_source_on_the_device() {
     if !gpu() {
         return;
     }
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let src = scene(1, BIG, BIG);
     let info = SourceInfo { raw: true, ..Default::default() };
     let stages = StageCache::default();
     let s = DevelopSettings::default();
     let req = RenderRequest { window: Some(PixelWindow { x: 2000, y: 1500, w: 640, h: 480 }), ..RenderRequest::fit(BIG, BIG) };
-    let _ = lightcraft_gpu::render(&src, &info, &s, &req, Some(&stages)).expect("gpu render");
-    let held = lightcraft_gpu::stage_bytes(&stages);
+    let _ = evolight_gpu::render(&src, &info, &s, &req, Some(&stages)).expect("gpu render");
+    let held = evolight_gpu::stage_bytes(&stages);
     assert!(held < 100 << 20, "the view's GPU stages hold {} MiB for a 640×480 window", held >> 20);
     // …and the next tick of a drag reuses what is there
     let mut s2 = s.clone();
     s2.light.exposure = 0.5;
-    let again = lightcraft_gpu::render(&src, &info, &s2, &req, Some(&stages)).expect("gpu render");
+    let again = evolight_gpu::render(&src, &info, &s2, &req, Some(&stages)).expect("gpu render");
     assert_eq!((again.image.width, again.image.height), (640, 480));
-    assert!(lightcraft_gpu::stage_bytes(&stages) < 100 << 20);
+    assert!(evolight_gpu::stage_bytes(&stages) < 100 << 20);
 }
 
 /// …but the source is uploaded once for every window of every view of the photo, not once per
@@ -1105,27 +1105,27 @@ fn windows_of_a_big_photo_share_one_uploaded_source() {
     if !gpu() {
         return;
     }
-    use lightcraft_pipeline::PixelWindow;
+    use evolight_pipeline::PixelWindow;
     let src = scene(1, BIG, BIG);
     let info = SourceInfo { raw: true, ..Default::default() };
     let s = DevelopSettings::default();
     let (after, before) = (StageCache::default(), StageCache::default());
     let at = |x: usize| RenderRequest { window: Some(PixelWindow { x, y: 1500, w: 640, h: 480 }), ..RenderRequest::fit(BIG, BIG) };
-    let start = lightcraft_gpu::source_uploads();
+    let start = evolight_gpu::source_uploads();
     for (cache, x) in [(&after, 1000), (&after, 1256), (&after, 1512), (&before, 1512), (&before, 1768)] {
-        lightcraft_gpu::render(&src, &info, &s, &at(x), Some(cache)).expect("gpu render");
+        evolight_gpu::render(&src, &info, &s, &at(x), Some(cache)).expect("gpu render");
     }
-    assert_eq!(lightcraft_gpu::source_uploads() - start, 1, "one upload for five windows of two views");
-    assert!(lightcraft_gpu::shared_source_bytes() >= BIG * BIG * 12, "{}", lightcraft_gpu::shared_source_bytes());
-    assert!(lightcraft_gpu::stage_bytes(&after) < 100 << 20, "and it is not in the views' stages");
-    lightcraft_gpu::trim_pool(0);
-    assert_eq!(lightcraft_gpu::shared_source_bytes(), 0, "an idle app gives it back");
-    lightcraft_gpu::render(&src, &info, &s, &at(1000), Some(&after)).expect("gpu render");
-    assert_eq!(lightcraft_gpu::source_uploads() - start, 2);
+    assert_eq!(evolight_gpu::source_uploads() - start, 1, "one upload for five windows of two views");
+    assert!(evolight_gpu::shared_source_bytes() >= BIG * BIG * 12, "{}", evolight_gpu::shared_source_bytes());
+    assert!(evolight_gpu::stage_bytes(&after) < 100 << 20, "and it is not in the views' stages");
+    evolight_gpu::trim_pool(0);
+    assert_eq!(evolight_gpu::shared_source_bytes(), 0, "an idle app gives it back");
+    evolight_gpu::render(&src, &info, &s, &at(1000), Some(&after)).expect("gpu render");
+    assert_eq!(evolight_gpu::source_uploads() - start, 2);
 }
 
 /// A non-trivial 3D LUT (cross-process look: lifted blacks, warm highlights, swapped-ish blues).
-fn look_lut(n: usize, domain_max: f32) -> lightcraft_pipeline::lut::Lut3d {
+fn look_lut(n: usize, domain_max: f32) -> evolight_pipeline::lut::Lut3d {
     let mut data = Vec::with_capacity(n * n * n);
     for b in 0..n {
         for g in 0..n {
@@ -1139,7 +1139,7 @@ fn look_lut(n: usize, domain_max: f32) -> lightcraft_pipeline::lut::Lut3d {
             }
         }
     }
-    lightcraft_pipeline::lut::Lut3d { size: n, data, domain_min: [0.0; 3], domain_max: [domain_max; 3], title: None }
+    evolight_pipeline::lut::Lut3d { size: n, data, domain_min: [0.0; 3], domain_max: [domain_max; 3], title: None }
 }
 
 /// LUT profiles render on the GPU (the table is applied after grain, blended by the amount).
@@ -1150,8 +1150,8 @@ fn lut_profiles_match() {
     }
     let src = scene(1, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
-    lightcraft_pipeline::lut::register("lut:gpu-test-17", look_lut(17, 1.0));
-    lightcraft_pipeline::lut::register("lut:gpu-test-domain", look_lut(9, 1.2));
+    evolight_pipeline::lut::register("lut:gpu-test-17", look_lut(17, 1.0));
+    evolight_pipeline::lut::register("lut:gpu-test-domain", look_lut(9, 1.2));
     for (id, amount) in [("lut:gpu-test-17", 100.0), ("lut:gpu-test-17", 160.0), ("lut:gpu-test-domain", 60.0)] {
         for (name, edit) in [("default", (|_| {}) as Edit), ("saturated + curves + grain", saturated as Edit)] {
             let mut s = DevelopSettings::default();
@@ -1166,11 +1166,11 @@ fn lut_profiles_match() {
 /// [`check`] for the float HDR render, compared on the sRGB curve (unbounded above SDR white) in
 /// 8-bit steps. `over`: the samples must leave SDR.
 fn check_hdr(name: &str, src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest, over: bool) {
-    use lightcraft_color::transfer::linear_to_srgb;
-    use lightcraft_pipeline::{DeepSamples, OutputDepth};
+    use evolight_color::transfer::linear_to_srgb;
+    use evolight_pipeline::{DeepSamples, OutputDepth};
     let req = RenderRequest { depth: OutputDepth::F32Hdr, ..*req };
     let cpu = render(src, info, s, &req);
-    let gpu = lightcraft_gpu::try_render(src, info, s, &req, None).expect("a float render on the GPU, without the CPU fallback");
+    let gpu = evolight_gpu::try_render(src, info, s, &req, None).expect("a float render on the GPU, without the CPU fallback");
     let (cd, gd) = (cpu.deep.expect("CPU float samples"), gpu.deep.expect("GPU float samples"));
     assert_eq!((cd.width, cd.height, cd.space), (gd.width, gd.height, gd.space), "{name}");
     let (DeepSamples::F32(c), DeepSamples::F32(g)) = (&cd.samples, &gd.samples) else { panic!("{name}: float samples") };
@@ -1221,7 +1221,7 @@ fn hdr_float_render_matches() {
         s.light.blacks = -30.0;
         check_hdr(&format!("{p:?} HDR typical"), &src, &raw, &s, &req, true);
     }
-    lightcraft_pipeline::lut::register("lut:gpu-test-hdr", look_lut(17, 1.0));
+    evolight_pipeline::lut::register("lut:gpu-test-hdr", look_lut(17, 1.0));
     let cases: [(&str, Edit); 7] = [
         ("HDR vignette out", |s| s.vignette.amount = -40.0),
         ("HDR vignette lighten", |s| s.vignette.amount = 40.0),
@@ -1248,15 +1248,15 @@ fn hdr_float_render_matches() {
         check_hdr(name, &src, &raw, &s, &req, true);
     }
     let s = hdr(Process::LATEST);
-    for space in lightcraft_pipeline::OutputSpace::ALL {
+    for space in evolight_pipeline::OutputSpace::ALL {
         check_hdr(&format!("HDR in {space:?}"), &src, &raw, &s, &RenderRequest { space, ..req }, true);
     }
-    let win = RenderRequest { window: Some(lightcraft_pipeline::PixelWindow { x: 200, y: 100, w: 320, h: 240 }), ..RenderRequest::fit(900, 600) };
+    let win = RenderRequest { window: Some(evolight_pipeline::PixelWindow { x: 200, y: 100, w: 320, h: 240 }), ..RenderRequest::fit(900, 600) };
     check_hdr("HDR window", &src, &raw, &s, &win, true);
     check_hdr("HDR draft", &src, &raw, &s, &RenderRequest { quality: Quality::Draft, ..req }, true);
     let proof =
-        Some(lightcraft_pipeline::Proof { space: lightcraft_pipeline::OutputSpace::Srgb, dest_warning: false, display_warning: false, profile: 0 });
-    check_hdr("HDR soft proof", &src, &raw, &s, &RenderRequest { space: lightcraft_pipeline::OutputSpace::Rec2020, proof, ..req }, true);
+        Some(evolight_pipeline::Proof { space: evolight_pipeline::OutputSpace::Srgb, dest_warning: false, display_warning: false, profile: 0 });
+    check_hdr("HDR soft proof", &src, &raw, &s, &RenderRequest { space: evolight_pipeline::OutputSpace::Rec2020, proof, ..req }, true);
     // an edit with HDR off: the same request is the linear float render, 0..1
     let mut s = DevelopSettings::default();
     typical(&mut s);
@@ -1298,7 +1298,7 @@ fn refine_edges_match() {
                     invert: false,
                     shape: MaskShape::Radial { center: Point::new(0.45, 0.55), rx: 0.3, ry: 0.2, angle: 10.0, feather: 30.0, invert: false },
                 }],
-                adjust: lightcraft_develop::LocalAdjustments { exposure: 0.9, saturation: -30.0, ..Default::default() },
+                adjust: evolight_develop::LocalAdjustments { exposure: 0.9, saturation: -30.0, ..Default::default() },
                 refine,
                 ..Default::default()
             },
@@ -1309,14 +1309,14 @@ fn refine_edges_match() {
                     invert: false,
                     shape: MaskShape::Linear { start: Point::new(0.5, 0.0), end: Point::new(0.5, 0.5) },
                 }],
-                adjust: lightcraft_develop::LocalAdjustments { exposure: -0.7, amount: 70.0, ..Default::default() },
+                adjust: evolight_develop::LocalAdjustments { exposure: -0.7, amount: 70.0, ..Default::default() },
                 refine: refine / 2.0,
                 invert: true,
                 ..Default::default()
             },
         ];
         check(&format!("refine edges {refine}"), &src, &raw, &s, &RenderRequest::fit(640, 640));
-        let gpu = |s: &DevelopSettings| lightcraft_gpu::render(&src, &raw, s, &RenderRequest::fit(640, 640), None).expect("gpu render").image;
+        let gpu = |s: &DevelopSettings| evolight_gpu::render(&src, &raw, s, &RenderRequest::fit(640, 640), None).expect("gpu render").image;
         let unrefined = DevelopSettings { masks: s.masks.iter().map(|m| Mask { refine: 0.0, ..m.clone() }).collect(), ..s.clone() };
         // (a light refine barely moves a soft radial edge; a strong one visibly does)
         assert!(refine < 50.0 || diff(&gpu(&s), &gpu(&unrefined)).1 > 3, "refine {refine} changes the mask");
@@ -1331,7 +1331,7 @@ fn soft_proofs_match() {
     // Soft proofing against an output space (matrix proofs): into the proof gamut, back to the
     // output space, with the destination and display gamut warnings painted alike on both renderers.
     // Saturated edits put plenty of colours outside the smaller proof spaces.
-    use lightcraft_pipeline::{OutputSpace, Proof};
+    use evolight_pipeline::{OutputSpace, Proof};
     let src = scene(0, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
     for space in [OutputSpace::Srgb, OutputSpace::AdobeRgb, OutputSpace::DisplayP3] {
@@ -1359,19 +1359,19 @@ fn soft_proofs_match() {
         ..RenderRequest::fit(640, 640)
     };
     let warned = |i: &Rgba8| i.data.iter().filter(|p| p[1] == 0 && p[2] == 0 && p[0] > 200).count();
-    let (cpu, gpu) = (render(&src, &raw, &s, &req).image, lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu render").image);
+    let (cpu, gpu) = (render(&src, &raw, &s, &req).image, evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu render").image);
     assert!(warned(&cpu) > 100, "{} warned pixels", warned(&cpu));
     let (a, b) = (warned(&cpu), warned(&gpu));
     assert!(a.abs_diff(b) as f64 <= 1e-4 * cpu.data.len() as f64, "warned pixels: CPU {a}, GPU {b}");
     // an output-device profile (a 3D table) stays on the CPU
     let n = 2;
-    let lut = lightcraft_pipeline::ProofLut::new(n, vec![[0.5, 0.5, 0.5, 0.0]; n * n * n]).unwrap();
-    let id = lightcraft_pipeline::register_proof_profile(0x5eed_9f00, lut);
+    let lut = evolight_pipeline::ProofLut::new(n, vec![[0.5, 0.5, 0.5, 0.0]; n * n * n]).unwrap();
+    let id = evolight_pipeline::register_proof_profile(0x5eed_9f00, lut);
     let req = RenderRequest {
         proof: Some(Proof { space: OutputSpace::Srgb, dest_warning: true, display_warning: false, profile: id }),
         ..RenderRequest::fit(64, 64)
     };
-    assert!(lightcraft_gpu::render(&src, &raw, &DevelopSettings::default(), &req, None).is_none(), "declined: the CPU renders it");
+    assert!(evolight_gpu::render(&src, &raw, &DevelopSettings::default(), &req, None).is_none(), "declined: the CPU renders it");
 }
 
 /// Spot removal on the device: Clone, Heal and Remove (automatic source, scored on the device),
@@ -1382,7 +1382,7 @@ fn spots_match() {
     if !gpu() {
         return;
     }
-    use lightcraft_develop::SpotMode;
+    use evolight_develop::SpotMode;
     let src = scene(3, 900, 600);
     let raw = SourceInfo { raw: true, ..Default::default() };
     let spot = |mode, pts: &[(f64, f64)], size, feather, off: Option<(f64, f64)>| Spot {
@@ -1455,14 +1455,14 @@ fn device_histogram_is_exact() {
     typical(&mut s);
     for (w, h) in [(640, 427), (2400, 1600)] {
         let src = scene(0, w, h);
-        let r = lightcraft_gpu::render(&src, &raw, &s, &RenderRequest::fit(w, h), None).expect("gpu render");
-        assert_eq!(r.histogram, lightcraft_raster::Histogram::of_srgb8(&r.image), "{w}x{h}");
+        let r = evolight_gpu::render(&src, &raw, &s, &RenderRequest::fit(w, h), None).expect("gpu render");
+        assert_eq!(r.histogram, evolight_raster::Histogram::of_srgb8(&r.image), "{w}x{h}");
     }
     // a window with a spot reading from outside it: the render grows, the histogram is of the cut
     let src = scene(0, 3000, 2000);
     s.spots = vec![Spot { points: vec![Point::new(0.5, 0.5)], size: 0.02, source_offset: Some(Point::new(0.15, 0.0)), ..Default::default() }];
-    let req = RenderRequest { window: Some(lightcraft_pipeline::PixelWindow { x: 1200, y: 800, w: 500, h: 400 }), ..RenderRequest::fit(3000, 2000) };
-    let r = lightcraft_gpu::render(&src, &raw, &s, &req, None).expect("gpu render");
+    let req = RenderRequest { window: Some(evolight_pipeline::PixelWindow { x: 1200, y: 800, w: 500, h: 400 }), ..RenderRequest::fit(3000, 2000) };
+    let r = evolight_gpu::render(&src, &raw, &s, &req, None).expect("gpu render");
     assert_eq!((r.image.width, r.image.height), (500, 400));
-    assert_eq!(r.histogram, lightcraft_raster::Histogram::of_srgb8(&r.image), "window");
+    assert_eq!(r.histogram, evolight_raster::Histogram::of_srgb8(&r.image), "window");
 }

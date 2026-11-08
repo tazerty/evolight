@@ -1,14 +1,14 @@
 # From-source Flatpak packaging
 
-`ai.storyteller.lightcraft.yml` builds LightCraft and `lightcraft-cli` from this
+`ai.storyteller.evolight.yml` builds EvoLight and `evolight-cli` from this
 repository inside the Flatpak SDK. Flatpak builders have no network access, so
 `cargo-sources.json` lists every crate and git source with a fixed checksum or
 commit. Regenerate it after changing `Cargo.lock`:
 
 ```sh
 ./packaging/linux/flatpak/generate-cargo-sources.py
-flatpak-builder --user --install --force-clean build-flatpak packaging/linux/flatpak/ai.storyteller.lightcraft.yml
-flatpak run ai.storyteller.lightcraft
+flatpak-builder --user --install --force-clean build-flatpak packaging/linux/flatpak/ai.storyteller.evolight.yml
+flatpak run ai.storyteller.evolight
 ```
 
 ## Regeneration wrapper
@@ -27,7 +27,7 @@ Requirements: Python 3.9+ with `aiohttp` and `tomlkit` (`PyYAML` is optional and
 only needed for upstream's YAML output), plus `git` and network access to fetch
 the generator and git dependencies. Crate archive URLs and checksums are read
 from Cargo.lock; Flatpak downloads those archives when materializing the sources. The generator clones git
-repositories into `$XDG_CACHE_HOME/lightcraft-flatpak-cargo` by default, or the
+repositories into `$XDG_CACHE_HOME/evolight-flatpak-cargo` by default, or the
 directory passed with `--cache-dir`; the wrapper refuses a cache inside the
 checkout or `CARGO_TARGET_DIR`. `cargo-sources.json` is written to a temporary
 file and atomically renamed only after the generator succeeds, so a failed run
@@ -75,8 +75,8 @@ the latter case), because the default signal action performs no cleanup.
    entries by the canonical repository URL and then adds `rev`/`tag`/`branch`.
    Two different revisions of the same repository therefore overwrite each
    other. The patch keys the entry by the full source URL without its `#`
-   fragment, so `https://github.com/storytold/craft-libs?rev=...` remains a
-   separate source for each craft-libs revision.
+   fragment, so `vendor/evo-libs?rev=...` remains a
+   separate source for each evo-libs revision.
 2. **Include `[patch.unused]`.** `Cargo.lock` records patched packages that are
    not in the resolved graph under `patch.unused`. Upstream iterates only
    `package`, which omits crates such as `egui_demo_lib`; `--locked` offline
@@ -84,7 +84,7 @@ the latter case), because the default signal action performs no cleanup.
    patch also walks `patch.unused` entries.
 
 No third patch is needed: upstream's `git_repo_name()` already appends the
-first seven characters of the commit, so the two craft-libs checkouts get
+first seven characters of the commit, so the two evo-libs checkouts get
 different destinations.
 
 ## Offline validation performed
@@ -95,7 +95,7 @@ was materialized as Flatpak would, crate archives were checked against their
 recorded SHA-256 values, and the generated Cargo config was pointed at the
 materialized vendor directory. With an isolated `CARGO_HOME` and
 `CARGO_NET_OFFLINE=true`, `cargo --config <generated-config> metadata --offline
---locked --format-version 1` exited 0. The two craft-libs revisions
+--locked --format-version 1` exited 0. The two evo-libs revisions
 (`82a24b006eefa036b43c09a67fb9a3fbd17ffe63` and
 `25da1314d443171b4adeaad2cd9454b273f35c6f`) are present as separate git sources
 and `[source]` entries. The checked-in `cargo-sources.json` has SHA-256
@@ -115,6 +115,6 @@ python3 -B packaging/linux/flatpak/test_generate_cargo_sources.py
 
 The cancellation and timeout tests check process liveness and a frozen
 heartbeat before their teardown kills anything. With
-`LIGHTCRAFT_FLATPAK_TEST_BREAK_KILL=1` the group kill is a deliberate no-op and
+`EVOLIGHT_FLATPAK_TEST_BREAK_KILL=1` the group kill is a deliberate no-op and
 those tests must fail; run that variant to confirm they do not silently pass on
 a broken kill path.

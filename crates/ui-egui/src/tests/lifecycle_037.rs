@@ -8,11 +8,11 @@ use std::time::Duration;
 use crate::headless::Headless;
 use crate::render::{Slot, Tex};
 use crate::tests_fixtures::SyntheticLibrary;
-use crate::{ControlResponse, LightcraftApp, MAX_PENDING_SHOTS, MAX_SHOT_BYTES, PendingShot, Services, ShotGeometry};
-use lightcraft_engine::slideshow::Item;
+use crate::{ControlResponse, EvoLightApp, MAX_PENDING_SHOTS, MAX_SHOT_BYTES, PendingShot, Services, ShotGeometry};
+use evolight_engine::slideshow::Item;
 
-fn app() -> LightcraftApp {
-    LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() })
+fn app() -> EvoLightApp {
+    EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() })
 }
 
 fn raw(size: egui::Vec2) -> egui::RawInput {
@@ -65,28 +65,28 @@ fn frame(ctx: &egui::Context, raw: egui::RawInput, ui: impl FnMut(&mut egui::Ui)
 }
 
 /// An app whose screenshot encoder writes through the real file path and records the pixels it saw.
-fn app_with_screenshot_files() -> (LightcraftApp, Arc<Mutex<Option<(usize, usize, Vec<u8>)>>>) {
+fn app_with_screenshot_files() -> (EvoLightApp, Arc<Mutex<Option<(usize, usize, Vec<u8>)>>>) {
     let mut app = app();
     let seen = Arc::new(Mutex::new(None));
     let recorder = Arc::clone(&seen);
-    app.services.png = Some(Box::new(move |img: &lightcraft_raster::Rgba8| {
+    app.services.png = Some(Box::new(move |img: &evolight_raster::Rgba8| {
         *recorder.lock().unwrap() = Some((img.width, img.height, img.as_bytes()));
         vec![0x89, b'P', b'N', b'G']
     }));
     app.services.write = Some(Box::new(|path: &str, bytes: &[u8]| std::fs::write(path, bytes).map_err(|e| e.to_string())));
-    app.services.write_new = Some(Box::new(|path: &str, bytes: &[u8]| lightcraft_engine::export::write_file_new(path, bytes)));
+    app.services.write_new = Some(Box::new(|path: &str, bytes: &[u8]| evolight_engine::export::write_file_new(path, bytes)));
     (app, seen)
 }
 
 fn temp_png(name: &str) -> std::path::PathBuf {
-    let path = std::env::temp_dir().join(format!("lightcraft-{name}-{}.png", std::process::id()));
+    let path = std::env::temp_dir().join(format!("evolight-{name}-{}.png", std::process::id()));
     let _ = std::fs::remove_file(&path);
     path
 }
 
 /// Bind a pending request to the geometry/library generation a real issue would have used.
 fn issue_into_slot(ctx: &egui::Context, shot: &mut PendingShot, issued: ShotGeometry, library: u64) -> egui::ScreenshotCallback {
-    let (slot, callback) = craft_ui::capture::CaptureSlot::new(ctx, egui::ViewportId::ROOT, MAX_SHOT_BYTES);
+    let (slot, callback) = evo_ui::capture::CaptureSlot::new(ctx, egui::ViewportId::ROOT, MAX_SHOT_BYTES);
     shot.slot = Some(slot);
     shot.sent_at_ms = Some(0.0);
     shot.issued = Some(issued);
@@ -541,7 +541,7 @@ fn one_synthetic_batch_until_a_completed_pass_and_drops_wait_for_the_ui_phase() 
     assert!(second.events.is_empty(), "no second step while the first waits for a UI pass");
 
     // Drops are queued by the hook even while a batch is in flight, but only the UI phase takes them.
-    second.dropped_files.push(Arc::new(TestDropped(std::env::temp_dir().join("lightcraft-drop.txt"))));
+    second.dropped_files.push(Arc::new(TestDropped(std::env::temp_dir().join("evolight-drop.txt"))));
     app.raw_input_hook(&ctx, &mut second);
     assert_eq!(app.dropped_files.len(), 1);
     frame(&ctx, raw(egui::vec2(800.0, 600.0)), |_| {});
@@ -699,14 +699,14 @@ fn text_field_ime_commit_replaces_the_selection() {
 }
 
 fn shot_dir(name: &str) -> std::path::PathBuf {
-    let d = std::env::temp_dir().join(format!("lightcraft-shot-{name}-{}", std::process::id()));
+    let d = std::env::temp_dir().join(format!("evolight-shot-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).expect("temp screenshot folder");
     d
 }
 
 /// Complete one admitted capture whose slot is bound to the current geometry.
-fn complete_admitted(ctx: &egui::Context, app: &mut LightcraftApp, image: egui::ColorImage) {
+fn complete_admitted(ctx: &egui::Context, app: &mut EvoLightApp, image: egui::ColorImage) {
     let generation = app.shot_document_generation();
     let issued = geometry(100.0, 100.0);
     let callback = {

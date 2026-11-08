@@ -3,7 +3,7 @@ use super::{RichText, Tokens, register};
 
 /// Appearance Mode (`button:settingsAppearance-{0,1,2}`: Auto, Dark, Light) above the light and
 /// dark theme cards (`radio:theme-{id}`), each with a preview of the chosen theme. The card in
-/// use is outlined. Applied on the next frame ([`LightcraftApp::sync_theme`]).
+/// use is outlined. Applied on the next frame ([`EvoLightApp::sync_theme`]).
 pub(super) fn appearance(ui: &mut egui::Ui, t: &Tokens, s: &mut crate::state::AppSettings, system: Option<egui::Theme>) {
     use crate::state::{AppearanceMode as M, DarkTheme, LightTheme};
     heading(ui, t, crate::i18n::tr("Appearance"));
@@ -105,7 +105,7 @@ fn theme_card<V: PartialEq + Copy>(ui: &mut egui::Ui, t: &Tokens, card: ThemeCar
         });
 }
 
-/// A small LightCraft window painted with `kind`'s tokens: the top bar with its search field, the
+/// A small EvoLight window painted with `kind`'s tokens: the top bar with its search field, the
 /// photo with the filmstrip under it, the Edit panel (histogram and sliders), the tool strip and
 /// the bottom bar.
 fn theme_preview(ui: &mut egui::Ui, kind: crate::theme::ThemeKind, width: f32) {
@@ -221,7 +221,7 @@ fn theme_preview(ui: &mut egui::Ui, kind: crate::theme::ThemeKind, width: f32) {
         let thumb = cell.shrink(2.5);
         painter.rect_filled(thumb, 0.0, Color32::from_rgb(0x6f + 8 * i as u8, 0x80, 0x8f));
         if selected {
-            crate::panels::grid::selection_ring(&painter, &p, thumb, lightcraft_engine::SelectionState::Active);
+            crate::panels::grid::selection_ring(&painter, &p, thumb, evolight_engine::SelectionState::Active);
         }
     }
 }

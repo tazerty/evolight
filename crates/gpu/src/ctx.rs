@@ -388,11 +388,11 @@ pub struct Gpu {
 
 /// WGSL constants shared by every module (generated from the CPU pipeline's values).
 fn constants() -> String {
-    use lightcraft_pipeline::finish::{GRAIN_HASH, MASK_SUMS, MASK_TERMS, SRGB_LUT_N};
-    use lightcraft_pipeline::tone::{CHROMA_N, LUT_MAX_EV, LUT_MIN_EV, LUT_N};
+    use evolight_pipeline::finish::{GRAIN_HASH, MASK_SUMS, MASK_TERMS, SRGB_LUT_N};
+    use evolight_pipeline::tone::{CHROMA_N, LUT_MAX_EV, LUT_MIN_EV, LUT_N};
     let mut s = String::new();
-    let [to_lms, from_lms, to_lab, from_lab] = lightcraft_color::perceptual::oklab_matrices();
-    let (to_pro, from_pro) = lightcraft_pipeline::light_v3::prophoto_matrices();
+    let [to_lms, from_lms, to_lab, from_lab] = evolight_color::perceptual::oklab_matrices();
+    let (to_pro, from_pro) = evolight_pipeline::light_v3::prophoto_matrices();
     for (name, m) in [
         ("OK_TO_LMS", to_lms),
         ("OK_FROM_LMS", from_lms),
@@ -408,22 +408,22 @@ fn constants() -> String {
         "const TONE_MIN_EV: f32 = {LUT_MIN_EV:?};\nconst TONE_MAX_EV: f32 = {LUT_MAX_EV:?};\nconst TONE_N: u32 = {LUT_N}u;\nconst CHROMA_N: u32 = {CHROMA_N}u;\n"
     );
     s += &format!("const TONE_MIN_GAIN: f32 = {:?};\n", 2f32.powf(LUT_MIN_EV));
-    let b = lightcraft_pipeline::geometry::BLANK;
+    let b = evolight_pipeline::geometry::BLANK;
     s += &format!("const BLANK_R: f32 = {:?};\nconst BLANK_G: f32 = {:?};\nconst BLANK_B: f32 = {:?};\n", b[0], b[1], b[2]);
     s += &format!(
         "const SRGB_N: u32 = {SRGB_LUT_N}u;\nconst CURVE_N: u32 = {}u;\nconst MASK_TERMS: u32 = {MASK_TERMS}u;\nconst MASK_SUMS: u32 = {MASK_SUMS}u;\n",
         crate::params::CURVE_N
     );
-    s += &format!("const POINT_WORDS: u32 = {}u;\n", lightcraft_pipeline::colorops::POINT_WORDS);
-    let y = lightcraft_pipeline::light_v3::PRO_Y;
-    s += &format!("const PRO_Y = vec3<f32>({:?}, {:?}, {:?});\nconst LIGHT_N: u32 = {}u;\n", y[0], y[1], y[2], lightcraft_pipeline::light_v3::LUT_N);
-    s += &format!("const EYE_WORDS: u32 = {}u;\n", lightcraft_pipeline::redeye::EYE_WORDS);
-    use lightcraft_pipeline::masks::{AUTO_TOL_CHROMA, AUTO_TOL_EV};
+    s += &format!("const POINT_WORDS: u32 = {}u;\n", evolight_pipeline::colorops::POINT_WORDS);
+    let y = evolight_pipeline::light_v3::PRO_Y;
+    s += &format!("const PRO_Y = vec3<f32>({:?}, {:?}, {:?});\nconst LIGHT_N: u32 = {}u;\n", y[0], y[1], y[2], evolight_pipeline::light_v3::LUT_N);
+    s += &format!("const EYE_WORDS: u32 = {}u;\n", evolight_pipeline::redeye::EYE_WORDS);
+    use evolight_pipeline::masks::{AUTO_TOL_CHROMA, AUTO_TOL_EV};
     s += &format!("const AUTO_TOL_EV: f32 = {AUTO_TOL_EV:?};\nconst AUTO_TOL_CHROMA: f32 = {AUTO_TOL_CHROMA:?};\n");
-    s += &format!("const SHADOW_TINT_K: f32 = {:?};\n", lightcraft_pipeline::colorops::SHADOW_TINT);
-    s += &format!("const GAMUT_WARN: f32 = {:?};\n", lightcraft_pipeline::finish::GAMUT_WARN);
-    s += &format!("const NCAND: u32 = {}u;\n", lightcraft_pipeline::spots::candidates(1.0).len());
-    use lightcraft_pipeline::output::{PROOF_DEST_WARNING, PROOF_DISPLAY_WARNING};
+    s += &format!("const SHADOW_TINT_K: f32 = {:?};\n", evolight_pipeline::colorops::SHADOW_TINT);
+    s += &format!("const GAMUT_WARN: f32 = {:?};\n", evolight_pipeline::finish::GAMUT_WARN);
+    s += &format!("const NCAND: u32 = {}u;\n", evolight_pipeline::spots::candidates(1.0).len());
+    use evolight_pipeline::output::{PROOF_DEST_WARNING, PROOF_DISPLAY_WARNING};
     for (name, c) in [("PROOF_DEST", PROOF_DEST_WARNING), ("PROOF_DISP", PROOF_DISPLAY_WARNING)] {
         s += &format!("const {name}_R: f32 = {:?};\nconst {name}_G: f32 = {:?};\nconst {name}_B: f32 = {:?};\n", c[0], c[1], c[2]);
     }
@@ -451,7 +451,7 @@ fn module_source(m: &Module, consts: &str) -> String {
 
 impl Gpu {
     /// Create a device on the best available adapter (no software adapter unless
-    /// `LIGHTCRAFT_GPU_ALLOW_SOFTWARE`), or why there is none.
+    /// `EVOLIGHT_GPU_ALLOW_SOFTWARE`), or why there is none.
     pub fn new(backends: wgpu::Backends) -> Result<Gpu, String> {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         // only these drivers are loaded (`crate::backend`: never Vulkan on Windows unless asked)
@@ -461,7 +461,7 @@ impl Gpu {
         // no indirect-call validation pipeline: Intel Metal fails to compile it (#250)
         desc.flags = crate::backend::instance_flags_from_env(desc.flags);
         let instance = wgpu::Instance::new(desc);
-        // the card LIGHTCRAFT_GPU_ADAPTER names, else the high-performance one
+        // the card EVOLIGHT_GPU_ADAPTER names, else the high-performance one
         let adapter = crate::backend::pick_adapter(&instance, backends)?;
         let info = adapter.get_info();
         if refuse_adapter(info.device_type, software_allowed()) {
@@ -469,7 +469,7 @@ impl Gpu {
             return Err(format!("software adapter ({}) skipped: the CPU pipeline is faster", info.name));
         }
         if info.device_type == wgpu::DeviceType::Cpu {
-            log::info!("gpu: LIGHTCRAFT_GPU_ALLOW_SOFTWARE: using the software adapter {}", info.name);
+            log::info!("gpu: EVOLIGHT_GPU_ALLOW_SOFTWARE: using the software adapter {}", info.name);
         }
         let mut limits = adapter.limits();
         if limits.max_storage_buffers_per_shader_stage < 10 {
@@ -478,7 +478,7 @@ impl Gpu {
         }
         limits = capped(limits, limits_override());
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("lightcraft"),
+            label: Some("evolight"),
             required_limits: limits.clone(),
             ..Default::default()
         }))
@@ -487,12 +487,12 @@ impl Gpu {
     }
 
     /// The renderer on the window's device ([`crate::adopt_window_device`]), within its limits
-    /// lowered by `LIGHTCRAFT_GPU_LIMITS` as a device of its own would be.
+    /// lowered by `EVOLIGHT_GPU_LIMITS` as a device of its own would be.
     pub fn adopt(device: wgpu::Device, queue: wgpu::Queue, info: wgpu::AdapterInfo) -> Result<Gpu, String> {
         Gpu::adopt_capped(device, queue, info, limits_override())
     }
 
-    /// [`Gpu::adopt`] with the limits override given (`LIGHTCRAFT_GPU_LIMITS`, parsed).
+    /// [`Gpu::adopt`] with the limits override given (`EVOLIGHT_GPU_LIMITS`, parsed).
     fn adopt_capped(device: wgpu::Device, queue: wgpu::Queue, info: wgpu::AdapterInfo, cap: Option<(u64, u64)>) -> Result<Gpu, String> {
         let limits = capped(device.limits(), cap);
         Gpu::with_device(device, queue, info, limits, true)
@@ -667,7 +667,7 @@ impl Gpu {
                     let (whole, mut tail) = view.slice(..).into_chunks::<PART>();
                     let (src, src_tail) = bytes.as_chunks::<PART>();
                     let mut parts: Vec<_> = whole.into_iter().zip(src).map(Some).collect();
-                    lightcraft_raster::par_rows(&mut parts, 1, |_, part| {
+                    evolight_raster::par_rows(&mut parts, 1, |_, part| {
                         for (d, s) in part.iter_mut().filter_map(Option::take) {
                             wgpu::WriteOnly::<[u8]>::from(d).copy_from_slice(s);
                         }
@@ -835,7 +835,7 @@ impl Gpu {
         // (`len` counts 32-bit words: as many `T` as they fill)
         let mut out = vec![<T as bytemuck::Zeroable>::zeroed(); src.len() / std::mem::size_of::<T>().max(1)];
         const PART: usize = 1 << 20;
-        lightcraft_raster::par_rows(bytemuck::cast_slice_mut::<T, u8>(&mut out), PART, |k, part| {
+        evolight_raster::par_rows(bytemuck::cast_slice_mut::<T, u8>(&mut out), PART, |k, part| {
             if let Some(s) = src.get(k * PART..k * PART + part.len()) {
                 part.copy_from_slice(s);
             }
@@ -856,18 +856,18 @@ fn refuse_adapter(device_type: wgpu::DeviceType, allow_software: bool) -> bool {
     device_type == wgpu::DeviceType::Cpu && !allow_software
 }
 
-/// `LIGHTCRAFT_GPU_ALLOW_SOFTWARE=1`: accept a software adapter. For tests on machines without a
+/// `EVOLIGHT_GPU_ALLOW_SOFTWARE=1`: accept a software adapter. For tests on machines without a
 /// GPU (Mesa lavapipe on Linux, WARP on Windows), so the CPU ↔ GPU equivalence tests run there
 /// instead of skipping; the app never sets it (software rendering is slower than the CPU pipeline).
 fn software_allowed() -> bool {
-    std::env::var("LIGHTCRAFT_GPU_ALLOW_SOFTWARE").is_ok_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+    std::env::var("EVOLIGHT_GPU_ALLOW_SOFTWARE").is_ok_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
 }
 
-/// `LIGHTCRAFT_GPU_LIMITS`: lower the device limits, e.g. to reproduce a smaller adapter.
+/// `EVOLIGHT_GPU_LIMITS`: lower the device limits, e.g. to reproduce a smaller adapter.
 /// `webgpu` / `downlevel` = 128 MiB storage bindings and 256 MiB buffers (the WebGPU defaults),
 /// `<n>` = n MiB storage bindings and 2n MiB buffers. Returns (binding bytes, buffer bytes).
 fn limits_override() -> Option<(u64, u64)> {
-    parse_limits(&std::env::var("LIGHTCRAFT_GPU_LIMITS").ok()?)
+    parse_limits(&std::env::var("EVOLIGHT_GPU_LIMITS").ok()?)
 }
 
 /// `limits` lowered to `cap` ([`limits_override`]: storage binding bytes, buffer bytes).
@@ -875,7 +875,7 @@ fn capped(mut limits: wgpu::Limits, cap: Option<(u64, u64)>) -> wgpu::Limits {
     if let Some((binding, buffer)) = cap {
         limits.max_storage_buffer_binding_size = limits.max_storage_buffer_binding_size.min(binding);
         limits.max_buffer_size = limits.max_buffer_size.min(buffer);
-        log::info!("gpu: LIGHTCRAFT_GPU_LIMITS: storage bindings ≤ {} MiB, buffers ≤ {} MiB", binding >> 20, buffer >> 20);
+        log::info!("gpu: EVOLIGHT_GPU_LIMITS: storage bindings ≤ {} MiB, buffers ≤ {} MiB", binding >> 20, buffer >> 20);
     }
     limits
 }
@@ -910,7 +910,7 @@ pub(crate) fn read_texture(
     texture: &wgpu::Texture,
     width: usize,
     height: usize,
-) -> Result<lightcraft_raster::Rgba8, String> {
+) -> Result<evolight_raster::Rgba8, String> {
     if DEVICE_LOST.load(Ordering::Relaxed) {
         return Err("the device is lost".into());
     }
@@ -969,7 +969,7 @@ pub(crate) fn read_texture(
     if data.len() != width * height {
         return Err("incomplete readback".into());
     }
-    Ok(lightcraft_raster::Rgba8 { width, height, data })
+    Ok(evolight_raster::Rgba8 { width, height, data })
 }
 
 fn parse_limits(v: &str) -> Option<(u64, u64)> {
@@ -1128,7 +1128,7 @@ mod tests {
         assert_eq!(super::parse_limits("17592186044416"), None);
     }
 
-    /// `LIGHTCRAFT_GPU_LIMITS` caps the window's device as it caps a device of its own (review of
+    /// `EVOLIGHT_GPU_LIMITS` caps the window's device as it caps a device of its own (review of
     /// PR #1065: adopting the window's device skipped it, so a 1024 × 1024 RGB float buffer — 12 MiB —
     /// was taken under an 8 MiB cap).
     #[test]
@@ -1141,12 +1141,12 @@ mod tests {
 
         let _lock = crate::DEVICE_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some((device, queue, info)) = test_device() else {
-            lightcraft_testkit::skip!(Gpu, "no GPU adapter");
+            evolight_testkit::skip!(Gpu, "no GPU adapter");
             return;
         };
         let full = device.limits().max_storage_buffer_binding_size.min(device.limits().max_buffer_size);
         if full <= 12 << 20 {
-            lightcraft_testkit::skip!(Gpu, "the adapter's buffers are already ≤ 12 MiB");
+            evolight_testkit::skip!(Gpu, "the adapter's buffers are already ≤ 12 MiB");
             return;
         }
         let g = super::Gpu::adopt_capped(device, queue, info, super::parse_limits("8")).expect("kernels build");
@@ -1180,7 +1180,7 @@ mod tests {
     #[test]
     fn every_entry_point_has_a_kernel() {
         let Some(g) = crate::device() else {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
             return;
         };
         let entries: Vec<&str> = super::MODULES.iter().flat_map(|m| m.entries.iter().copied()).collect();
@@ -1233,7 +1233,7 @@ mod tests {
     #[test]
     fn uploads_read_back_exactly() {
         let Some(g) = crate::device() else {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
             return;
         };
         for len in [1usize, 1000, (3 << 20) / 4 + 777] {
@@ -1255,7 +1255,7 @@ mod tests {
     #[test]
     fn an_upload_after_a_failure_returns_the_placeholder() {
         let Some(g) = crate::device() else {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
             return;
         };
         super::fail(super::FailKind::Fatal, "simulated failure before an upload".into());
@@ -1273,7 +1273,7 @@ mod tests {
     #[test]
     fn a_poll_on_a_lost_device_neither_panics_nor_aborts() {
         if run_child("lost_poll_child").is_none() {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
         }
     }
 
@@ -1282,7 +1282,7 @@ mod tests {
     #[test]
     fn a_view_readback_on_a_lost_device_fails_without_a_panic() {
         if run_child("lost_readback_child").is_none() {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
         }
     }
 
@@ -1317,7 +1317,7 @@ mod tests {
     #[test]
     fn a_really_lost_device_is_not_polled_again() {
         if run_child("really_lost_child").is_none() {
-            lightcraft_testkit::skip!(Gpu, "no GPU device, or one that can't be lost on purpose here");
+            evolight_testkit::skip!(Gpu, "no GPU device, or one that can't be lost on purpose here");
         }
     }
 
@@ -1326,7 +1326,7 @@ mod tests {
     #[test]
     fn a_retired_but_live_device_is_still_polled() {
         if run_child("retired_child").is_none() {
-            lightcraft_testkit::skip!(Gpu, "no GPU device");
+            evolight_testkit::skip!(Gpu, "no GPU device");
         }
     }
 
@@ -1350,7 +1350,7 @@ mod tests {
     #[test]
     fn running_out_of_device_memory_falls_back_without_stopping_the_gpu() {
         if run_child("out_of_memory_child").is_none() {
-            lightcraft_testkit::skip!(Gpu, "no GPU device, or its memory never ran out");
+            evolight_testkit::skip!(Gpu, "no GPU device, or its memory never ran out");
         }
     }
 
@@ -1390,12 +1390,12 @@ mod tests {
             return;
         }
         // a render that needs more than is left: a larger one when the driver still finds room for the first
-        let s = lightcraft_develop::DevelopSettings::default();
+        let s = evolight_develop::DevelopSettings::default();
         let mut ran_out = false;
         for (w, h) in [(4000, 3000), (8000, 6000)] {
-            let src = std::sync::Arc::new(lightcraft_raster::Rgb32f { width: w, height: h, data: vec![[0.18, 0.18, 0.18]; w * h] });
-            let req = lightcraft_pipeline::RenderRequest::fit(w, h);
-            match crate::try_render(&src, &lightcraft_pipeline::SourceInfo::default(), &s, &req, None) {
+            let src = std::sync::Arc::new(evolight_raster::Rgb32f { width: w, height: h, data: vec![[0.18, 0.18, 0.18]; w * h] });
+            let req = evolight_pipeline::RenderRequest::fit(w, h);
+            match crate::try_render(&src, &evolight_pipeline::SourceInfo::default(), &s, &req, None) {
                 Ok(_) => continue,
                 Err(crate::Fallback::Failed(reason)) => assert!(reason.contains("out of device memory"), "{reason}"),
                 Err(crate::Fallback::NotTried) => panic!("the GPU wasn't tried"),
@@ -1478,7 +1478,7 @@ mod tests {
     fn software_adapters_need_the_opt_in() {
         use wgpu::DeviceType::{Cpu, DiscreteGpu, IntegratedGpu, Other, VirtualGpu};
         assert!(super::refuse_adapter(Cpu, false), "llvmpipe / WARP are refused by default");
-        assert!(!super::refuse_adapter(Cpu, true), "LIGHTCRAFT_GPU_ALLOW_SOFTWARE accepts them");
+        assert!(!super::refuse_adapter(Cpu, true), "EVOLIGHT_GPU_ALLOW_SOFTWARE accepts them");
         for t in [DiscreteGpu, IntegratedGpu, VirtualGpu, Other] {
             assert!(!super::refuse_adapter(t, false), "{t:?}");
             assert!(!super::refuse_adapter(t, true), "{t:?}");

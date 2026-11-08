@@ -3,7 +3,7 @@ use super::{Deserialize, Photo, Serialize, Session};
 /// The develop settings a photo gets on import: raws start from their as-shot white balance with
 /// default sharpening / colour noise reduction, and file-embedded lens corrections on (as the
 /// camera intended); a user default preset ([`ImportDefaults`]) goes on top.
-pub fn import_defaults(p: &Photo) -> lightcraft_develop::DevelopSettings {
+pub fn import_defaults(p: &Photo) -> evolight_develop::DevelopSettings {
     p.import_defaults()
 }
 
@@ -18,7 +18,7 @@ pub fn has_import_look(p: &Photo) -> bool {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ImportDefaults {
-    /// Preset applied to raw files (`None` = the LightCraft default).
+    /// Preset applied to raw files (`None` = the EvoLight default).
     pub raw_preset: Option<String>,
     /// Use a camera's own default (below) when the photo's camera has one.
     pub per_camera: bool,
@@ -48,7 +48,7 @@ pub struct ImportDefaults {
 pub struct CameraDefault {
     /// Make + model (`Meta::camera`).
     pub camera: String,
-    /// Preset id; `None` = the LightCraft default for this camera.
+    /// Preset id; `None` = the EvoLight default for this camera.
     pub preset: Option<String>,
 }
 

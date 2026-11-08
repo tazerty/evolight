@@ -1,6 +1,6 @@
 use super::albums::MARK_W;
 use super::sections::visible_right;
-use super::{Align2, Icon, LightcraftApp, Rect, Sense, Tokens, paint, pos2, register, vec2};
+use super::{Align2, Icon, EvoLightApp, Rect, Sense, Tokens, paint, pos2, register, vec2};
 
 /// How wide the sidebar's content needs to be, from the widest row of the last frame: rows are
 /// drawn at this width (or the panel's, if wider), and the sidebar scrolls sideways when it
@@ -148,13 +148,13 @@ impl<'a> Row<'a> {
     }
 
     /// Draw the row; the response is the row's.
-    pub(super) fn show(self, app: &mut LightcraftApp, ui: &mut egui::Ui) -> egui::Response {
+    pub(super) fn show(self, app: &mut EvoLightApp, ui: &mut egui::Ui) -> egui::Response {
         draw_row(app, ui, self)
     }
 }
 
 /// Draw a [`Row`].
-fn draw_row(app: &mut LightcraftApp, ui: &mut egui::Ui, row: Row) -> egui::Response {
+fn draw_row(app: &mut EvoLightApp, ui: &mut egui::Ui, row: Row) -> egui::Response {
     let Row { id, icon, label, spoken, count, selected, indent, sense, mark } = row;
     let label = if matches!(id, "all" | "recentlyAdded" | "picks" | "missing" | "recentlyDeleted") { crate::i18n::tr(label) } else { label };
     let t = Tokens::get(ui.ctx());
@@ -232,7 +232,7 @@ fn draw_row(app: &mut LightcraftApp, ui: &mut egui::Ui, row: Row) -> egui::Respo
 /// rows scroll by), and the caller skips it. A library can have thousands of keywords or folders,
 /// and drawing them all every frame slows the whole app down (issue #1011). A row the sidebar is
 /// asked to scroll to is drawn. `label`, `count` and `mark` as for [`row_sensed`].
-pub(super) fn out_of_sight(app: &LightcraftApp, ui: &mut egui::Ui, id: &str, label: &str, count: Option<usize>, indent: f32, mark: bool) -> bool {
+pub(super) fn out_of_sight(app: &EvoLightApp, ui: &mut egui::Ui, id: &str, label: &str, count: Option<usize>, indent: f32, mark: bool) -> bool {
     let r = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), ROW_HEIGHT));
     if ui.is_rect_visible(r) || scroll_asked(ui, id) {
         return false;

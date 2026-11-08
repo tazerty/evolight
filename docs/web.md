@@ -1,6 +1,6 @@
-# LightCraft in the browser
+# EvoLight in the browser
 
-`apps/lightcraft-web` runs the same egui UI as the desktop app (`crates/ui-egui`) in the browser,
+`apps/evolight-web` runs the same egui UI as the desktop app (`crates/ui-egui`) in the browser,
 compiled to WebAssembly and drawn with WebGL2 (eframe's `glow` backend).
 
 ## Build and run locally
@@ -18,7 +18,7 @@ it's missing or a different version.
 Build, then serve:
 
 ```sh
-cargo xtask web            # → <target>/web-site/{index.html, worker.js, lightcraft_web.js, lightcraft_web_bg.wasm}
+cargo xtask web            # → <target>/web-site/{index.html, worker.js, evolight_web.js, evolight_web_bg.wasm}
 cargo xtask web --serve    # build, then serve on http://127.0.0.1:8080/ (or `--serve 9000`)
 cargo xtask web --dev      # unoptimized build with debug info (faster to compile, slow to run)
 ```
@@ -53,13 +53,13 @@ is the brotli column: 3.1 MB, 11 % less than the old build's brotli size and 41 
 gzip size (5.25 MB). `wasm-opt -Oz`, when installed, shrinks it further.
 
 **Fonts.** The browser has no system fonts to fall back on, so CJK text comes from
-[craft-fonts](https://github.com/storytold/craft-fonts), the optional `CRAFT_FONTS_DIR` build
-input (`CRAFT_FONTS_DIR=../craft-fonts cargo xtask web`; release builds always set it). On wasm32
+[evo-fonts](https://github.com/tazerty/evo-fonts), the optional `EVO_FONTS_DIR` build
+input (`EVO_FONTS_DIR=../evo-fonts cargo xtask web`; release builds always set it). On wasm32
 `crates/engine/build.rs` embeds BIZ UDPGothic Regular (UI and watermark fallback) and Noto Sans
 Thai Regular (~214 KiB, for Thai file and folder names in every UI language). The web
-bundle also ships Noto Sans CJK SC Regular as `lightcraft_zh_hans.otf` and loads it before the UI
+bundle also ships Noto Sans CJK SC Regular as `evolight_zh_hans.otf` and loads it before the UI
 starts. Keeping the 16 MB Chinese face separate leaves the module under Cloudflare's 25 MiB
-per-file limit (the older Japanese-only module measured 21.8 MB). Without `CRAFT_FONTS_DIR`, the
+per-file limit (the older Japanese-only module measured 21.8 MB). Without `EVO_FONTS_DIR`, the
 web build still works, but Chinese and Japanese text lack glyphs.
 
 ## Deploying: headers
@@ -88,10 +88,10 @@ are the same in every version, so serve them with `Cache-Control: no-cache` (not
   when the main thread can write it (`FileSystemFileHandle.createWritable`: Chrome, Edge,
   Firefox, recent Safari), otherwise IndexedDB. Both hold the same layout:
   - `library/catalog.snap`, `library/catalog.log`: the same crash-safe journal as the desktop app
-    (`lightcraft-catalog`), plus `presets.json`, `view.json`, `prefs.json` and `ui.json` (panel
+    (`evolight-catalog`), plus `presets.json`, `view.json`, `prefs.json` and `ui.json` (panel
     layout). The catalog `Store` is a memory mirror loaded at start-up; every change is flushed in
     the background within a frame or two, each file replaced atomically, in modification order
-    (`apps/lightcraft-web/src/files.rs`). View state and UI prefs are saved every second when they
+    (`apps/evolight-web/src/files.rs`). View state and UI prefs are saved every second when they
     change (a tab can close without notice).
   - Known limitation: the browser storage has no file locks, so two tabs of the same origin open
     the same library and the last one to write a snapshot wins (the desktop app and the CLI lock
@@ -130,8 +130,8 @@ are the same in every version, so serve them with `Cache-Control: no-cache` (not
     thumbnails instead of deleting them as unindexed.
   - A picked or dropped photo whose bytes can't be stored is not added (it would be gone after
     a reload); a notice says why.
-  - One tab at a time: the page holds a Web Lock (`navigator.locks`, `lightcraft-library`); a
-    second tab or window shows "LightCraft is already open in another tab" instead of loading
+  - One tab at a time: the page holds a Web Lock (`navigator.locks`, `evolight-library`); a
+    second tab or window shows "EvoLight is already open in another tab" instead of loading
     its own copy (two copies would overwrite each other's saves). Browsers without Web Locks, or
     that refuse the lock request, aren't protected: the app starts without the guard.
   - If the stored library can't be opened, a notice says the session is temporary and nothing
@@ -141,7 +141,7 @@ are the same in every version, so serve them with `Cache-Control: no-cache` (not
 - **Importing photos with no filesystem.** *File ▸ Import Photos…* (<kbd>⇧⌘I</kbd>) opens the
   browser's file picker. You can also drop files anywhere on the page. The bytes are written to
   storage, then imported and decoded by the same engine code as the desktop app
-  (`lightcraft_engine::files::{probe_bytes, load_bytes}`): JPEG/PNG/TIFF/WebP and the supported
+  (`evolight_engine::files::{probe_bytes, load_bytes}`): JPEG/PNG/TIFF/WebP and the supported
   raw formats. "Copy into library" is the same as "Add" here.
 - **Rendering in Web Workers.** Renders don't run on the main thread: up to four dedicated
   workers (`hardwareConcurrency − 1`, `?workers=N` to override, `?workers=0` for the old inline
@@ -154,42 +154,42 @@ are the same in every version, so serve them with `Cache-Control: no-cache` (not
 - **Every develop control** (sliders, curves, mixer, grading, masking, crop…) works as it does
   on the desktop, since it's the same crate.
 - **Export downloads the file.** *Export…* (<kbd>⇧⌘E</kbd>) runs the same `app.export` path as
-  the desktop app (`lightcraft_engine::export`: JPEG/PNG/TIFF/WebP, sizing, naming). The host's
+  the desktop app (`evolight_engine::export`: JPEG/PNG/TIFF/WebP, sizing, naming). The host's
   `write` service hands each file to the browser as a download instead of writing it to disk.
-- **Automation.** `await lightcraft.command("library.info", "{}")` runs any engine or UI command
+- **Automation.** `await evolight.command("library.info", "{}")` runs any engine or UI command
   by id on the next frame and resolves to the JSON result (`web.stats` reports storage, workers
   and the render queue). The params are a JSON object; empty text and JSON `null` mean `{}`
   (no params: a command that takes photo ids then acts on the selection). Any other text that
   isn't an object rejects the promise and runs nothing, as the control channel and MCP do, so a
   typo can't run a command on the selection. This is how the headless-Chrome checks drive the page.
-- **Embedding (`?host=parent`).** A same-origin page framing LightCraft in an `<iframe>` speaks
-  to it over `postMessage`, the protocol PdfCraft, GridCraft and DeckCraft share
-  (`apps/lightcraft-web/src/host.rs`, issue #2270). LightCraft posts `lightcraft:ready`
-  `{version}` once it listens (`lightcraft:failed` `{error}` if it couldn't start); the page sends
-  `lightcraft:open` `{name, bytes}` to add a photo (as one dropped on the window; `name` gives the
-  format) and `lightcraft:cmd` `{id, params}` to run a command, answered by `lightcraft:response`
+- **Embedding (`?host=parent`).** A same-origin page framing EvoLight in an `<iframe>` speaks
+  to it over `postMessage`, the protocol EvoPdf, EvoGrid and EvoDeck share
+  (`apps/evolight-web/src/host.rs`, issue #2270). EvoLight posts `evolight:ready`
+  `{version}` once it listens (`evolight:failed` `{error}` if it couldn't start); the page sends
+  `evolight:open` `{name, bytes}` to add a photo (as one dropped on the window; `name` gives the
+  format) and `evolight:cmd` `{id, params}` to run a command, answered by `evolight:response`
   `{ok, value}` (no request id, as in the sibling bridges: responses come back in the order the
   commands were sent, one per `cmd` that had an id). Everything that would be downloaded (exports and the library backup; the
   preset, keyword and curve file dialogs have no web implementation yet) reaches the page as
-  `lightcraft:save` `{name, bytes}` (a transferred `ArrayBuffer`) instead, and `lightcraft:dirty`
+  `evolight:save` `{name, bytes}` (a transferred `ArrayBuffer`) instead, and `evolight:dirty`
   `{dirty}` says, whenever it changes, whether closing now would lose something (a write to
   browser storage still queued or running, or changes storage refused), so the page can ask
   before closing a window with edits. Only the parent window on the page's own origin is heard or
   answered. A page with an opaque origin (`"null"`: a sandboxed iframe, a `data:` page), or a
   parent on another origin, gets no bridge, and exports keep downloading. The library still lives
   in the iframe's browser storage.
-- **Embedding in the page's own document (`data-host="page"`).** A page that loads LightCraft into its own
+- **Embedding in the page's own document (`data-host="page"`).** A page that loads EvoLight into its own
   document, with no iframe, puts `data-host="page"` on the app's canvas. The same messages then travel as
-  non-bubbling `CustomEvent`s on the canvas: LightCraft dispatches `lightcraft:ready`, `lightcraft:failed`,
-  `lightcraft:dirty`, `lightcraft:save` and `lightcraft:response` with the message's fields as `detail`, and the page
-  dispatches `lightcraft:open` and `lightcraft:cmd` on the canvas (`detail` is the fields; the event name is the
-  type). Add the listeners before the module starts, because `lightcraft:ready` is sent as soon as the app listens.
+  non-bubbling `CustomEvent`s on the canvas: EvoLight dispatches `evolight:ready`, `evolight:failed`,
+  `evolight:dirty`, `evolight:save` and `evolight:response` with the message's fields as `detail`, and the page
+  dispatches `evolight:open` and `evolight:cmd` on the canvas (`detail` is the fields; the event name is the
+  type). Add the listeners before the module starts, because `evolight:ready` is sent as soon as the app listens.
   Only the exact value `page` turns it on. When the page asks for both, `?host=parent` wins. In this mode the page
-  and LightCraft share one document, so any script on the page can drive the app and receive what it saves: use it
+  and EvoLight share one document, so any script on the page can drive the app and receive what it saves: use it
   only on a page you control. A photo handed in is held to the same size limit as in the iframe mode and refused
   before its bytes are copied.
-- **The page title names the open photo**: `<file name> — LightCraft`, with ` •` after the name while
-  changes are not yet written to browser storage (`LightcraftApp::page_title`). eframe's web runner
+- **The page title names the open photo**: `<file name> — EvoLight`, with ` •` after the name while
+  changes are not yet written to browser storage (`EvoLightApp::page_title`). eframe's web runner
   ignores the window title the desktop app sets, and a host that embeds the page reads this title to
   tell which photo a drop opened and whether it is saved (issue #2397).
 
@@ -225,7 +225,7 @@ Open `http://127.0.0.1:8080/?bench` to run a scripted measurement. It always run
 The page then logs one console line:
 
 ```
-lightcraft-bench {"first_frame_ms":…,"thumbs_done_ms":…,"slider_draft_ms":[…],"slider_draft_median_ms":…,"slider_job_ms":[…],"release_full_ms":…}
+evolight-bench {"first_frame_ms":…,"thumbs_done_ms":…,"slider_draft_ms":[…],"slider_draft_median_ms":…,"slider_job_ms":[…],"release_full_ms":…}
 ```
 
 - `slider_draft_ms`: time from the `develop.set` command until the new loupe texture is ready.

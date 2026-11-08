@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -17,7 +17,7 @@ const CONTROLS: [&str; 5] = ["light.blacks", "light.shadows", "light.exposure", 
 
 /// The demo library in Detail with the Edit panel (the histogram sits first) on a selected photo.
 fn edit_panel() -> Headless {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1400.0, 1000.0], 1.0);
     let id = h.app.session.visible_cloned()[0].0;
     let r = h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [id]}}), T);
@@ -38,8 +38,8 @@ fn rect(h: &Headless, id: &str) -> egui::Rect {
 
 fn value(h: &Headless, control: &str) -> f64 {
     let id = h.app.session.active().unwrap_or_else(|| panic!("no active photo"));
-    let spec = lightcraft_develop::controls::find(control).unwrap_or_else(|| panic!("no control {control}"));
-    lightcraft_develop::controls::get(&h.app.session.develop_of(id).unwrap_or_default(), control).unwrap_or(spec.default)
+    let spec = evolight_develop::controls::find(control).unwrap_or_else(|| panic!("no control {control}"));
+    evolight_develop::controls::get(&h.app.session.develop_of(id).unwrap_or_default(), control).unwrap_or(spec.default)
 }
 
 /// Every zone's control, left to right.

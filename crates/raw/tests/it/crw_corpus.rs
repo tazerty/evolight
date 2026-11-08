@@ -1,18 +1,18 @@
-//! Canon CRW through the shared craft-crw decoder, on the CC0 corpus files (URLs and SHA-256 in
+//! Canon CRW through the shared evo-crw decoder, on the CC0 corpus files (URLs and SHA-256 in
 //! `xtask/src/raw_samples.rs`; downloaded into the gitignored corpus/raw by `cargo xtask corpus --download`).
 //!
 //! The FNV-1a hashes over the decoded u16 samples (row-major, little-endian, masked borders
-//! included) were computed from LightCraft's earlier in-tree clean-room CRW decoder (commit
-//! dd02f12f, branch `clean-room-crw-format-decode`) before it moved to craft-libs: the shared
+//! included) were computed from EvoLight's earlier in-tree clean-room CRW decoder (commit
+//! dd02f12f, branch `clean-room-crw-format-decode`) before it moved to evo-libs: the shared
 //! decoder reproduces it bit for bit on all ten files, six bodies. Black and white levels are not
-//! pinned: craft-crw changed both on purpose (border padding no longer lowers the black level; the
+//! pinned: evo-crw changed both on purpose (border padding no longer lowers the black level; the
 //! white level follows these bodies' low-ISO clip near 4000), so they are only checked for sanity.
 
-use lightcraft_raw::{RawData, RawError, decode};
+use evolight_raw::{RawData, RawError, decode};
 use std::path::{Path, PathBuf};
 
 fn corpus() -> PathBuf {
-    std::env::var_os("LIGHTCRAFT_CORPUS").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
+    std::env::var_os("EVOLIGHT_CORPUS").map(PathBuf::from).unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
 }
 
 fn fnv1a(samples: &[u16]) -> u64 {
@@ -48,7 +48,7 @@ fn crw_samples_match_the_earlier_in_tree_decoder() {
         seen += 1;
     }
     if seen == 0 {
-        lightcraft_testkit::skip!(Corpus, "no CRW files in {}", corpus().join("raw").display());
+        evolight_testkit::skip!(Corpus, "no CRW files in {}", corpus().join("raw").display());
     }
 }
 
@@ -57,7 +57,7 @@ fn crw_samples_match_the_earlier_in_tree_decoder() {
 fn a_damaged_real_crw_is_an_error() {
     let path = corpus().join("raw").join("crw-canon-eos-d60.crw");
     let Ok(bytes) = std::fs::read(&path) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent", path.display());
         return;
     };
     // cut in half: the CIFF heap's record table sits at the end, so the file no longer parses

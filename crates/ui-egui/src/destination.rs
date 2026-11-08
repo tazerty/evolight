@@ -3,7 +3,7 @@
 //! the label carries where the row sits, so the person can tell which one a drop would reach in
 //! the dragged label, the confirmation and the toast.
 
-use lightcraft_catalog::{Album, AlbumId, Catalog, FolderNode};
+use evolight_catalog::{Album, AlbumId, Catalog, FolderNode};
 
 /// Longest parent path shown, in characters: longer ones keep their last names behind `…/`.
 const MAX_PARENT: usize = 40;
@@ -234,7 +234,7 @@ mod tests {
         let mut a = Album::new(id, name);
         a.parent = parent;
         a.folder = folder;
-        cat.apply(lightcraft_catalog::Op::AddAlbum { album: a }).unwrap();
+        cat.apply(evolight_catalog::Op::AddAlbum { album: a }).unwrap();
         id
     }
 

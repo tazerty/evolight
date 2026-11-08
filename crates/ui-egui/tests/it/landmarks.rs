@@ -4,18 +4,18 @@
 use egui::accesskit::Role;
 use egui::vec2;
 use egui_kittest::{Harness, kittest::NodeT};
-use lightcraft_ui_egui::{
-    LightcraftApp, Services,
+use evolight_ui_egui::{
+    EvoLightApp, Services,
     state::{RightPanel, ViewMode},
 };
 
-fn harness(view: ViewMode) -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn harness(view: ViewMode) -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.ui.left_panel = true;
     app.ui.view = view;
     app.ui.right = RightPanel::Edit;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -26,13 +26,13 @@ fn harness(view: ViewMode) -> Harness<'static, LightcraftApp> {
 }
 
 /// The area each node with this role and this name covers (`None`: it reports none).
-fn areas(h: &Harness<'_, LightcraftApp>, role: Role, name: &str) -> Vec<Option<egui::accesskit::Rect>> {
+fn areas(h: &Harness<'_, EvoLightApp>, role: Role, name: &str) -> Vec<Option<egui::accesskit::Rect>> {
     let nodes = h.root().children_recursive().map(|n| n.accesskit_node());
     nodes.filter(|n| n.role() == role && n.label().as_deref() == Some(name)).map(|n| n.bounding_box()).collect()
 }
 
 /// How many nodes have this role and this name.
-fn count(h: &Harness<'_, LightcraftApp>, role: Role, name: &str) -> usize {
+fn count(h: &Harness<'_, EvoLightApp>, role: Role, name: &str) -> usize {
     areas(h, role, name).len()
 }
 
@@ -65,15 +65,15 @@ fn the_grid_is_the_main_landmark_in_the_photo_grid() {
 /// and the reason is text a screen reader reads, not paint.
 #[test]
 fn an_empty_filmstrip_is_still_a_landmark_and_says_why() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     session.execute("library.filter", &serde_json::json!({"keyword": "no-such-keyword"})).expect("the filter is set");
     assert!(session.visible_cloned().is_empty(), "the filter hides every photo");
-    let mut app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     app.ui.left_panel = true;
     app.ui.view = ViewMode::Detail;
     app.ui.right = RightPanel::Edit;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },

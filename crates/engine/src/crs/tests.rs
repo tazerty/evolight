@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_develop::{DevelopSettings, Upright, VignetteStyle, WbMode, apply_partial};
+use evolight_develop::{DevelopSettings, Upright, VignetteStyle, WbMode, apply_partial};
 
 /// A hand-written sidecar in attribute form (as many tools write it).
 const SIDECAR: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -31,7 +31,7 @@ const SIDECAR: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
 </x:xmpmeta>"#;
 
 fn props(x: &str) -> Props {
-    lightcraft_meta::parse_xmp(x).unwrap().properties
+    evolight_meta::parse_xmp(x).unwrap().properties
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn assert_common_geometry_fields(s: &DevelopSettings) {
     assert_eq!(s.geometry.upright, Upright::Level);
     assert_eq!(s.geometry.vertical, -10.0);
     assert!(s.optics.remove_ca);
-    assert_eq!(s.treatment, lightcraft_develop::Treatment::Color);
+    assert_eq!(s.treatment, evolight_develop::Treatment::Color);
     let cal = s.calibration;
     assert_eq!(
         (cal.shadows_tint, cal.red_hue, cal.red_sat, cal.green_hue, cal.green_sat, cal.blue_hue, cal.blue_sat),
@@ -124,7 +124,7 @@ fn hdr_edit_mode_turns_hdr_editing_on_or_off() {
     let on = apply_partial(&DevelopSettings::default(), &to_partial(&props(&x("1")), Target::RawAbsolute), 1.0);
     assert!(on.hdr.enabled);
     assert_eq!(on.light.exposure, 1.5);
-    assert_eq!(on.hdr.max_ev, lightcraft_develop::Hdr::DEFAULT_MAX_EV, "the rest of the HDR settings keep their defaults");
+    assert_eq!(on.hdr.max_ev, evolight_develop::Hdr::DEFAULT_MAX_EV, "the rest of the HDR settings keep their defaults");
     let true_form = apply_partial(&DevelopSettings::default(), &to_partial(&props(&x("True")), Target::RawAbsolute), 1.0);
     assert!(true_form.hdr.enabled);
     let mut hdr = DevelopSettings::default();
@@ -148,7 +148,7 @@ fn element_form_bw_and_incremental_wb() {
           </rdf:Description></rdf:RDF></x:xmpmeta>"#;
     let p = props(x);
     let rendered = apply_partial(&DevelopSettings::default(), &to_partial(&p, Target::Rendered), 1.0);
-    assert_eq!(rendered.treatment, lightcraft_develop::Treatment::Bw);
+    assert_eq!(rendered.treatment, evolight_develop::Treatment::Bw);
     assert_eq!(rendered.bw_mix.blue, -35.0);
     assert!((rendered.wb.temp - rel_to_kelvin(25.0)).abs() < 1e-6 && rendered.wb.temp > 6500.0);
     assert_eq!(rendered.wb.tint, -6.0);
@@ -220,7 +220,7 @@ fn custom_kelvin_without_an_as_shot_reference_stays_as_shot_and_is_reported() {
 
 #[test]
 fn target_follows_the_file() {
-    use lightcraft_catalog::MediaKind;
+    use evolight_catalog::MediaKind;
     assert_eq!(Target::for_file(MediaKind::Raw, "ARW", false, ""), Target::RawRelative);
     assert_eq!(Target::for_file(MediaKind::Raw, "nef", false, "NIKON CORPORATION NIKON D7500"), Target::RawRelative);
     // Lightroom's `fileFormat` name for proprietary raws
@@ -235,19 +235,19 @@ fn target_follows_the_file() {
     assert_eq!(Target::for_file(MediaKind::Raw, "NEF", false, "NIKON CORPORATION NIKON D850"), Target::RawAbsolute);
     assert_eq!(Target::for_file(MediaKind::Raw, "CR2", false, "Canon Canon EOS 5D Mark III"), Target::RawAbsolute);
     let mut p =
-        lightcraft_catalog::Photo::new(lightcraft_catalog::PhotoId(1), lightcraft_catalog::Source::Demo { scene: 0 }, "a.arw", "ARW", 1, 1, "");
+        evolight_catalog::Photo::new(evolight_catalog::PhotoId(1), evolight_catalog::Source::Demo { scene: 0 }, "a.arw", "ARW", 1, 1, "");
     p.kind = MediaKind::Raw;
     assert_eq!(Target::for_photo(&p), Target::RawRelative);
     p.meta.camera = "SONY ILCE-7M3".into();
     assert_eq!(Target::for_photo(&p), Target::RawAbsolute);
 }
 
-/// Lightroom writes `crs:Temperature` as Kelvin for a raw whose camera LightCraft has matrices for: the value
+/// Lightroom writes `crs:Temperature` as Kelvin for a raw whose camera EvoLight has matrices for: the value
 /// is read as written, marked Kelvin, and the as-shot reference is not needed (issue #730); the same packet on
 /// a raw without matrices still takes the #510 shift.
 #[test]
 fn kelvin_is_direct_on_raws_whose_camera_has_matrices() {
-    use lightcraft_catalog::MediaKind;
+    use evolight_catalog::MediaKind;
     let x = r#"<rdf:Description xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
              crs:WhiteBalance="Custom" crs:Temperature="4650" crs:Tint="+3" crs:AsShotTemperature="5400" crs:AsShotTint="-1"/>"#;
     let p = props(x);

@@ -1,5 +1,5 @@
 //! `library.source` with an album while the filter holds an album: the album shown wins.
-use lightcraft_catalog::{Flag, Op, Photo, PhotoId, Source};
+use evolight_catalog::{Flag, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
 use crate::{Result, Selection, Session};
@@ -10,7 +10,7 @@ fn session_with_two_albums() -> Result<(Session, u64, u64)> {
     for (id, rating) in [(1, 5), (2, 5), (3, 2)] {
         let mut photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-source-album/{id}.jpg") },
+            Source::File { path: format!("/evolight-source-album/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,

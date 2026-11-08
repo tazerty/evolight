@@ -13,14 +13,14 @@
 //! Also here: automatic lateral chromatic aberration estimation ([`estimate_lateral_ca`]) and [`defringe`].
 //! Profile corrections use lens data embedded in the files (DNG `WarpRectilinear` / `WarpRectilinear2` /
 //! `FixVignetteRadial`, and the raw readers' equivalent of a camera's own correction, e.g. Panasonic / Leica RW2
-//! distortion), or a lens database profile in the same form (`lightcraft_lensdb`).
+//! distortion), or a lens database profile in the same form (`evolight_lensdb`).
 
 use std::sync::Mutex;
 
-use lightcraft_color::perceptual::{oklab_from_2020, oklab_to_2020};
-use lightcraft_develop::{DevelopSettings, EmbeddedLens, EmbeddedVignette, EmbeddedWarp, EmbeddedWarpStage};
-use lightcraft_geom::{Affine, Homography, Interval, Orientation, Point, Real};
-use lightcraft_raster::{Plane, Rgb32f};
+use evolight_color::perceptual::{oklab_from_2020, oklab_to_2020};
+use evolight_develop::{DevelopSettings, EmbeddedLens, EmbeddedVignette, EmbeddedWarp, EmbeddedWarpStage};
+use evolight_geom::{Affine, Homography, Interval, Orientation, Point, Real};
+use evolight_raster::{Plane, Rgb32f};
 
 use crate::for_rows;
 

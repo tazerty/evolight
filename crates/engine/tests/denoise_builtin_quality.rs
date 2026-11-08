@@ -5,15 +5,15 @@
 //! detail figure is the gradient energy of the result over that of the truth (1 = as sharp, below 1 = smoother).
 //!
 //! LC_DENOISE_RAW=../../corpus/raw/arw-sony-a7m3-compressed.arw LC_DENOISE_OUT=/tmp/dn \
-//!   cargo test --release -p lightcraft-engine --test denoise_builtin_quality -- --ignored --nocapture
+//!   cargo test --release -p evolight-engine --test denoise_builtin_quality -- --ignored --nocapture
 //! LC_DENOISE_OUT, when set, receives side-by-side PNGs (truth | noisy | denoised) of a 100 % crop per level.
 
-use lightcraft_codecs::encode::{EncodeImage, EncodeMeta, Samples, encode_png};
-use lightcraft_denoise_core::bayer::Layout;
-use lightcraft_denoise_core::builtin::{Builtin, OVERLAP, TILE, demosaic, estimate_noise};
-use lightcraft_denoise_core::manifest::Gain;
-use lightcraft_denoise_core::nlm::Tuning;
-use lightcraft_denoise_core::run::{Control, Params, denoise_bayer};
+use evolight_codecs::encode::{EncodeImage, EncodeMeta, Samples, encode_png};
+use evolight_denoise_core::bayer::Layout;
+use evolight_denoise_core::builtin::{Builtin, OVERLAP, TILE, demosaic, estimate_noise};
+use evolight_denoise_core::manifest::Gain;
+use evolight_denoise_core::nlm::Tuning;
+use evolight_denoise_core::run::{Control, Params, denoise_bayer};
 use std::time::Instant;
 
 struct Rng(u64);
@@ -139,7 +139,7 @@ fn crop_rgb8(a: &[[f32; 3]], w: usize, (x0, y0): (usize, usize), side: usize, sc
 fn the_built_in_denoiser_scored_on_a_real_raw_with_added_noise() {
     let path = std::env::var("LC_DENOISE_RAW").unwrap_or_else(|_| "../../corpus/raw/arw-sony-a7m3-compressed.arw".into());
     let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
-    let n = lightcraft_raw::decode(&bytes).unwrap().normalized().unwrap();
+    let n = evolight_raw::decode(&bytes).unwrap().normalized().unwrap();
     let cfa = n.cfa.as_ref().unwrap();
     let layout = Layout::from_cell([cfa.color_at(0, 0), cfa.color_at(1, 0), cfa.color_at(0, 1), cfa.color_at(1, 1)]).unwrap();
     assert_eq!(layout, Layout { dx: 0, dy: 0 }, "the benchmark assumes RGGB");
@@ -179,7 +179,7 @@ fn the_built_in_denoiser_scored_on_a_real_raw_with_added_noise() {
     #[cfg(feature = "denoise")]
     let gpu = std::env::var("LC_GPU").is_ok_and(|v| v != "0").then(|| {
         let p = Tuning::default().bm3d.unwrap();
-        let g = lightcraft_gpu::bm3d::Bm3dGpu::new(&p, TILE as usize).unwrap();
+        let g = evolight_gpu::bm3d::Bm3dGpu::new(&p, TILE as usize).unwrap();
         println!("on the graphics card: {} ({})", g.adapter(), g.build_report());
         std::sync::Arc::new(g)
     });
@@ -199,7 +199,7 @@ fn the_built_in_denoiser_scored_on_a_real_raw_with_added_noise() {
         // LC_FULL=1: measure the noise on the whole frame with the same noise added, as the app does (it measures the whole
         // photo), instead of on the crop
         let measure = |mosaic: &[f32], mw: usize, mh: usize| match std::env::var("LC_EST").as_deref() {
-            Ok("v1") => lightcraft_denoise_core::builtin::estimate_noise_v1(mosaic, mw, mh),
+            Ok("v1") => evolight_denoise_core::builtin::estimate_noise_v1(mosaic, mw, mh),
             _ => estimate_noise(mosaic, mw, mh),
         };
         let est = match std::env::var("LC_EST").as_deref() {
@@ -246,7 +246,7 @@ fn the_built_in_denoiser_scored_on_a_real_raw_with_added_noise() {
         #[cfg(feature = "denoise")]
         let out = match &gpu {
             Some(g) => {
-                let on_card = lightcraft_gpu::bm3d::BuiltinRunner::new(g.clone(), runner).unwrap();
+                let on_card = evolight_gpu::bm3d::BuiltinRunner::new(g.clone(), runner).unwrap();
                 denoise_bayer(&noisy, w, h, layout, &on_card, &params, &Control::default()).unwrap()
             }
             None => denoise_bayer(&noisy, w, h, layout, &runner, &params, &Control::default()).unwrap(),

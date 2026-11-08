@@ -3,18 +3,18 @@
 
 use egui::{Color32, Rect, pos2, vec2};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::render::Slot;
 
-/// Show the optional second window: an immediate viewport titled "LightCraft — Second Window"
+/// Show the optional second window: an immediate viewport titled "EvoLight — Second Window"
 /// whose body draws the active photo fitted. Closing a real window turns the option off;
 /// embedded web and headless hosts get a floating window instead.
-pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn show(app: &mut EvoLightApp, ctx: &egui::Context) {
     if !app.ui.second_window {
         return;
     }
-    let vid = egui::ViewportId::from_hash_of("lightcraft-second-window");
-    let builder = egui::ViewportBuilder::default().with_title(crate::i18n::tr("LightCraft — Second Window")).with_inner_size([960.0, 640.0]);
+    let vid = egui::ViewportId::from_hash_of("evolight-second-window");
+    let builder = egui::ViewportBuilder::default().with_title(crate::i18n::tr("EvoLight — Second Window")).with_inner_size([960.0, 640.0]);
     ctx.show_viewport_immediate(vid, builder, |ui, class| {
         // 0.37 passes the viewport's root `Ui` (not a `Context`). Do not enter `root_ui` from it.
         // (without native windows — web, headless — egui wraps this in a floating window)
@@ -28,7 +28,7 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// Draw the second window's content: register `view:secondWindow`, request a loupe render sized
 /// for the window (each edge clamped to 64 through the texture-side limit) and paint the active
 /// photo fitted, or "No photo selected".
-fn body(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+fn body(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let area = ui.available_rect_before_wrap();
     crate::widgets::register(ui, "view:secondWindow", area);
     ui.allocate_rect(area, egui::Sense::hover());

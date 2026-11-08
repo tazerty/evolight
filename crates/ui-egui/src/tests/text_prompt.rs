@@ -8,7 +8,7 @@ use serde_json::json;
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(60);
@@ -31,8 +31,8 @@ fn clean(dir: &std::path::Path) {
 }
 
 fn app() -> Headless {
-    let session = lightcraft_engine::Session::new().with_fs();
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 900.0], 1.0);
+    let session = evolight_engine::Session::new().with_fs();
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 900.0], 1.0);
     h.settle(SETTLE);
     h
 }
@@ -121,7 +121,7 @@ fn the_control_channel_says_where_a_new_folder_was_made() {
     let r = h.request("ui.dialog.confirm", json!({}), T);
     assert_eq!(r["ok"], true, "{r}");
     assert!(dir.join("Selects").is_dir(), "made on disk");
-    let parent = lightcraft_catalog::folders::folder_label(&dir.to_string_lossy());
+    let parent = evolight_catalog::folders::folder_label(&dir.to_string_lossy());
     assert_eq!(toast(&h), CREATED.replace("{name}", "Selects").replace("{parent}", &parent));
     clean(&dir);
 }
@@ -146,7 +146,7 @@ fn a_new_folder_closes_the_prompt_and_says_where_it_is() {
     confirm(&mut h, prompt("folder.create", " Selects ", json!({"parent": dir.to_string_lossy()}), "name"));
     assert!(dir.join("Selects").is_dir(), "made on disk");
     assert_eq!(h.app.ui.dialog, None);
-    let parent = lightcraft_catalog::folders::folder_label(&dir.to_string_lossy());
+    let parent = evolight_catalog::folders::folder_label(&dir.to_string_lossy());
     assert_eq!(toast(&h), CREATED.replace("{name}", "Selects").replace("{parent}", &parent));
     clean(&dir);
 }
@@ -155,7 +155,7 @@ fn a_new_folder_closes_the_prompt_and_says_where_it_is() {
 fn the_created_folder_toast_comes_through_the_catalog() {
     let dir = shoot("create-de");
     let path = dir.join("Selects");
-    let parent = lightcraft_catalog::folders::folder_label(&dir.to_string_lossy());
+    let parent = evolight_catalog::folders::folder_label(&dir.to_string_lossy());
     // the catalog's own value (formats have no `Locale` accessor); a language without one shows the English wording
     let catalog: std::collections::BTreeMap<String, String> = serde_json::from_str(include_str!("../../locales/de-formats.json")).unwrap();
     let own = catalog.get(CREATED).filter(|text| !text.is_empty()).map_or(CREATED, String::as_str);

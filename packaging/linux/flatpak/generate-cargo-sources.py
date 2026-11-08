@@ -289,8 +289,8 @@ def run_generator(
 def default_cache_dir() -> Path:
     base = os.environ.get("XDG_CACHE_HOME")
     if base:
-        return Path(base) / "lightcraft-flatpak-cargo"
-    return Path.home() / ".cache" / "lightcraft-flatpak-cargo"
+        return Path(base) / "evolight-flatpak-cargo"
+    return Path.home() / ".cache" / "evolight-flatpak-cargo"
 
 
 def ensure_outside_source(cache: Path, repo_root: Path) -> None:
@@ -327,8 +327,8 @@ def main() -> int:
         "--cache-dir",
         default=None,
         help=(
-            "git clone cache root (default: $XDG_CACHE_HOME/lightcraft-flatpak-cargo, "
-            "or ~/.cache/lightcraft-flatpak-cargo)"
+            "git clone cache root (default: $XDG_CACHE_HOME/evolight-flatpak-cargo, "
+            "or ~/.cache/evolight-flatpak-cargo)"
         ),
     )
     args = parser.parse_args()
@@ -345,7 +345,7 @@ def main() -> int:
     generator = patched_upstream(download_upstream())
 
     cancelled = None
-    with tempfile.TemporaryDirectory(prefix="lightcraft-flatpak-generator-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="evolight-flatpak-generator-") as tmpdir:
         script = Path(tmpdir) / "flatpak-cargo-generator.py"
         script.write_bytes(generator)
 

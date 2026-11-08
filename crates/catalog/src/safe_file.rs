@@ -116,7 +116,7 @@ fn create_temp(path: &Path) -> io::Result<(PathBuf, File)> {
     }
     let dir = parent_of(path);
     for _ in 0..1000 {
-        let tmp = dir.join(format!(".lightcraft-{}-{}.tmp", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+        let tmp = dir.join(format!(".evolight-{}-{}.tmp", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
         match OpenOptions::new().write(true).create_new(true).open(&tmp) {
             Ok(f) => return Ok((tmp, f)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
@@ -459,7 +459,7 @@ mod tests {
             // no hard links on this volume (FAT/exFAT, some shares), as in `publish_new`
             Err(e) => {
                 let _ = fs::remove_dir_all(&d);
-                lightcraft_testkit::skip!(System, "no hard links in {}: {e}", d.display());
+                evolight_testkit::skip!(System, "no hard links in {}: {e}", d.display());
                 return;
             }
         }

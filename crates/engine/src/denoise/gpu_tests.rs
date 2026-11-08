@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_denoise::manifest::{Domain, Gain};
+use evolight_denoise::manifest::{Domain, Gain};
 
 /// A folder of the test's own: the card's set-up leaves its marker beside the model.
 fn folder(name: &str) -> PathBuf {
@@ -11,9 +11,9 @@ fn folder(name: &str) -> PathBuf {
 }
 
 /// The model file is read again when the card is set up (for the first photo), so it stays until the test ends.
-fn model(name: &str, tile: u64) -> (Arc<dyn Model>, lightcraft_denoise::runtime::CpuRunner, PathBuf) {
+fn model(name: &str, tile: u64) -> (Arc<dyn Model>, evolight_denoise::runtime::CpuRunner, PathBuf) {
     let path = folder(name).join("model.onnx");
-    std::fs::write(&path, lightcraft_denoise::synthetic::unet_onnx(tile, 8, 2, 7)).unwrap();
+    std::fs::write(&path, evolight_denoise::synthetic::unet_onnx(tile, 8, 2, 7)).unwrap();
     let manifest = DenoiserManifest {
         id: "synthetic".into(),
         name: "Synthetic".into(),
@@ -29,7 +29,7 @@ fn model(name: &str, tile: u64) -> (Arc<dyn Model>, lightcraft_denoise::runtime:
         gain: Gain::MatchMean { nominal: 1.0, max_deviation: 0.05 },
     };
     let loaded = default_loader()(&path, &manifest).unwrap();
-    let cpu = lightcraft_denoise::runtime::CpuRunner::load(&path, &manifest).unwrap();
+    let cpu = evolight_denoise::runtime::CpuRunner::load(&path, &manifest).unwrap();
     (loaded, cpu, path)
 }
 
@@ -42,7 +42,7 @@ fn worst(want: &[f32], got: &[f32]) -> f32 {
 #[test]
 fn a_tile_on_the_card_is_the_cpus_tile() {
     let (model, cpu, path) = model("same", 64);
-    let (input, _) = lightcraft_denoise::runtime::test_tile(64);
+    let (input, _) = evolight_denoise::runtime::test_tile(64);
     let want = cpu.run(&input).unwrap();
     let (runner, at_once) = model.runner(RunOn::Gpu, 16);
     assert!(worst(&want, &runner.run(&input).unwrap()) < 1e-3);
@@ -65,12 +65,12 @@ fn a_tile_on_the_card_is_the_cpus_tile() {
 }
 
 /// A server on this computer running `cpu` for the model with `sha256`.
-fn server(cpu: lightcraft_denoise::runtime::CpuRunner, sha256: &str, tile: usize) -> String {
-    use lightcraft_denoise::remote::{ModelId, ServerOptions, serve};
+fn server(cpu: evolight_denoise::runtime::CpuRunner, sha256: &str, tile: usize) -> String {
+    use evolight_denoise::remote::{ModelId, ServerOptions, serve};
     let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = l.local_addr().unwrap().to_string();
     let id = ModelId { id: "synthetic".into(), version: "1".into(), sha256: sha256.into() };
-    let run: lightcraft_denoise::remote::RunTile = Arc::new(move |input: &[f32]| cpu.run(input));
+    let run: evolight_denoise::remote::RunTile = Arc::new(move |input: &[f32]| cpu.run(input));
     let opts = ServerOptions { token: "remote-test-token-0123".into(), ..Default::default() };
     std::thread::spawn(move || serve(l, id, tile, "CPU (test server)".into(), run, opts, Arc::new(|_| {})));
     addr
@@ -91,18 +91,18 @@ fn with_remote(path: &Path, tile: u64, addr: &str, sha256: &str) -> Network {
         overlap: 16,
         gain: Gain::MatchMean { nominal: 1.0, max_deviation: 0.05 },
     };
-    let remote = RemoteSide::new(lightcraft_denoise::remote::Remote::new(addr, "remote-test-token-0123", sha256, tile as usize));
+    let remote = RemoteSide::new(evolight_denoise::remote::Remote::new(addr, "remote-test-token-0123", sha256, tile as usize));
     network(path, &manifest, Some(remote)).unwrap()
 }
 
 #[test]
 fn a_remote_server_shares_the_tiles_and_drops_out_when_it_cannot() {
     let (_, cpu, path) = model("remote", 64);
-    let sha = lightcraft_denoise::hash::sha256_file(&path).unwrap();
-    let (input, _) = lightcraft_denoise::runtime::test_tile(64);
+    let sha = evolight_denoise::hash::sha256_file(&path).unwrap();
+    let (input, _) = evolight_denoise::runtime::test_tile(64);
     let want = cpu.run(&input).unwrap();
     // the same model on the server: its slots come on top of this computer's threads, answers within f16 rounding
-    let addr = server(lightcraft_denoise::runtime::CpuRunner::load(&path, &cpu.manifest().clone()).unwrap(), &sha, 64);
+    let addr = server(evolight_denoise::runtime::CpuRunner::load(&path, &cpu.manifest().clone()).unwrap(), &sha, 64);
     let net = with_remote(&path, 64, &addr, &sha);
     let (runner, at_once) = net.runner(RunOn::Cpu, 2);
     assert_eq!(at_once, 2 + 4, "four server slots on top of two local threads");
@@ -120,7 +120,7 @@ fn a_remote_server_shares_the_tiles_and_drops_out_when_it_cannot() {
     assert_eq!(d["remote"]["state"], "slower", "{d}");
     assert!(d["remote"]["remoteMs"].as_f64().is_some_and(|ms| ms > 0.0) && d["remote"]["localMs"].as_f64().is_some(), "{d}");
     // a server running another model is refused: everything runs here
-    let other = server(lightcraft_denoise::runtime::CpuRunner::load(&path, &cpu.manifest().clone()).unwrap(), "0000", 64);
+    let other = server(evolight_denoise::runtime::CpuRunner::load(&path, &cpu.manifest().clone()).unwrap(), "0000", 64);
     let net = with_remote(&path, 64, &other, &sha);
     let (runner, at_once) = net.runner(RunOn::Cpu, 2);
     assert_eq!(at_once, 2);
@@ -137,7 +137,7 @@ fn a_remote_server_shares_the_tiles_and_drops_out_when_it_cannot() {
 #[test]
 fn with_the_processor_chosen_everything_runs_on_the_cpu() {
     let (model, cpu, path) = model("cpu", 64);
-    let (input, _) = lightcraft_denoise::runtime::test_tile(64);
+    let (input, _) = evolight_denoise::runtime::test_tile(64);
     let (runner, at_once) = model.runner(RunOn::Cpu, 16);
     assert_eq!(runner.run(&input).unwrap(), cpu.run(&input).unwrap(), "the CPU path is the CPU runner, bit for bit");
     assert_eq!(at_once, 16, "the threads asked for are the threads used");
@@ -183,7 +183,7 @@ fn a_tile_the_card_gets_wrong_is_run_on_the_processor_and_three_stop_the_card() 
         remote: None,
         local_card: AtomicBool::new(true),
     };
-    let (input, _) = lightcraft_denoise::runtime::test_tile(64);
+    let (input, _) = evolight_denoise::runtime::test_tile(64);
     let want = cpu.run(&input).unwrap();
     let (runner, at_once) = model.runner(RunOn::Auto, 8);
     assert_eq!(at_once, GPU_PARALLEL, "the (fast) card is chosen");
@@ -261,7 +261,7 @@ fn a_set_up_runs_beside_the_cpu_and_removes_its_marker() {
     assert!(!marker.exists());
     let r = set_up_card(&marker, Duration::from_secs(10), || -> Result<(), String> { panic!("driver") }, || ());
     assert!(r.is_err() && !marker.exists(), "{r:?}");
-    // a marker found before the set-up starts means the last one took LightCraft down: the card is not touched
+    // a marker found before the set-up starts means the last one took EvoLight down: the card is not touched
     std::fs::write(&marker, "left behind").unwrap();
     let touched = Arc::new(AtomicBool::new(false));
     let t = touched.clone();

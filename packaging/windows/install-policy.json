@@ -1,11 +1,11 @@
 {
-  "id": "lightcraft",
-  "name": "LightCraft",
+  "id": "evolight",
+  "name": "EvoLight",
   "upgradeCode": "229BB552-5EFD-479A-BA86-8CB6D926390C",
   "sources": [
-    "lightcraft.wxs"
+    "evolight.wxs"
   ],
-  "icon": "assets/app-icon/lightcraft.ico",
+  "icon": "assets/app-icon/evolight.ico",
   "localization": [],
   "extensions": [
     "UI",
@@ -14,19 +14,19 @@
   "payloads": [
     "FONT-LICENCES.txt",
     "NOTICE",
-    "lightcraft-cli.exe",
-    "lightcraft.exe"
+    "evolight-cli.exe",
+    "evolight.exe"
   ],
   "registry": [
     [
       "-1",
-      "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\lightcraft.exe",
+      "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\evolight.exe",
       "",
-      "[#LightcraftExe]"
+      "[#EvoLightExe]"
     ],
     [
       "-1",
-      "Software\\LightCraft",
+      "Software\\EvoLight",
       "InstallFolder",
       "[INSTALLFOLDER]"
     ]

@@ -3,13 +3,13 @@
 //! Culling is stepping through photos, so the number that matters is the time from the step (the
 //! first frame that draws the new photo) to the first frame that shows something of it, to the
 //! first frame with a full-size picture (the camera's embedded JPEG or a cached render) and to the
-//! first frame with LightCraft's own render. `ui.inspect` → `perf.loupeSteps` reports the latest
+//! first frame with EvoLight's own render. `ui.inspect` → `perf.loupeSteps` reports the latest
 //! steps; `perf-scratch`-style drivers turn them into medians and p95 without the control
 //! channel's own round trip in the numbers.
 
 use std::collections::VecDeque;
 
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde_json::{Value, json};
 
 /// Steps kept for `ui.inspect`.
@@ -34,7 +34,7 @@ pub struct StepTiming {
     /// First frame with a full-size stand-in or better: the camera's JPEG, a cached render, the render.
     pub full_ms: Option<f64>,
     pub full_source: &'static str,
-    /// First frame with LightCraft's own render of the photo (`render` or `cached`).
+    /// First frame with EvoLight's own render of the photo (`render` or `cached`).
     pub sharp_ms: Option<f64>,
     /// How long the photo stayed in the loupe (ms): a step taken before `sharp_ms` was skipped past.
     pub dwell_ms: f64,

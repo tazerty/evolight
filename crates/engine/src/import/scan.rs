@@ -10,14 +10,14 @@ pub struct ScanInput {
     /// The library as it is now (photos are shared with the session, not copied): looked up for
     /// the files the scan finds ([`library_files`]) and the contents it probes
     /// ([`library_hashes`]), on the scan's thread.
-    library: std::sync::Arc<lightcraft_catalog::Catalog>,
+    library: std::sync::Arc<evolight_catalog::Catalog>,
     cache: HashMap<String, ProbeInfo>,
 }
 
 /// The library's photos of `files`: path → (photo, its summary as a candidate that is there
 /// already). One pass over the library, and a record only for a file that was found: a folder of
 /// a hundred files in a library of millions costs a hundred records.
-pub(super) fn library_files(library: &lightcraft_catalog::Catalog, files: &[String]) -> HashMap<PathBuf, (PhotoId, ImportCandidate)> {
+pub(super) fn library_files(library: &evolight_catalog::Catalog, files: &[String]) -> HashMap<PathBuf, (PhotoId, ImportCandidate)> {
     let found: std::collections::HashSet<&Path> = files.iter().map(Path::new).collect();
     let mut by_path = HashMap::new();
     if found.is_empty() {
@@ -47,7 +47,7 @@ pub(super) fn library_files(library: &lightcraft_catalog::Catalog, files: &[Stri
 
 /// Which photo of the library has each of the contents `hashes` (the later one where several
 /// have it). One pass over the library, and an entry only for a content that was asked about.
-pub(super) fn library_hashes<'a>(library: &lightcraft_catalog::Catalog, hashes: impl Iterator<Item = &'a str>) -> HashMap<String, PhotoId> {
+pub(super) fn library_hashes<'a>(library: &evolight_catalog::Catalog, hashes: impl Iterator<Item = &'a str>) -> HashMap<String, PhotoId> {
     let wanted: std::collections::HashSet<&str> = hashes.collect();
     let mut by_hash = HashMap::new();
     if wanted.is_empty() {
@@ -101,7 +101,7 @@ impl ScanInput {
     }
 
     /// The library as the scan sees it (shared, for [`crate::sync`], which looks at the same one).
-    pub(crate) fn library(&self) -> std::sync::Arc<lightcraft_catalog::Catalog> {
+    pub(crate) fn library(&self) -> std::sync::Arc<evolight_catalog::Catalog> {
         std::sync::Arc::clone(&self.library)
     }
 
@@ -117,7 +117,7 @@ impl ScanInput {
 /// read, so the import that follows adds the photos batch by batch as it reads them, and the first
 /// screen of a 3,000-raw wedding shows within a second instead of after every file was read
 /// (measured on 2,933 EOS R5 C CR3s: 30.6 s to the first photo before).
-pub fn browse_queue(input: &ScanInput, files: Vec<String>, sort: &lightcraft_catalog::Sort) -> Vec<String> {
+pub fn browse_queue(input: &ScanInput, files: Vec<String>, sort: &evolight_catalog::Sort) -> Vec<String> {
     browse_queue_until(input, files, sort, &std::sync::atomic::AtomicBool::new(false)).unwrap_or_default()
 }
 
@@ -126,7 +126,7 @@ pub fn browse_queue(input: &ScanInput, files: Vec<String>, sort: &lightcraft_cat
 pub fn browse_queue_until(
     input: &ScanInput,
     files: Vec<String>,
-    sort: &lightcraft_catalog::Sort,
+    sort: &evolight_catalog::Sort,
     cancel: &std::sync::atomic::AtomicBool,
 ) -> Option<Vec<String>> {
     let known = library_files(&input.library, &files);
@@ -234,17 +234,17 @@ fn inside(root: &Path, lib: &Path) -> bool {
 /// time is its capture time, near enough to fill the first screen first), by name, or by size.
 /// New photos share one import time and have no edit time, so the import- and edit-date sorts
 /// show them by name. Ties go by name in the view's direction, as the catalog breaks them
-/// ([`lightcraft_catalog::Sort::order`]); new photos tie on rating too. Random keeps the given order. Files whose
+/// ([`evolight_catalog::Sort::order`]); new photos tie on rating too. Random keeps the given order. Files whose
 /// time or size can't be read go last.
-pub fn browse_order(files: &mut [String], sort: &lightcraft_catalog::Sort) {
+pub fn browse_order(files: &mut [String], sort: &evolight_catalog::Sort) {
     browse_order_until(files, sort, &std::sync::atomic::AtomicBool::new(false));
 }
 
 /// [`browse_order`] that stops reading the files' times or sizes once `cancel` is set: `false` then, and
 /// `files` is left as it was.
-fn browse_order_until(files: &mut [String], sort: &lightcraft_catalog::Sort, cancel: &std::sync::atomic::AtomicBool) -> bool {
-    use lightcraft_catalog::SortKey;
-    use lightcraft_catalog::query::cmp_name;
+fn browse_order_until(files: &mut [String], sort: &evolight_catalog::Sort, cancel: &std::sync::atomic::AtomicBool) -> bool {
+    use evolight_catalog::SortKey;
+    use evolight_catalog::query::cmp_name;
     use std::cmp::Ordering;
     use std::sync::atomic::Ordering::Relaxed;
     let asc = sort.ascending;

@@ -3,20 +3,20 @@
 use egui::accesskit::{Action, ActionRequest, Role};
 use egui::vec2;
 use egui_kittest::{Harness, kittest::NodeT};
-use lightcraft_ui_egui::{
-    LightcraftApp, Services,
+use evolight_ui_egui::{
+    EvoLightApp, Services,
     state::{RightPanel, THUMB_SIZE_MAX, THUMB_SIZE_MIN, THUMB_SIZE_STEP, ViewMode},
 };
 
 const NAME: &str = "Thumbnail size";
 
-fn grid() -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn grid() -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.headless_host = true;
     app.ui.view = ViewMode::PhotoGrid;
     app.ui.right = RightPanel::None;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -27,7 +27,7 @@ fn grid() -> Harness<'static, LightcraftApp> {
 }
 
 /// The node named "Thumbnail size": its role, value, range and the actions it takes.
-fn node(h: &Harness<'_, LightcraftApp>) -> Option<(Role, Option<f64>, Option<f64>, Option<f64>, bool, bool)> {
+fn node(h: &Harness<'_, EvoLightApp>) -> Option<(Role, Option<f64>, Option<f64>, Option<f64>, bool, bool)> {
     h.root().children_recursive().map(|n| n.accesskit_node()).find(|n| n.label().as_deref() == Some(NAME)).map(|n| {
         (
             n.role(),

@@ -4,7 +4,7 @@
 
 use crate::headless::Headless;
 use crate::state::Dialog;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 use serde_json::json;
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ const T: Duration = Duration::from_secs(20);
 /// is `WELCOME_PAGES.len() - 1`).
 fn tour(page: usize) -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     app.ui.dialog = Some(Dialog::Welcome { page });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     // fonts land on the second frame, and the dialog window settles its place a frame or two later;
@@ -62,7 +62,7 @@ fn welcome_last_page_gets_started_closes() {
 }
 
 /// The web build omits the tour page that names the desktop-only launch flow (`--control`,
-/// `lightcraft-cli mcp --connect`): a browser has no control port for an agent to attach to.
+/// `evolight-cli mcp --connect`): a browser has no control port for an agent to attach to.
 /// The host is a compile-time fact (wasm32), so this harness — native, a desktop host — tests
 /// the pure decision ([`crate::dialogs::welcome_pages`]) for both answers.
 #[test]
@@ -73,7 +73,7 @@ fn the_web_tour_omits_the_desktop_only_mcp_page() {
     assert_eq!(web, &all[..all.len() - 1], "the web tour drops the last page");
     // the dropped page is the desktop-only one: its opening names the launch flow
     let (_, _, opening) = all.last().unwrap();
-    assert!(opening.contains("--control 7980") && opening.contains("lightcraft-cli"), "{opening}");
+    assert!(opening.contains("--control 7980") && opening.contains("evolight-cli"), "{opening}");
 }
 
 /// The first frame decides the launch dialog, but records nothing until the dialog is presented:
@@ -83,11 +83,11 @@ fn the_web_tour_omits_the_desktop_only_mcp_page() {
 #[test]
 fn the_first_frame_opens_the_tour_for_a_window_host_only() {
     let ctx = egui::Context::default();
-    let logic = |app: &mut LightcraftApp| {
+    let logic = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| app.logic(ui.ctx()));
         out.textures_delta.clear();
     };
-    let fresh = || LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let fresh = || EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
 
     let mut window = fresh();
     logic(&mut window);
@@ -116,7 +116,7 @@ fn the_first_frame_opens_the_tour_for_a_window_host_only() {
 #[test]
 fn the_startup_dialog_is_recorded_when_presented_not_when_chosen() {
     let ctx = egui::Context::default();
-    let frame = |app: &mut LightcraftApp| {
+    let frame = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
             app.logic(ui.ctx());
             // the presentation pass (`ui` waits for the fonts, so frame one only runs `logic`)
@@ -124,7 +124,7 @@ fn the_startup_dialog_is_recorded_when_presented_not_when_chosen() {
         });
         out.textures_delta.clear();
     };
-    let mut held = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut held = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
 
     frame(&mut held);
     assert!(matches!(held.ui.dialog, Some(Dialog::Welcome { page: 0 })), "{:?}", held.ui.dialog);
@@ -146,18 +146,18 @@ fn the_startup_dialog_is_recorded_when_presented_not_when_chosen() {
 #[test]
 fn the_tour_waits_for_a_dialog_that_is_already_open() {
     let ctx = egui::Context::default();
-    let logic = |app: &mut LightcraftApp| {
+    let logic = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| app.logic(ui.ctx()));
         out.textures_delta.clear();
     };
-    let present = |app: &mut LightcraftApp| {
+    let present = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
             app.logic(ui.ctx());
             app.ui(ui);
         });
         out.textures_delta.clear();
     };
-    let mut held = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut held = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     held.ui.dialog = Some(Dialog::ViewOptions);
 
     logic(&mut held);
@@ -184,18 +184,18 @@ fn the_tour_waits_for_a_dialog_that_is_already_open() {
 #[test]
 fn the_tour_waits_for_the_launch_window_too() {
     let ctx = egui::Context::default();
-    let logic = |app: &mut LightcraftApp| {
+    let logic = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| app.logic(ui.ctx()));
         out.textures_delta.clear();
     };
-    let present = |app: &mut LightcraftApp| {
+    let present = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
             app.logic(ui.ctx());
             app.ui(ui);
         });
         out.textures_delta.clear();
     };
-    let mut held = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut held = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     held.library_problem = Some(crate::panels::library_problem::LibraryProblem::new("", "the last library did not open"));
 
     logic(&mut held);
@@ -220,14 +220,14 @@ fn the_tour_waits_for_the_launch_window_too() {
 #[test]
 fn the_tour_opens_once_the_library_window_is_dismissed() {
     let ctx = egui::Context::default();
-    let frame = |app: &mut LightcraftApp| {
+    let frame = |app: &mut EvoLightApp| {
         let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
             app.logic(ui.ctx());
             app.ui(ui);
         });
         out.textures_delta.clear();
     };
-    let mut held = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let mut held = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut problem = crate::panels::library_problem::LibraryProblem::new("", "the last library did not open");
     problem.dismissed = true;
     held.library_problem = Some(problem);

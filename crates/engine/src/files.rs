@@ -1,17 +1,17 @@
 //! Real files: probing (dimensions + metadata for import) and loading (decode → linear Rec.2020,
-//! oriented, downscaled to the requested level). Standard formats go through `lightcraft-codecs`,
-//! camera raws through `lightcraft-raw` (demosaic + DNG colour model).
+//! oriented, downscaled to the requested level). Standard formats go through `evolight-codecs`,
+//! camera raws through `evolight-raw` (demosaic + DNG colour model).
 
 use std::sync::Arc;
 
-use lightcraft_catalog::{MediaKind, Meta};
-use lightcraft_color::cct::xy_to_temp_tint;
-use lightcraft_geom::Orientation;
-use lightcraft_pipeline::SourceInfo;
-use lightcraft_raster::Rgb32f;
-use lightcraft_raster::resample::{Filter, fit};
+use evolight_catalog::{MediaKind, Meta};
+use evolight_color::cct::xy_to_temp_tint;
+use evolight_geom::Orientation;
+use evolight_pipeline::SourceInfo;
+use evolight_raster::Rgb32f;
+use evolight_raster::resample::{Filter, fit};
 
-use lightcraft_raw::dcp::DcpProfile;
+use evolight_raw::dcp::DcpProfile;
 
 use crate::media::{DenoiseSpec, FileLoader, FileProbe, PairLoader, PreviewLoader, ProbeInfo, ReducedLoader};
 
@@ -44,11 +44,11 @@ pub(crate) struct CameraColourModel<'a> {
     /// White-balance multipliers (as shot).
     pub wb: [f32; 3],
     /// White-balanced camera RGB → linear Rec.2020: the camera matrix, or a look fitted to the camera's JPEG on top.
-    pub matrix: lightcraft_color::Mat3,
+    pub matrix: evolight_color::Mat3,
     /// Baseline exposure, as a gain.
     pub gain: f32,
     /// A DNG profile's hue/saturation map and look table.
-    pub tables: Option<&'a lightcraft_raw::profile::ProfileTables>,
+    pub tables: Option<&'a evolight_raw::profile::ProfileTables>,
     /// A fitted camera look's hue/saturation table.
     pub hue_sat: Option<&'a crate::camera_preview::HueSat<'a>>,
 }
@@ -57,13 +57,13 @@ impl CameraColourModel<'_> {
     /// Rebuild sensor-clipped channels; fully clipped highlights become [`clipped_white`] of the matrix, so they
     /// come out of [`Self::apply`] neutral.
     pub fn rebuild_highlights(&self, img: &mut Rgb32f) {
-        lightcraft_raw::highlight::reconstruct_with(img, self.wb, HIGHLIGHT_CLIP, clipped_white(&self.matrix));
+        evolight_raw::highlight::reconstruct_with(img, self.wb, HIGHLIGHT_CLIP, clipped_white(&self.matrix));
     }
 
     /// [`Self::rebuild_highlights`] for a binned image whose clipped channels `mask` tells
-    /// ([`lightcraft_raw::RawImage::develop_binned_masked`]).
+    /// ([`evolight_raw::RawImage::develop_binned_masked`]).
     pub fn rebuild_highlights_masked(&self, img: &mut Rgb32f, mask: &[u8]) {
-        lightcraft_raw::highlight::reconstruct_masked(img, self.wb, HIGHLIGHT_CLIP, clipped_white(&self.matrix), mask);
+        evolight_raw::highlight::reconstruct_masked(img, self.wb, HIGHLIGHT_CLIP, clipped_white(&self.matrix), mask);
     }
 
     /// White balance, matrix, tables and baseline exposure, in place.
@@ -72,7 +72,7 @@ impl CameraColourModel<'_> {
         if let (None, Some(hue_sat)) = (self.tables, self.hue_sat) {
             // a fitted camera look: `pixel`, `LANES` pixels at a time so the table step vectorises (same bits)
             const LANES: usize = 16;
-            lightcraft_raster::par_rows(&mut img.data, img.width, |_, row| {
+            evolight_raster::par_rows(&mut img.data, img.width, |_, row| {
                 for chunk in row.chunks_mut(LANES) {
                     let mut rgb = [[0.0f32; LANES]; 3];
                     for (l, p) in chunk.iter().enumerate() {
@@ -111,7 +111,7 @@ impl CameraColourModel<'_> {
 
 /// Remove Hot Pixels leaves a raw alone when more than this share of its photosites would be replaced (Settings ▸
 /// Performance ▸ Hot pixel limit, `app.hotPixelLimit`), as `f64` bits. Process-wide, like the GPU switch.
-static HOT_PIXEL_LIMIT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(lightcraft_raw::HOT_PIXEL_MAX_SHARE.to_bits());
+static HOT_PIXEL_LIMIT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(evolight_raw::HOT_PIXEL_MAX_SHARE.to_bits());
 
 /// The share of a raw's photosites Remove Hot Pixels may replace (0..1).
 pub fn hot_pixel_limit() -> f64 {
@@ -129,9 +129,9 @@ pub fn set_hot_pixel_limit(share: f64) -> bool {
 
 /// What [`hot_pixel_limit`] adds to the render cache keys of `settings`: nothing at the default limit or when they
 /// don't remove hot pixels, so those renders stay valid whatever the limit.
-pub fn hot_pixel_key(settings: &lightcraft_develop::DevelopSettings) -> u64 {
+pub fn hot_pixel_key(settings: &evolight_develop::DevelopSettings) -> u64 {
     let limit = hot_pixel_limit();
-    if !settings.removes_hot_pixels() || limit.to_bits() == lightcraft_raw::HOT_PIXEL_MAX_SHARE.to_bits() {
+    if !settings.removes_hot_pixels() || limit.to_bits() == evolight_raw::HOT_PIXEL_MAX_SHARE.to_bits() {
         return 0;
     }
     limit.to_bits().wrapping_mul(0x9e37_79b9_7f4a_7c15).rotate_left(29)

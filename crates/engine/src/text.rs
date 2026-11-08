@@ -1,5 +1,5 @@
 //! Text drawing in pure Rust, shared by the export watermark and the slideshow overlays: Inter
-//! SemiBold (bundled) first, then the craft-fonts CJK and Thai faces as fallbacks ([`faces`]); glyph outlines
+//! SemiBold (bundled) first, then the evo-fonts CJK and Thai faces as fallbacks ([`faces`]); glyph outlines
 //! from `ab_glyph`, vertical CJK cells shaped with `harfrust`. [`TextLayout`] lays a string out
 //! once (lines split at `\n`, kerning within a face) and reports its size, so callers can anchor
 //! it before drawing; drawing hands out per-pixel coverage, and the caller blends.
@@ -16,14 +16,14 @@ pub static TEXT_FONT: &[u8] = include_bytes!("../../../assets/fonts/Inter-SemiBo
 /// Most characters one layout draws (longer text is cut there), so hostile text stays cheap.
 pub const MAX_CHARS: usize = 4000;
 
-/// The text faces: Inter first, then the craft-fonts CJK faces (Mincho first, the watermark's
+/// The text faces: Inter first, then the evo-fonts CJK faces (Mincho first, the watermark's
 /// serif look; then any other CJK face), then Thai faces, preferring Regular. Drawn text has no
 /// UI language, so every CJK script is offered. Other script faces stay out until their layout is
-/// supported. Without craft-fonts that is Inter alone, with missing-glyph boxes for unsupported text.
-pub fn faces(craft: &'static [crate::fonts::CraftFont]) -> Vec<FontRef<'static>> {
-    let mut cjk: Vec<_> = crate::fonts::cjk(craft).collect();
+/// supported. Without evo-fonts that is Inter alone, with missing-glyph boxes for unsupported text.
+pub fn faces(evo: &'static [crate::fonts::EvoFont]) -> Vec<FontRef<'static>> {
+    let mut cjk: Vec<_> = crate::fonts::cjk(evo).collect();
     cjk.sort_by_key(|f| !f.is_mincho());
-    let thai = crate::fonts::ui_fallback(craft, "Latn", "Regular")
+    let thai = crate::fonts::ui_fallback(evo, "Latn", "Regular")
         .into_iter()
         .filter(|f| f.covers("Thai") && !f.scripts.iter().any(|s| crate::fonts::is_cjk_script(s)));
     std::iter::once(TEXT_FONT).chain(cjk.into_iter().chain(thai).map(|f| f.bytes)).filter_map(|bytes| FontRef::try_from_slice(bytes).ok()).collect()
@@ -83,7 +83,7 @@ pub struct TextLayout {
 impl TextLayout {
     /// `text` (cut at [`MAX_CHARS`]) at `px` pixels a line; `None` when there is nothing to draw
     /// (empty text, a non-finite or non-positive size).
-    pub fn new(text: &str, px: f32, vertical: bool, craft: &'static [crate::fonts::CraftFont]) -> Option<TextLayout> {
+    pub fn new(text: &str, px: f32, vertical: bool, evo: &'static [crate::fonts::EvoFont]) -> Option<TextLayout> {
         use unicode_segmentation::UnicodeSegmentation;
         if text.is_empty() || !px.is_finite() || px <= 0.0 {
             return None;
@@ -95,7 +95,7 @@ impl TextLayout {
         // macOS file names are often decomposed (NFD); the layout below draws one glyph per char
         let composed = compose(text);
         let text = composed.as_str();
-        let fonts = faces(craft);
+        let fonts = faces(evo);
         let latin = fonts.first()?.clone();
         let vertical_data: Vec<_> = if vertical {
             fonts.iter().map(|font| harfrust::FontRef::new(font.font_data()).ok().map(|face| harfrust::ShaperData::new(&face))).collect()
@@ -247,19 +247,19 @@ impl TextLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fonts::{CRAFT_FONTS, CraftFont};
+    use crate::fonts::{EVO_FONTS, EvoFont};
 
     fn assert_script_glyphs(script: &str, text: &str) {
-        if !CRAFT_FONTS.iter().any(|font| font.covers(script)) {
-            lightcraft_testkit::skip!(Fonts, "built without the {script} face from craft-fonts");
+        if !EVO_FONTS.iter().any(|font| font.covers(script)) {
+            evolight_testkit::skip!(Fonts, "built without the {script} face from evo-fonts");
             return;
         }
-        let layout = TextLayout::new(text, 40.0, false, CRAFT_FONTS).unwrap();
+        let layout = TextLayout::new(text, 40.0, false, EVO_FONTS).unwrap();
         assert_eq!(layout.glyphs.len(), text.chars().count());
         for (ch, (face, glyph, _)) in text.chars().zip(&layout.glyphs) {
             assert_ne!(glyph.id.0, 0, "missing {script} glyph for {ch}");
             let font = &layout.fonts[*face];
-            assert!(CRAFT_FONTS.iter().any(|entry| entry.covers(script) && entry.bytes == font.font_data()));
+            assert!(EVO_FONTS.iter().any(|entry| entry.covers(script) && entry.bytes == font.font_data()));
         }
         let mut covered = 0;
         layout.draw(0.0, 0.0, |_, _, coverage| covered += usize::from(coverage > 0.0));
@@ -268,24 +268,24 @@ mod tests {
 
     #[test]
     fn bundled_arabic_stays_out_of_export_fallback() {
-        if !CRAFT_FONTS.iter().any(|font| font.covers("Arab")) {
-            lightcraft_testkit::skip!(Fonts, "built without the Arabic face from craft-fonts");
+        if !EVO_FONTS.iter().any(|font| font.covers("Arab")) {
+            evolight_testkit::skip!(Fonts, "built without the Arabic face from evo-fonts");
             return;
         }
         // UI names still use their existing Arabic face. Export needs joining and bidi first.
-        assert!(crate::fonts::ui_fallback(CRAFT_FONTS, "Latn", "Regular").iter().any(|font| font.covers("Arab")));
+        assert!(crate::fonts::ui_fallback(EVO_FONTS, "Latn", "Regular").iter().any(|font| font.covers("Arab")));
         for vertical in [false, true] {
-            let layout = TextLayout::new("مرحبا", 40.0, vertical, CRAFT_FONTS).unwrap();
+            let layout = TextLayout::new("مرحبا", 40.0, vertical, EVO_FONTS).unwrap();
             assert!(layout.glyphs.iter().all(|(face, glyph, _)| *face == 0 && glyph.id.0 == 0));
         }
     }
 
-    fn assert_draws_composed(text: &str, craft: &'static [CraftFont]) {
+    fn assert_draws_composed(text: &str, evo: &'static [EvoFont]) {
         use unicode_normalization::UnicodeNormalization;
         let nfc: String = text.nfc().collect();
         let nfd: String = text.nfd().collect();
         assert_ne!(nfc, nfd);
-        let (a, b) = (TextLayout::new(&nfc, 40.0, false, craft).unwrap(), TextLayout::new(&nfd, 40.0, false, craft).unwrap());
+        let (a, b) = (TextLayout::new(&nfc, 40.0, false, evo).unwrap(), TextLayout::new(&nfd, 40.0, false, evo).unwrap());
         let ids = |l: &TextLayout| l.glyphs.iter().map(|(face, g, _)| (*face, g.id.0)).collect::<Vec<_>>();
         assert_eq!(ids(&b), ids(&a));
         assert_eq!(b.width, a.width);
@@ -299,11 +299,11 @@ mod tests {
 
     #[test]
     fn decomposed_hangul_draws_whole_syllables() {
-        if !CRAFT_FONTS.iter().any(|font| font.covers("Hang")) {
-            lightcraft_testkit::skip!(Fonts, "built without a Hangul face from craft-fonts");
+        if !EVO_FONTS.iter().any(|font| font.covers("Hang")) {
+            evolight_testkit::skip!(Fonts, "built without a Hangul face from evo-fonts");
             return;
         }
-        assert_draws_composed("제주도 바다 여행.jpg", CRAFT_FONTS);
+        assert_draws_composed("제주도 바다 여행.jpg", EVO_FONTS);
     }
 
     #[test]
@@ -340,28 +340,28 @@ mod tests {
 
     #[test]
     fn latin_and_cjk_rendering_keeps_the_existing_preference() {
-        let mut cjk: Vec<_> = crate::fonts::cjk(CRAFT_FONTS).collect();
+        let mut cjk: Vec<_> = crate::fonts::cjk(EVO_FONTS).collect();
         if cjk.is_empty() {
-            lightcraft_testkit::skip!(Fonts, "built without CJK faces from craft-fonts");
+            evolight_testkit::skip!(Fonts, "built without CJK faces from evo-fonts");
             return;
         }
         cjk.sort_by_key(|font| !font.is_mincho());
-        let previous: &'static [CraftFont] = Box::leak(
+        let previous: &'static [EvoFont] = Box::leak(
             cjk.into_iter()
-                .map(|font| CraftFont { family: font.family, style: font.style, scripts: font.scripts, bytes: font.bytes })
+                .map(|font| EvoFont { family: font.family, style: font.style, scripts: font.scripts, bytes: font.bytes })
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         );
-        let actual = faces(CRAFT_FONTS);
+        let actual = faces(EVO_FONTS);
         assert!(actual.len() > previous.len());
         assert!(actual[0].font_data() == TEXT_FONT, "Inter stays first");
         for (font, expected) in actual.iter().skip(1).zip(previous) {
             assert!(font.font_data() == expected.bytes, "existing CJK face order: {} {}", expected.family, expected.style);
         }
         for vertical in [false, true] {
-            for text in ["LightCraft AV 123", "日本語、。你好世界한국어"] {
+            for text in ["EvoLight AV 123", "日本語、。你好世界한국어"] {
                 let before = TextLayout::new(text, 40.0, vertical, previous).unwrap();
-                let after = TextLayout::new(text, 40.0, vertical, CRAFT_FONTS).unwrap();
+                let after = TextLayout::new(text, 40.0, vertical, EVO_FONTS).unwrap();
                 assert_eq!((before.width, before.height), (after.width, after.height));
                 let pixels = |layout: &TextLayout| {
                     let mut pixels = Vec::new();

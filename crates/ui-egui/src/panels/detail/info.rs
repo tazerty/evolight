@@ -1,10 +1,10 @@
 use super::geometry::focus_box;
-use super::{Color32, LightcraftApp, PhotoId, Pos2, Rect, Sense, Stroke, Tokens, json, pos2, register, register_geometry, vec2};
+use super::{Color32, EvoLightApp, PhotoId, Pos2, Rect, Sense, Stroke, Tokens, json, pos2, register, register_geometry, vec2};
 
 /// Draw the camera's focus box over a photo drawn in `img` (View ▸ Focus Point): green corner
 /// brackets with a dark keyline, the way cameras show their AF frame, never smaller than 14 pt.
 /// `key` names it for tests and the control channel (`canvas:focusPoint`, `compare:focusPoint:<id>`).
-pub(crate) fn draw_focus_point(p: &egui::Painter, img: Rect, photo: &lightcraft_catalog::Photo, key: &str) {
+pub(crate) fn draw_focus_point(p: &egui::Painter, img: Rect, photo: &evolight_catalog::Photo, key: &str) {
     let Some(r) = focus_box(photo) else { return };
     let at = |x: f64, y: f64| pos2(img.left() + x as f32 * img.width(), img.top() + y as f32 * img.height());
     let b = Rect::from_two_pos(at(r.x0, r.y0), at(r.x1, r.y1));
@@ -27,7 +27,7 @@ pub(crate) fn draw_focus_point(p: &egui::Painter, img: Rect, photo: &lightcraft_
 /// repaint is asked for then, so it hides without input).
 ///
 /// [`BRIEF_INFO_SECS`]: crate::state::BRIEF_INFO_SECS
-pub(super) fn brief_info(app: &mut LightcraftApp, ctx: &egui::Context, id: PhotoId) {
+pub(super) fn brief_info(app: &mut EvoLightApp, ctx: &egui::Context, id: PhotoId) {
     let now = ctx.input(|i| i.time);
     let brief = &mut app.ui.brief_info;
     if brief.photo != Some(id) {
@@ -55,7 +55,7 @@ pub(super) fn label_badge_rect(photo: Rect, pane: Rect, text: egui::Vec2, top_in
 
 /// The info overlay at the canvas' top left (`view.infoOverlay`): the lines View Options chose for
 /// Info 1 or Info 2 (`view.viewOptions`).
-pub(super) fn info_overlay(app: &LightcraftApp, p: &egui::Painter, canvas: Rect, photo: &lightcraft_catalog::Photo) {
+pub(super) fn info_overlay(app: &EvoLightApp, p: &egui::Painter, canvas: Rect, photo: &evolight_catalog::Photo) {
     let Some(lines) = info_overlay_lines(app, photo) else { return };
     let t = Tokens::get(p.ctx());
     let mut y = canvas.top() + info_overlay_top(app, &t);
@@ -86,7 +86,7 @@ fn info_overlay_font(t: &Tokens, i: usize) -> egui::FontId {
 
 /// How far below the canvas' top the info overlay's text and badges reach (0 when it is off), so a
 /// label drawn in that corner can sit below it.
-pub(super) fn info_overlay_extent(app: &LightcraftApp, p: &egui::Painter, photo: &lightcraft_catalog::Photo) -> f32 {
+pub(super) fn info_overlay_extent(app: &EvoLightApp, p: &egui::Painter, photo: &evolight_catalog::Photo) -> f32 {
     let Some(lines) = info_overlay_lines(app, photo) else { return 0.0 };
     let t = Tokens::get(p.ctx());
     let text = lines.iter().enumerate().fold(info_overlay_top(app, &t), |y, (i, l)| {
@@ -97,13 +97,13 @@ pub(super) fn info_overlay_extent(app: &LightcraftApp, p: &egui::Painter, photo:
 
 /// Where the info overlay's text starts below the canvas' top: the full-screen preview has no top
 /// bar, so on macOS it starts below the window controls that sit over the photo there (#2460).
-fn info_overlay_top(app: &LightcraftApp, t: &Tokens) -> f32 {
+fn info_overlay_top(app: &EvoLightApp, t: &Tokens) -> f32 {
     let controls = app.ui.fullscreen && app.integrated_titlebar && !app.window_is_fullscreen;
     if controls { t.top_bar_h } else { INFO_OVERLAY_TOP }
 }
 
 /// The info overlay's lines for `photo`, or `None` when it is off.
-fn info_overlay_lines(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) -> Option<Vec<String>> {
+fn info_overlay_lines(app: &EvoLightApp, photo: &evolight_catalog::Photo) -> Option<Vec<String>> {
     use crate::state::InfoOverlay;
     // with the overlay off, Show Briefly When Photo Changes shows its Info for a moment
     let brief = app.ui.info_overlay == InfoOverlay::Off && app.ui.brief_info.shown;
@@ -123,15 +123,15 @@ fn info_overlay_lines(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) ->
 /// The height of the info overlay's rating and flag row.
 const OVERLAY_BADGES_H: f32 = 17.0;
 
-fn has_overlay_badges(photo: &lightcraft_catalog::Photo) -> bool {
-    photo.rating > 0 || photo.flag != lightcraft_catalog::Flag::None
+fn has_overlay_badges(photo: &evolight_catalog::Photo) -> bool {
+    photo.rating > 0 || photo.flag != evolight_catalog::Flag::None
 }
 
 /// The star rating and flag under the info overlay's lines, when the photo has either; returns
 /// the y below them.
-fn overlay_badges(p: &egui::Painter, t: &Tokens, at: Pos2, photo: &lightcraft_catalog::Photo) -> f32 {
+fn overlay_badges(p: &egui::Painter, t: &Tokens, at: Pos2, photo: &evolight_catalog::Photo) -> f32 {
     use crate::icons::{Icon, paint};
-    use lightcraft_catalog::Flag;
+    use evolight_catalog::Flag;
     let flag = match photo.flag {
         Flag::Pick => Some((Icon::FlagPickFilled, Color32::WHITE)),
         Flag::Reject => Some((Icon::FlagReject, t.reject)),
@@ -166,15 +166,15 @@ pub(super) const FILTER_PILL_INSET: f32 = 3.0;
 pub(super) const FILTER_PILL_HEIGHT: f32 = 20.0;
 
 /// Whether [`filter_pill`] has something to show (a filter is active).
-pub(super) fn filter_pill_shown(app: &LightcraftApp) -> bool {
-    !lightcraft_engine::filter_chips(&app.session.filter, &app.session.catalog).is_empty()
+pub(super) fn filter_pill_shown(app: &EvoLightApp) -> bool {
+    !evolight_engine::filter_chips(&app.session.filter, &app.session.catalog).is_empty()
 }
 
 /// A small pill at the loupe's top left naming the active filters: the filmstrip and Next / Previous
 /// follow them, so a filter must never be invisible here. A click clears them all. It sits in the
 /// canvas margin, so the photo does not move.
-pub(super) fn filter_pill(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect) {
-    let chips = lightcraft_engine::filter_chips(&app.session.filter, &app.session.catalog);
+pub(super) fn filter_pill(app: &mut EvoLightApp, ui: &mut egui::Ui, canvas: Rect) {
+    let chips = evolight_engine::filter_chips(&app.session.filter, &app.session.catalog);
     if chips.is_empty() {
         return;
     }
@@ -214,7 +214,7 @@ pub(super) fn camera_preview_badge(ui: &egui::Ui, canvas: Rect, over: Rect) {
     p.rect_filled(r, 9.0, Color32::from_black_alpha(165));
     p.galley(pos2(r.left() + 8.0, r.center().y - g.size().y / 2.0), g, Color32::from_gray(225));
     register(ui, "loupe:cameraPreview", r);
-    let tip = crate::i18n::tr("The camera's own JPEG, shown until LightCraft has rendered the raw. Judge colour and tone on the rendered photo.");
+    let tip = crate::i18n::tr("The camera's own JPEG, shown until EvoLight has rendered the raw. Judge colour and tone on the rendered photo.");
     let resp = ui.interact(r, egui::Id::unique("camera-preview-badge"), Sense::hover()).on_hover_text(tip);
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, format!("{text}: {tip}")));
 }
@@ -237,7 +237,7 @@ pub(super) fn preview_only_pill(ui: &mut egui::Ui, canvas: Rect, reason: &str) {
 
 /// One line of the info overlay for `photo`; `None` when the field is None or the photo has
 /// nothing to show for it.
-fn info_line(field: crate::state::LoupeInfoField, photo: &lightcraft_catalog::Photo) -> Option<String> {
+fn info_line(field: crate::state::LoupeInfoField, photo: &evolight_catalog::Photo) -> Option<String> {
     use crate::state::LoupeInfoField as F;
     let m = &photo.meta;
     let text = match field {
@@ -329,23 +329,23 @@ pub(crate) fn loupe_pill(ui: &egui::Ui, canvas: Rect, over: Rect, navigator: Opt
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn failed_pill(
     ui: &egui::Ui,
-    app: &LightcraftApp,
-    photo: &lightcraft_catalog::Photo,
+    app: &EvoLightApp,
+    photo: &evolight_catalog::Photo,
     canvas: Rect,
     over: Rect,
     navigator: Option<Rect>,
     id: &str,
     error: &str,
 ) {
-    let offline = matches!(&photo.source, lightcraft_catalog::Source::File { path } if app.session.media.availability.is_offline(path));
+    let offline = matches!(&photo.source, evolight_catalog::Source::File { path } if app.session.media.availability.is_offline(path));
     let text = crate::i18n::tr(if offline { "Original offline · no smart preview" } else { "This photo can't be opened" });
     let r = loupe_pill(ui, canvas, over, navigator, id, text, true);
     let resp = ui.interact(r, egui::Id::unique(("render-failed", id)), Sense::hover()).on_hover_text(error);
     resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, format!("{text}: {error}")));
 }
 
-pub(super) fn quick_name(q: lightcraft_engine::media::QuickSource) -> &'static str {
-    use lightcraft_engine::media::QuickSource;
+pub(super) fn quick_name(q: evolight_engine::media::QuickSource) -> &'static str {
+    use evolight_engine::media::QuickSource;
     match q {
         QuickSource::Cached => "cached",
         QuickSource::Embedded => "embedded",
@@ -361,7 +361,7 @@ mod filter_pill_tests {
     /// from the top one.
     #[test]
     fn the_filter_pill_is_inset_equally_from_both_edges() {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
         app.session.filter.text = "717".into();
         let ctx = egui::Context::default();
         let canvas = Rect::from_min_size(pos2(52.0, 82.0), vec2(800.0, 500.0));
@@ -384,7 +384,7 @@ mod info_overlay_tests {
     /// copy one point off, each line read doubled.
     #[test]
     fn the_info_overlay_shadow_is_dark() {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
         app.ui.info_overlay = crate::state::InfoOverlay::Basic;
         let photo = app.session.catalog.photos().next().map(|p| (**p).clone()).expect("the demo catalog has photos");
         let ctx = egui::Context::default();
@@ -418,12 +418,12 @@ mod info_overlay_tests {
     #[test]
     fn show_briefly_shows_the_info_after_the_photo_changes() {
         use crate::state::{BRIEF_INFO_SECS, InfoOverlay};
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
-        let photos: Vec<lightcraft_catalog::Photo> = app.session.catalog.photos().take(2).map(|p| (**p).clone()).collect();
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
+        let photos: Vec<evolight_catalog::Photo> = app.session.catalog.photos().take(2).map(|p| (**p).clone()).collect();
         assert_eq!(photos.len(), 2, "the demo catalog has two photos");
         let ctx = egui::Context::default();
         // the loupe shows photo `i` at `time`: the lines the overlay paints then
-        let at = |app: &mut LightcraftApp, i: usize, time: f64| {
+        let at = |app: &mut EvoLightApp, i: usize, time: f64| {
             let raw = crate::headless::HeadlessView::raw_input(vec2(1000.0, 700.0), 1.0, time, vec![]);
             let mut out = ctx.run_ui(raw, |ui| brief_info(app, ui.ctx(), photos[i].id));
             out.textures_delta.clear();
@@ -446,7 +446,7 @@ mod info_overlay_tests {
     }
 
     /// The lines the overlay paints, top to bottom (each once: the shadow copies left out).
-    fn painted_lines(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) -> Vec<String> {
+    fn painted_lines(app: &EvoLightApp, photo: &evolight_catalog::Photo) -> Vec<String> {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         let canvas = Rect::from_min_size(pos2(52.0, 82.0), vec2(800.0, 500.0));
@@ -469,7 +469,7 @@ mod info_overlay_tests {
     #[test]
     fn the_info_overlay_shows_the_lines_chosen_in_view_options() {
         use crate::state::{InfoOverlay, LoupeInfoField as F};
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
         let photo = app.session.catalog.photos().next().map(|p| (**p).clone()).expect("the demo catalog has photos");
         let size = format!("{} × {}", photo.width, photo.height);
         let date = pretty_date(photo.captured.as_deref().unwrap_or(&photo.imported));
@@ -484,15 +484,15 @@ mod info_overlay_tests {
         assert_eq!(painted_lines(&app, &photo), Vec::<String>::new(), "nothing chosen, nothing shown");
     }
 
-    fn demo_app() -> (LightcraftApp, lightcraft_catalog::Photo) {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
+    fn demo_app() -> (EvoLightApp, evolight_catalog::Photo) {
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services { png: None, ..Default::default() });
         app.ui.info_overlay = crate::state::InfoOverlay::Basic;
         let photo = app.session.catalog.photos().next().map(|p| (**p).clone()).expect("the demo catalog has photos");
         (app, photo)
     }
 
     /// The overlay's text shapes and the rects it registered, painted on a canvas at the window's corner.
-    fn paint_overlay(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) -> (Vec<egui::epaint::TextShape>, Vec<(String, Rect)>) {
+    fn paint_overlay(app: &EvoLightApp, photo: &evolight_catalog::Photo) -> (Vec<egui::epaint::TextShape>, Vec<(String, Rect)>) {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         let canvas = Rect::from_min_size(Pos2::ZERO, vec2(1000.0, 700.0));
@@ -511,7 +511,7 @@ mod info_overlay_tests {
         (all, crate::widgets::take_registry(&ctx))
     }
 
-    fn name_top(app: &LightcraftApp, photo: &lightcraft_catalog::Photo) -> f32 {
+    fn name_top(app: &EvoLightApp, photo: &evolight_catalog::Photo) -> f32 {
         let (texts, _) = paint_overlay(app, photo);
         texts.iter().filter(|t| t.galley.job.text == photo.file_name).map(|t| t.pos.y).fold(f32::INFINITY, f32::min)
     }
@@ -539,14 +539,14 @@ mod info_overlay_tests {
         let (_, mut photo) = demo_app();
         let (app, _) = demo_app();
         photo.rating = 0;
-        photo.flag = lightcraft_catalog::Flag::None;
-        let badges = |photo: &lightcraft_catalog::Photo| {
+        photo.flag = evolight_catalog::Flag::None;
+        let badges = |photo: &evolight_catalog::Photo| {
             paint_overlay(&app, photo).1.into_iter().find(|(id, _)| id == "canvas:infoOverlayBadges").map(|(_, r)| r)
         };
         assert_eq!(badges(&photo), None, "nothing to show");
         photo.rating = 3;
         let stars = badges(&photo).expect("three stars");
-        photo.flag = lightcraft_catalog::Flag::Pick;
+        photo.flag = evolight_catalog::Flag::Pick;
         let flagged = badges(&photo).expect("three stars and a flag");
         assert!(flagged.width() > stars.width(), "the flag follows the stars: {stars:?} {flagged:?}");
         let (texts, _) = paint_overlay(&app, &photo);
@@ -559,7 +559,7 @@ mod info_overlay_tests {
         ctx.run_ui(raw, |ui| extent = info_overlay_extent(&app, ui.painter(), &photo)).textures_delta.clear();
         assert!(extent >= flagged.bottom(), "a label below the overlay clears the badges: {extent} < {flagged:?}");
         photo.rating = 0;
-        photo.flag = lightcraft_catalog::Flag::Reject;
+        photo.flag = evolight_catalog::Flag::Reject;
         assert!(badges(&photo).is_some(), "a rejected photo shows its flag alone");
     }
 }

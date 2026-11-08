@@ -1,5 +1,5 @@
 //! `library.toggleFilters` (Library > Enable Filters, Cmd+L) through the real engine.
-use lightcraft_catalog::{Filter, Flag, Op, Photo, PhotoId, Source};
+use evolight_catalog::{Filter, Flag, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
 use crate::{LibrarySource, Result, Session};
@@ -9,7 +9,7 @@ fn session() -> Result<Session> {
     for (id, rating, flag) in [(1, 5, Flag::Pick), (2, 5, Flag::None), (3, 2, Flag::Pick), (4, 1, Flag::None)] {
         let mut photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-enable-filters/{id}.jpg") },
+            Source::File { path: format!("/evolight-enable-filters/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,
@@ -108,10 +108,10 @@ fn applying_a_preset_while_off_turns_filtering_on_with_the_preset() {
 #[test]
 fn a_folder_filter_does_not_come_back_over_the_folder_now_shown() {
     let mut s = session().unwrap();
-    s.execute("library.filter", &json!({"rating": 4, "libraryFolder": "/lightcraft-enable-filters"})).unwrap();
+    s.execute("library.filter", &json!({"rating": 4, "libraryFolder": "/evolight-enable-filters"})).unwrap();
     s.execute("library.toggleFilters", &json!({})).unwrap();
     s.source = LibrarySource::LibraryFolder;
-    s.library_folder = Some("/lightcraft-enable-filters".into());
+    s.library_folder = Some("/evolight-enable-filters".into());
     s.execute("library.toggleFilters", &json!({})).unwrap();
     assert_eq!(s.filter.rating, 4);
     assert_eq!(s.filter.library_folder, None);
@@ -120,9 +120,9 @@ fn a_folder_filter_does_not_come_back_over_the_folder_now_shown() {
 #[test]
 fn removing_a_folder_while_off_drops_it_from_the_filter_put_aside() {
     let mut s = session().unwrap();
-    s.execute("library.filter", &json!({"rating": 4, "libraryFolder": "/lightcraft-enable-filters"})).unwrap();
+    s.execute("library.filter", &json!({"rating": 4, "libraryFolder": "/evolight-enable-filters"})).unwrap();
     s.execute("library.toggleFilters", &json!({})).unwrap();
-    s.execute("library.removeFolder", &json!({"path": "/lightcraft-enable-filters"})).unwrap();
+    s.execute("library.removeFolder", &json!({"path": "/evolight-enable-filters"})).unwrap();
     s.execute("library.toggleFilters", &json!({})).unwrap();
     assert_eq!(s.filter.library_folder, None, "the removed folder is not brought back");
     assert_eq!(s.filter.rating, 4, "the rest of the filter is");
@@ -131,16 +131,16 @@ fn removing_a_folder_while_off_drops_it_from_the_filter_put_aside() {
 #[test]
 fn removing_the_only_criterion_put_aside_leaves_filtering_on() {
     let mut s = session().unwrap();
-    s.execute("library.filter", &json!({"libraryFolder": "/lightcraft-enable-filters"})).unwrap();
+    s.execute("library.filter", &json!({"libraryFolder": "/evolight-enable-filters"})).unwrap();
     s.execute("library.toggleFilters", &json!({})).unwrap();
-    s.execute("library.removeFolder", &json!({"path": "/lightcraft-enable-filters"})).unwrap();
+    s.execute("library.removeFolder", &json!({"path": "/evolight-enable-filters"})).unwrap();
     assert!(s.shelved_filter.is_none(), "an empty filter is not left put aside");
 }
 
 #[test]
 fn a_keyword_renamed_while_off_is_followed_by_the_filter_put_aside() {
     let mut s = session().unwrap();
-    let mut photo = Photo::new(PhotoId(5), Source::File { path: "/lightcraft-enable-filters/5.jpg".into() }, "5.jpg", "JPEG", 40, 30, "2026-10-23");
+    let mut photo = Photo::new(PhotoId(5), Source::File { path: "/evolight-enable-filters/5.jpg".into() }, "5.jpg", "JPEG", 40, 30, "2026-10-23");
     photo.meta.keywords = vec!["cat".into()];
     s.catalog.apply(Op::AddPhoto { photo: Box::new(photo) }).unwrap();
     s.filter.keyword = Some("cat".into());
@@ -156,7 +156,7 @@ fn a_keyword_renamed_while_off_is_followed_by_the_filter_put_aside() {
 /// The session's photos plus one photo that carries the keyword "cat".
 fn session_with_a_cat() -> Session {
     let mut s = session().unwrap();
-    let mut photo = Photo::new(PhotoId(5), Source::File { path: "/lightcraft-enable-filters/5.jpg".into() }, "5.jpg", "JPEG", 40, 30, "2026-10-23");
+    let mut photo = Photo::new(PhotoId(5), Source::File { path: "/evolight-enable-filters/5.jpg".into() }, "5.jpg", "JPEG", 40, 30, "2026-10-23");
     photo.meta.keywords = vec!["cat".into()];
     s.catalog.apply(Op::AddPhoto { photo: Box::new(photo) }).unwrap();
     s
@@ -209,7 +209,7 @@ fn a_rating_operator_put_aside_survives_a_keyword_change_that_does_not_touch_it(
     s.execute("keyword.rename", &json!({"from": "cat", "to": "dog"})).unwrap();
     assert!(s.filters_off(), "the filter put aside held no keyword, so the rename leaves it alone");
     s.execute("library.toggleFilters", &json!({})).unwrap();
-    assert_eq!(s.filter.rating_op, lightcraft_catalog::RatingOp::Exactly);
+    assert_eq!(s.filter.rating_op, evolight_catalog::RatingOp::Exactly);
 }
 
 #[test]
@@ -219,5 +219,5 @@ fn a_rating_operator_with_stars_is_kept_when_the_keyword_goes() {
     s.execute("library.toggleFilters", &json!({})).unwrap();
     s.execute("keyword.delete", &json!({"keyword": "cat"})).unwrap();
     s.execute("library.toggleFilters", &json!({})).unwrap();
-    assert_eq!((s.filter.rating, s.filter.rating_op), (4, lightcraft_catalog::RatingOp::Exactly));
+    assert_eq!((s.filter.rating, s.filter.rating_op), (4, evolight_catalog::RatingOp::Exactly));
 }

@@ -7,14 +7,14 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use egui::{Align2, Color32, Rect, Sense, pos2, vec2};
-use lightcraft_develop::{ControlSpec, Preset, Section, Track};
-use lightcraft_engine::presets::PresetList;
+use evolight_develop::{ControlSpec, Preset, Section, Track};
+use evolight_engine::presets::PresetList;
 use serde_json::json;
 
 use crate::icons::{Icon, paint};
 use crate::theme::Tokens;
 use crate::widgets::{divider, icon_button, register, slider};
-use crate::{HoverPreview, LightcraftApp};
+use crate::{HoverPreview, EvoLightApp};
 
 /// Long edge of preset thumbnails (px).
 const THUMB_EDGE: usize = 128;
@@ -24,22 +24,22 @@ const THUMB_EDGE: usize = 128;
 struct AppliedPreset {
     id: String,
     amount: f64,
-    selected: Vec<lightcraft_catalog::PhotoId>,
-    active: Option<lightcraft_catalog::PhotoId>,
+    selected: Vec<evolight_catalog::PhotoId>,
+    active: Option<evolight_catalog::PhotoId>,
     commits: u64,
 }
 
 impl AppliedPreset {
-    fn new(session: &lightcraft_engine::Session, id: String, amount: f64) -> Self {
+    fn new(session: &evolight_engine::Session, id: String, amount: f64) -> Self {
         Self { id, amount, selected: session.selection.ids.clone(), active: session.active(), commits: session.commits() }
     }
 
-    fn is_current(&self, session: &lightcraft_engine::Session) -> bool {
+    fn is_current(&self, session: &evolight_engine::Session) -> bool {
         self.selected == session.selection.ids && self.active == session.active() && !self.is_stale(session)
     }
 
     /// A later edit, undo or redo (on any photo) owns the undo step: the slider may never replace it.
-    fn is_stale(&self, session: &lightcraft_engine::Session) -> bool {
+    fn is_stale(&self, session: &evolight_engine::Session) -> bool {
         !(self.commits == session.commits()
             && session.interaction.is_none()
             && session.redo.is_empty()
@@ -54,14 +54,14 @@ impl AppliedPreset {
 /// photo still has exactly those settings, so it is still marked on coming back to the photo
 /// (issue #2392) and drops once the photo is edited further.
 #[derive(Clone, Default)]
-struct AppliedByPhoto(std::collections::HashMap<lightcraft_catalog::PhotoId, (String, Arc<lightcraft_develop::DevelopSettings>)>);
+struct AppliedByPhoto(std::collections::HashMap<evolight_catalog::PhotoId, (String, Arc<evolight_develop::DevelopSettings>)>);
 
 impl AppliedByPhoto {
     const ID: &'static str = "preset-applied-by-photo";
 
     /// Remember `preset` on the photos `preset.apply` just changed (the selection, else the active
     /// photo; an active photo outside the selection wasn't changed and isn't marked).
-    fn remember(ctx: &egui::Context, session: &lightcraft_engine::Session, preset: &str) {
+    fn remember(ctx: &egui::Context, session: &evolight_engine::Session, preset: &str) {
         let id = egui::Id::unique(Self::ID);
         let mut map: Self = ctx.data(|d| d.get_temp(id)).unwrap_or_default();
         for photo in session.selected() {
@@ -73,7 +73,7 @@ impl AppliedByPhoto {
     }
 
     /// The preset to mark for `photo`: the one it was given, while its settings are unchanged since.
-    fn of(ctx: &egui::Context, session: &lightcraft_engine::Session, photo: Option<lightcraft_catalog::PhotoId>) -> Option<String> {
+    fn of(ctx: &egui::Context, session: &evolight_engine::Session, photo: Option<evolight_catalog::PhotoId>) -> Option<String> {
         let photo = photo?;
         let map: Self = ctx.data(|d| d.get_temp(egui::Id::unique(Self::ID)))?;
         let (preset, then) = map.0.get(&photo)?;
@@ -84,7 +84,7 @@ impl AppliedByPhoto {
 
 /// The Presets panel: the Favorites section of starred presets on top (issue #1999), then the
 /// groups of built-in and user presets, each row applying its preset on click.
-pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Frame::NONE.fill(t.chrome).stroke(egui::Stroke::new(1.0, t.divider)).show(ui, |ui| {
         ui.spacing_mut().item_spacing.y = 0.0;
@@ -254,7 +254,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
                     if resp.clicked() && app.run("preset.apply", json!({"id": pid, "amount": 100})).is_ok() {
                         AppliedByPhoto::remember(ui.ctx(), &app.session, &pid);
                         ui.data_mut(|d| d.insert_temp(amt_id, AppliedPreset::new(&app.session, pid.clone(), 100.0)));
-                        ui.data_mut(|d| d.remove::<(lightcraft_catalog::PhotoId, Preset, String)>(egui::Id::unique("last-preset-hover")));
+                        ui.data_mut(|d| d.remove::<(evolight_catalog::PhotoId, Preset, String)>(egui::Id::unique("last-preset-hover")));
                         app.toast(ui.ctx(), crate::i18n::tr_format!("Preset: {name}", name = name));
                     }
                     let (builtin, group) = (pr.builtin, pr.group.clone());
@@ -314,14 +314,14 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
             if app.hover_preview.is_none()
                 && let Some(id) = active
                 && let Some((saved_id, saved_preset, saved_label)) =
-                    ui.data(|d| d.get_temp::<(lightcraft_catalog::PhotoId, Preset, String)>(last_hover_id))
+                    ui.data(|d| d.get_temp::<(evolight_catalog::PhotoId, Preset, String)>(last_hover_id))
                 && saved_id == id
                 && let Some(s) = app.session.preset_applied(id, &saved_preset, 1.0)
             {
                 app.hover_preview = Some(HoverPreview { label: saved_label, settings: s });
             }
         } else {
-            ui.data_mut(|d| d.remove::<(lightcraft_catalog::PhotoId, Preset, String)>(last_hover_id));
+            ui.data_mut(|d| d.remove::<(evolight_catalog::PhotoId, Preset, String)>(last_hover_id));
         }
     });
 }
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn amount_slider_does_not_undo_a_later_edit() {
-        let mut session = lightcraft_engine::Session::with_demo();
+        let mut session = evolight_engine::Session::with_demo();
         let pid = "lc.golden-hour";
         session.execute("preset.apply", &json!({"id": pid})).unwrap();
         let state = AppliedPreset::new(&session, pid.into(), 100.0);
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn amount_slider_does_not_undo_on_another_photo() {
-        let mut session = lightcraft_engine::Session::with_demo();
+        let mut session = evolight_engine::Session::with_demo();
         let pid = "lc.golden-hour";
         session.execute("preset.apply", &json!({"id": pid})).unwrap();
         let state = AppliedPreset::new(&session, pid.into(), 100.0);

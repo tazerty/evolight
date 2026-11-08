@@ -8,11 +8,11 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use lightcraft_engine::EngineError;
-use lightcraft_engine::cmd::reload;
+use evolight_engine::EngineError;
+use evolight_engine::cmd::reload;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 
 /// The activity stack's label while the files are read (the menu item's name, already translated).
 pub const LABEL: &str = "Reload from Disk";
@@ -20,7 +20,7 @@ pub const LABEL: &str = "Reload from Disk";
 /// `photo.reload` from the app: start reading the targeted files in the background →
 /// `{background: true, count}`. `None` hands the command to the engine: with `wait: true`, or when
 /// no targeted photo has a file (it then answers at once, refusing an empty selection as usual).
-pub fn command(app: &mut LightcraftApp, p: &Value) -> Option<Result<Value, String>> {
+pub fn command(app: &mut EvoLightApp, p: &Value) -> Option<Result<Value, String>> {
     if p.get("wait").and_then(Value::as_bool) == Some(true) {
         return None;
     }
@@ -44,13 +44,13 @@ pub fn command(app: &mut LightcraftApp, p: &Value) -> Option<Result<Value, Strin
     let cancel = Arc::new(AtomicBool::new(false));
     let flag = cancel.clone();
     let stopped = cancel.clone();
-    let work = move |task: lightcraft_engine::activity::TaskHandle| {
+    let work = move |task: evolight_engine::activity::TaskHandle| {
         let total = items.len() as u64;
         task.progress(0, total);
         let results = reload::probe(probe.as_ref(), &items, &flag, &|done| task.progress(done as u64, total));
         (items, results)
     };
-    let done = move |app: &mut LightcraftApp, ctx: &egui::Context, (items, results)| {
+    let done = move |app: &mut EvoLightApp, ctx: &egui::Context, (items, results)| {
         if app.session.library_generation() != library {
             return;
         }

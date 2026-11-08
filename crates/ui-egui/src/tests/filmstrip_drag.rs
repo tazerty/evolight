@@ -5,18 +5,18 @@
 use std::time::Duration;
 
 use egui::{Pos2, Rect};
-use lightcraft_catalog::{AlbumId, PhotoId};
+use evolight_catalog::{AlbumId, PhotoId};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
 /// The demo library in the Detail view (filmstrip at the bottom), the Albums section on the left.
 fn app() -> Headless {
-    let session = lightcraft_engine::Session::with_demo();
-    let mut h = Headless::new(LightcraftApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1000.0], 1.0);
+    let session = evolight_engine::Session::with_demo();
+    let mut h = Headless::new(EvoLightApp::new(session, Services { png: None, ..Default::default() }), [1300.0, 1000.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail", "leftPanel": true, "sidebar": ["albums"]}), T);
     assert_eq!(r["ok"], true, "{r}");
     for _ in 0..6 {

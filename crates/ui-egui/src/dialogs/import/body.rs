@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use super::tags::{tag_field_width, tag_help, tag_toggle, unknown_tags_warning};
-use super::{Color32, ImportDialog, LightcraftApp, Rect, Sense, Slot, Stroke, StrokeKind, Tokens, Value, Vec2, pos2, register, vec2};
+use super::{Color32, ImportDialog, EvoLightApp, Rect, Sense, Slot, Stroke, StrokeKind, Tokens, Value, Vec2, pos2, register, vec2};
 
 /// The review dialog's first size (points). It can be resized; the photo grid takes the height.
 pub(crate) const DIALOG_SIZE: [f32; 2] = [960.0, 720.0];
@@ -33,8 +33,8 @@ pub(crate) fn thumb_edge(size: f32, pixels_per_point: f32) -> usize {
 }
 
 /// Use the shared control contract for pointer, keyboard, exact-value entry and reset interactions.
-fn thumb_size_slider(app: &mut LightcraftApp, ui: &mut egui::Ui) {
-    use lightcraft_develop::controls::{ControlSpec, Section, Track};
+fn thumb_size_slider(app: &mut EvoLightApp, ui: &mut egui::Ui) {
+    use evolight_develop::controls::{ControlSpec, Section, Track};
     const SIZE: ControlSpec = ControlSpec {
         id: "importThumbSize",
         label: "Thumbnail size",
@@ -97,7 +97,7 @@ pub(crate) fn scan_note(d: &ImportDialog) -> Option<String> {
 }
 
 /// The dialog body: options, then the candidate grid.
-pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
+pub fn body(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
     let t = Tokens::get(ui.ctx());
     let n = d.candidates.len();
     let (dups, in_source, trashed) = dup_counts(d);
@@ -289,7 +289,7 @@ pub fn body(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
                 tag_help(ui, "importFolders", &mut d.folder_template, folders_id);
             }
             let t = Tokens::get(ui.ctx());
-            match lightcraft_engine::rename::folder_template_error(&d.folder_template) {
+            match evolight_engine::rename::folder_template_error(&d.folder_template) {
                 Some(e) => {
                     ui.label(egui::RichText::new(e).color(t.caution));
                 }
@@ -477,7 +477,7 @@ pub(super) fn recipe_items(recipe: &std::collections::BTreeMap<String, f64>) -> 
 }
 
 /// Record a slider's new value in the recipe: a control back at its default is no longer named.
-pub(super) fn note_recipe_value(recipe: &mut std::collections::BTreeMap<String, f64>, spec: &lightcraft_develop::controls::ControlSpec, value: f64) {
+pub(super) fn note_recipe_value(recipe: &mut std::collections::BTreeMap<String, f64>, spec: &evolight_develop::controls::ControlSpec, value: f64) {
     if (value - spec.default).abs() < 1e-9 {
         recipe.remove(spec.id);
     } else {
@@ -489,7 +489,7 @@ pub(super) fn note_recipe_value(recipe: &mut std::collections::BTreeMap<String, 
 /// on every photo this import adds, on top of its XMP sidecar, camera default and the chosen preset.
 /// The recipe lives only in the dialog until the import runs, so cancelling changes neither the
 /// catalog nor the preset collections; "Save as Preset" is the explicit way to keep one for reuse.
-fn recipe_section(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
+fn recipe_section(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &mut ImportDialog) {
     let t = Tokens::get(ui.ctx());
     let open_id = egui::Id::unique("import-recipe-open");
     let mut open = ui.ctx().data(|m| m.get_temp::<bool>(open_id)).unwrap_or(false);
@@ -514,7 +514,7 @@ fn recipe_section(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDial
         .small(),
     );
     for &id in RECIPE_CONTROLS {
-        let Some(spec) = lightcraft_develop::controls::find(id) else { continue };
+        let Some(spec) = evolight_develop::controls::find(id) else { continue };
         let v = d.recipe.get(id).copied().unwrap_or(spec.default);
         if let Some(nv) = crate::widgets::slider(ui, spec, v, true, None).value {
             note_recipe_value(&mut d.recipe, spec, nv);
@@ -543,7 +543,7 @@ fn recipe_section(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDial
 /// paint the selection checkbox, and label duplicates, unreadable or trashed files. A click on an
 /// importable cell toggles it (Shift extends the range); `rect` is the full cell and the thumbnail
 /// uses its width as height.
-fn candidate_cell(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDialog, i: usize, rect: Rect) {
+fn candidate_cell(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &mut ImportDialog, i: usize, rect: Rect) {
     let t = Tokens::get(ui.ctx());
     let Some(c) = d.candidates.get(i).cloned() else { return };
     let Ok(slot_index) = u32::try_from(i) else { return };
@@ -576,7 +576,7 @@ fn candidate_cell(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &mut ImportDial
         p.line_segment([cb.left_center() + vec2(3.5, 0.5), cb.center_bottom() + vec2(-1.0, -4.0)], Stroke::new(2.0, Color32::WHITE));
         p.line_segment([cb.center_bottom() + vec2(-1.0, -4.0), cb.right_top() + vec2(-3.5, 4.0)], Stroke::new(2.0, Color32::WHITE));
     }
-    let in_trash = c.existing.is_some_and(|id| app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).is_some_and(|p| p.deleted));
+    let in_trash = c.existing.is_some_and(|id| app.session.catalog.photo(evolight_catalog::PhotoId(id)).is_some_and(|p| p.deleted));
     let badge = match (&c.duplicate, &c.error) {
         // checked with "Leave them", the file goes without `onDeleted`: the engine restores it
         (Some(_), _) if in_trash && on => Some(if d.on_deleted == "fresh" { "Will be replaced" } else { "Will be restored" }),
@@ -631,15 +631,15 @@ pub const DEFAULT_FOLDER_TEMPLATE: &str = "{date:%Y}/{date:%Y%m%d}";
 
 /// Where the first selected photo would be copied to (destination, folders, name), for the
 /// dialog's example line; `None` without a photo or with an unusable folder template.
-pub fn example_destination(app: &LightcraftApp, d: &ImportDialog) -> Option<String> {
+pub fn example_destination(app: &EvoLightApp, d: &ImportDialog) -> Option<String> {
     let c = d.candidates.iter().zip(&d.checked).enumerate().find(|(i, (_, on))| **on && d.importable(*i)).map(|(_, (c, _))| c)?;
     let organize = match d.organize_param().ok()? {
-        Some(o) => lightcraft_engine::import::Organize::parse(&o)?,
+        Some(o) => evolight_engine::import::Organize::parse(&o)?,
         None => Default::default(),
     };
-    let mut q = lightcraft_catalog::Photo::new(
-        lightcraft_catalog::PhotoId(0),
-        lightcraft_catalog::Source::File { path: c.path.clone() },
+    let mut q = evolight_catalog::Photo::new(
+        evolight_catalog::PhotoId(0),
+        evolight_catalog::Source::File { path: c.path.clone() },
         &c.name,
         &c.format,
         0,
@@ -652,7 +652,7 @@ pub fn example_destination(app: &LightcraftApp, d: &ImportDialog) -> Option<Stri
     if let Some(info) = app.session.import_probes.get(&c.path) {
         q.meta = info.meta.clone();
     }
-    let name = if d.rename.trim().is_empty() { c.name.clone() } else { lightcraft_engine::rename::expand(d.rename.trim(), &q, 1) };
+    let name = if d.rename.trim().is_empty() { c.name.clone() } else { evolight_engine::rename::expand(d.rename.trim(), &q, 1) };
     let root = if d.destination.trim().is_empty() {
         app.session.library.as_ref().map_or_else(|| "Originals".to_string(), |l| l.dir.join("Originals").to_string_lossy().to_string())
     } else {

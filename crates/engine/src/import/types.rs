@@ -49,7 +49,7 @@ pub struct ImportOptions {
     pub on_deleted: OnDeleted,
     pub mode: ImportMode,
     /// Applied to every imported photo (one History entry).
-    pub preset: Option<lightcraft_develop::Preset>,
+    pub preset: Option<evolight_develop::Preset>,
     /// Added to every imported photo.
     pub keywords: Vec<String>,
     /// Browsing a folder: photos come in as `local` (not in the library), and a file with the
@@ -167,7 +167,7 @@ pub struct Duplicate {
 #[derive(Clone, Debug, Default)]
 pub struct FileFacts {
     /// The metadata the file carries (EXIF, IPTC, embedded XMP).
-    pub meta: lightcraft_catalog::Meta,
+    pub meta: evolight_catalog::Meta,
     /// The capture time a file import gives it: the file's, else its XMP sidecar's, else the
     /// file's modification time.
     pub captured: Option<String>,
@@ -206,7 +206,7 @@ pub enum ImportWarningCode {
     CameraProfile,
     /// Lightroom geometry data was found but its saved transform is not retained.
     UprightGeometry,
-    /// One or more other XMP develop fields have no LightCraft mapping.
+    /// One or more other XMP develop fields have no EvoLight mapping.
     UnmappedXmp,
 }
 

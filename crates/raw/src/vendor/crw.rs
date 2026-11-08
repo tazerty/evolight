@@ -1,8 +1,8 @@
-//! Canon CRW (CIFF heap) raw decoding through the shared `craft-crw` crate (craft-libs,
+//! Canon CRW (CIFF heap) raw decoding through the shared `evo-crw` crate (evo-libs,
 //! `crates/crw`): the bodies before the CR2 era (EOS D30/D60/10D/300D, PowerShot G-series).
 //!
 //! The decoder, its frozen code tables and its clean-room record live in
-//! craft-libs (`crates/crw/clean-room/`: the frozen format `02-crw-format.md`, the verification
+//! evo-libs (`crates/crw/clean-room/`: the frozen format `02-crw-format.md`, the verification
 //! `03-verification.md`, 28 of 29 corpus files and 1,516 EOS D60 files sample-exact against a
 //! black-box reference). This module maps its output onto [`RawImage`]: CFA phase, black and white
 //! levels, active area, orientation, as-shot white balance and the make, model and capture-time
@@ -11,17 +11,17 @@
 //! Known gaps (documented in the freeze): the PowerShot G5's entropy coding diverges from the
 //! model and is refused (its embedded JPEG is shown instead); PowerShot bodies without CC0 samples
 //! (G2/G3/Pro1/S-series) decode through the same model unverified. Colour matrices for these
-//! bodies are LightCraft's own (`chart_table`, the EOS D60); the file carries none.
+//! bodies are EvoLight's own (`chart_table`, the EOS D60); the file carries none.
 
 use crate::{BlackLevel, Cfa, ColorData, Metadata, Mode, OpcodeLists, Orientation, RawData, RawError, RawFormat, RawImage, Rect, Result};
-use lightcraft_meta::DateTime;
+use evolight_meta::DateTime;
 
-fn map_err(e: craft_crw::Error) -> RawError {
+fn map_err(e: evo_crw::Error) -> RawError {
     match e {
-        craft_crw::Error::NotCrw => RawError::NotRaw,
-        craft_crw::Error::Corrupt(why) => RawError::Corrupt(format!("CRW: {why}")),
-        craft_crw::Error::Unsupported(why) => RawError::Unsupported(format!("CRW: {why}")),
-        craft_crw::Error::LimitExceeded(what) => RawError::Limit(what),
+        evo_crw::Error::NotCrw => RawError::NotRaw,
+        evo_crw::Error::Corrupt(why) => RawError::Corrupt(format!("CRW: {why}")),
+        evo_crw::Error::Unsupported(why) => RawError::Unsupported(format!("CRW: {why}")),
+        evo_crw::Error::LimitExceeded(what) => RawError::Limit(what),
     }
 }
 
@@ -31,15 +31,15 @@ pub(crate) fn decode(bytes: &[u8], mode: Mode) -> Result<RawImage> {
     // (2³⁰) would let a malformed file ask for gigabytes. No sample may be filled after the
     // entropy stream ends (the crate allows one 64-sample block by default): every corpus file
     // ends exactly on its frame, so a shorter stream is a truncated file and is `Corrupt`.
-    let mut limits = craft_crw::Limits::default();
+    let mut limits = evo_crw::Limits::default();
     limits.max_stream_end_fill = 0;
     let full = mode == Mode::Full;
     let (h, samples, black, white) = if full {
-        let img = craft_crw::decode(bytes, &limits).map_err(map_err)?;
+        let img = evo_crw::decode(bytes, &limits).map_err(map_err)?;
         let black = BlackLevel { repeat_rows: 2, repeat_cols: 2, values: img.black.values.to_vec(), delta_h: vec![], delta_v: vec![] };
         (img.header, img.samples, black, img.white)
     } else {
-        let h = craft_crw::header(bytes, &limits).map_err(map_err)?;
+        let h = evo_crw::header(bytes, &limits).map_err(map_err)?;
         let white = ((1u32 << h.bits.clamp(1, 16)) - 1) as f32;
         (h, Vec::new(), BlackLevel::uniform(0.0), white)
     };
@@ -197,7 +197,7 @@ mod tests {
         assert!(matches!(decode(b"II    HEAPCCDR  ", Mode::Full), Err(RawError::Corrupt(w)) if w.starts_with("CRW: ")));
         let Err(RawError::Unsupported(why)) = decode(&synthetic_crw("Canon PowerShot G5"), Mode::Header) else { panic!("expected Unsupported") };
         assert!(why.contains("PowerShot G5"), "{why}");
-        assert_eq!(map_err(craft_crw::Error::LimitExceeded("image too large")), RawError::Limit("image too large"));
+        assert_eq!(map_err(evo_crw::Error::LimitExceeded("image too large")), RawError::Limit("image too large"));
     }
 
     /// A file declaring more samples than any CRW camera has is refused before anything is
@@ -236,7 +236,7 @@ mod tests {
         assert!(decode(&whole, Mode::Full).is_ok());
         // six bytes fewer leave 10 samples unread, within the crate's default of 64
         let short = synthetic_crw_with_payload("Canon EOS D60", W, H, payload(836));
-        let filled = craft_crw::decode(&short, &craft_crw::Limits::default()).map(|i| i.stream_end_fill);
+        let filled = evo_crw::decode(&short, &evo_crw::Limits::default()).map(|i| i.stream_end_fill);
         assert_eq!(filled, Ok(10));
         let Err(RawError::Corrupt(why)) = decode(&short, Mode::Full) else { panic!("a stream 10 samples short must be refused") };
         assert!(why.contains("10 samples before the frame does"), "{why}");

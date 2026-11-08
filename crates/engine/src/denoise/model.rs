@@ -82,7 +82,7 @@ pub(super) fn worth_retrying(why: &str) -> bool {
 /// it keeps working; a tile it gets wrong is run on the CPU, so a photo is always finished.
 #[cfg(feature = "denoise")]
 pub(super) struct Network {
-    pub(super) cpu: lightcraft_denoise::runtime::CpuRunner,
+    pub(super) cpu: evolight_denoise::runtime::CpuRunner,
     pub(super) path: PathBuf,
     pub(super) tile: usize,
     pub(super) gpu: OnceLock<Result<GpuSide, String>>,
@@ -90,7 +90,7 @@ pub(super) struct Network {
     pub(super) fallbacks: AtomicUsize,
     /// Tiles at once of the photo started last (0: none yet), to say where the work runs.
     pub(super) last_threads: AtomicUsize,
-    /// Another computer's graphics card (`LIGHTCRAFT_DENOISE_URL` + `LIGHTCRAFT_DENOISE_TOKEN`; see
+    /// Another computer's graphics card (`EVOLIGHT_DENOISE_URL` + `EVOLIGHT_DENOISE_TOKEN`; see
     /// `docs/denoise.md` → Another computer's graphics card), greeted on first use: it takes tiles while it has a free
     /// slot, on top of this computer's runner.
     pub(super) remote: Option<RemoteSide>,
@@ -100,9 +100,9 @@ pub(super) struct Network {
 
 #[cfg(feature = "denoise")]
 pub(super) struct RemoteSide {
-    runner: lightcraft_denoise::remote::Remote,
+    runner: evolight_denoise::remote::Remote,
     /// The greeting, and the server's time for the check tile there and back (ms; the faster of two runs).
-    greeted: OnceLock<Result<(lightcraft_denoise::remote::ServerInfo, f64), String>>,
+    greeted: OnceLock<Result<(evolight_denoise::remote::ServerInfo, f64), String>>,
     /// Whether the photo started last shares tiles with the server, and if not because it is slower, the two times.
     share: AtomicBool,
     slower: Mutex<Option<(f64, f64)>>,
@@ -113,20 +113,20 @@ impl RemoteSide {
     /// From the environment, for the model whose file has `sha256` and tiles of `tile` cells.
     fn from_env(sha256: &str, tile: usize) -> Option<RemoteSide> {
         let var = |k: &str| std::env::var(k).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
-        let address = var("LIGHTCRAFT_DENOISE_URL")?;
-        let token = var("LIGHTCRAFT_DENOISE_TOKEN").unwrap_or_default();
-        Some(RemoteSide::new(lightcraft_denoise::remote::Remote::new(&address, &token, sha256, tile)))
+        let address = var("EVOLIGHT_DENOISE_URL")?;
+        let token = var("EVOLIGHT_DENOISE_TOKEN").unwrap_or_default();
+        Some(RemoteSide::new(evolight_denoise::remote::Remote::new(&address, &token, sha256, tile)))
     }
 
-    pub(super) fn new(runner: lightcraft_denoise::remote::Remote) -> RemoteSide {
+    pub(super) fn new(runner: evolight_denoise::remote::Remote) -> RemoteSide {
         RemoteSide { runner, greeted: OnceLock::new(), share: AtomicBool::new(false), slower: Mutex::new(None) }
     }
 
     /// Greet the server and time a check tile there and back: a server behind a slow link can take seconds a tile, and
     /// handing it tiles a fast local card would finish sooner only makes the photo wait for it.
-    fn greet(&self) -> Result<(lightcraft_denoise::remote::ServerInfo, f64), String> {
+    fn greet(&self) -> Result<(evolight_denoise::remote::ServerInfo, f64), String> {
         let info = self.runner.hello().map_err(|e| e.to_string())?;
-        let input = lightcraft_denoise::runtime::check_tile(info.tile);
+        let input = evolight_denoise::runtime::check_tile(info.tile);
         let mut best = f64::INFINITY;
         for _ in 0..2 {
             let started = web_time::Instant::now();
@@ -140,7 +140,7 @@ impl RemoteSide {
     }
 
     /// The server when it can take tiles now (greeting it the first time), else why not.
-    fn usable(&self, start: bool) -> Result<&lightcraft_denoise::remote::Remote, String> {
+    fn usable(&self, start: bool) -> Result<&evolight_denoise::remote::Remote, String> {
         let greeted = if start { Some(self.greeted.get_or_init(|| self.greet())) } else { self.greeted.get() };
         match greeted {
             None => Err("not contacted yet".into()),
@@ -215,7 +215,7 @@ impl Network {
             Some(Err(why)) => return Err(why.clone()),
             Some(Ok(g)) => g,
         };
-        if let Some(why) = lightcraft_gpu::nn::broken_reason() {
+        if let Some(why) = evolight_gpu::nn::broken_reason() {
             return Err(format!("the graphics card stopped working ({why})"));
         }
         if self.fallbacks.load(Ordering::Relaxed) >= GPU_MAX_FALLBACKS {
@@ -362,7 +362,7 @@ pub(crate) fn default_loader() -> Loader {
             // the server must run this very file: identified by the manifest's hash, else the file's
             let sha256 = match &manifest.sha256 {
                 Some(h) => Some(h.clone()),
-                None if std::env::var_os("LIGHTCRAFT_DENOISE_URL").is_some() => lightcraft_denoise::hash::sha256_file(path).ok(),
+                None if std::env::var_os("EVOLIGHT_DENOISE_URL").is_some() => evolight_denoise::hash::sha256_file(path).ok(),
                 None => None,
             };
             let remote = sha256.and_then(|h| RemoteSide::from_env(&h, manifest.tile as usize));
@@ -378,7 +378,7 @@ pub(crate) fn default_loader() -> Loader {
 /// The model at `path` on this computer, sharing tiles with `remote` when there is one.
 #[cfg(feature = "denoise")]
 pub(super) fn network(path: &Path, manifest: &DenoiserManifest, remote: Option<RemoteSide>) -> Result<Network, String> {
-    let cpu = lightcraft_denoise::runtime::CpuRunner::load(path, manifest).map_err(|e| e.to_string())?;
+    let cpu = evolight_denoise::runtime::CpuRunner::load(path, manifest).map_err(|e| e.to_string())?;
     Ok(Network {
         remote,
         local_card: AtomicBool::new(true),
@@ -391,14 +391,14 @@ pub(super) fn network(path: &Path, manifest: &DenoiserManifest, remote: Option<R
     })
 }
 
-/// A model ready to be served to other computers (`lightcraft-cli denoise-serve`).
+/// A model ready to be served to other computers (`evolight-cli denoise-serve`).
 #[cfg(feature = "denoise")]
 pub struct Serving {
-    pub model: lightcraft_denoise::remote::ModelId,
+    pub model: evolight_denoise::remote::ModelId,
     pub tile: usize,
     /// Where its tiles run here: the graphics card's name, or why the CPU does.
     pub device: String,
-    pub run: lightcraft_denoise::remote::RunTile,
+    pub run: evolight_denoise::remote::RunTile,
 }
 
 /// The installed model `id` (default: the one selected in Settings) in the models folder `dir` (default: this user's),
@@ -407,7 +407,7 @@ pub struct Serving {
 pub fn serving(dir: Option<&Path>, id: Option<&str>, run_on: RunOn) -> Result<Serving, String> {
     let dir = match dir {
         Some(d) => d.to_path_buf(),
-        None => crate::config::default_denoise_models_dir().ok_or("no denoise models folder (set LIGHTCRAFT_DENOISE_MODELS)")?,
+        None => crate::config::default_denoise_models_dir().ok_or("no denoise models folder (set EVOLIGHT_DENOISE_MODELS)")?,
     };
     let want = match id {
         Some(i) => i.to_string(),
@@ -423,7 +423,7 @@ pub fn serving(dir: Option<&Path>, id: Option<&str>, run_on: RunOn) -> Result<Se
     // the same identity a client derives (see `default_loader`)
     let sha256 = match &m.sha256 {
         Some(h) => h.clone(),
-        None => lightcraft_denoise::hash::sha256_file(&installed.onnx).map_err(|e| format!("{}: {e}", installed.onnx.display()))?,
+        None => evolight_denoise::hash::sha256_file(&installed.onnx).map_err(|e| format!("{}: {e}", installed.onnx.display()))?,
     };
     let net = Arc::new(network(&installed.onnx, m, None)?);
     let tile = m.tile as usize;
@@ -434,8 +434,8 @@ pub fn serving(dir: Option<&Path>, id: Option<&str>, run_on: RunOn) -> Result<Se
         Some("gpu") => format!("GPU: {}", d["adapter"].as_str().unwrap_or("?")),
         _ => format!("CPU ({})", d["reason"].as_str().unwrap_or("chosen")),
     };
-    let run: lightcraft_denoise::remote::RunTile = Arc::new(move |input: &[f32]| net.runner(run_on, GPU_PARALLEL).0.run(input));
-    Ok(Serving { model: lightcraft_denoise::remote::ModelId { id: m.id.clone(), version: m.version.clone(), sha256 }, tile, device, run })
+    let run: evolight_denoise::remote::RunTile = Arc::new(move |input: &[f32]| net.runner(run_on, GPU_PARALLEL).0.run(input));
+    Ok(Serving { model: evolight_denoise::remote::ModelId { id: m.id.clone(), version: m.version.clone(), sha256 }, tile, device, run })
 }
 
 /// A model that is loaded on first use and kept, shared by the background job and the exports.

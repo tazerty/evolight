@@ -116,7 +116,7 @@ mod cull_dialog_tests {
     use super::{clamp_cull_burst, cull_params};
     use crate::headless::Headless;
     use crate::state::Dialog;
-    use crate::{LightcraftApp, Services};
+    use crate::{EvoLightApp, Services};
 
     const T: Duration = Duration::from_secs(20);
 
@@ -161,7 +161,7 @@ mod cull_dialog_tests {
 
     #[test]
     fn the_culling_value_fields_take_values_past_the_sliders() {
-        let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services::default());
+        let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
         let mut h = Headless::new(app, [1400.0, 1000.0], 1.0);
         h.step();
         h.app.run("dialog.cull", json!({})).unwrap();

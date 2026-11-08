@@ -23,7 +23,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -317,7 +317,7 @@ pub fn background_lanes() -> usize {
 /// A cheap identity of the photos a build prepares: a build is started once per view. `scope`
 /// [`Scope::Marked`]: which of them are marked counts too (marking a photo changes the set).
 fn signature(ids: &[PhotoId], s: &Session, scope: Scope) -> u64 {
-    let mut h = lightcraft_preview::Hasher128::new();
+    let mut h = evolight_preview::Hasher128::new();
     h.u64(ids.len() as u64).u64(s.catalog.len() as u64);
     // every id: a sort that moves photos in the middle is another view
     for id in ids {
@@ -331,7 +331,7 @@ fn signature(ids: &[PhotoId], s: &Session, scope: Scope) -> u64 {
 
 /// Whether `id` is a pick, or has stars or a colour label (the [`Scope::Marked`] photos).
 pub fn marked(s: &Session, id: PhotoId) -> bool {
-    s.catalog.photo(id).is_some_and(|p| p.flag == lightcraft_catalog::Flag::Pick || p.rating > 0 || p.label.is_some())
+    s.catalog.photo(id).is_some_and(|p| p.flag == evolight_catalog::Flag::Pick || p.rating > 0 || p.label.is_some())
 }
 
 impl Session {

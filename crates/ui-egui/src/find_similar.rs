@@ -12,10 +12,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
-use lightcraft_engine::cmd::similar;
+use evolight_engine::cmd::similar;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::control::{self, Outcome};
 
 /// The activity stack's label (the menu item's name, already translated).
@@ -32,19 +32,19 @@ enum End {
 
 /// Start a search for `p`: `end` runs on the UI thread when it is over. How many contents it has to
 /// read, or why it can't start.
-fn start(app: &mut LightcraftApp, p: &Value, end: impl FnOnce(&mut LightcraftApp, &egui::Context, End) + Send + 'static) -> Result<usize, String> {
+fn start(app: &mut EvoLightApp, p: &Value, end: impl FnOnce(&mut EvoLightApp, &egui::Context, End) + Send + 'static) -> Result<usize, String> {
     similar::no_search_running(&app.session).map_err(|why| format!("library.findSimilar: {why}"))?;
     let (search, reads) = similar::plan(&mut app.session, p).map_err(|e| e.to_string())?;
     let count = reads.len();
     let library = app.session.library_generation();
     let cancel = Arc::new(AtomicBool::new(false));
     let (flag, stopped) = (cancel.clone(), cancel.clone());
-    let work = move |task: lightcraft_engine::activity::TaskHandle| {
+    let work = move |task: evolight_engine::activity::TaskHandle| {
         let total = count as u64;
         task.progress(0, total);
-        lightcraft_engine::guard::catch(LABEL, || similar::measure(reads, &flag, &|done| task.progress(done as u64, total)))
+        evolight_engine::guard::catch(LABEL, || similar::measure(reads, &flag, &|done| task.progress(done as u64, total)))
     };
-    let done = move |app: &mut LightcraftApp, ctx: &egui::Context, found: Result<Vec<similar::Signature>, String>| {
+    let done = move |app: &mut EvoLightApp, ctx: &egui::Context, found: Result<Vec<similar::Signature>, String>| {
         let ended = match found {
             _ if app.session.library_generation() != library => End::Dropped("another library was opened before the search ended"),
             Err(e) => End::Failed(e),
@@ -68,7 +68,7 @@ fn start(app: &mut LightcraftApp, p: &Value, end: impl FnOnce(&mut LightcraftApp
 
 /// `library.findSimilar` from a menu: start reading → `{background: true, count}`. The grid shows
 /// what it found, and a toast says how many.
-pub fn command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn command(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let count = start(app, p, |app, ctx, end| match end {
         End::Found(answer) => {
             let n = answer["photos"].as_array().map_or(0, Vec::len);
@@ -84,7 +84,7 @@ pub fn command(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
 
 /// `library.findSimilar` from the control channel: `reply` gets the command's answer when the search
 /// ends, and the view stays where the agent left it.
-pub fn ask(app: &mut LightcraftApp, p: &Value, reply: Sender<Value>) -> Outcome {
+pub fn ask(app: &mut EvoLightApp, p: &Value, reply: Sender<Value>) -> Outcome {
     let started = start(app, p, move |_, _, end| {
         let answer = match end {
             End::Found(answer) => control::success(answer),
@@ -102,7 +102,7 @@ pub fn ask(app: &mut LightcraftApp, p: &Value, reply: Sender<Value>) -> Outcome 
 
 /// Another library was opened: stop a search of the one before, which has nothing left to find (it
 /// could go on reading for hours). Its row goes when the photo being read is done.
-pub fn library_changed(app: &LightcraftApp) {
+pub fn library_changed(app: &EvoLightApp) {
     for row in app.session.activity.list().into_iter().filter(|r| r.kind == similar::KIND) {
         // (a row that has just ended can't be stopped: nothing to do)
         let _ = app.session.activity.cancel(row.id);

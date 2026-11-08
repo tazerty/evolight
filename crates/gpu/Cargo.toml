@@ -1,21 +1,21 @@
 [package]
-name = "lightcraft-gpu"
+name = "evolight-gpu"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft GPU develop pipeline: wgpu compute (WGSL) twin of the CPU pipeline, which stays the reference (L3)"
+description = "EvoLight GPU develop pipeline: wgpu compute (WGSL) twin of the CPU pipeline, which stays the reference (L3)"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightcraft-denoise = { workspace = true, optional = true }
-lightcraft-geom = { workspace = true }
-lightcraft-color = { workspace = true }
-lightcraft-raster = { workspace = true }
-lightcraft-develop = { workspace = true }
-lightcraft-faces = { workspace = true }
-lightcraft-pipeline = { workspace = true }
+evolight-denoise = { workspace = true, optional = true }
+evolight-geom = { workspace = true }
+evolight-color = { workspace = true }
+evolight-raster = { workspace = true }
+evolight-develop = { workspace = true }
+evolight-faces = { workspace = true }
+evolight-pipeline = { workspace = true }
 log = { workspace = true }
 
 # Native only: Metal / Vulkan / DX12 through wgpu (pure Rust; the drivers are the system's).
@@ -27,10 +27,10 @@ bytemuck = { workspace = true }
 
 [features]
 default = []
-denoise = ["dep:lightcraft-denoise", "lightcraft-denoise/runtime"]
+denoise = ["dep:evolight-denoise", "evolight-denoise/runtime"]
 
 [dev-dependencies]
 # tests record why they skip (`cargo xtask ci` lists the skips)
-lightcraft-testkit = { workspace = true }
-lightcraft-scenes = { workspace = true }
-lightcraft-raw = { workspace = true }
+evolight-testkit = { workspace = true }
+evolight-scenes = { workspace = true }
+evolight-raw = { workspace = true }

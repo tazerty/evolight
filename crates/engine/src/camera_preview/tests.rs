@@ -248,7 +248,7 @@ fn camera_jpeg_matches_the_sensor_proxy_size_exactly() {
 
 #[test]
 fn linear_arw_gets_a_sensor_proxy_without_demosaicing() {
-    use lightcraft_raw::{BlackLevel, ColorData, OpcodeLists, Orientation, RawData, RawFormat, Rect};
+    use evolight_raw::{BlackLevel, ColorData, OpcodeLists, Orientation, RawData, RawFormat, Rect};
     let mut raw = RawImage {
         format: RawFormat::Arw,
         width: 32,
@@ -267,7 +267,7 @@ fn linear_arw_gets_a_sensor_proxy_without_demosaicing() {
         linearized: true,
         pixel_aspect: 1.0,
         opcodes: OpcodeLists::default(),
-        metadata: lightcraft_meta::Metadata::default(),
+        metadata: evolight_meta::Metadata::default(),
         lens_metadata: Default::default(),
     };
     let proxy = sensor_proxy(&raw, 2, 384).unwrap();
@@ -415,7 +415,7 @@ fn chroma_curve_follows_highlight_bleaching() {
     assert!(chroma[6] < 0.5 * chroma[1], "highlights bleach relative to shadows: {chroma:?}");
     // and the rendered highlights land on the camera's, far closer than without the curve
     let with = ToneMap::camera(&fit.tone, 0.0, 0.0, 0.0);
-    let without = ToneMap::camera(&fit.tone.with_chroma([1.0; lightcraft_pipeline::tone::CHROMA_N]).unwrap(), 0.0, 0.0, 0.0);
+    let without = ToneMap::camera(&fit.tone.with_chroma([1.0; evolight_pipeline::tone::CHROMA_N]).unwrap(), 0.0, 0.0, 0.0);
     let highlight_error = |map: &ToneMap| -> f64 {
         sensor
             .data
@@ -633,14 +633,14 @@ fn hue_sat_keeps_colours_the_table_leaves_bright_exactly_as_before() {
     }
 }
 
-fn raw_of(format: RawFormat, make: &str, model: &str, color: lightcraft_raw::ColorData) -> RawImage {
-    let area = lightcraft_raw::Rect::new(0, 0, 2, 2);
+fn raw_of(format: RawFormat, make: &str, model: &str, color: evolight_raw::ColorData) -> RawImage {
+    let area = evolight_raw::Rect::new(0, 0, 2, 2);
     RawImage {
         format,
         width: 2,
         height: 2,
         cpp: 1,
-        data: lightcraft_raw::RawData::U16(vec![0; 4]),
+        data: evolight_raw::RawData::U16(vec![0; 4]),
         cfa: None,
         bits: 14,
         black: Default::default(),
@@ -653,7 +653,7 @@ fn raw_of(format: RawFormat, make: &str, model: &str, color: lightcraft_raw::Col
         linearized: false,
         pixel_aspect: 1.0,
         opcodes: Default::default(),
-        metadata: lightcraft_raw::Metadata { make: Some(make.to_owned()), model: Some(model.to_owned()), ..Default::default() },
+        metadata: evolight_raw::Metadata { make: Some(make.to_owned()), model: Some(model.to_owned()), ..Default::default() },
         lens_metadata: Default::default(),
     }
 }
@@ -662,7 +662,7 @@ fn raw_of(format: RawFormat, make: &str, model: &str, color: lightcraft_raw::Col
 /// (phone DNGs, which carry colour matrices), a centre outside the area or a non-finite term give none.
 #[test]
 fn lens_geometry_reads_the_first_rectilinear_warp() {
-    use lightcraft_raw::Opcode;
+    use evolight_raw::Opcode;
     let warp = |k0: f64, c: [f64; 2]| Opcode::WarpRectilinear {
         planes: vec![[9.0, 0.0, 0.0, 0.0, 0.0, 0.0], [k0, 0.1, -0.02, 0.003, 0.0, 0.0], [9.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
         center: c,
@@ -673,7 +673,7 @@ fn lens_geometry_reads_the_first_rectilinear_warp() {
     assert!(lens_geometry(&[]).is_none());
     assert!(lens_geometry(&[warp(1.0, [1.5, 0.5])]).is_none());
     assert!(lens_geometry(&[warp(f64::NAN, [0.5, 0.5])]).is_none());
-    let mut p = [0.0; lightcraft_raw::opcodes::WR2_LEN];
+    let mut p = [0.0; evolight_raw::opcodes::WR2_LEN];
     p[0] = 1.0;
     p[18] = 1e6;
     let chain = Opcode::WarpRectilinear2 { planes: vec![p], center: [0.5, 0.5], reciprocal: false, optional: false };
@@ -686,7 +686,7 @@ fn lens_geometry_reads_the_first_rectilinear_warp() {
 #[test]
 fn the_sensor_proxy_follows_the_cameras_lens_warp() {
     let mut raw = raw_of(RawFormat::Nef, "NIKON CORPORATION", "NIKON Z 6_2", Default::default());
-    raw.active_area = lightcraft_raw::Rect::new(0, 0, 64, 48);
+    raw.active_area = evolight_raw::Rect::new(0, 0, 64, 48);
     raw.crop = raw.active_area;
     // a 1/4 proxy whose pixels hold their own coordinates
     let mut img = Rgb32f::new(16, 12);
@@ -709,7 +709,7 @@ fn the_sensor_proxy_follows_the_cameras_lens_warp() {
 /// corpus file the colour fit uses that carries such a warp, and better on those whose JPEG is corrected.
 #[test]
 fn corpus_lens_corrected_jpegs_pair_with_the_warped_sensor() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
@@ -722,13 +722,13 @@ fn corpus_lens_corrected_jpegs_pair_with_the_warped_sensor() {
     let (mut checked, mut gain) = (0, 0.0);
     for path in paths {
         let Ok(bytes) = std::fs::read(&path) else { continue };
-        let Ok(mut raw) = lightcraft_raw::decode(&bytes) else { continue };
+        let Ok(mut raw) = evolight_raw::decode(&bytes) else { continue };
         let Some(lens) = lens_geometry(&raw.opcodes.list3) else { continue };
-        if !file_local_look(raw.format) || lightcraft_raw::color::has_matrix(&raw.color) {
+        if !file_local_look(raw.format) || evolight_raw::color::has_matrix(&raw.color) {
             continue;
         }
         raw.opcodes.list3.retain(|op| !op.is_lens_correction());
-        let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+        let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
         let (Some((plain, reference, _)), Some((chosen, chosen_reference, _))) =
             (proxies(&raw, &bytes, &t, PROXY, 0.0, None, None), proxies(&raw, &bytes, &t, PROXY, 0.0, Some(&lens), None))
         else {
@@ -750,7 +750,7 @@ fn corpus_lens_corrected_jpegs_pair_with_the_warped_sensor() {
 #[test]
 fn a_files_own_matrices_come_first() {
     let own = Mat3([[0.6, -0.1, -0.05], [-0.4, 1.3, 0.1], [-0.1, 0.2, 0.7]]);
-    let color = lightcraft_raw::ColorData { illuminant: [21, 0], color_matrix: [Some(own), None], ..Default::default() };
+    let color = evolight_raw::ColorData { illuminant: [21, 0], color_matrix: [Some(own), None], ..Default::default() };
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "Canon EOS 600D", color.clone());
     let (_, t, look) = starting_colour_with(
         &mut raw,
@@ -768,22 +768,22 @@ fn a_files_own_matrices_come_first() {
 #[test]
 fn an_accepted_jpeg_fit_comes_before_the_spectral_matrices() {
     for (make, model) in [("SONY", "ILCE-7M4"), ("Canon", "Canon EOS 600D")] {
-        assert!(lightcraft_raw::spectral::find(Some(make), model).is_some(), "{model}");
+        assert!(evolight_raw::spectral::find(Some(make), model).is_some(), "{model}");
         let mut raw = raw_of(RawFormat::Cr2, make, model, Default::default());
         let fitted = dro_test_look(&std::array::from_fn(|i| 0.006 * 1.13f32.powi(i as i32)), &|x| x.sqrt());
         let (xy, t, look) = starting_colour_with(
             &mut raw,
             |raw, t| {
-                assert!(t.matrix_is_fallback && !lightcraft_raw::color::has_matrix(&raw.color), "the fit sees the raw without spectral matrices");
+                assert!(t.matrix_is_fallback && !evolight_raw::color::has_matrix(&raw.color), "the fit sees the raw without spectral matrices");
                 (Some(fitted.clone()), false)
             },
             |_, _| panic!("no black-and-white JPEG fit after an accepted fit"),
             |_, _| panic!("no dark tone fit after an accepted fit"),
         );
         assert_eq!(look.map(|l| l.matrix), Some(fitted.matrix), "{model}");
-        assert_eq!(raw.color, lightcraft_raw::ColorData::default(), "{model}: spectral matrices left out");
+        assert_eq!(raw.color, evolight_raw::ColorData::default(), "{model}: spectral matrices left out");
         assert!(t.matrix_is_fallback, "{model}");
-        assert_eq!(xy, lightcraft_raw::color::as_shot_white_xy(&raw));
+        assert_eq!(xy, evolight_raw::color::as_shot_white_xy(&raw));
     }
 }
 
@@ -792,14 +792,14 @@ fn an_accepted_jpeg_fit_comes_before_the_spectral_matrices() {
 #[test]
 fn a_failed_jpeg_fit_falls_back_to_the_spectral_matrices() {
     assert!(crate::camera_profiles::get("ILCE-7M4").is_some());
-    let camera = lightcraft_raw::spectral::find(Some("SONY"), "ILCE-7M4").unwrap();
+    let camera = evolight_raw::spectral::find(Some("SONY"), "ILCE-7M4").unwrap();
     let mut raw = raw_of(RawFormat::Arw, "SONY", "ILCE-7M4", Default::default());
     let (_, t, look) = starting_colour(&mut raw, &[], None, None);
     assert!(look.is_none());
     assert_eq!(raw.color.color_matrix, camera.color_matrix.map(Some));
     assert!(!t.matrix_is_fallback);
 
-    let camera = lightcraft_raw::spectral::find(Some("Canon"), "Canon EOS 600D").unwrap();
+    let camera = evolight_raw::spectral::find(Some("Canon"), "Canon EOS 600D").unwrap();
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "Canon EOS 600D", Default::default());
     let (xy, t, look) =
         starting_colour_with(&mut raw, |_, _| (None, false), |_, _| panic!("a colour JPEG never takes the black-and-white step"), |_, _| None);
@@ -807,7 +807,7 @@ fn a_failed_jpeg_fit_falls_back_to_the_spectral_matrices() {
     assert_eq!(raw.color.illuminant, [17, 21]);
     assert_eq!(raw.color.forward_matrix, camera.forward_matrix.map(Some));
     assert!(!t.matrix_is_fallback);
-    assert_eq!(xy, lightcraft_raw::color::as_shot_white_xy(&raw));
+    assert_eq!(xy, evolight_raw::color::as_shot_white_xy(&raw));
     // white-balanced white stays white
     let w = t.matrix.apply([1.0; 3]);
     assert!(w.iter().all(|v| (v - 1.0).abs() < 1e-4), "{w:?}");
@@ -823,7 +823,7 @@ fn a_black_and_white_jpeg_adds_its_tone_on_top_of_the_colour_it_gets_otherwise()
         tone: dro_test_look(&std::array::from_fn(|i| 0.006 * 1.13f32.powi(i as i32)), &|x| x.sqrt()).tone,
         hue_sat: None,
     };
-    let camera = lightcraft_raw::spectral::find(Some("Canon"), "Canon EOS 600D").unwrap();
+    let camera = evolight_raw::spectral::find(Some("Canon"), "Canon EOS 600D").unwrap();
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "Canon EOS 600D", Default::default());
     let (xy, t, look) = starting_colour_with(
         &mut raw,
@@ -836,7 +836,7 @@ fn a_black_and_white_jpeg_adds_its_tone_on_top_of_the_colour_it_gets_otherwise()
     );
     assert!(look.as_ref().is_some_and(|l| l.matrix == Mat3::IDENTITY && l.hue_sat.is_none()), "the tone curve on top");
     assert!(!t.matrix_is_fallback);
-    assert_eq!(xy, lightcraft_raw::color::as_shot_white_xy(&raw));
+    assert_eq!(xy, evolight_raw::color::as_shot_white_xy(&raw));
 
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "Canon EOS 7D", Default::default());
     let (_, t, look) = starting_colour_with(
@@ -849,7 +849,7 @@ fn a_black_and_white_jpeg_adds_its_tone_on_top_of_the_colour_it_gets_otherwise()
         |_, _| panic!("an accepted monochrome look keeps its tone"),
     );
     assert!(look.is_some() && t.matrix_is_fallback);
-    assert_eq!(raw.color, lightcraft_raw::ColorData::default());
+    assert_eq!(raw.color, evolight_raw::ColorData::default());
 }
 
 /// Step 5: a camera outside the table whose fit fails keeps the neutral fallback.
@@ -858,7 +858,7 @@ fn a_camera_outside_the_table_keeps_the_fallback() {
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "Canon EOS 7D", Default::default());
     let (_, t, look) = starting_colour(&mut raw, &[], None, None);
     assert!(look.is_none() && t.matrix_is_fallback);
-    assert_eq!(raw.color, lightcraft_raw::ColorData::default());
+    assert_eq!(raw.color, evolight_raw::ColorData::default());
     // without a model there is no table row
     let mut raw = raw_of(RawFormat::Cr2, "Canon", "", Default::default());
     raw.metadata.model = None;
@@ -871,22 +871,22 @@ fn a_camera_outside_the_table_keeps_the_fallback() {
 /// matrices of its own.
 #[test]
 fn corpus_colour_precedence() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
     for name in ["arw-sony-a7m4-14bit.arw", "cr2-canon-5d3.cr2", "nef-nikon-d5100-lossless.nef", "cr2-canon-7d.cr2", "dng-canon-5d3-16bit.dng"] {
         let Ok(bytes) = std::fs::read(dir.join(name)) else {
-            lightcraft_testkit::skip!(Corpus, "{name} absent");
+            evolight_testkit::skip!(Corpus, "{name} absent");
             continue;
         };
-        let mut raw = lightcraft_raw::decode(&bytes).unwrap();
+        let mut raw = evolight_raw::decode(&bytes).unwrap();
         let lens = lens_geometry(&raw.opcodes.list3);
         raw.opcodes.list3.retain(|op| !op.is_lens_correction());
-        let own = lightcraft_raw::color::has_matrix(&raw.color);
+        let own = evolight_raw::color::has_matrix(&raw.color);
         let (make, model) = (raw.metadata.make.as_deref(), raw.metadata.model.as_deref().unwrap_or_default());
-        let measured = lightcraft_raw::spectral::find(make, model).is_some();
-        let covered = measured || lightcraft_raw::kelvin_presets::covers(make, model);
+        let measured = evolight_raw::spectral::find(make, model).is_some();
+        let covered = measured || evolight_raw::kelvin_presets::covers(make, model);
         let before = raw.color.clone();
         let (_, t, fitted) = starting_colour(&mut raw, &bytes, lens.as_ref(), None);
         let spectral = !own && fitted.is_none() && measured;
@@ -907,9 +907,9 @@ fn corpus_colour_precedence() {
         }
         // the same as the catalog decides from the probe (format and camera)
         let probe = crate::files::probe_bytes(name, &bytes).unwrap();
-        let mut p = lightcraft_catalog::Photo::new(
-            lightcraft_catalog::PhotoId(1),
-            lightcraft_catalog::Source::File { path: name.into() },
+        let mut p = evolight_catalog::Photo::new(
+            evolight_catalog::PhotoId(1),
+            evolight_catalog::Source::File { path: name.into() },
             name,
             &probe.format,
             1,
@@ -978,25 +978,25 @@ fn cr3_camera_framing_is_measured_independently_of_tone_and_rejects_unrelated_ed
 /// download or an unfinished codec cannot make this test claim a successful RAW calibration.
 #[test]
 fn corpus_cr3_gets_a_framing_aligned_camera_look() {
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw/cr3-canon-r100-raw.cr3");
     let Ok(bytes) = std::fs::read(&path) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent", path.display());
         return;
     };
-    let raw = match lightcraft_raw::decode(&bytes) {
+    let raw = match evolight_raw::decode(&bytes) {
         Ok(raw) => raw,
-        Err(lightcraft_raw::RawError::Unsupported(why)) => {
-            lightcraft_testkit::skip!(Feature, "CR3 sensor decoder: {why}");
+        Err(evolight_raw::RawError::Unsupported(why)) => {
+            evolight_testkit::skip!(Feature, "CR3 sensor decoder: {why}");
             return;
         }
         Err(error) => panic!("CR3 corpus failed to decode: {error}"),
     };
     assert_eq!(raw.format, RawFormat::Cr3);
     assert_eq!(raw.info().developed_size(), (6000, 4000));
-    let transform = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+    let transform = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
     let look = fit_preview(&raw, &bytes, &transform, None, None).0;
     eprintln!("R100 guarded colour fit accepted: {}", look.is_some());
     assert!(look.is_some(), "this R100 corpus photo has enough matching colour after camera-framing alignment");
@@ -1010,7 +1010,7 @@ fn corpus_cr3_gets_a_framing_aligned_camera_look() {
 /// and passes the acceptance gates with it: the fitted look keeps the profile's matrix and table, which the
 /// photo's own fit (the fallback when a profile is rejected) would not.
 fn corpus_uses_the_bundled_profile(file: &str, model: &str) {
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw")
@@ -1018,7 +1018,7 @@ fn corpus_uses_the_bundled_profile(file: &str, model: &str) {
     let bytes = match std::fs::read(&path) {
         Ok(bytes) => bytes,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+            evolight_testkit::skip!(Corpus, "{} absent", path.display());
             return;
         }
         Err(e) => panic!("{}: {e}", path.display()),
@@ -1027,13 +1027,13 @@ fn corpus_uses_the_bundled_profile(file: &str, model: &str) {
     let bundled: crate::camera_profiles::CameraProfile = serde_json::from_str(json).unwrap();
     let used = crate::camera_profiles::get(model).expect("a profile for the model");
     assert_eq!(*used, bundled, "a local {model} profile overrides the built-in one; remove it to run this test");
-    let mut raw = lightcraft_raw::decode(&bytes).unwrap();
+    let mut raw = evolight_raw::decode(&bytes).unwrap();
     assert_eq!(raw.metadata.model.as_deref(), Some(model));
     // as the app does (`files.rs`): the camera's own lens warp pairs the sensor with its JPEG (Nikon's in-file
     // distortion for the Z 6II and Z 8), and the lens corrections leave the opcodes before the proxy is binned
     let lens = lens_geometry(&raw.opcodes.list3);
     raw.opcodes.list3.retain(|op| !op.is_lens_correction());
-    let transform = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+    let transform = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
     let look = fit_preview(&raw, &bytes, &transform, lens.as_ref(), None).0.expect("fit accepted");
     let expected = bundled.matrix().mul(&transform.matrix.inverse().unwrap());
     for (row, want) in look.matrix.0.iter().zip(expected.0) {
@@ -1070,12 +1070,12 @@ fn corpus_z8_uses_the_bundled_profile() {
 /// balance is relative to the as-shot look.
 #[test]
 fn corpus_nef_gets_a_camera_look() {
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw/nef-nikon-d7500-lossless14.nef");
     let Ok(bytes) = std::fs::read(&path) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent", path.display());
         return;
     };
     let (_, info) = crate::files::load_bytes(&bytes, 400).unwrap();
@@ -1087,7 +1087,7 @@ fn corpus_nef_gets_a_camera_look() {
 /// ARW2 all get a look fitted to their own JPEG, not the neutral fallback.
 #[test]
 fn corpus_a7cr_codings_get_a_camera_look() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
@@ -1095,7 +1095,7 @@ fn corpus_a7cr_codings_get_a_camera_look() {
         let bytes = match std::fs::read(dir.join(name)) {
             Ok(bytes) => bytes,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                lightcraft_testkit::skip!(Corpus, "{name} absent");
+                evolight_testkit::skip!(Corpus, "{name} absent");
                 continue;
             }
             Err(e) => panic!("{name}: {e}"),
@@ -1111,12 +1111,12 @@ fn corpus_a7cr_codings_get_a_camera_look() {
 /// while the embedded JPEG shows the whole sensor; the look is still fitted, against the matching part of it.
 #[test]
 fn corpus_rw2_with_an_in_camera_crop_gets_a_camera_look() {
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw/rw2-panasonic-fz1000m2-4x3.rw2");
     let Ok(bytes) = std::fs::read(&path) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent", path.display());
         return;
     };
     let (img, info) = crate::files::load_bytes(&bytes, 400).unwrap();
@@ -1130,12 +1130,12 @@ fn corpus_rw2_with_an_in_camera_crop_gets_a_camera_look() {
 /// (held-out RMS 0.113): it used to open grey with the neutral fallback.
 #[test]
 fn corpus_arw_with_a_lens_corrected_preview_gets_a_camera_look() {
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw/arw-sony-a7rm2-12bit-uncompressed.arw");
     let Ok(bytes) = std::fs::read(&path) else {
-        lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+        evolight_testkit::skip!(Corpus, "{} absent", path.display());
         return;
     };
     let (_, info) = crate::files::load_bytes(&bytes, 400).unwrap();
@@ -1147,7 +1147,7 @@ fn corpus_arw_with_a_lens_corrected_preview_gets_a_camera_look() {
 /// table and its tone curve; without a look, those of the camera transform.
 #[test]
 fn dng_colour_renders_like_the_raws_starting_colour() {
-    use lightcraft_raw::color::{as_shot_white_of, camera_transform_of};
+    use evolight_raw::color::{as_shot_white_of, camera_transform_of};
     let t = camera_transform_of(&ColorData::default(), Xy::new(0.36, 0.37));
     assert!(t.wb.iter().any(|w| (w - 1.0).abs() > 0.1), "a white balance to keep: {:?}", t.wb);
     let look = dro_test_look(&std::array::from_fn(|i| 0.005 * 1.2f32.powi(i as i32)), &|x| 0.95 * x / (x + 0.1));
@@ -1185,7 +1185,7 @@ fn dng_colour_renders_like_the_raws_starting_colour() {
 #[test]
 fn dng_colour_declares_the_white_balance_the_source_shows() {
     use crate::files::DngWhite;
-    use lightcraft_raw::color::{as_shot_white_of, camera_transform_of, wb_multipliers};
+    use evolight_raw::color::{as_shot_white_of, camera_transform_of, wb_multipliers};
     let tags = ColorData::default();
     let as_shot = [2.5039f32, 1.0, 1.5078];
     let t = camera_transform_of(&tags, as_shot_white_of(&tags, Some(as_shot)));
@@ -1204,17 +1204,17 @@ fn dng_colour_declares_the_white_balance_the_source_shows() {
         }
     };
     // a white the source's scale shows (Sony's presets, the relative scale's 6500 K / 0)
-    for xy in [lightcraft_color::cct::temp_tint_to_xy(5600.0, 3.0), lightcraft_color::cct::temp_tint_to_xy(6500.0, 0.0)] {
+    for xy in [evolight_color::cct::temp_tint_to_xy(5600.0, 3.0), evolight_color::cct::temp_tint_to_xy(6500.0, 0.0)] {
         let dng = dng_colour(&tags, &DngWhite::At(xy), &t, Some(&look)).unwrap();
         let back = as_shot_white_of(&dng, None);
         assert!((back.x - xy.x).abs() < 1e-6 && (back.y - xy.y).abs() < 1e-6, "as shot {back:?}, shown {xy:?}");
         renders_as_shot(&dng);
     }
     // a camera with measured matrices (the ILCE-7M3): every white read through them, as for the source
-    let camera = lightcraft_raw::spectral::find(Some("SONY"), "ILCE-7M3").expect("a covered camera");
+    let camera = evolight_raw::spectral::find(Some("SONY"), "ILCE-7M3").expect("a covered camera");
     let mut model = tags.clone();
     assert!(camera.fill(&mut model));
-    let shown = lightcraft_raw::spectral::as_shot_white_through(camera, &tags, Some(as_shot)).unwrap();
+    let shown = evolight_raw::spectral::as_shot_white_through(camera, &tags, Some(as_shot)).unwrap();
     let dng = dng_colour(&tags, &DngWhite::Matrices(Box::new(model.clone())), &t, Some(&look)).unwrap();
     let back = as_shot_white_of(&dng, None);
     assert!((back.x - shown.x).abs() < 1e-5 && (back.y - shown.y).abs() < 1e-5, "as shot {back:?}, shown {shown:?}");
@@ -1230,7 +1230,7 @@ fn dng_colour_declares_the_white_balance_the_source_shows() {
 /// it from the multipliers again leaves the merged DNG rendering as the tags do.
 #[test]
 fn a_merges_white_balance_from_the_multipliers_is_the_one_the_starting_colour_tags_have() {
-    use lightcraft_raw::color::{as_shot_white_of, camera_transform_of};
+    use evolight_raw::color::{as_shot_white_of, camera_transform_of};
     for (model, multipliers) in [("Canon EOS 6D Mark II", [2.0, 1.0, 1.5]), ("Canon EOS 600D", [1.9, 1.0, 1.7])] {
         let mut raw = raw_of(RawFormat::Cr2, "Canon", model, Default::default());
         raw.wb_multipliers = Some(multipliers);
@@ -1241,9 +1241,9 @@ fn a_merges_white_balance_from_the_multipliers_is_the_one_the_starting_colour_ta
         for i in 0..3 {
             assert!((neutral[i] * multipliers[i] as f64 - scale).abs() < 1e-3, "{model}: {neutral:?} vs 1 / {multipliers:?}");
         }
-        let mut merged = lightcraft_merge::FrameColor::Camera(Box::new(tags.clone()));
+        let mut merged = evolight_merge::FrameColor::Camera(Box::new(tags.clone()));
         merged.set_as_shot_multipliers(multipliers);
-        let lightcraft_merge::FrameColor::Camera(merged) = merged else { panic!("camera colour") };
+        let evolight_merge::FrameColor::Camera(merged) = merged else { panic!("camera colour") };
         let (a, b) = (camera_transform_of(&tags, as_shot_white_of(&tags, None)), camera_transform_of(&merged, as_shot_white_of(&merged, None)));
         for i in 0..3 {
             assert!((a.wb[i] - b.wb[i]).abs() < 1e-4 * a.wb[i], "{model}: {:?} vs {:?}", a.wb, b.wb);
@@ -1416,7 +1416,7 @@ fn the_lowered_curve_stays_below_the_fitted_one_past_its_last_knot() {
 /// JPEGs. The ILCE-7M3 sample (DRO off) keeps its own fit.
 #[test]
 fn corpus_arw_with_dro_is_lowered_to_the_dro_off_tone() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
@@ -1430,15 +1430,15 @@ fn corpus_arw_with_dro_is_lowered_to_the_dro_off_tone() {
         let bytes = match std::fs::read(&path) {
             Ok(bytes) => bytes,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                lightcraft_testkit::skip!(Corpus, "{} absent", path.display());
+                evolight_testkit::skip!(Corpus, "{} absent", path.display());
                 continue;
             }
             Err(e) => panic!("{}: {e}", path.display()),
         };
-        assert_eq!(lightcraft_raw::embedded_preview_dynamic_range_optimized(&bytes), Some(dro), "{name}");
-        let mut raw = lightcraft_raw::decode(&bytes).unwrap();
+        assert_eq!(evolight_raw::embedded_preview_dynamic_range_optimized(&bytes), Some(dro), "{name}");
+        let mut raw = evolight_raw::decode(&bytes).unwrap();
         raw.opcodes.list3.retain(|op| !op.is_lens_correction());
-        let transform = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+        let transform = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
         let look = fit_preview(&raw, &bytes, &transform, None, None).0.expect("a camera look");
         // the look fitted to the JPEG, as before this change
         let (sensor, reference, clipped) = proxies(&raw, &bytes, &transform, PROXY, 0.0, None, None).unwrap();
@@ -1511,7 +1511,7 @@ fn fits_a_slightly_misaligned_camera_jpeg_away_from_edges() {
 /// corpus files.
 #[test]
 fn corpus_raf_colour_and_white_balance() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
@@ -1537,12 +1537,12 @@ fn corpus_raf_colour_and_white_balance() {
 }
 
 /// Sony ARWs without measured matrices read Kelvin from their white-balance presets
-/// (`lightcraft_raw::kelvin_presets`): the ILCE-3500 sample was shot at 5600 K on the camera's Kelvin setting and
+/// (`evolight_raw::kelvin_presets`): the ILCE-3500 sample was shot at 5600 K on the camera's Kelvin setting and
 /// the ILCE-7S sample on its Shade preset (7500 K on Sony's scale); the SLT-A33's Auto white is within 20 K of its
 /// Daylight preset. Header and decode agree. Skips cleanly without these CC0 corpus files.
 #[test]
 fn corpus_arw_white_balance_in_kelvin_through_the_presets() {
-    let dir = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let dir = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw");
@@ -1556,8 +1556,8 @@ fn corpus_arw_white_balance_in_kelvin_through_the_presets() {
         assert_eq!(header.as_shot_wb, Some((info.as_shot_temp, info.as_shot_tint)), "{name}");
         assert!(info.raw && !info.relative_wb && info.legacy_relative_wb, "{name}: {info:?}");
         assert!((info.as_shot_temp - kelvin).abs() <= 20.0 && info.as_shot_tint.abs() <= 2.0, "{name}: {} {}", info.as_shot_temp, info.as_shot_tint);
-        let camera = format!("SONY {}", lightcraft_meta::extract(&bytes).model.unwrap_or_default());
-        assert!(!lightcraft_catalog::relative_wb_camera("ARW", &camera), "{camera}");
+        let camera = format!("SONY {}", evolight_meta::extract(&bytes).model.unwrap_or_default());
+        assert!(!evolight_catalog::relative_wb_camera("ARW", &camera), "{camera}");
     }
 }
 
@@ -1865,7 +1865,7 @@ fn a_near_black_scene_gets_tone_without_learning_colour() {
         |_, _| (None, false),
         |_, _| None,
         |raw, t| {
-            assert!(!t.matrix_is_fallback && lightcraft_raw::color::has_matrix(&raw.color));
+            assert!(!t.matrix_is_fallback && evolight_raw::color::has_matrix(&raw.color));
             fit_dark_tone(&sensor, &reference, &vec![false; sensor.data.len()])
         },
     );
@@ -2082,7 +2082,7 @@ fn grey_raw_with_jpeg(
     scene: impl Fn(usize, usize) -> f32,
     tint: [f32; 3],
 ) -> (RawImage, Vec<u8>) {
-    use lightcraft_raw::{BlackLevel, ColorData, OpcodeLists, Orientation, RawData, Rect};
+    use evolight_raw::{BlackLevel, ColorData, OpcodeLists, Orientation, RawData, Rect};
     let raw = RawImage {
         format: RawFormat::Arw,
         width: w,
@@ -2101,7 +2101,7 @@ fn grey_raw_with_jpeg(
         linearized: true,
         pixel_aspect: 1.0,
         opcodes: OpcodeLists::default(),
-        metadata: lightcraft_meta::Metadata { make: Some("SONY".into()), model: Some("ILCE-7M4".into()), ..Default::default() },
+        metadata: evolight_meta::Metadata { make: Some("SONY".into()), model: Some("ILCE-7M4".into()), ..Default::default() },
         lens_metadata: Default::default(),
     };
     let srgb = |v: f32| if v <= 0.003_130_8 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 };
@@ -2111,8 +2111,8 @@ fn grey_raw_with_jpeg(
             tint.map(|t| (srgb(v * t).clamp(0.0, 1.0) * 255.0).round() as u8)
         })
         .collect();
-    let image = lightcraft_codecs::EncodeImage::new(w as u32, h as u32, 3, lightcraft_codecs::Samples::U8(&pixels));
-    let jpeg = lightcraft_codecs::encode_jpeg(&image, 95, lightcraft_codecs::ChromaSubsampling::S444, &Default::default()).unwrap();
+    let image = evolight_codecs::EncodeImage::new(w as u32, h as u32, 3, evolight_codecs::Samples::U8(&pixels));
+    let jpeg = evolight_codecs::encode_jpeg(&image, 95, evolight_codecs::ChromaSubsampling::S444, &Default::default()).unwrap();
     // II*, IFD0 at 8 with JPEGInterchangeFormat (0x201) and its length (0x202), the JPEG after it
     let mut tiff = b"II*\0\x08\0\0\0\x02\0".to_vec();
     for (tag, value) in [(0x0201u16, 38u32), (0x0202, jpeg.len() as u32)] {
@@ -2135,7 +2135,7 @@ fn monochrome_look_reads_the_files_black_and_white_jpeg() {
     let level = |x: usize, y: usize| 0.01 + 0.5 * (x as f32 / w as f32) * (0.3 + 0.7 * y as f32 / h as f32);
     let (raw, grey) = grey_raw_with_jpeg((w, h), level, level, [1.0; 3]);
     assert!(crate::camera_profiles::get("ILCE-7M4").is_some());
-    let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+    let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
     let look = monochrome_look(&raw, &grey, &t, None, None).expect("a tone curve from the black-and-white JPEG");
     assert!(look.matrix == Mat3::IDENTITY && look.hue_sat.is_none(), "on the transform's colour");
     let curve = ToneMap::camera(&look.tone, 0.0, 0.0, 0.0);
@@ -2150,16 +2150,16 @@ fn monochrome_look_reads_the_files_black_and_white_jpeg() {
 /// then applies it twice (X-S10 RAFs up to 0.3 EV brighter than their camera JPEGs).
 #[test]
 fn the_look_is_fitted_on_the_vignetting_corrected_sensor() {
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette};
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette};
     let (w, h) = (192usize, 128usize);
-    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: lightcraft_geom::Point::new(0.5, 0.5), radius: 0.6 };
+    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: evolight_geom::Point::new(0.5, 0.5), radius: 0.6 };
     let gain = |x: usize, y: usize| {
-        let point = lightcraft_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
-        lightcraft_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
+        let point = evolight_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
+        evolight_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
     };
     let scene = |x: usize, y: usize| 0.01 + 0.5 * (x as f32 / w as f32) * (0.3 + 0.7 * y as f32 / h as f32);
     let (raw, bytes) = grey_raw_with_jpeg((w, h), |x, y| scene(x, y) / gain(x, y), scene, [1.0; 3]);
-    let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+    let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
     let lens = EmbeddedLens { vignette: Some(vignette), ..Default::default() };
     let camera = 1.0 - (-0.75f32).exp();
     let at_quarter = |embedded: Option<&EmbeddedLens>| {
@@ -2175,12 +2175,12 @@ fn the_look_is_fitted_on_the_vignetting_corrected_sensor() {
 /// tinted camera JPEG of the vignetted sensor takes the colour path, not the black-and-white one.
 #[test]
 fn the_colour_look_is_fitted_on_the_vignetting_corrected_sensor() {
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette};
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette};
     let (w, h) = (192usize, 128usize);
-    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: lightcraft_geom::Point::new(0.5, 0.5), radius: 0.6 };
+    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: evolight_geom::Point::new(0.5, 0.5), radius: 0.6 };
     let gain = |x: usize, y: usize| {
-        let point = lightcraft_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
-        lightcraft_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
+        let point = evolight_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
+        evolight_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
     };
     let scene = |x: usize, y: usize| 0.01 + 0.5 * (x as f32 / w as f32) * (0.3 + 0.7 * y as f32 / h as f32);
     let (raw, bytes) = grey_raw_with_jpeg((w, h), |x, y| scene(x, y) / gain(x, y), scene, [1.0, 0.9, 0.8]);
@@ -2199,13 +2199,13 @@ fn the_colour_look_is_fitted_on_the_vignetting_corrected_sensor() {
 /// vignetted sensor, corrected, gives the proxy of the same sensor without vignetting.
 #[test]
 fn the_vignetting_correction_is_applied_before_the_lens_warp() {
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette};
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette};
     // twice the 384 px proxy edge: the demosaiced proxy of this linear raw is then the size a warp needs (bins of 2)
     let (w, h) = (768usize, 512usize);
-    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: lightcraft_geom::Point::new(0.5, 0.5), radius: 0.6 };
+    let vignette = EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: evolight_geom::Point::new(0.5, 0.5), radius: 0.6 };
     let gain = |x: usize, y: usize| {
-        let point = lightcraft_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
-        lightcraft_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
+        let point = evolight_geom::Point::new(x as f64 + 0.5, y as f64 + 0.5);
+        evolight_pipeline::optics::embedded_vignette_gain(&vignette, point, w as f64, h as f64) as f32
     };
     // a texture for the warped candidate to line up with: the JPEG shows the sensor's centre zoomed by 1 / 0.8
     let texture = |x: f64, y: f64| 0.2 * (1.0 + 0.3 * ((x / 48.0).floor() + (y / 48.0).floor()).rem_euclid(2.0)) as f32;
@@ -2215,7 +2215,7 @@ fn the_vignetting_correction_is_applied_before_the_lens_warp() {
     let sensor_proxy = |vignetted: bool, embedded: Option<&EmbeddedLens>| {
         let sensor = |x: usize, y: usize| texture(x as f64, y as f64) / if vignetted { gain(x, y) } else { 1.0 };
         let (raw, bytes) = grey_raw_with_jpeg((w, h), sensor, jpeg, [1.0; 3]);
-        let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+        let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
         let (plain, _, _) = proxies(&raw, &bytes, &t, PROXY, 0.0, None, embedded).unwrap();
         let (sensor, _, _) = proxies(&raw, &bytes, &t, PROXY, 0.0, Some(&warp), embedded).unwrap();
         assert!(sensor.data.iter().zip(&plain.data).any(|(a, b)| a != b), "the warped candidate is chosen");
@@ -2271,7 +2271,7 @@ fn a_black_and_white_jpeg_gives_a_tone_curve_only_when_clearly_better() {
 #[test]
 fn corpus_arw6_full_frame_gets_a_camera_look() {
     const { assert!(FIT_PREVIEW_MAX_PIXELS >= 100_000_000) };
-    let path = std::env::var_os("LIGHTCRAFT_CORPUS")
+    let path = std::env::var_os("EVOLIGHT_CORPUS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../corpus"))
         .join("raw/arw6-sony-ilce7rm6-ff-land-c.arw");
@@ -2384,19 +2384,19 @@ fn dng_tone_fit_trains_on_dark_pixels() {
 /// The embedded vignetting correction reaches the sensor proxy as the pipeline applies it to the render.
 #[test]
 fn dng_sensor_proxy_gets_the_embedded_vignetting_correction() {
-    use lightcraft_develop::{EmbeddedLens, EmbeddedVignette};
+    use evolight_develop::{EmbeddedLens, EmbeddedVignette};
     let lens = EmbeddedLens {
-        vignette: Some(EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: lightcraft_geom::Point::new(0.5, 0.5), radius: 0.6 }),
+        vignette: Some(EmbeddedVignette { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: evolight_geom::Point::new(0.5, 0.5), radius: 0.6 }),
         ..Default::default()
     };
     let mut proxy = Rgb32f::new(96, 64);
     proxy.data.fill([0.2; 3]);
-    correct_vignetting(&mut proxy, Some(&lens), lightcraft_geom::Orientation::Normal);
+    correct_vignetting(&mut proxy, Some(&lens), evolight_geom::Orientation::Normal);
     let (centre, corner) = (proxy.data[32 * 96 + 48][1] / 0.2, proxy.data[0][1] / 0.2);
     assert!((centre - 1.0).abs() < 0.01 && (1.9..2.0).contains(&corner), "centre {centre}, corner {corner}");
     let mut plain = Rgb32f::new(96, 64);
     plain.data.fill([0.2; 3]);
-    correct_vignetting(&mut plain, None, lightcraft_geom::Orientation::Normal);
+    correct_vignetting(&mut plain, None, evolight_geom::Orientation::Normal);
     assert!(plain.data.iter().all(|p| *p == [0.2; 3]));
 }
 
@@ -2404,10 +2404,10 @@ fn dng_sensor_proxy_gets_the_embedded_vignetting_correction() {
 /// full-resolution corrections applied once rather than silently losing the tone fit.
 #[test]
 fn dng_sensor_proxy_applies_lens_opcodes_before_downsampling() {
-    use lightcraft_raw::Opcode;
+    use evolight_raw::Opcode;
     let bytes = crate::tests_xmp::synthetic_dng_with(None, Default::default());
-    let mut raw = lightcraft_raw::decode(&bytes).unwrap();
-    raw.data = lightcraft_raw::RawData::U16(vec![4000; raw.width * raw.height]);
+    let mut raw = evolight_raw::decode(&bytes).unwrap();
+    raw.data = evolight_raw::RawData::U16(vec![4000; raw.width * raw.height]);
     raw.opcodes.list3 = vec![Opcode::FixVignetteRadial { k: [1.0, 0.0, 0.0, 0.0, 0.0], center: [0.5, 0.5] }];
     assert!(raw.develop_binned(2, SENSOR_CLIP).unwrap().is_none());
     let proxy = sensor_proxy(&raw, 2, 32).expect("a corrected CFA proxy even when binning is unavailable");
@@ -2415,7 +2415,7 @@ fn dng_sensor_proxy_applies_lens_opcodes_before_downsampling() {
     let center = proxy.data[12 * 32 + 16][1];
     let corner = proxy.data[0][1];
     assert!((1.8..2.1).contains(&(corner / center)), "one vignetting gain, not zero or two: {corner} / {center}");
-    let full = raw.develop(lightcraft_raw::Method::Bilinear).unwrap();
+    let full = raw.develop(evolight_raw::Method::Bilinear).unwrap();
     assert_eq!(proxy.data, full.data, "the same opcode interpretation as raw development");
     let small = sensor_proxy(&raw, 2, 16).unwrap();
     assert_eq!(small.data, fit(&full, 16, 16, Filter::Box).data, "correct first, then reduce");
@@ -2425,12 +2425,12 @@ fn dng_sensor_proxy_applies_lens_opcodes_before_downsampling() {
 /// identity, with or without a look table; and no other raw format.
 #[test]
 fn dng_tone_gates_follow_the_files_own_tags() {
-    use lightcraft_raw::profile::{HsvTable, ToneCurve};
+    use evolight_raw::profile::{HsvTable, ToneCurve};
     let own = Mat3([[0.6, -0.1, -0.05], [-0.4, 1.3, 0.1], [-0.1, 0.2, 0.7]]);
-    let color = lightcraft_raw::ColorData { illuminant: [21, 0], color_matrix: [Some(own), None], ..Default::default() };
-    let eligible = |format: RawFormat, color: lightcraft_raw::ColorData| {
+    let color = evolight_raw::ColorData { illuminant: [21, 0], color_matrix: [Some(own), None], ..Default::default() };
+    let eligible = |format: RawFormat, color: evolight_raw::ColorData| {
         let raw = raw_of(format, "Make", "Model", color);
-        let t = lightcraft_raw::color::camera_transform(&raw, lightcraft_raw::color::as_shot_white_xy(&raw));
+        let t = evolight_raw::color::camera_transform(&raw, evolight_raw::color::as_shot_white_xy(&raw));
         dng_tone_eligible(&raw, &t)
     };
     assert!(eligible(RawFormat::Dng, color.clone()));

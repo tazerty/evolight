@@ -17,11 +17,11 @@
 
 use std::borrow::Cow;
 
-use lightcraft_color::perceptual::{lab_to_lch, oklab_from_2020};
-use lightcraft_color::transfer::srgb_to_linear;
-use lightcraft_color::{REC2020, SRGB};
-use lightcraft_develop::DevelopSettings;
-use lightcraft_raster::{Plane, Rgba8};
+use evolight_color::perceptual::{lab_to_lch, oklab_from_2020};
+use evolight_color::transfer::srgb_to_linear;
+use evolight_color::{REC2020, SRGB};
+use evolight_develop::DevelopSettings;
+use evolight_raster::{Plane, Rgba8};
 
 use crate::colorops::PointK;
 use crate::{Plan, for_rows};
@@ -35,7 +35,7 @@ pub enum Overlay {
     PointColorRange(u8),
     /// Visualize Spots with a threshold 0..100 (higher = more sensitive).
     Spots(u8),
-    /// The evaluated alpha of mask `id` (a [`lightcraft_develop::Mask`] id), drawn as `view` in
+    /// The evaluated alpha of mask `id` (a [`evolight_develop::Mask`] id), drawn as `view` in
     /// `color` at `opacity` (0..100; the colour views only).
     Mask { id: u16, view: MaskView, color: [u8; 3], opacity: u8 },
     /// The evaluated alpha of every visible mask that has components, drawn as one `view` in
@@ -237,7 +237,7 @@ impl Overlay {
     }
 
     /// The mask an [`Overlay::Mask`] shows (if it exists in `s` and has components).
-    pub fn mask(self, s: &DevelopSettings) -> Option<&lightcraft_develop::Mask> {
+    pub fn mask(self, s: &DevelopSettings) -> Option<&evolight_develop::Mask> {
         match self {
             Overlay::Mask { id, .. } => s.masks.iter().find(|m| m.id == id as u32 && !m.components.is_empty()),
             _ => None,
@@ -273,9 +273,9 @@ pub fn sharpen_plane(o: Overlay, s: &DevelopSettings, log_l: &Plane, band: Optio
         None => {
             own = if pixel {
                 let sigma = crate::local::sharpen_sigma(crate::local::sharpen_sigma_raw(s, px_per_long, native_long));
-                lightcraft_raster::blur::gaussian_taps(log_l, &lightcraft_raster::blur::gauss_taps(sigma))
+                evolight_raster::blur::gaussian_taps(log_l, &evolight_raster::blur::gauss_taps(sigma))
             } else {
-                lightcraft_raster::blur::gaussian(log_l, crate::local::texture_sigma(px_per_long))
+                evolight_raster::blur::gaussian(log_l, crate::local::texture_sigma(px_per_long))
             };
             &own
         }
@@ -444,11 +444,11 @@ fn spots(img: &mut Rgba8, t: u8, ppl: f64) {
     if w == 0 || h == 0 {
         return;
     }
-    let l = lightcraft_raster::Plane::from_fn(w, h, |x, y| {
+    let l = evolight_raster::Plane::from_fn(w, h, |x, y| {
         let p = img.data[y * w + x];
         (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32) / 255.0
     });
-    let b = lightcraft_raster::blur::gaussian(&l, (SPOT_SIGMA * ppl).max(0.8) as f32);
+    let b = evolight_raster::blur::gaussian(&l, (SPOT_SIGMA * ppl).max(0.8) as f32);
     let thr = spot_threshold(t);
     for (i, px) in img.data.iter_mut().enumerate() {
         let v = if (l.data[i] - b.data[i]).abs() > thr { 255 } else { 0 };
@@ -506,8 +506,8 @@ pub fn hdr_range(img: &mut Rgba8, hdr: &crate::DeepImage, luma: [f32; 3]) {
 mod tests {
     use super::*;
     use crate::{RenderRequest, SourceInfo, render};
-    use lightcraft_develop::PointColor;
-    use lightcraft_raster::Rgb32f;
+    use evolight_develop::PointColor;
+    use evolight_raster::Rgb32f;
 
     #[test]
     fn spots_view_marks_specks_at_any_size() {
@@ -561,8 +561,8 @@ mod tests {
 
     #[test]
     fn mask_overlay_shows_the_evaluated_alpha() {
-        use lightcraft_develop::{Mask, MaskComponent, MaskOp, MaskShape};
-        use lightcraft_geom::Point;
+        use evolight_develop::{Mask, MaskComponent, MaskOp, MaskShape};
+        use evolight_geom::Point;
         let src = Rgb32f::from_fn(80, 40, |x, _| if x < 40 { [0.18, 0.18, 0.18] } else { [0.05, 0.1, 0.3] });
         let info = SourceInfo::default();
         let shape = MaskShape::Radial { center: Point::new(0.25, 0.5), rx: 0.15, ry: 0.15, angle: 0.0, feather: 10.0, invert: false };
@@ -644,8 +644,8 @@ mod tests {
 
     #[test]
     fn sharpening_preview_follows_the_process_radius_and_render_planes() {
-        use lightcraft_develop::Process;
-        use lightcraft_raster::blur::{gaussian, gaussian_taps};
+        use evolight_develop::Process;
+        use evolight_raster::blur::{gaussian, gaussian_taps};
         let l = Plane { width: 80, height: 16, data: (0..1280).map(|i| ((i % 80) as f32 * 0.73).sin() * 0.3).collect() };
         let mut s = DevelopSettings::default();
         let mut bands = Vec::new();
@@ -656,7 +656,7 @@ mod tests {
             let pixel = crate::local::pixel_sharpen(&s);
             let blur = if pixel {
                 let sigma = crate::local::sharpen_sigma(crate::local::sharpen_sigma_raw(&s, 80.0, 160.0));
-                gaussian_taps(&l, &lightcraft_raster::blur::gauss_taps(sigma))
+                gaussian_taps(&l, &evolight_raster::blur::gauss_taps(sigma))
             } else {
                 gaussian(&l, crate::local::texture_sigma(80.0))
             };
@@ -743,7 +743,7 @@ mod tests {
             "detail.nrDetail",
             "detail.nrContrast",
         ] {
-            assert!(lightcraft_develop::controls::find(c).is_some(), "{c}");
+            assert!(evolight_develop::controls::find(c).is_some(), "{c}");
             assert!(Overlay::for_control(c).is_some(), "{c}");
         }
         assert!(Overlay::ClipShadows.is_clipping() && Overlay::ClipHighlights.is_clipping() && !Overlay::Grayscale.is_clipping());
@@ -770,8 +770,8 @@ mod tests {
 
     #[test]
     fn all_masks_overlay_shows_every_visible_mask_at_once() {
-        use lightcraft_develop::{Mask, MaskComponent, MaskOp, MaskShape};
-        use lightcraft_geom::Point;
+        use evolight_develop::{Mask, MaskComponent, MaskOp, MaskShape};
+        use evolight_geom::Point;
         let src = Rgb32f::from_fn(80, 40, |_, _| [0.1, 0.1, 0.1]);
         let info = SourceInfo::default();
         let left = MaskShape::Radial { center: Point::new(0.25, 0.5), rx: 0.15, ry: 0.15, angle: 0.0, feather: 10.0, invert: false };

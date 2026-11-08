@@ -1,7 +1,7 @@
 //! Crash-safe catalog persistence: an append-only op log plus periodic snapshots.
 //!
 //! Files (in a [`Store`]):
-//! - `catalog.snap` — `{"format":"lightcraft-catalog","version":V,"seq":N,"catalog":{…}}`, the
+//! - `catalog.snap` — `{"format":"evolight-catalog","version":V,"seq":N,"catalog":{…}}`, the
 //!   state after op `N` in catalog format `V` ([`VERSION`]); replaced atomically (temp + fsync +
 //!   rename).
 //! - `catalog.log` — JSON lines, one per op applied after the snapshot:
@@ -85,7 +85,7 @@ use crate::{Catalog, CatalogError, Op, Result};
 
 pub const SNAPSHOT: &str = "catalog.snap";
 pub const LOG: &str = "catalog.log";
-const FORMAT: &str = "lightcraft-catalog";
+const FORMAT: &str = "evolight-catalog";
 /// The catalog format this build writes (and the newest it reads). See the module docs →
 /// *Format versions*; bump it whenever an [`Op`] variant or a serialized field is added.
 pub const VERSION: u32 = 12;
@@ -131,7 +131,7 @@ pub struct LoadReport {
 }
 
 /// Where persistence time goes (reported by `library.info` → `persistence`; printed to stderr
-/// per write under `LIGHTCRAFT_PROFILE`). Times are wall-clock milliseconds on the calling
+/// per write under `EVOLIGHT_PROFILE`). Times are wall-clock milliseconds on the calling
 /// thread, i.e. how long the caller (the UI thread, for the app) was blocked.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -179,10 +179,10 @@ pub struct SnapshotTiming {
     pub records: u64,
 }
 
-/// `LIGHTCRAFT_PROFILE` is set: print persistence timings to stderr.
+/// `EVOLIGHT_PROFILE` is set: print persistence timings to stderr.
 fn profiling() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("LIGHTCRAFT_PROFILE").is_some())
+    *ON.get_or_init(|| std::env::var_os("EVOLIGHT_PROFILE").is_some())
 }
 
 fn ms_since(t: web_time::Instant) -> f64 {
@@ -250,7 +250,7 @@ pub fn decode_record(line: &str) -> Option<(u64, Op)> {
 enum Line {
     Record(u64, Op),
     /// The CRC matches — the line is exactly what was written — but the op doesn't parse: it
-    /// was written by a newer LightCraft (an op or field this version doesn't know), not damaged.
+    /// was written by a newer EvoLight (an op or field this version doesn't know), not damaged.
     Newer(u64),
     /// Malformed or a CRC mismatch: torn or damaged.
     Bad,
@@ -274,7 +274,7 @@ fn decode_line(line: &str) -> Line {
     }
 }
 
-/// The error for a library written by a newer LightCraft.
+/// The error for a library written by a newer EvoLight.
 fn newer(what: String) -> CatalogError {
     CatalogError::Newer(format!("{what}; this version reads catalog format v{VERSION} and older"))
 }
@@ -286,7 +286,7 @@ thread_local! {
 }
 
 /// Total bytes of candidate suffixes `resync` may decode per damaged line: every attempt reads
-/// the rest of the line, so trying every candidate of a crafted line would make
+/// the rest of the line, so trying every candidate of a built line would make
 /// [`Journal::open`] quadratic in the line length (CWE-407). The budget is far above any
 /// fragment-plus-retry a failed append can leave, but caps the stall; past it the line reads as
 /// damage, which is handled safely.
@@ -348,7 +348,7 @@ fn resync(line: &[u8], last: u64) -> Option<(usize, (u64, Op))> {
 
 /// Write `catalog.snap` for the state after op `seq`, streaming the JSON into the store (no
 /// whole-file string). The bytes are exactly
-/// `{"format":"lightcraft-catalog","version":1,"seq":N,"catalog":<serde_json of the catalog>}\n`,
+/// `{"format":"evolight-catalog","version":1,"seq":N,"catalog":<serde_json of the catalog>}\n`,
 /// as before streaming. Each distinct segmentation grid of the photos' settings holders (see
 /// `Photo::settings_holders`) is written once (`Catalog.grids`), with the masks referring to it
 /// by index, so an unchanged mask does not repeat with every history step (issue #2154). Fills
@@ -376,7 +376,7 @@ fn write_snapshot_owned(store: &mut dyn Store, seq: u64, mut snapshot: Catalog) 
         let mut pool: Vec<String> = Vec::new();
         let mut index: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
         {
-            let mut see = |s: &lightcraft_develop::DevelopSettings| {
+            let mut see = |s: &evolight_develop::DevelopSettings| {
                 s.visit_seg_masks(&mut |m| {
                     // borrowed lookup: a grid every history step shares is not cloned just to
                     // find it already indexed (only a new grid is copied, into pool and table)
@@ -393,7 +393,7 @@ fn write_snapshot_owned(store: &mut dyn Store, seq: u64, mut snapshot: Catalog) 
             }
         }
         snapshot.grids = pool;
-        match lightcraft_develop::with_grid_interner(index, || serde_json::to_writer(&mut b, &snapshot)) {
+        match evolight_develop::with_grid_interner(index, || serde_json::to_writer(&mut b, &snapshot)) {
             // no interner can be active here (snapshot writes don't nest), so `None` is a bug:
             // fail the write rather than store a truncated or reference-less snapshot
             Some(Ok(())) => {}
@@ -438,7 +438,7 @@ impl Journal {
                 // the header first: a newer snapshot may not parse as this version's catalog
                 let h: SnapHeader = serde_json::from_slice(&bytes).map_err(|e| CatalogError::Corrupt(format!("{SNAPSHOT}: {e}")))?;
                 if h.format != FORMAT {
-                    return Err(CatalogError::Corrupt(format!("{SNAPSHOT}: not a LightCraft catalog (format {:?})", h.format)));
+                    return Err(CatalogError::Corrupt(format!("{SNAPSHOT}: not a EvoLight catalog (format {:?})", h.format)));
                 }
                 if h.version > VERSION {
                     return Err(newer(format!("{SNAPSHOT} is catalog format v{}", h.version)));

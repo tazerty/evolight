@@ -10,7 +10,7 @@
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::menus::MenuEntry;
 use crate::state::{RightPanel, ViewMode};
 
@@ -371,14 +371,14 @@ pub fn host_masked(id: &str) -> bool {
 }
 
 /// The selection includes a photo in Recently Deleted.
-pub(crate) fn selection_deleted(app: &LightcraftApp) -> bool {
+pub(crate) fn selection_deleted(app: &EvoLightApp) -> bool {
     let s = &app.session;
     s.selection.ids.iter().copied().chain(s.selection.active).any(|id| s.catalog.photo(id).is_some_and(|p| p.deleted))
 }
 
 /// Items only some hosts have are left out of the others' menus (the web build's library backup);
 /// Restore and Delete Permanently replace Delete for photos in Recently Deleted.
-fn host_supports(app: &LightcraftApp, id: &str) -> bool {
+fn host_supports(app: &EvoLightApp, id: &str) -> bool {
     // Evora (EVORA-REV-33, L5-REV-A): masked by the host build
     if host_masked(id) {
         return false;
@@ -391,15 +391,15 @@ fn host_supports(app: &LightcraftApp, id: &str) -> bool {
         // only in an album that holds its photos (not a smart one)
         "album.removePhotos" => in_normal_album(app) && !selection_deleted(app),
         // only where the trash is on screen
-        "library.emptyRecentlyDeleted" => app.session.source == lightcraft_engine::LibrarySource::RecentlyDeleted,
+        "library.emptyRecentlyDeleted" => app.session.source == evolight_engine::LibrarySource::RecentlyDeleted,
         _ => true,
     }
 }
 
 /// The library shows an album that holds its photos (not a smart album, not a folder of albums).
-pub(crate) fn in_normal_album(app: &LightcraftApp) -> bool {
+pub(crate) fn in_normal_album(app: &EvoLightApp) -> bool {
     match app.session.source {
-        lightcraft_engine::LibrarySource::Album(a) => app.session.catalog.album(a).is_some_and(|a| !a.folder && !a.is_smart()),
+        evolight_engine::LibrarySource::Album(a) => app.session.catalog.album(a).is_some_and(|a| !a.folder && !a.is_smart()),
         _ => false,
     }
 }
@@ -409,7 +409,7 @@ fn item(id: &str, params: Value, label: impl Into<String>, shortcut: Option<&str
 }
 
 /// Checked state of toggles and radio items.
-pub fn checked(app: &LightcraftApp, id: &str) -> Option<bool> {
+pub fn checked(app: &EvoLightApp, id: &str) -> Option<bool> {
     let u = &app.ui;
     let panel = |p: RightPanel| Some(u.right == p);
     match id {
@@ -468,7 +468,7 @@ pub fn checked(app: &LightcraftApp, id: &str) -> Option<bool> {
 }
 
 /// Labels that follow the state ("Undo Exposure", "Delete 3 Photos").
-fn live_label(app: &LightcraftApp, id: &str, label: &str) -> String {
+fn live_label(app: &EvoLightApp, id: &str, label: &str) -> String {
     let n = app.session.selection.ids.len();
     match id {
         "edit.undo" => {
@@ -497,7 +497,7 @@ pub(crate) fn standard_build_params(settings: &crate::state::AppSettings, loupe_
     }
 }
 
-pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>> {
+pub(crate) fn expanded(app: &EvoLightApp, name: &str) -> Option<Vec<MenuNode>> {
     let active = app.session.active().and_then(|id| app.session.catalog.photo(id).cloned());
     let has = active.is_some();
     Some(match name {
@@ -555,9 +555,9 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
             })
             .collect(),
         "Set Flag" => [
-            ("pick", "Pick", "P", lightcraft_catalog::Flag::Pick),
-            ("reject", "Reject", "X", lightcraft_catalog::Flag::Reject),
-            ("none", "Unflagged", "U", lightcraft_catalog::Flag::None),
+            ("pick", "Pick", "P", evolight_catalog::Flag::Pick),
+            ("reject", "Reject", "X", evolight_catalog::Flag::Reject),
+            ("none", "Unflagged", "U", evolight_catalog::Flag::None),
         ]
         .into_iter()
         .map(|(f, label, sc, flag)| {
@@ -565,7 +565,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
         })
         .collect(),
         "Set Color Label" => {
-            let mut v: Vec<MenuNode> = lightcraft_catalog::ColorLabel::ALL
+            let mut v: Vec<MenuNode> = evolight_catalog::ColorLabel::ALL
                 .iter()
                 .zip([Some("6"), Some("7"), Some("8"), Some("9"), None])
                 .map(|(l, sc)| {
@@ -589,7 +589,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
             v.push(item("photo.clearLabel", Value::Null, "None", clear_key, has, Some(active.as_ref().is_some_and(|p| p.label.is_none()))));
             v.push(MenuNode::Separator);
             // label sets: each a checkable item; Edit… names them
-            let sets = lightcraft_engine::cmd::manage::label_sets_json(&app.session);
+            let sets = evolight_engine::cmd::manage::label_sets_json(&app.session);
             let current = sets["current"].as_str().map(str::to_string);
             for set in sets["sets"].as_array().into_iter().flatten() {
                 let name = set["name"].as_str().unwrap_or_default();
@@ -689,7 +689,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
             .map(|(k, label)| item("view.gridInfo", json!({"info": k}), label, None, true, Some(app.ui.grid_info == k)))
             .collect(),
         "Sort" => {
-            use lightcraft_catalog::SortKey::*;
+            use evolight_catalog::SortKey::*;
             let cur = app.session.sort;
             let mut v: Vec<MenuNode> = [
                 ("Capture Date", CaptureDate, "captureDate"),
@@ -723,7 +723,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
                 (cur.key != Random).then_some(!cur.ascending),
             ));
             v.push(MenuNode::Separator);
-            use lightcraft_catalog::GroupBy;
+            use evolight_catalog::GroupBy;
             let groups = [
                 ("Group by Date: Automatic", GroupBy::Auto, "auto"),
                 ("Group by Day", GroupBy::Day, "day"),
@@ -764,7 +764,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
             v
         }
         "Import from Device" => {
-            let devices = lightcraft_engine::devices::devices();
+            let devices = evolight_engine::devices::devices();
             if devices.is_empty() {
                 vec![item("file.addFromDevice", Value::Null, "No Camera or Card Found", None, false, None)]
             } else {
@@ -796,7 +796,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
             }));
             v.push(item("library.selectBy", json!({"rating": 0, "ratingOp": "eq"}), "Unrated", None, true, None));
             v.push(MenuNode::Separator);
-            v.extend(lightcraft_catalog::ColorLabel::ALL.iter().map(|l| {
+            v.extend(evolight_catalog::ColorLabel::ALL.iter().map(|l| {
                 let name = format!("{l:?}");
                 item(
                     "library.selectBy",
@@ -849,7 +849,7 @@ pub(crate) fn expanded(app: &LightcraftApp, name: &str) -> Option<Vec<MenuNode>>
 }
 
 /// Resolve a live menu row, including contextual keys and borrowed grid-cycle hints.
-fn node(app: &LightcraftApp, e: &MenuEntry) -> MenuNode {
+fn node(app: &EvoLightApp, e: &MenuEntry) -> MenuNode {
     // Shift+P picks and advances in Library; don't advertise it on Presets in those views.
     let shortcut = if e.id == "panel.presets" && crate::shortcuts::library_grid(app) { None } else { e.shortcut.as_deref() };
     // in an album the Delete key removes from the album (issue #1805): the menu says so
@@ -857,7 +857,7 @@ fn node(app: &LightcraftApp, e: &MenuEntry) -> MenuNode {
     let shortcut = match e.id.as_str() {
         "view.photoGrid" | "view.squareGrid" => shortcut.or_else(|| crate::shortcuts::shortcut_of(&app.ui.settings.keymap, "view.gridToggle")),
         "album.removePhotos" => delete_key,
-        "photo.delete" if matches!(app.session.source, lightcraft_engine::LibrarySource::Album(_)) => None,
+        "photo.delete" if matches!(app.session.source, evolight_engine::LibrarySource::Album(_)) => None,
         _ => shortcut,
     };
     item(&e.id, Value::Null, live_label(app, &e.id, &e.label), shortcut, e.enabled, checked(app, &e.id))
@@ -889,7 +889,7 @@ fn tidy(v: Vec<MenuNode>) -> Vec<MenuNode> {
 }
 
 /// The whole menu bar: (title, items) per menu in [`MENUS`] order.
-pub fn menu_bar(app: &LightcraftApp) -> Vec<(String, Vec<MenuNode>)> {
+pub fn menu_bar(app: &EvoLightApp) -> Vec<(String, Vec<MenuNode>)> {
     let entries: Vec<MenuEntry> =
         crate::menus::menu_entries(app).into_iter().filter(|e| !HIDDEN.contains(&e.id.as_str()) && host_supports(app, &e.id)).collect();
     let mut used = vec![false; entries.len()];
@@ -962,7 +962,7 @@ pub fn menu_bar(app: &LightcraftApp) -> Vec<(String, Vec<MenuNode>)> {
 
 /// Run a menu item. Rating, flag and label items behave like their keys (the active photo only in
 /// Compare/Survey; Auto Advance moves on).
-pub fn run_item(app: &mut LightcraftApp, id: &str, params: Value) -> Result<Value, String> {
+pub fn run_item(app: &mut EvoLightApp, id: &str, params: Value) -> Result<Value, String> {
     let mut params = if params.is_null() { json!({}) } else { params };
     let culling_cmd = matches!(
         id,
@@ -1012,7 +1012,7 @@ pub enum NativeCommand {
 /// behind the blocking window. Quit is the one exception: the window itself offers Quit, and the
 /// host's existing confirmation ([`crate::panels::notices::may_close`]) still decides whether the
 /// process may end.
-pub fn native_command_policy(app: &LightcraftApp, id: &str) -> NativeCommand {
+pub fn native_command_policy(app: &EvoLightApp, id: &str) -> NativeCommand {
     if id == "app.quit" {
         return NativeCommand::Quit;
     }
@@ -1027,7 +1027,7 @@ pub fn native_command_policy(app: &LightcraftApp, id: &str) -> NativeCommand {
 /// The host calls this for every queued native command, so a macOS accelerator, click or About/
 /// Settings item respects the notice and blocking-library barriers. Ordinary dialogs retain
 /// their existing native-menu behavior.
-pub fn run_native_command(app: &mut LightcraftApp, id: &str, params: Value) -> NativeCommand {
+pub fn run_native_command(app: &mut EvoLightApp, id: &str, params: Value) -> NativeCommand {
     let policy = native_command_policy(app, id);
     match policy {
         NativeCommand::Run => {
@@ -1082,7 +1082,7 @@ pub fn bar_width(ui: &egui::Ui) -> f32 {
 
 /// The in-window menu bar (hosts without a native one): one dropdown per menu, or a single
 /// "Menu" button when the space is too narrow. Returns the width used.
-pub fn show_in_window(app: &mut LightcraftApp, ui: &mut egui::Ui, max_width: f32) -> f32 {
+pub fn show_in_window(app: &mut EvoLightApp, ui: &mut egui::Ui, max_width: f32) -> f32 {
     let t = crate::theme::Tokens::get(ui.ctx());
     let bar = menu_bar(app);
     let font = t.font(13.0);

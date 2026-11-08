@@ -2,7 +2,7 @@
 use super::*;
 use crate::rename::{MoveFs, RealFs};
 use crate::tests_xmp::same_path_or_file;
-use lightcraft_catalog::{Op, Photo, Source};
+use evolight_catalog::{Op, Photo, Source};
 use serde_json::json;
 
 struct Faults(Vec<PathBuf>);
@@ -35,7 +35,7 @@ impl MoveFs for Faults {
 }
 fn packet(marker: &str) -> String {
     format!(
-        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:fixture="urn:lightcraft:provenance-test" xmp:Rating="5" fixture:Marker="{marker}"/></rdf:RDF></x:xmpmeta>"#
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:fixture="urn:evolight:provenance-test" xmp:Rating="5" fixture:Marker="{marker}"/></rdf:RDF></x:xmpmeta>"#
     )
 }
 fn path(photo: &Path, style: SidecarNaming, upper: bool) -> PathBuf {
@@ -272,7 +272,7 @@ fn own_atomic_shared_packet_writes_advance_retained_versions_and_failures_do_not
     std::fs::rename(&f.source, &held).unwrap();
     let before = queued(&f.s);
     {
-        let _fault = lightcraft_catalog::safe_file::fail_writes_after(0);
+        let _fault = evolight_catalog::safe_file::fail_writes_after(0);
         assert!(f.s.save_sidecar(PhotoId(2)).is_err());
     }
     assert_eq!(queued(&f.s), before, "failed atomic writes must not advance provenance");
@@ -349,8 +349,8 @@ fn detached_history_entry_is_checked_before_unrelated_global_retirement() {
     // simultaneous repair owners is unproven. Native move failures and follow_stuck seed
     // both records; the second owner's normal apply_rename preflight is deliberately bypassed.
     let root = crate::tests_xmp::temp_dir("detached-history-preflight-contract");
-    let image = lightcraft_raster::Rgba8::from_fn(4, 3, |_, _| [40, 80, 120, 255]);
-    let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&image), &Default::default()).unwrap();
+    let image = evolight_raster::Rgba8::from_fn(4, 3, |_, _| [40, 80, 120, 255]);
+    let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&image), &Default::default()).unwrap();
     let mut s = Session::new();
     s.xmp.naming = SidecarNaming::Stem;
     let native = create_native_partials(&root, &png, &mut s);
@@ -455,7 +455,7 @@ fn create_native_partials(root: &Path, png: &[u8], s: &mut Session) -> Vec<Nativ
         assert_eq!(s.undo.len(), i + 1);
         assert_eq!(queued(s).len(), i + 1);
         assert_eq!(s.catalog.photo(id).unwrap().source, Source::File { path: moved.to_string_lossy().into_owned() });
-        let decoded = lightcraft_codecs::decode(&std::fs::read(&moved).unwrap(), Default::default()).unwrap();
+        let decoded = evolight_codecs::decode(&std::fs::read(&moved).unwrap(), Default::default()).unwrap();
         assert_eq!((decoded.width, decoded.height), (4, 3));
         native.push(NativePartial {
             id,

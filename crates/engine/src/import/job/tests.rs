@@ -21,17 +21,17 @@ fn fixture(preview_edge: Option<usize>, renderable: bool, preview_only: bool) ->
         }
         let width = edge.min(1024);
         let height = width * 3 / 4;
-        Ok((lightcraft_raster::Rgb32f { width, height, data: vec![[0.1, 0.2, 0.3]; width * height] }, Default::default()))
+        Ok((evolight_raster::Rgb32f { width, height, data: vec![[0.1, 0.2, 0.3]; width * height] }, Default::default()))
     }));
     session.media.preview_loader = Some(Arc::new(move |_, requested| {
         let width = preview_edge?.min(requested);
-        Some(lightcraft_raster::Rgba8 { width, height: width * 3 / 4, data: vec![[30, 60, 90, 255]; width * (width * 3 / 4)] })
+        Some(evolight_raster::Rgba8 { width, height: width * 3 / 4, data: vec![[30, 60, 90, 255]; width * (width * 3 / 4)] })
     }));
     let candidate = ImportCandidate {
         path: "synthetic-import.nef".into(),
         name: "synthetic-import.nef".into(),
         format: "NEF".into(),
-        kind: lightcraft_catalog::MediaKind::Raw,
+        kind: evolight_catalog::MediaKind::Raw,
         width: 1024,
         height: 768,
         preview_only: preview_only.then(|| "unsupported synthetic raw variant".into()),

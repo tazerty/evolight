@@ -1,12 +1,12 @@
 use super::curve::set_tat;
 use super::sliders::{control, sub_title};
-use super::{BAND_COLORS, Color32, DevelopSettings, Icon, LightcraftApp, Sense, Stroke, Tokens, hex, json, paint, register, text_button, vec2};
+use super::{BAND_COLORS, Color32, DevelopSettings, Icon, EvoLightApp, Sense, Stroke, Tokens, hex, json, paint, register, text_button, vec2};
 
 // ------------------------------------------------------------------------------ colour mixer
 
-pub(super) fn mixer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings) {
+pub(super) fn mixer(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
     let t = Tokens::get(ui.ctx());
-    let bands = lightcraft_develop::MIXER_BANDS;
+    let bands = evolight_develop::MIXER_BANDS;
     let sel = bands.iter().position(|b| *b == app.ui.mixer_mode).unwrap_or(0);
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 8, bottom: 4 }).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -69,16 +69,16 @@ pub(super) fn mixer(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSetti
 
 /// Display colour of an OkLCh sample (lightness, chroma, hue in degrees).
 fn oklch_color(l: f64, c: f64, h_deg: f64) -> Color32 {
-    use lightcraft_color::perceptual::{lch_to_lab, oklab_to_2020};
+    use evolight_color::perceptual::{lch_to_lab, oklab_to_2020};
     let lin = oklab_to_2020(lch_to_lab([l as f32, c as f32, (h_deg as f32).to_radians()]));
-    let s = lightcraft_color::REC2020.to_space(&lightcraft_color::SRGB).apply_f32(lin);
-    let e = s.map(|v| (lightcraft_color::transfer::linear_to_srgb(v.clamp(0.0, 1.0)) * 255.0).round() as u8);
+    let s = evolight_color::REC2020.to_space(&evolight_color::SRGB).apply_f32(lin);
+    let e = s.map(|v| (evolight_color::transfer::linear_to_srgb(v.clamp(0.0, 1.0)) * 255.0).round() as u8);
     Color32::from_rgb(e[0], e[1], e[2])
 }
 
 /// Point Color: swatches of the samples (+ the eyedropper), the selected sample's shifts and range,
 /// and "Visualize range".
-pub(super) fn point_color(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &DevelopSettings) {
+pub(super) fn point_color(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
     let t = Tokens::get(ui.ctx());
     let n = d.point_colors.len();
     if app.ui.point_color >= n && n > 0 {
@@ -89,7 +89,7 @@ pub(super) fn point_color(app: &mut LightcraftApp, ui: &mut egui::Ui, d: &Develo
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 5.0;
             let active = app.ui.tool == "pointColor";
-            let full = n >= lightcraft_develop::MAX_POINT_COLORS;
+            let full = n >= evolight_develop::MAX_POINT_COLORS;
             if crate::widgets::icon_button(
                 ui,
                 "pointColorPicker",

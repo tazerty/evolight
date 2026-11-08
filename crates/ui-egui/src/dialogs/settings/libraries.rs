@@ -1,4 +1,4 @@
-use super::{LightcraftApp, Value, json};
+use super::{EvoLightApp, Value, json};
 
 // ------------------------------------------------------------------------------- Open Library…
 
@@ -7,7 +7,7 @@ use super::{LightcraftApp, Value, json};
 /// Move Folder To… waits for its destination: the move runs when the dialog closes, and in another
 /// library it would move the folder on disk with nothing to relink, leaving this library's photos
 /// missing (issue #3140).
-pub(crate) fn can_switch_library(app: &LightcraftApp) -> Result<(), String> {
+pub(crate) fn can_switch_library(app: &EvoLightApp) -> Result<(), String> {
     if crate::lightroom_import::is_running(app) {
         return Err("wait for Lightroom catalog import to finish before switching libraries".into());
     }
@@ -28,10 +28,10 @@ pub(crate) fn can_switch_library(app: &LightcraftApp) -> Result<(), String> {
 /// or a folder chosen in a dialog. Remembered as the library to open at launch.
 ///
 /// A Lightroom Classic catalog (its folder, an `.lrdata` / `.lrcat-data` folder or the `.lrcat`
-/// itself, see [`lightcraft_engine::lightroom_folder`]) is not opened: the current library stays
+/// itself, see [`evolight_engine::lightroom_folder`]) is not opened: the current library stays
 /// and a dialog offers Import Lightroom Catalog… instead; returns `{opened: false,
 /// lightroomCatalog: <.lrcat path or null>, path}`.
-pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn open_library(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     can_switch_library(app)?;
     let path = match p.get("path").and_then(Value::as_str) {
         Some(x) => x.to_string(),
@@ -49,9 +49,9 @@ pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
     };
     // A Lightroom catalog folder (or part of one) is not a library: before closing the library
     // open now, offer to import it instead (issue #891). The engine refuses it too.
-    if let Some(place) = lightcraft_engine::lightroom_folder::lightroom_catalog_at(std::path::Path::new(&path)) {
+    if let Some(place) = evolight_engine::lightroom_folder::lightroom_catalog_at(std::path::Path::new(&path)) {
         let catalog = place.catalog.map(|c| c.to_string_lossy().into_owned());
-        let err = lightcraft_engine::EngineError::LightroomCatalog { path: path.clone().into(), catalog: catalog.clone().map(Into::into) };
+        let err = evolight_engine::EngineError::LightroomCatalog { path: path.clone().into(), catalog: catalog.clone().map(Into::into) };
         // the library problem window (no library could be opened) shows the error instead
         if app.library_problem.is_some() {
             return Err(err.to_string());
@@ -71,7 +71,7 @@ pub fn open_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String>
 /// another program, unreadable, a file), the error is returned and the current library stays open:
 /// the target is checked before anything is closed, and if opening it still fails the previous
 /// library is opened again (both errors are reported if that fails too).
-fn switch_library(app: &mut LightcraftApp, path: &str) -> Result<Value, String> {
+fn switch_library(app: &mut EvoLightApp, path: &str) -> Result<Value, String> {
     let dir = app.session.check_library(std::path::Path::new(path)).map_err(|e| format!("{path}: {e}"))?;
     let path = dir.to_string_lossy().into_owned();
     // the library being left goes in the list too (also when it was opened at launch)
@@ -123,7 +123,7 @@ pub fn library_name(dir: &std::path::Path) -> String {
 }
 
 /// The open library's name (`None`: in memory, nothing is saved).
-pub fn open_library_name(app: &LightcraftApp) -> Option<String> {
+pub fn open_library_name(app: &EvoLightApp) -> Option<String> {
     app.session.library.as_ref().filter(|l| l.on_disk).map(|l| library_name(&l.dir))
 }
 
@@ -131,7 +131,7 @@ pub fn open_library_name(app: &LightcraftApp) -> Option<String> {
 /// is the folder `name` inside `path` (or inside a location chosen in a dialog); without it,
 /// `path` itself, or a new folder named after the default library. The folder must not hold a
 /// library already, nor anything else.
-pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn new_library(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     can_switch_library(app)?;
     let name = match p.get("name") {
         None | Some(Value::Null) => None,
@@ -144,7 +144,7 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> 
             app,
             "New Library",
             "Library name",
-            lightcraft_engine::library::DEFAULT_NAME,
+            evolight_engine::library::DEFAULT_NAME,
             "app.newLibrary",
             json!({}),
             "name",
@@ -168,10 +168,10 @@ pub fn new_library(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> 
     let dir = match name {
         Some(n) => location.join(n),
         // a chosen location gets a new folder in it, named after the default library
-        None if picked => free_name(&location, lightcraft_engine::library::DEFAULT_NAME),
+        None if picked => free_name(&location, evolight_engine::library::DEFAULT_NAME),
         None => location,
     };
-    if lightcraft_engine::library::is_library(&dir) {
+    if evolight_engine::library::is_library(&dir) {
         return Err(format!("{}: there is a library here already; open it with File ▸ Open Library…", dir.display()));
     }
     if dir.is_file() {
@@ -219,7 +219,7 @@ pub(crate) fn free_name(location: &std::path::Path, base: &str) -> std::path::Pa
 /// `lastOpened`: ISO 8601 time, `null` when not known. `remove` forgets that
 /// one entry (an error if the list doesn't hold it) and `clear` forgets them all; neither touches
 /// anything on disk (issue #1290).
-pub fn recent_libraries(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn recent_libraries(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     match p.get("remove") {
         None | Some(Value::Null) => {}
         Some(Value::String(path)) => {
@@ -264,8 +264,8 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn app_with_import() -> LightcraftApp {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+    fn app_with_import() -> EvoLightApp {
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.run("photo.setReference", json!({})).unwrap();
         app.import = Some(crate::import::ImportTask::new(vec!["a.jpg".into()], json!({"mode": "add"}), 0, false));
         app
@@ -294,7 +294,7 @@ mod tests {
     /// The menu items that switch libraries are greyed out meanwhile, like during a Lightroom import.
     #[test]
     fn library_switching_menu_items_are_disabled_while_an_import_runs() {
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::new(), crate::Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::new(), crate::Services::default());
         app.services.pick_folder = Some(Box::new(|| None));
         assert!(crate::menus::ui_enabled(&app, "app.openLibrary"));
         assert!(crate::menus::ui_enabled(&app, "app.newLibrary"));
@@ -308,7 +308,7 @@ mod tests {
     fn open_library_is_refused_while_an_import_scan_runs() {
         let dir = std::env::temp_dir().join(format!("lc-ui-switchscan-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
-        let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), crate::Services::default());
+        let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
         app.run("photo.setReference", json!({})).unwrap();
         let pin = app.ui.reference;
         crate::import::open(&mut app, vec![dir.to_string_lossy().into_owned()]).unwrap();

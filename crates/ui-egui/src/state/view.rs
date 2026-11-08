@@ -247,7 +247,7 @@ pub const BRIEF_INFO_SECS: f64 = 3.0;
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct BriefInfo {
     /// The photo the loupe showed last.
-    pub photo: Option<lightcraft_catalog::PhotoId>,
+    pub photo: Option<evolight_catalog::PhotoId>,
     /// When the loupe changed to it (seconds on egui's clock).
     pub since: f64,
     /// The brief info overlay shows this frame.

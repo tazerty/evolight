@@ -1,6 +1,6 @@
 # Olympus compressed ORF
 
-LightCraft decodes uncompressed 16-bit, packed 12-bit, two-field 12-bit, 12.8 bpp blocks and compressed ORF sensor data in pure Rust. The shared RAW decoder serves import, desktop previews, editing, CLI rendering, web and export.
+EvoLight decodes uncompressed 16-bit, packed 12-bit, two-field 12-bit, 12.8 bpp blocks and compressed ORF sensor data in pure Rust. The shared RAW decoder serves import, desktop previews, editing, CLI rendering, web and export.
 
 Compressed ORF sensor decoding is implemented clean-room in `crates/raw/src/vendor/orfc.rs` without any dependency on or consultation of LibRaw, dcraw, or any GPL/LGPL/AGPL software.
 

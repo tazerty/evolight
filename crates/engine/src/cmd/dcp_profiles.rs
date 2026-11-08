@@ -1,7 +1,7 @@
 //! Imported camera profiles: the user's own DNG Camera Profiles (`.dcp`), chosen like any other
 //! profile (`develop.profile {id: "dcp:…"}`). Unlike the built-in looks and LUT profiles, which
 //! work on developed colour, a camera profile replaces the raw file's colour model when it is
-//! decoded (its matrices and hue/saturation map; see [`lightcraft_raw::dcp`]), so the photo's
+//! decoded (its matrices and hue/saturation map; see [`evolight_raw::dcp`]), so the photo's
 //! source is decoded again when it changes. Other photos (JPEG, TIFF…) ignore it.
 //!
 //! A library on disk keeps a copy of each file in its `Profiles/` folder; the list lives in the
@@ -63,7 +63,7 @@ pub fn register_all(s: &mut Session, profiles: Option<&Path>) {
         .dcp_profiles
         .iter()
         .filter_map(|p| {
-            lightcraft_raw::dcp::read_dcp(Path::new(&p.file)).ok().and_then(|b| LoadedCameraProfile::parse(&b).ok()).map(|d| (p.id.clone(), d))
+            evolight_raw::dcp::read_dcp(Path::new(&p.file)).ok().and_then(|b| LoadedCameraProfile::parse(&b).ok()).map(|d| (p.id.clone(), d))
         })
         .collect();
     s.media.camera_profiles = loaded.into_iter().collect();
@@ -103,7 +103,7 @@ pub fn import_files(s: &mut Session, paths: &[String]) -> Result<(Vec<Value>, Ve
     let (mut imported, mut failed) = (Vec::new(), Vec::new());
     for f in dcp_files(paths) {
         let shown = f.display().to_string();
-        let bytes = match lightcraft_raw::dcp::read_dcp(&f) {
+        let bytes = match evolight_raw::dcp::read_dcp(&f) {
             Ok(b) => b,
             Err(e) => {
                 failed.push(json!([shown, e.to_string()]));
@@ -122,7 +122,7 @@ pub fn import_files(s: &mut Session, paths: &[String]) -> Result<(Vec<Value>, Ve
         let name = if profile.name.trim().is_empty() { stem.clone() } else { profile.name.trim().to_string() };
         // the same profile imported again: keep the one there is
         let same = s.dcp_profiles.iter().find(|p| {
-            p.name == name && p.camera_model == profile.camera_model && lightcraft_raw::dcp::read_dcp(Path::new(&p.file)).is_ok_and(|b| b == bytes)
+            p.name == name && p.camera_model == profile.camera_model && evolight_raw::dcp::read_dcp(Path::new(&p.file)).is_ok_and(|b| b == bytes)
         });
         if let Some(p) = same {
             imported.push(json!({"id": p.id, "name": p.name, "cameraModel": p.camera_model, "existing": true}));

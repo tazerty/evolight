@@ -1,4 +1,4 @@
-// Joint colour noise reduction (`lightcraft_pipeline::nrc_joint`). Each kernel mirrors its CPU
+// Joint colour noise reduction (`evolight_pipeline::nrc_joint`). Each kernel mirrors its CPU
 // twin there, in the same order of operations; keep them in step.
 //
 // Buffers: `a`, `b` inputs, `dst` output. Images are interleaved: RGB / Y,R−Y,B−Y (3 per pixel),

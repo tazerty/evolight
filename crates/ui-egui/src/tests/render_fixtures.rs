@@ -11,9 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-use lightcraft_catalog::{Op, Photo, Source};
-use lightcraft_codecs::{EncodeImage, EncodeMeta, Samples, encode_png};
-use lightcraft_engine::{Selection, Session};
+use evolight_catalog::{Op, Photo, Source};
+use evolight_codecs::{EncodeImage, EncodeMeta, Samples, encode_png};
+use evolight_engine::{Selection, Session};
 
 /// The demo library's photo size: landscape 3:2, 24 MP.
 pub(crate) const WIDTH: u32 = 6000;
@@ -90,7 +90,7 @@ impl RenderFixture {
 
 fn build_files(tag: &str, count: usize) -> FixtureFiles {
     let n = NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("lightcraft-render-fixtures-{tag}-{}-{n}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("evolight-render-fixtures-{tag}-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create the render fixture directory");
 
@@ -165,9 +165,9 @@ mod tests {
         assert_eq!(fixture.paths().len(), 2);
         for path in fixture.paths() {
             let bytes = std::fs::read(path).expect("read the fixture PNG");
-            let header = lightcraft_codecs::read_header(&bytes).expect("read the fixture PNG header");
+            let header = evolight_codecs::read_header(&bytes).expect("read the fixture PNG header");
             assert_eq!((header.width, header.height), (WIDTH, HEIGHT), "{path}");
-            assert_eq!(header.format, lightcraft_codecs::Format::Png, "{path}");
+            assert_eq!(header.format, evolight_codecs::Format::Png, "{path}");
             // A full-resolution decode is width × height linear RGB f32 samples, well over the
             // 16 MiB budget `a_zoomed_original_over_the_budget...` checks.
             let decoded_bytes = u64::from(header.width) * u64::from(header.height) * 3 * 4;

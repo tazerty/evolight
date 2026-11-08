@@ -1,9 +1,9 @@
 use super::widgets::{check, choices, field, heading, hint, path_label, row};
-use super::{LightcraftApp, RichText, StartupView, Tokens, json, register};
+use super::{EvoLightApp, RichText, StartupView, Tokens, json, register};
 
 // ------------------------------------------------------------------------------------- General
 
-pub(super) fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(super) fn general_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     row(ui, t, crate::i18n::tr("Language"), |ui| {
         let languages: Vec<_> = crate::i18n::Locale::for_picker().into_iter().map(|language| (language, language.name())).collect();
         // Thirteen language names do not fit one line in a narrow window: wrap them.
@@ -76,20 +76,20 @@ pub(super) fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
     heading(ui, t, crate::i18n::tr("Dialogs"));
     check(ui, "settings.closeDialogsOutside", &mut app.ui.settings.close_dialogs_outside, "Close a dialog by clicking outside it");
     heading(ui, t, crate::i18n::tr("External Editing"));
-    row(ui, t, crate::i18n::tr("PhotoCraft"), |ui| {
+    row(ui, t, crate::i18n::tr("EvoPhoto"), |ui| {
         field(
             ui,
-            crate::text_field::TextField::singleline("field:photocraftPath", &mut app.ui.settings.photocraft_path)
+            crate::text_field::TextField::singleline("field:evophotoPath", &mut app.ui.settings.evophoto_path)
                 .hint(crate::i18n::tr("Found automatically"))
                 .width(220.0),
         );
     });
-    edit_file_rows(ui, t, "photocraftFile", &mut app.ui.settings.photocraft_file);
+    edit_file_rows(ui, t, "evophotoFile", &mut app.ui.settings.evophoto_file);
     hint(
         ui,
         t,
         crate::i18n::tr(
-            "Photo ▸ Edit In ▸ Edit in PhotoCraft (⇧⌘E, or right-click a photo) renders a copy with your edits, stacks it with the original and opens it in PhotoCraft. Save there and the copy updates here. As PSD, PhotoCraft saves straight back to it. Leave the location empty unless you use a portable copy.",
+            "Photo ▸ Edit In ▸ Edit in EvoPhoto (⇧⌘E, or right-click a photo) renders a copy with your edits, stacks it with the original and opens it in EvoPhoto. Save there and the copy updates here. As PSD, EvoPhoto saves straight back to it. Leave the location empty unless you use a portable copy.",
         ),
     );
     row(ui, t, crate::i18n::tr("Other editor"), |ui| {
@@ -116,15 +116,15 @@ pub(super) fn general_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
 /// Lens profiles: whether the lens database is here, a button that downloads it (nothing is fetched without a
 /// click: the first launch offers it once, [`crate::lens_db`]), and the startup offer turned back on or off.
 #[cfg(not(target_arch = "wasm32"))]
-fn lens_profiles(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    use lightcraft_engine::lensfun_download::{self, Offer};
+fn lens_profiles(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
+    use evolight_engine::lensfun_download::{self, Offer};
     heading(ui, t, crate::i18n::tr("Lens profiles"));
     let running = app.session.lensfun.running();
-    // (the user's own folder, LIGHTCRAFT_LENSFUN_DIR, is read instead and never replaced)
-    let own = std::env::var_os(lightcraft_engine::lens_profiles::ENV).is_some_and(|v| !v.is_empty());
+    // (the user's own folder, EVOLIGHT_LENSFUN_DIR, is read instead and never replaced)
+    let own = std::env::var_os(evolight_engine::lens_profiles::ENV).is_some_and(|v| !v.is_empty());
     let installed = lensfun_download::default_dir().is_some_and(|d| lensfun_download::installed(&d));
     let status = if own {
-        crate::i18n::tr("Lens profiles are read from the folder LIGHTCRAFT_LENSFUN_DIR names.").to_string()
+        crate::i18n::tr("Lens profiles are read from the folder EVOLIGHT_LENSFUN_DIR names.").to_string()
     } else if running {
         crate::i18n::tr("Downloading the lens database…").to_string()
     } else if installed {
@@ -143,7 +143,7 @@ fn lens_profiles(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
         }
     });
     let mut offer = app.ui.settings.lens_database != Offer::Declined;
-    if check(ui, "settings.lensDatabaseOffer", &mut offer, "Offer the lens database download when LightCraft starts") {
+    if check(ui, "settings.lensDatabaseOffer", &mut offer, "Offer the lens database download when EvoLight starts") {
         app.ui.settings.lens_database = if offer { Offer::Ask } else { Offer::Declined };
     }
     hint(
@@ -177,7 +177,7 @@ fn edit_file_rows(ui: &mut egui::Ui, t: &Tokens, id: &str, file: &mut crate::sta
 
 /// A preset picker: `None` = `none_label`. Returns the new choice when it changed.
 pub(super) fn preset_combo(
-    app: &LightcraftApp,
+    app: &EvoLightApp,
     ui: &mut egui::Ui,
     id: &str,
     label: &str,
@@ -208,12 +208,12 @@ pub(super) fn preset_combo(
 }
 
 /// Cameras of the raws in the library plus those with a stored default, sorted.
-pub(super) fn cameras(app: &LightcraftApp) -> Vec<String> {
+pub(super) fn cameras(app: &EvoLightApp) -> Vec<String> {
     let mut v: Vec<String> = app
         .session
         .catalog
         .photos()
-        .filter(|p| p.kind == lightcraft_catalog::MediaKind::Raw && !p.meta.camera.is_empty())
+        .filter(|p| p.kind == evolight_catalog::MediaKind::Raw && !p.meta.camera.is_empty())
         .map(|p| p.meta.camera.clone())
         .chain(app.session.import_defaults.cameras.iter().map(|c| c.camera.clone()))
         .collect();

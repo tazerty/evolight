@@ -3,10 +3,10 @@
 #
 # Exports:
 #   ROOT                    workspace root
-#   VERSION                 [workspace.package] version from Cargo.toml (override: LIGHTCRAFT_VERSION)
+#   VERSION                 [workspace.package] version from Cargo.toml (override: EVOLIGHT_VERSION)
 #   DIST                    output directory for release artifacts (default: $ROOT/dist/release)
-#   LIGHTCRAFT_BUILD_SHA    git commit baked into the binaries (see crates/engine/src/build_info.rs)
-#   LIGHTCRAFT_BUILD_DATE   UTC build date, YYYY-MM-DD
+#   EVOLIGHT_BUILD_SHA    git commit baked into the binaries (see crates/engine/src/build_info.rs)
+#   EVOLIGHT_BUILD_DATE   UTC build date, YYYY-MM-DD
 #   CARGO_TARGET_DIR        cargo's target dir (default: $ROOT/target)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,7 +22,7 @@ workspace_version() {
   return $?
 }
 
-VERSION="${LIGHTCRAFT_VERSION:-$(workspace_version)}"
+VERSION="${EVOLIGHT_VERSION:-$(workspace_version)}"
 if [[ -z "$VERSION" ]]; then
   echo "error: could not read [workspace.package] version from $ROOT/Cargo.toml" >&2
   exit 1
@@ -33,11 +33,11 @@ DIST="${DIST:-$ROOT/dist/release}"
 mkdir -p "$DIST"
 export DIST
 
-if [[ -z "${LIGHTCRAFT_BUILD_SHA:-}" ]]; then
-  LIGHTCRAFT_BUILD_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+if [[ -z "${EVOLIGHT_BUILD_SHA:-}" ]]; then
+  EVOLIGHT_BUILD_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 fi
-export LIGHTCRAFT_BUILD_SHA
-export LIGHTCRAFT_BUILD_DATE="${LIGHTCRAFT_BUILD_DATE:-$(date -u +%Y-%m-%d)}"
+export EVOLIGHT_BUILD_SHA
+export EVOLIGHT_BUILD_DATE="${EVOLIGHT_BUILD_DATE:-$(date -u +%Y-%m-%d)}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
 
 # Emit a GitHub Actions warning (plain stderr outside Actions).
@@ -47,7 +47,7 @@ warn() {
 }
 
 # Copy licence and readme files that exist into a package directory, plus the font licence texts
-# (Inter's OFL always; the craft-fonts OFLs when building with CRAFT_FONTS_DIR).
+# (Inter's OFL always; the evo-fonts OFLs when building with EVO_FONTS_DIR).
 copy_docs() {
   local dest="$1" f
   for f in README.md LICENSE LICENSE-MIT LICENSE-APACHE COPYRIGHT NOTICE; do
@@ -58,14 +58,14 @@ copy_docs() {
 }
 
 # Inter is embedded in every build (crates/ui-egui/src/theme.rs), so its OFL always ships with the
-# package as OFL-Inter.txt. Builds made with CRAFT_FONTS_DIR (storytold/craft-fonts, an optional
+# package as OFL-Inter.txt. Builds made with EVO_FONTS_DIR (tazerty/evo-fonts, an optional
 # build input) also embed its fonts; their OFL licences go with the package as OFL-<family-dir>.txt.
 copy_font_licences() {
   local dest="$1" lic family
   local inter="$ROOT/assets/fonts/OFL-Inter.txt"
   cp "$inter" "$dest/OFL-Inter.txt" || return $?
-  [[ -n "${CRAFT_FONTS_DIR:-}" ]] || return 0
-  for lic in "$CRAFT_FONTS_DIR"/fonts/*/OFL.txt; do
+  [[ -n "${EVO_FONTS_DIR:-}" ]] || return 0
+  for lic in "$EVO_FONTS_DIR"/fonts/*/OFL.txt; do
     [[ -f "$lic" ]] || continue
     family="$(basename "$(dirname "$lic")")"
     cp "$lic" "$dest/OFL-$family.txt"

@@ -5,7 +5,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -13,7 +13,7 @@ const SETTLE: Duration = Duration::from_secs(120);
 /// The demo library in a 1400×900 window at 1 px per point, the first photo open in Detail.
 fn detail() -> Headless {
     let services = Services { png: None, ..Default::default() };
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), services);
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), services);
     let mut h = Headless::new(app, [1400.0, 900.0], 1.0);
     let r = h.request("ui.set", json!({"view": "detail", "right": "none", "filmstrip": false}), T);
     assert_eq!(r["ok"], true, "{r}");
@@ -21,7 +21,7 @@ fn detail() -> Headless {
     h
 }
 
-fn edit(h: &mut Headless, f: impl FnOnce(&mut lightcraft_develop::DevelopSettings)) {
+fn edit(h: &mut Headless, f: impl FnOnce(&mut evolight_develop::DevelopSettings)) {
     let id = h.app.session.active().expect("a photo is open");
     let mut s = (*h.app.session.develop_of(id).expect("settings")).clone();
     f(&mut s);
@@ -50,10 +50,10 @@ fn a_pending_crop_or_rotation_does_not_reuse_the_old_textures_aspect() {
 
     struct Held;
     impl RenderOffload for Held {
-        fn try_start(&mut self, _: Slot, job: lightcraft_engine::RenderJob) -> Option<lightcraft_engine::RenderJob> {
+        fn try_start(&mut self, _: Slot, job: evolight_engine::RenderJob) -> Option<evolight_engine::RenderJob> {
             Some(job)
         }
-        fn finished(&mut self) -> Vec<(Slot, lightcraft_engine::media::RenderResult, f64)> {
+        fn finished(&mut self) -> Vec<(Slot, evolight_engine::media::RenderResult, f64)> {
             Vec::new()
         }
     }
@@ -83,13 +83,13 @@ fn a_pending_crop_or_rotation_does_not_reuse_the_old_textures_aspect() {
             pixels: None,
         },
     );
-    edit(&mut h, |d| d.crop.geometry.rect = lightcraft_geom::Rect::new(0.25, 0.2, 0.75, 0.2 + 1.0 / 3.0));
+    edit(&mut h, |d| d.crop.geometry.rect = evolight_geom::Rect::new(0.25, 0.2, 0.75, 0.2 + 1.0 / 3.0));
     for (rotate, expected) in [(false, egui::vec2(32.0, 16.0)), (true, egui::vec2(16.0, 32.0))] {
         if rotate {
             edit(&mut h, |d| {
-                d.orientation = lightcraft_geom::Orientation::Rotate90;
+                d.orientation = evolight_geom::Orientation::Rotate90;
                 // Crop coordinates live in the oriented frame, as in library.rotateRight.
-                d.crop.geometry.rect = lightcraft_geom::Orientation::Rotate90.map_norm_rect(d.crop.geometry.rect);
+                d.crop.geometry.rect = evolight_geom::Orientation::Rotate90.map_norm_rect(d.crop.geometry.rect);
             });
         }
         h.app.ui.zoom_anim = false;
@@ -133,7 +133,7 @@ fn an_uncropped_photo_at_100_is_its_pixel_size() {
 fn a_cropped_photo_at_100_is_the_crops_pixel_size() {
     let mut h = detail();
     let (nw, nh) = size_of(&h);
-    edit(&mut h, |s| s.crop.geometry.rect = lightcraft_geom::Rect { x0: 0.25, y0: 0.2, x1: 0.75, y1: 0.2 + 1.0 / 3.0 });
+    edit(&mut h, |s| s.crop.geometry.rect = evolight_geom::Rect { x0: 0.25, y0: 0.2, x1: 0.75, y1: 0.2 + 1.0 / 3.0 });
     let (w, hh) = at_100(&mut h);
     assert!((w - nw / 2.0).abs() < 1.5 && (hh - nh / 3.0).abs() < 1.5, "{w}×{hh} for a crop of {}×{}", nw / 2.0, nh / 3.0);
 }
@@ -143,7 +143,7 @@ fn a_cropped_photo_at_100_is_the_crops_pixel_size() {
 fn a_rotated_photo_at_100_is_its_pixel_size_swapped() {
     let mut h = detail();
     let (nw, nh) = size_of(&h);
-    edit(&mut h, |s| s.orientation = lightcraft_geom::Orientation::Rotate90);
+    edit(&mut h, |s| s.orientation = evolight_geom::Orientation::Rotate90);
     let (w, hh) = at_100(&mut h);
     assert!((w - nh).abs() < 1.5 && (hh - nw).abs() < 1.5, "{w}×{hh} for {nh}×{nw}");
 }
@@ -247,7 +247,7 @@ fn a_crop_of_no_size_lays_out_at_a_finite_size() {
     let mut h = detail();
     for rect in [[0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 1e-9, 1.0], [0.0, 0.3, 1.0, 0.3]] {
         // as a sidecar can set it: `crop.set` refuses a crop this small
-        edit(&mut h, |d| d.crop.geometry.rect = lightcraft_geom::Rect::new(rect[0], rect[1], rect[2], rect[3]));
+        edit(&mut h, |d| d.crop.geometry.rect = evolight_geom::Rect::new(rect[0], rect[1], rect[2], rect[3]));
         for zoom in ["view.zoomFit", "view.zoom100"] {
             let r = h.request("engine.execute", json!({"command": zoom}), T);
             assert_eq!(r["ok"], true, "{zoom}: {r}");

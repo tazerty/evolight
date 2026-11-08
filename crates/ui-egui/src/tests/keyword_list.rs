@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -18,7 +18,7 @@ fn keywords_panel() -> (Headless, Vec<u64>) {
 
 /// [`keywords_panel`] in a window of `size` (tall enough, every keyword row is on screen).
 fn keywords_panel_at(size: [f32; 2]) -> (Headless, Vec<u64>) {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, size, 1.0);
     let ids: Vec<u64> = h.app.session.visible_cloned().iter().take(2).map(|p| p.0).collect();
     for (method, params) in [
@@ -50,7 +50,7 @@ fn has(h: &Headless, id: &str) -> bool {
 }
 
 fn keywords_of(h: &Headless, id: u64) -> Vec<String> {
-    h.app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).unwrap().meta.keywords.clone()
+    h.app.session.catalog.photo(evolight_catalog::PhotoId(id)).unwrap().meta.keywords.clone()
 }
 
 /// The list shows every keyword with its photo count, a keyword without photos too; the triangle
@@ -202,9 +202,9 @@ fn cmd_shift_k_without_a_picked_keyword_opens_no_dialog() {
 fn opening_another_library_drops_the_picked_keyword() {
     let dir = std::env::temp_dir().join(format!("lc-ui-keyword-list-switch-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let mut session = lightcraft_engine::Session::new().with_fs();
+    let mut session = evolight_engine::Session::new().with_fs();
     session.open_library(dir.join("first"), false).unwrap();
-    let app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1400.0, 1000.0], 1.0);
     ask(&mut h, "ui.set", json!({"view": "photoGrid", "right": "keywords"}));
     run(&mut h, "keyword.create", json!({"name": "Weddings"}));

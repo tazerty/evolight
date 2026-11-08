@@ -10,11 +10,11 @@ use super::state::Pace;
 use super::{Arc, AtomicUsize, Mutex, Ordering, PoisonError, RunError};
 use super::{OnceLock, Path, PathBuf, TileRunner, Value, json};
 
-/// The built-in denoiser (`lightcraft_denoise::builtin`): nothing to load, so it is what runs until a model is chosen. Its
+/// The built-in denoiser (`evolight_denoise::builtin`): nothing to load, so it is what runs until a model is chosen. Its
 /// filter runs on the graphics card when there is one that agrees with the CPU on a check tile and is faster, else on
 /// the CPU (see [`BuiltinCard`]); the rest of it always runs on the CPU.
 pub(super) struct BuiltinModel {
-    runner: OnceLock<lightcraft_denoise::builtin::Builtin>,
+    runner: OnceLock<evolight_denoise::builtin::Builtin>,
     #[cfg(feature = "denoise")]
     card: Arc<BuiltinCard>,
     /// The runner of a photo that runs on the card.
@@ -43,7 +43,7 @@ impl Model for BuiltinModel {
             let threads = threads.max(1);
             self.card.last_threads.store(threads, Ordering::Relaxed);
             if let Ok(side) = self.card.choose(run_on, threads, true)
-                && let Ok(gpu) = lightcraft_gpu::bm3d::BuiltinRunner::new(side.gpu.clone(), *cpu)
+                && let Ok(gpu) = evolight_gpu::bm3d::BuiltinRunner::new(side.gpu.clone(), *cpu)
             {
                 let hybrid = self.hybrid.get_or_init(|| CardRunner { gpu, cpu: *cpu, card: self.card.clone() });
                 return (hybrid, threads.min(GPU_PARALLEL));
@@ -57,14 +57,14 @@ impl Model for BuiltinModel {
     /// Measure the whole photo's noise once, so every tile is cleaned by the photo's noise instead of its own. A photo
     /// that cannot be measured is told nothing: each tile then measures its own.
     fn prepare(&self, mosaic: &[f32], width: usize, height: usize) {
-        if let Some(noise) = lightcraft_denoise::builtin::measure_noise(mosaic, width, height) {
-            let _ = self.runner.set(lightcraft_denoise::builtin::Builtin::with_noise(noise));
+        if let Some(noise) = evolight_denoise::builtin::measure_noise(mosaic, width, height) {
+            let _ = self.runner.set(evolight_denoise::builtin::Builtin::with_noise(noise));
         }
     }
 
     fn self_test(&self, _run_on: RunOn) -> Result<Value, String> {
         let side = 16;
-        let out = lightcraft_denoise::builtin::Builtin::with_noise((0.01, 0.001)).run(&vec![0.25; 4 * side * side]).map_err(|e| e.to_string())?;
+        let out = evolight_denoise::builtin::Builtin::with_noise((0.01, 0.001)).run(&vec![0.25; 4 * side * side]).map_err(|e| e.to_string())?;
         if out.len() != 12 * side * side || out.iter().any(|v| !v.is_finite()) {
             return Err("the built-in denoiser gave an unexpected result".into());
         }
@@ -131,7 +131,7 @@ fn builtin_check_tile(side: usize) -> Vec<f32> {
 /// The card set up for the built-in denoiser: its kernels, and the check tile's time on it and on the CPU.
 #[cfg(feature = "denoise")]
 struct BuiltinGpu {
-    gpu: Arc<lightcraft_gpu::bm3d::Bm3dGpu>,
+    gpu: Arc<evolight_gpu::bm3d::Bm3dGpu>,
     adapter: String,
     /// The check tile on the card, the fastest of a few runs (ms).
     card_ms: f64,
@@ -142,15 +142,15 @@ struct BuiltinGpu {
 /// Set the card up for the built-in denoiser: kernels built, the check tile run on both and compared, both timed.
 #[cfg(feature = "denoise")]
 fn make_builtin_gpu(marker: &Path) -> Result<BuiltinGpu, String> {
-    use lightcraft_denoise::builtin::{Builtin, TILE};
+    use evolight_denoise::builtin::{Builtin, TILE};
     let tile = TILE as usize;
     let builtin = Builtin::with_noise(CHECK_NOISE);
     let params = builtin.bm3d_params().ok_or("the built-in denoiser does not use the block-matching filter")?;
     let input = Arc::new(builtin_check_tile(tile));
     let on_card = input.clone();
     let card = move || -> Result<_, String> {
-        let gpu = Arc::new(lightcraft_gpu::bm3d::Bm3dGpu::new(&params, tile)?);
-        let runner = lightcraft_gpu::bm3d::BuiltinRunner::new(gpu.clone(), builtin)?;
+        let gpu = Arc::new(evolight_gpu::bm3d::Bm3dGpu::new(&params, tile)?);
+        let runner = evolight_gpu::bm3d::BuiltinRunner::new(gpu.clone(), builtin)?;
         let agreement = runner.agreement(&on_card).map_err(|e| format!("the GPU could not run the check tile: {e}"))?;
         let whole = runner.run(&on_card).map_err(|e| format!("the GPU could not run the check tile: {e}"))?;
         let card_ms = card_tile_ms(&runner, &on_card);
@@ -219,7 +219,7 @@ pub(super) fn forget_builtin_card(marker: &Path) {
 pub(super) fn builtin_marker(onnx: &Path) -> PathBuf {
     match onnx.parent() {
         Some(p) if !p.as_os_str().is_empty() => onnx.with_file_name(GPU_SETUP_MARKER),
-        _ => std::env::temp_dir().join(format!("lightcraft-builtin-{GPU_SETUP_MARKER}")),
+        _ => std::env::temp_dir().join(format!("evolight-builtin-{GPU_SETUP_MARKER}")),
     }
 }
 
@@ -245,7 +245,7 @@ impl BuiltinCard {
             Some(Err(why)) => return Err(why.clone()),
             Some(Ok(g)) => g,
         };
-        if let Some(why) = lightcraft_gpu::nn::broken_reason() {
+        if let Some(why) = evolight_gpu::nn::broken_reason() {
             return Err(format!("the graphics card stopped working ({why})"));
         }
         if self.fallbacks.load(Ordering::Relaxed) >= GPU_MAX_FALLBACKS {
@@ -302,8 +302,8 @@ impl BuiltinCard {
 /// wrong, so a photo is always finished.
 #[cfg(feature = "denoise")]
 struct CardRunner {
-    gpu: lightcraft_gpu::bm3d::BuiltinRunner,
-    cpu: lightcraft_denoise::builtin::Builtin,
+    gpu: evolight_gpu::bm3d::BuiltinRunner,
+    cpu: evolight_denoise::builtin::Builtin,
     card: Arc<BuiltinCard>,
 }
 

@@ -1,6 +1,6 @@
 # Control protocol
 
-`lightcraft --control 7980` (or `LIGHTCRAFT_CONTROL_PORT=7980`) starts a JSON-lines server on
+`evolight --control 7980` (or `EVOLIGHT_CONTROL_PORT=7980`) starts a JSON-lines server on
 `127.0.0.1:7980` (loopback only). One request per line, one reply per line, in order:
 
 ```text
@@ -16,7 +16,7 @@ many-step drag on a slow frame is not cut off while an app that stops drawing st
 and the app never runs that request later, so a retry doesn't do it twice. This happens on
 Wayland when the window is on a hidden workspace or minimized: the compositor sends no frame
 callbacks, so the app's loop is paused. Keep the window on screen while you drive it, or use
-headless snapshots or `lightcraft-cli mcp` without `--connect`. A request that has already started
+headless snapshots or `evolight-cli mcp` without `--connect`. A request that has already started
 (a long command blocks frames) still gets the full 60 s.
 
 Connections close after five minutes without incoming bytes while the server is waiting for
@@ -50,17 +50,17 @@ it on that connection runs. This keeps an HTTP request (for example a web page's
 UI thread, and at most 16 connections are served at once (further ones get an error line and are closed). Clients
 that hit an error reply should reconnect. The port has no authentication, so only enable it when you need it. The MCP server's connect
 mode ([mcp.md](mcp.md)) is a thin layer over this channel. Implementation:
-`crates/ui-egui/src/control.rs` (methods) and `apps/lightcraft/src/control_server.rs` (transport).
+`crates/ui-egui/src/control.rs` (methods) and `apps/evolight/src/control_server.rs` (transport).
 
 ## Isolated automation profiles
 
-Set `LIGHTCRAFT_CONFIG_DIR` to a fresh directory to isolate UI preferences, app logs, the emergency
+Set `EVOLIGHT_CONFIG_DIR` to a fresh directory to isolate UI preferences, app logs, the emergency
 panic log, the GPU initialization marker, camera profiles and default model folders. The nonempty
 value is used as the complete settings directory. Unset retains the normal platform paths; an explicit
 empty value disables the settings directory, while the emergency panic log retains its system-temp path.
 Explicit model-directory environment variables still take precedence over their defaults.
 Also pass `--library DIR` with a separate scratch library: the configuration override does not change
-the default photo-library location. Do not use `--memory` or `LIGHTCRAFT_NO_PREFS` when testing persistence.
+the default photo-library location. Do not use `--memory` or `EVOLIGHT_NO_PREFS` when testing persistence.
 
 A native acceptance run must reject the stderr message `rendering headlessly`: `ui.screenshot`
 automatically uses the CPU fallback after two seconds without a presented frame. That fallback is useful
@@ -89,7 +89,7 @@ filmstrip is visible.
 | `engine.commands` | — | Engine + UI commands: id, label, menu, shortcut, params doc, enabled |
 | `ui.menu.list` | — | Menu entries (flat: id, label, menu path, shortcut, enabled) |
 | `ui.menu.tree` | — | The menu bar as shown (File … Help): items `{id, params?, label, shortcut?, enabled, checked?}`, separators, submenus — the model behind the native macOS menu bar and the in-window menus |
-| `ui.inspect` | — | UI state, window, `loupe` (`source`, `pending`, `failed` = why its render failed, else `null`, and `region: {full, window, pending}` when a zoomed view also renders the window on screen at no more than 100 % — `full` is the frame it is cut from, `window` its `[x, y, w, h]` — and `regionBefore` for the Before side of a Before/After view), canvas/image rects, `scroll: {grid, filmstrip}` (scroll offsets in points, `null` until drawn), active photo, selection, perf (`frameMs` = layout, `logicMs` = per-frame logic before it, `updateMs` = both, `maxUpdateMs`, `fps`, render queue …, `gpu` = adapter in use, `gpuReason` = why renders don't use the GPU, `gpuFallback` = latest render redone on the CPU and why, `gpuWindowDevice` / `screenTextures` / `mainOnGpu` = renders run on the window's device / can be drawn from the GPU / the loupe shows one now — see `docs/gpu-pipeline.md`, `loupeSteps` = how the loupe showed each photo it was stepped to, measured on the frames it drew: `{steps: [{photo, anyMs, anySource, fullMs, fullSource, sharpMs, dwellMs}], total, current}` — ms from the step to the first frame with anything of the photo, with a full-size picture (`embedded` camera JPEG, `cached` or `render`), and with LightCraft's own render; `dwellMs` is how long it stayed, the latest 256 steps; `total` counts every step finished since launch, a cursor that keeps rising when old steps leave the list; `thumbsMade` = photos given a grid thumbnail since launch (never lowered when old thumbnails are evicted, unlike `thumbTextures`); `previewCache` = the rendered-preview cache: `memEntries` / `memBytes` in memory, the disk cache's `diskHits`, `diskMisses`, `diskWrites` and `diskBudget` (bytes; all `null` without a library on disk), and `loupeEdge` (px, the loupe's longest edge, the size standard previews are built at)), status, memory (bytes per cache, see `library.memory`; plus stage caches — `budgetBytes`, `trimmed`, `sharedSourceBytes` (the one device copy of a big original) — and textures), `export: {running: {total, done, current} \| null, last}`, `notices` (warnings waiting to be shown, e.g. a damaged settings file, or once per session the drive holding the preview cache running low; OK = `button:noticeOk`, and the low-drive notice's `button:noticeSettings` opens Settings ▸ Performance), `quitPrompt` (why quitting was stopped: tasks that would be cut short are running — `button:quitAnyway` cancels them and quits, `button:quitCancel` keeps working — or unsaved changes: `button:quitRetry` / `button:quitAnyway` / `button:quitCancel`), `import: {done, total, imported, cancelled} \| null` (an import runs on a worker thread), `tasks` (other background work: `Find Missing Photos`, `Auto Import`), `activity` (every long-running task in flight as the activity stack in the top-left corner shows it, same shape as `activity.list`; a row appears once its task is 0.5 s old, ids `activity:row:<id>`, ✕ = `activity:cancel:<id>`, `activity:more` expands past 3 rows), `fileDialogs` (commands waiting on a native file dialog, which runs off the UI thread; they run again with the answer when it closes), `copied` (the text the UI last put on the clipboard, `null` until something is copied) |
+| `ui.inspect` | — | UI state, window, `loupe` (`source`, `pending`, `failed` = why its render failed, else `null`, and `region: {full, window, pending}` when a zoomed view also renders the window on screen at no more than 100 % — `full` is the frame it is cut from, `window` its `[x, y, w, h]` — and `regionBefore` for the Before side of a Before/After view), canvas/image rects, `scroll: {grid, filmstrip}` (scroll offsets in points, `null` until drawn), active photo, selection, perf (`frameMs` = layout, `logicMs` = per-frame logic before it, `updateMs` = both, `maxUpdateMs`, `fps`, render queue …, `gpu` = adapter in use, `gpuReason` = why renders don't use the GPU, `gpuFallback` = latest render redone on the CPU and why, `gpuWindowDevice` / `screenTextures` / `mainOnGpu` = renders run on the window's device / can be drawn from the GPU / the loupe shows one now — see `docs/gpu-pipeline.md`, `loupeSteps` = how the loupe showed each photo it was stepped to, measured on the frames it drew: `{steps: [{photo, anyMs, anySource, fullMs, fullSource, sharpMs, dwellMs}], total, current}` — ms from the step to the first frame with anything of the photo, with a full-size picture (`embedded` camera JPEG, `cached` or `render`), and with EvoLight's own render; `dwellMs` is how long it stayed, the latest 256 steps; `total` counts every step finished since launch, a cursor that keeps rising when old steps leave the list; `thumbsMade` = photos given a grid thumbnail since launch (never lowered when old thumbnails are evicted, unlike `thumbTextures`); `previewCache` = the rendered-preview cache: `memEntries` / `memBytes` in memory, the disk cache's `diskHits`, `diskMisses`, `diskWrites` and `diskBudget` (bytes; all `null` without a library on disk), and `loupeEdge` (px, the loupe's longest edge, the size standard previews are built at)), status, memory (bytes per cache, see `library.memory`; plus stage caches — `budgetBytes`, `trimmed`, `sharedSourceBytes` (the one device copy of a big original) — and textures), `export: {running: {total, done, current} \| null, last}`, `notices` (warnings waiting to be shown, e.g. a damaged settings file, or once per session the drive holding the preview cache running low; OK = `button:noticeOk`, and the low-drive notice's `button:noticeSettings` opens Settings ▸ Performance), `quitPrompt` (why quitting was stopped: tasks that would be cut short are running — `button:quitAnyway` cancels them and quits, `button:quitCancel` keeps working — or unsaved changes: `button:quitRetry` / `button:quitAnyway` / `button:quitCancel`), `import: {done, total, imported, cancelled} \| null` (an import runs on a worker thread), `tasks` (other background work: `Find Missing Photos`, `Auto Import`), `activity` (every long-running task in flight as the activity stack in the top-left corner shows it, same shape as `activity.list`; a row appears once its task is 0.5 s old, ids `activity:row:<id>`, ✕ = `activity:cancel:<id>`, `activity:more` expands past 3 rows), `fileDialogs` (commands waiting on a native file dialog, which runs off the UI thread; they run again with the answer when it closes), `copied` (the text the UI last put on the clipboard, `null` until something is copied) |
 | `ui.widgets` | `{filter?}` | On-screen widgets `{id, rect: [x, y, w, h]}` (screen points) |
 | `ui.clickWidget` / `ui.dragWidget` / `ui.hoverWidget` | `{id, count?, button?, fx?, fy?}` (`button: "right"` right-clicks; `count` is capped at 16) / `{id, toX?, toY?, dx?, dy?, steps?}` (steps are capped at 1000) / `{id, fx?, fy?}` | Real egui input on a widget (hover: the pointer rests on it, e.g. for preset/profile previews). `fx`/`fy` are fractions of the registered rect and may lie outside `[0,1]`; the resulting point must still be inside egui's clipped interaction rect, and a non-finite fraction or resolved point is rejected before any input is queued. Geometry comes from the latest completed layout; if the widget moves before the first event or before a press, or its latest clipped rect no longer contains the point, the request fails with an error instead of clicking another widget or retargeting. A target below an ordinary modal dialog may succeed as a no-op or a backdrop click, because egui routes that input to the dialog; a target covered by a non-modal overlay fails. The blocking library-problem/launch-list window is explicit: its dim takes the modal layer, but a background target fails instead of reporting a no-op success, and only that window's own controls (`button:library…`) pass. Its creation frame is shielded and redrawn with empty input like a prompt's, so background text/pointer input cannot act while the new modal areas settle. A quit prompt or settings notice is a real egui modal scope with a foreground backdrop. Only its own buttons (`button:quit…`, `button:noticeOk`) accept a `ui.clickWidget`; background targets fail, and background keystrokes, text/clipboard input, wheel/zoom input and AccessKit actions are dropped before panels see them. The prompt itself takes Tab/Shift+Tab, Enter/Space on the focused button, and Escape/Enter for the safe default Cancel; AccessKit Focus/Click works when targeted at a prompt button. Its first creation frame (including a Tasks→Unsaved or notice→next-notice transition) is shielded and redrawn with empty input, so a press/release in that frame, or a held press from before it, cannot act underneath it; a synthetic drag already in progress is canceled. Once settled, raw `ui.click`/`ui.drag`/`ui.pointer` and backdrop clicks are still delivered to the prompt backdrop as no-ops, and the prompt's own button clicks work normally. The area/layer check cannot see a different widget covering the point in the same layer. A `ui.clickWidget` whose widget disappears before its release also fails, after canceling the pointer press without a click or drag (the same rules apply when a click spans several host frames) |
 | `ui.move` / `ui.click` / `ui.drag` | `{x, y, count?, button?}` / `{x, y, toX, toY, steps?}` | Raw pointer input, screen points (the same click and step caps apply). In every pointer and scroll gesture a number other than `count` and `steps` must lie between −1,000,000 and 1,000,000, or the request is refused and queues nothing |
@@ -123,12 +123,12 @@ filmstrip is visible.
 | `app.quit` | — | Close the app |
 
 White balance (`develop.set` with `wb.temp` / `wb.tint`, `develop.wb`, `develop.wbPick`) is in Kelvin and tint on
-raws with colour matrices — in the file (DNG) or measured for the camera model (`lightcraft_raw::spectral`; issue
-#730) — and on raws whose white-balance presets give the scale (`lightcraft_raw::kelvin_presets`), where As Shot
+raws with colour matrices — in the file (DNG) or measured for the camera model (`evolight_raw::spectral`; issue
+#730) — and on raws whose white-balance presets give the scale (`evolight_raw::kelvin_presets`), where As Shot
 reads the file's as-shot white; rendered files and raws without matrices use a relative scale
 whose 6500 K / 0 is the as-shot look (the Edit panel shows it as −100..+100). The stored `wb` of such a Kelvin raw
 says `"scale": "kelvin"`; a partial settings JSON given to `develop.merge`, to a preset's `wb`, or to
-`lightcraft-cli render --settings` and which sets `temp` / `tint` **without** `scale` keeps the relative meaning it
+`evolight-cli render --settings` and which sets `temp` / `tint` **without** `scale` keeps the relative meaning it
 always had (6500 = as shot) on every raw, so agents that mean Kelvin on a Kelvin raw pass `"scale": "kelvin"` or use
 `develop.set` / `develop.wb`. A partial that names only one of `temp` / `tint` is resolved against the photo
 (issue #2910): the photo's white balance is first brought onto the partial's scale with the photo's own as-shot
@@ -179,7 +179,7 @@ within that brush component; it is distinct from subtracting the component from 
 
 With a persistent library, every command that changes something is written to the catalog journal (fsynced) before
 it replies. If that write fails (disk full, volume gone, permissions), the command replies `ok: false` with
-`"saved in memory but not written to disk: <reason>; LightCraft will retry"`. The change itself **is** applied (and
+`"saved in memory but not written to disk: <reason>; EvoLight will retry"`. The change itself **is** applied (and
 undoable) and stays queued: the next command, and the app's frame loop every couple of seconds, retry the write, so
 nothing is lost once the disk is writable again — unless the app quits first. Meanwhile `ui.inspect` → `unsaved`
 is `{ops, error}` (else `null`), `library.info` reports `unsavedOps` / `unsavedError`, and the top bar's cloud icon
@@ -203,8 +203,8 @@ then are refused with a toast.
 
 With Settings ▸ General ▸ At launch set to Ask me (`ui.set {"settings": {"atLaunch": "ask"}}`; `"last"`, the
 default, opens the last library), or Alt/Option held during the first 2 s after the window appears, the desktop app
-shows a window listing the recent libraries (issue #1290). `--library` and `LIGHTCRAFT_LIBRARY` skip it, and so does
-`--memory`; `lightcraft-cli` never shows it. `ui.inspect` → `libraryProblem.chooser` is `{libraries: [{path,
+shows a window listing the recent libraries (issue #1290). `--library` and `EVOLIGHT_LIBRARY` skip it, and so does
+`--memory`; `evolight-cli` never shows it. `ui.inspect` → `libraryProblem.chooser` is `{libraries: [{path,
 lastOpened, available, checking, reason}], selected, libraryOpen}` (else `null`; `libraryOpen: true` when it was opened
 over the last library with Alt). Each library is checked read-only on a worker thread of its own, never on the UI
 thread (the folder and its catalog file are looked at, never locked or written, so a library another program has
@@ -233,14 +233,14 @@ doesn't hold it) and `{clear: true}` (or `app.clearRecentLibraries`) all of them
 
 ### Open Library on a Lightroom catalog
 
-`app.openLibrary` never makes a LightCraft library inside a Lightroom Classic catalog (issue #891): given the catalog
+`app.openLibrary` never makes a EvoLight library inside a Lightroom Classic catalog (issue #891): given the catalog
 folder (it holds a `*.lrcat`), one of its `*.lrdata` / `*.lrcat-data` folders or `Backups/`, the `.lrcat` itself or
 its `-wal` / `-shm` / `.lock` files, it keeps the library open now and returns `{opened: false, lightroomCatalog:
 <the .lrcat found, or null>, path}`; the window shows a dialog whose `button:dialogOk` (Import Lightroom Catalog…, or
 `ui.dialog.confirm`) runs `file.importLightroom` with that catalog (no catalog found: it asks for one), which then
-asks where the catalog goes when `settings.lightroomImport` is `"ask"` (next section), and `button:dialogCancel` (`ui.dialog.cancel`) does nothing. A folder that is a LightCraft library (`catalog.snap` / `catalog.log`) always
+asks where the catalog goes when `settings.lightroomImport` is `"ask"` (next section), and `button:dialogCancel` (`ui.dialog.cancel`) does nothing. A folder that is a EvoLight library (`catalog.snap` / `catalog.log`) always
 opens as one. With no library open (the library problem window) it is an error instead. The engine refuses the same
-places (`EngineError::LightroomCatalog`, so `lightcraft-cli --library` and `mcp --library` too). `library.importLightroom
+places (`EngineError::LightroomCatalog`, so `evolight-cli --library` and `mcp --library` too). `library.importLightroom
 {status: true}` reports the catalog's `path` after the task ends as well as while it runs.
 
 ### Import Lightroom Catalog: where the catalog goes
@@ -322,14 +322,14 @@ at each read, not every intermediate change.
 The same queries and edits are available through the connected CLI:
 
 ```sh
-lightcraft-cli run --connect 127.0.0.1:7980 library.state photo.inspect develop.controls section=light
-lightcraft-cli run --connect 127.0.0.1:7980 develop.adjust control=light.exposure delta=0.1 photo.inspect
+evolight-cli run --connect 127.0.0.1:7980 library.state photo.inspect develop.controls section=light
+evolight-cli run --connect 127.0.0.1:7980 develop.adjust control=light.exposure delta=0.1 photo.inspect
 ```
 
-For MCP, use `lightcraft-cli mcp --connect 127.0.0.1:7980`: `run_command` reaches the commands above,
+For MCP, use `evolight-cli mcp --connect 127.0.0.1:7980`: `run_command` reaches the commands above,
 `list_controls` / `set_develop` provide slider helpers, and `resources/read` polls
-`lightcraft://library`, `lightcraft://photo/active`, `lightcraft://develop/active` and
-`lightcraft://controls` ([mcp.md](mcp.md#resources)). Headless CLI/MCP mode owns a separate engine
+`evolight://library`, `evolight://photo/active`, `evolight://develop/active` and
+`evolight://controls` ([mcp.md](mcp.md#resources)). Headless CLI/MCP mode owns a separate engine
 session; use connect mode for feedback from edits in the desktop app.
 
 The import review's **Thumbnail size** slider is `slider:importThumbSize` in `ui.widgets`.
@@ -351,15 +351,15 @@ scissor clipping as egui's GPU backends, so the image matches the window (minus 
 - **In the running app:** `{"method": "ui.screenshot", "params": {"path": "a.png", "headless": true}}`.
   The UI is drawn into an offscreen context from the app's logic tick, which keeps running when the
   window is occluded or the display sleeps/locks. Windowed screenshots fall back to this after 2 s.
-- **Without any app window:** `lightcraft-cli snapshot` runs a whole app session headlessly.
+- **Without any app window:** `evolight-cli snapshot` runs a whole app session headlessly.
   Photo development also defaults to the CPU, so the initial frames do not discover a GPU adapter
-  or load a graphics driver. `LIGHTCRAFT_GPU=1` does not opt snapshots back into GPU rendering.
+  or load a graphics driver. `EVOLIGHT_GPU=1` does not opt snapshots back into GPU rendering.
   This applies only to the snapshot session: even `--library DIR` leaves the desktop app's saved
   `ui.json` preferences untouched. It answers the same control requests (same handler) from a JSON-lines script:
 
 ```text
-lightcraft-cli snapshot --demo -o grid.png --size 1600x1000 [--scale 2]
-lightcraft-cli snapshot --library DIR --script tour.jsonl -o shot.png
+evolight-cli snapshot --demo -o grid.png --size 1600x1000 [--scale 2]
+evolight-cli snapshot --library DIR --script tour.jsonl -o shot.png
 ```
 
 Headless screenshot dimensions must be finite and at least one logical point, with a finite,
@@ -403,7 +403,7 @@ the pending name. `ui.dialog.confirm` starts the same import into the selected a
 
 ## Panel docking
 
-Library, Tools, and Presets panels can be regrouped, split, floated within the app window, closed, and reopened. Tools keeps the current Edit/Crop/Masking mode; the photo view and filmstrip stay together. The document/session view is protected. Layouts, active tabs, panel visibility, and floating rectangles are saved with the app's existing UI preferences as a craft-ui docking workspace (`docking`: `version`, `layout`, `hidden`, `saved`, `locked`); settings written before workspaces had a `version` load as version 1. These operations do not edit document contents.
+Library, Tools, and Presets panels can be regrouped, split, floated within the app window, closed, and reopened. Tools keeps the current Edit/Crop/Masking mode; the photo view and filmstrip stay together. The document/session view is protected. Layouts, active tabs, panel visibility, and floating rectangles are saved with the app's existing UI preferences as a evo-ui docking workspace (`docking`: `version`, `layout`, `hidden`, `saved`, `locked`); settings written before workspaces had a `version` load as version 1. These operations do not edit document contents.
 
 Panel IDs: `library`, `tools`, `presets`. The protected center is `canvas`.
 

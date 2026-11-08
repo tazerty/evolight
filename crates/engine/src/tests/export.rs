@@ -6,12 +6,12 @@ use crate::Session;
 use crate::export::{ExportFormat, ExportOptions, export_photo};
 use crate::tests_xmp::{synthetic_dng_with, synthetic_psd_with_metadata, temp_dir};
 
-fn jpeg_with_xmp(metadata: &lightcraft_meta::Metadata) -> Vec<u8> {
+fn jpeg_with_xmp(metadata: &evolight_meta::Metadata) -> Vec<u8> {
     let pixels = [96u8; 12];
-    let image = lightcraft_codecs::EncodeImage::new(2, 2, 3, lightcraft_codecs::Samples::U8(&pixels));
-    let xmp = lightcraft_meta::write_xmp(metadata, None);
-    let encoded = lightcraft_codecs::EncodeMeta { xmp: Some(&xmp), ..Default::default() };
-    lightcraft_codecs::encode_jpeg(&image, 90, lightcraft_codecs::ChromaSubsampling::S444, &encoded).unwrap()
+    let image = evolight_codecs::EncodeImage::new(2, 2, 3, evolight_codecs::Samples::U8(&pixels));
+    let xmp = evolight_meta::write_xmp(metadata, None);
+    let encoded = evolight_codecs::EncodeMeta { xmp: Some(&xmp), ..Default::default() };
+    evolight_codecs::encode_jpeg(&image, 90, evolight_codecs::ChromaSubsampling::S444, &encoded).unwrap()
 }
 
 #[test]
@@ -70,8 +70,8 @@ fn original_export_copies_the_file_and_writes_its_edits_beside_it() {
     let e = export_photo(&mut s, id, &o, 1).unwrap();
     assert_eq!(e.file_name, "Shot.dng");
     assert!(e.sidecars.is_empty());
-    let back = lightcraft_raw::decode(&e.bytes).expect("our DNG decodes");
-    let orig = lightcraft_raw::decode(&dng).unwrap();
+    let back = evolight_raw::decode(&e.bytes).expect("our DNG decodes");
+    let orig = evolight_raw::decode(&dng).unwrap();
     assert_eq!((back.width, back.height), (orig.width, orig.height));
     assert_eq!(back.data, orig.data, "lossless");
     let out = dir.join("out.dng");
@@ -96,7 +96,7 @@ fn original_and_dng_need_a_file() {
 fn dng_export_rejects_non_raw_photos() {
     let dir = temp_dir("export-dng-jpeg");
     let src = dir.join("a.png");
-    let img = lightcraft_raster::Rgba8::from_fn(32, 24, |x, y| [(x * 8) as u8, (y * 10) as u8, 90, 255]);
+    let img = evolight_raster::Rgba8::from_fn(32, 24, |x, y| [(x * 8) as u8, (y * 10) as u8, 90, 255]);
     std::fs::write(&src, crate::export::encode_image(&img, &ExportOptions { format: ExportFormat::Png, ..Default::default() }).unwrap()).unwrap();
     let mut s = Session::new().with_fs();
     s.execute("library.import", &json!({"paths": [src.to_string_lossy()]})).unwrap();
@@ -231,7 +231,7 @@ fn named_builtin_presets_expand_round_trip_and_apply() {
     // is a demo scene at 2048×1365 instead of the demo library's 6000×4000: a preset only sets a
     // long edge, so its behaviour is the same at this size, and every preset edge (1080, 1920,
     // 2048) still lands — the largest one exactly at the fixture's own size, unresized.
-    use lightcraft_catalog::{Op, Photo, Source};
+    use evolight_catalog::{Op, Photo, Source};
     let id = s.catalog.alloc_photo_id();
     let photo = Photo::new(id, Source::Demo { scene: 1 }, "LC01200.JPG", "JPEG", 2048, 1365, "2026-09-28T09:30:00");
     s.catalog.apply(Op::AddPhoto { photo: Box::new(photo.clone()) }).unwrap();
@@ -317,7 +317,7 @@ fn prepared_exports_run_on_another_thread() {
 ///
 /// Issue #675: this test runs beside every other engine test, many of them rendering on the GPU.
 /// It asks only about its own export (`Exported::gpu_fallback`), never the process-wide
-/// `lightcraft_gpu::last_fallback` another thread's render overwrites, and the simulated failure
+/// `evolight_gpu::last_fallback` another thread's render overwrites, and the simulated failure
 /// switches the GPU off for this thread alone, so neither the fault nor `reset_failures` reaches
 /// the other tests.
 #[test]
@@ -328,30 +328,30 @@ fn export_falls_back_to_the_cpu_when_gpu_work_is_lost() {
     s.execute("develop.set", &json!({"control": "effects.clarity", "value": 20})).unwrap();
     let o = ExportOptions::from_json(&json!({"format": "png"}));
     let mean = |b: &[u8]| {
-        let d = lightcraft_codecs::decode(b, Default::default()).unwrap().image;
+        let d = evolight_codecs::decode(b, Default::default()).unwrap().image;
         d.data.iter().map(|p| (p[0] + p[1] + p[2]) as f64).sum::<f64>() / (3 * d.data.len()) as f64
     };
-    let gpu = lightcraft_gpu::available();
+    let gpu = evolight_gpu::available();
     let healthy = mean(&export_photo(&mut s, id, &o, 1).unwrap().bytes);
-    lightcraft_gpu::inject_fault(lightcraft_gpu::Fault::DropWork);
+    evolight_gpu::inject_fault(evolight_gpu::Fault::DropWork);
     let faulted = export_photo(&mut s, id, &o, 1).unwrap();
     if gpu {
         let why = faulted.gpu_fallback.clone().unwrap_or_default();
         assert!(why.contains("incomplete"), "{why}");
         // the GPU is off for this thread now: the next export is not even tried on it
-        assert!(!lightcraft_gpu::available());
-        assert!(lightcraft_gpu::unavailable_reason().unwrap_or_default().contains("incomplete"), "{:?}", lightcraft_gpu::unavailable_reason());
+        assert!(!evolight_gpu::available());
+        assert!(evolight_gpu::unavailable_reason().unwrap_or_default().contains("incomplete"), "{:?}", evolight_gpu::unavailable_reason());
         // the thread's own `inject_fault` stopped only its own GPU use: the others still have it
-        let elsewhere = std::thread::spawn(|| (lightcraft_gpu::available(), lightcraft_gpu::unavailable_reason())).join().unwrap();
+        let elsewhere = std::thread::spawn(|| (evolight_gpu::available(), evolight_gpu::unavailable_reason())).join().unwrap();
         assert_eq!(elsewhere, (true, None), "a simulated failure must not switch the GPU off for the other threads");
     } else {
         assert_eq!(faulted.gpu_fallback, None);
     }
     let cpu = export_photo(&mut s, id, &o, 1).unwrap();
     assert_eq!(cpu.gpu_fallback, None, "not tried on the GPU: no fallback to report");
-    lightcraft_gpu::reset_failures();
-    assert_eq!(lightcraft_gpu::available(), gpu, "reset_failures gives this thread the GPU back");
-    let px = |b: &[u8]| lightcraft_codecs::decode(b, Default::default()).unwrap().image.data;
+    evolight_gpu::reset_failures();
+    assert_eq!(evolight_gpu::available(), gpu, "reset_failures gives this thread the GPU back");
+    let px = |b: &[u8]| evolight_codecs::decode(b, Default::default()).unwrap().image.data;
     assert!(px(&faulted.bytes) == px(&cpu.bytes), "the fallback is the CPU render");
     let m = mean(&faulted.bytes);
     assert!(m > 0.02, "not black: mean {m}");
@@ -359,10 +359,10 @@ fn export_falls_back_to_the_cpu_when_gpu_work_is_lost() {
 }
 
 /// A JPEG original `dir/IMG_1.jpg` imported into a library on disk.
-fn library_with_jpeg(tag: &str) -> (Session, lightcraft_catalog::PhotoId, std::path::PathBuf, std::path::PathBuf, Vec<u8>) {
+fn library_with_jpeg(tag: &str) -> (Session, evolight_catalog::PhotoId, std::path::PathBuf, std::path::PathBuf, Vec<u8>) {
     let dir = temp_dir(tag);
     let src = dir.join("IMG_1.jpg");
-    let img = lightcraft_raster::Rgba8::from_fn(48, 32, |x, y| [(x * 5) as u8, (y * 7) as u8, 120, 255]);
+    let img = evolight_raster::Rgba8::from_fn(48, 32, |x, y| [(x * 5) as u8, (y * 7) as u8, 120, 255]);
     let bytes = crate::export::encode_image(&img, &ExportOptions::default()).unwrap();
     std::fs::write(&src, &bytes).unwrap();
     let mut s = Session::new().with_fs();
@@ -447,7 +447,7 @@ fn keyword_export_preserves_the_previous_file_on_write_failure() {
     s.execute("keyword.export", &params).unwrap();
     let previous = std::fs::read(&path).unwrap();
     {
-        let _fault = lightcraft_catalog::safe_file::fail_writes_after(4);
+        let _fault = evolight_catalog::safe_file::fail_writes_after(4);
         assert!(s.execute("keyword.export", &params).is_err(), "keyword.export must report the failed write");
     }
     assert_eq!(std::fs::read(&path).unwrap(), previous, "the prior export is kept");
@@ -461,7 +461,7 @@ fn preset_exports_preserve_previous_files_on_write_failure() {
     let dir = temp_dir("preset-export-failure");
     let mut s = Session::new();
     for (command, selection, file) in
-        [("preset.export", json!({"ids": ["lc.warm-glow"]}), "look.lcpreset"), ("curve.exportPresets", json!({"names": ["Linear"]}), "curve.lccurve")]
+        [("preset.export", json!({"ids": ["lc.warm-glow"]}), "look.evolightpreset"), ("curve.exportPresets", json!({"names": ["Linear"]}), "curve.lccurve")]
     {
         let path = dir.join(file);
         let mut params = selection;
@@ -469,7 +469,7 @@ fn preset_exports_preserve_previous_files_on_write_failure() {
         s.execute(command, &params).unwrap();
         let previous = std::fs::read(&path).unwrap();
         {
-            let _fault = lightcraft_catalog::safe_file::fail_writes_after(4);
+            let _fault = evolight_catalog::safe_file::fail_writes_after(4);
             assert!(s.execute(command, &params).is_err(), "{command} must report the failed write");
         }
         assert_eq!(std::fs::read(&path).unwrap(), previous, "{command} preserves the prior export");
@@ -481,7 +481,7 @@ fn preset_exports_preserve_previous_files_on_write_failure() {
 
 fn disk_batch(
     s: &mut Session,
-    id: lightcraft_catalog::PhotoId,
+    id: evolight_catalog::PhotoId,
     o: &ExportOptions,
     to: &crate::export::Destination,
 ) -> Result<Vec<serde_json::Value>, String> {
@@ -570,7 +570,7 @@ fn a_failed_export_write_keeps_the_previous_file() {
     let to = Destination { dir: out.to_string_lossy().to_string(), exact: None };
     let o = ExportOptions { conflict: Conflict::Overwrite, ..Default::default() };
     {
-        let _fault = lightcraft_catalog::safe_file::fail_writes_after(100);
+        let _fault = evolight_catalog::safe_file::fail_writes_after(100);
         let err = disk_batch(&mut s, id, &o, &to).unwrap_err();
         assert!(err.contains("injected"), "{err}");
     }
@@ -612,7 +612,7 @@ fn export_protects_the_target_of_an_imported_symlink() {
 #[test]
 fn exports_are_atomic_without_a_sync() {
     use crate::export::{Conflict, Destination};
-    use lightcraft_catalog::safe_file::syncs_on_this_thread;
+    use evolight_catalog::safe_file::syncs_on_this_thread;
     let (mut s, id, dir, _src, _) = library_with_jpeg("export-nosync");
     let out = dir.join("out");
     let to = Destination { dir: out.to_string_lossy().to_string(), exact: None };
@@ -629,7 +629,7 @@ fn exports_are_atomic_without_a_sync() {
 }
 
 /// The demo library's ocean sunset (a sun far above SDR white), selected and active.
-fn sunset(s: &mut Session) -> lightcraft_catalog::PhotoId {
+fn sunset(s: &mut Session) -> evolight_catalog::PhotoId {
     let id = s.catalog.photos().find(|p| p.meta.title == "Golden horizon").map(|p| p.id).unwrap();
     s.execute("library.select", &json!({"ids": [id.0]})).unwrap();
     id
@@ -637,7 +637,7 @@ fn sunset(s: &mut Session) -> lightcraft_catalog::PhotoId {
 
 #[test]
 fn hdr_jpeg_export_writes_a_gain_map_and_sdr_edits_stay_plain() {
-    use lightcraft_codecs::gainmap;
+    use evolight_codecs::gainmap;
     let mut s = Session::with_demo();
     let id = sunset(&mut s);
     let o = ExportOptions::from_json(&json!({"longEdge": 320, "hdr": true}));
@@ -653,8 +653,8 @@ fn hdr_jpeg_export_writes_a_gain_map_and_sdr_edits_stay_plain() {
     let gm = gainmap::read_jpeg(&e.bytes).unwrap();
     assert!(gm.meta.alternate_headroom > 0.5 && gm.meta.alternate_headroom <= 3.05, "headroom {}", gm.meta.alternate_headroom);
     // the base is the SDR rendition: the same pixels as the SDR export (the decoders agree)
-    let a = lightcraft_codecs::decode(&e.bytes, Default::default()).unwrap();
-    let b = lightcraft_codecs::decode(&plain.bytes, Default::default()).unwrap();
+    let a = evolight_codecs::decode(&e.bytes, Default::default()).unwrap();
+    let b = evolight_codecs::decode(&plain.bytes, Default::default()).unwrap();
     assert_eq!((a.width, a.height), (b.width, b.height));
     let diff = a.image.data.iter().zip(&b.image.data).map(|(p, q)| (p[1] - q[1]).abs()).fold(0.0f32, f32::max);
     assert!(diff < 0.02, "base differs from the SDR export by {diff}");
@@ -671,7 +671,7 @@ fn hdr_float_tiff_keeps_highlights_above_white() {
     let max_of = |s: &mut Session, hdr: bool| {
         let o = ExportOptions::from_json(&json!({"longEdge": 240, "format": "tiff", "bitDepth": 32, "hdr": hdr}));
         let e = export_photo(s, id, &o, 1).unwrap();
-        let d = lightcraft_codecs::decode(&e.bytes, Default::default()).unwrap();
+        let d = evolight_codecs::decode(&e.bytes, Default::default()).unwrap();
         d.image.data.iter().flat_map(|p| p.iter().copied()).fold(0.0f32, f32::max)
     };
     let hdr = max_of(&mut s, true);
@@ -719,16 +719,16 @@ fn hdr_avif_export_hlg() {
 fn remove_location_holds_for_original_and_dng_exports() {
     let dir = temp_dir("export-noloc");
     let gps =
-        lightcraft_meta::Metadata { gps: Some(lightcraft_meta::Gps { latitude: 48.85, longitude: 2.35, altitude: None }), ..Default::default() };
+        evolight_meta::Metadata { gps: Some(evolight_meta::Gps { latitude: 48.85, longitude: 2.35, altitude: None }), ..Default::default() };
     // a raw with no embedded GPS, located in the catalog
     let raw = dir.join("Raw.dng");
     std::fs::write(&raw, synthetic_dng_with(None, Default::default())).unwrap();
     // a JPEG with GPS in its EXIF
     let jpg = dir.join("Geo.jpg");
-    let img = lightcraft_raster::Rgba8::from_fn(32, 24, |x, y| [(x * 8) as u8, (y * 10) as u8, 90, 255]);
-    let exif = lightcraft_meta::write_exif(&gps);
-    let meta = lightcraft_codecs::EncodeMeta { exif: Some(&exif), ..Default::default() };
-    std::fs::write(&jpg, lightcraft_codecs::encode_jpeg(&lightcraft_codecs::EncodeImage::rgba8(&img), 90, Default::default(), &meta).unwrap())
+    let img = evolight_raster::Rgba8::from_fn(32, 24, |x, y| [(x * 8) as u8, (y * 10) as u8, 90, 255]);
+    let exif = evolight_meta::write_exif(&gps);
+    let meta = evolight_codecs::EncodeMeta { exif: Some(&exif), ..Default::default() };
+    std::fs::write(&jpg, evolight_codecs::encode_jpeg(&evolight_codecs::EncodeImage::rgba8(&img), 90, Default::default(), &meta).unwrap())
         .unwrap();
     let mut s = Session::new().with_fs();
     s.execute("library.import", &json!({"paths": [raw.to_string_lossy(), jpg.to_string_lossy()]})).unwrap();
@@ -738,7 +738,7 @@ fn remove_location_holds_for_original_and_dng_exports() {
     let opts = |f: &str, remove: bool| ExportOptions::from_json(&json!({"format": f, "removeLocation": remove}));
 
     // original raw: the sidecar keeps the location unless it is removed
-    let side = |e: &crate::export::Exported| lightcraft_meta::parse_xmp(std::str::from_utf8(&e.sidecars[0].1).unwrap()).unwrap().metadata;
+    let side = |e: &crate::export::Exported| evolight_meta::parse_xmp(std::str::from_utf8(&e.sidecars[0].1).unwrap()).unwrap().metadata;
     let kept = side(&export_photo(&mut s, rid, &opts("original", false), 1).unwrap());
     assert!(kept.gps.is_some() && kept.city.is_some());
     let gone = side(&export_photo(&mut s, rid, &opts("original", true), 1).unwrap());
@@ -746,14 +746,14 @@ fn remove_location_holds_for_original_and_dng_exports() {
 
     // dng: the embedded packet
     let e = export_photo(&mut s, rid, &opts("dng", false), 1).unwrap();
-    assert!(lightcraft_meta::extract(&e.bytes).gps.is_some());
+    assert!(evolight_meta::extract(&e.bytes).gps.is_some());
     let e = export_photo(&mut s, rid, &opts("dng", true), 1).unwrap();
-    let m = lightcraft_meta::extract(&e.bytes);
+    let m = evolight_meta::extract(&e.bytes);
     assert!(m.gps.is_none() && m.city.is_none(), "{m:?}");
 
     // original JPEG embedding GPS: copied as is normally, refused when the location must go
     let e = export_photo(&mut s, jid, &opts("original", false), 1).unwrap();
-    assert!(lightcraft_meta::extract(&e.bytes).gps.is_some());
+    assert!(evolight_meta::extract(&e.bytes).gps.is_some());
     let err = export_photo(&mut s, jid, &opts("original", true), 1).err().unwrap();
     assert!(err.contains("can't remove the location") && err.contains("export as JPEG"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
@@ -764,10 +764,10 @@ fn remove_location_refuses_original_with_embedded_place_names() {
     let dir = temp_dir("export-noloc-place-fields");
     let value = "Embedded Place";
     let cases = [
-        ("sublocation", lightcraft_meta::Metadata { sublocation: Some(value.into()), ..Default::default() }),
-        ("city", lightcraft_meta::Metadata { city: Some(value.into()), ..Default::default() }),
-        ("state", lightcraft_meta::Metadata { state: Some(value.into()), ..Default::default() }),
-        ("country", lightcraft_meta::Metadata { country: Some(value.into()), ..Default::default() }),
+        ("sublocation", evolight_meta::Metadata { sublocation: Some(value.into()), ..Default::default() }),
+        ("city", evolight_meta::Metadata { city: Some(value.into()), ..Default::default() }),
+        ("state", evolight_meta::Metadata { state: Some(value.into()), ..Default::default() }),
+        ("country", evolight_meta::Metadata { country: Some(value.into()), ..Default::default() }),
     ];
     let mut paths = Vec::new();
     for (name, metadata) in &cases {
@@ -782,7 +782,7 @@ fn remove_location_refuses_original_with_embedded_place_names() {
     for (name, _) in cases {
         let photo_id = session.catalog.photos().find(|p| p.file_name == format!("{name}.jpg")).unwrap().id;
         let original = std::fs::read(dir.join(format!("{name}.jpg"))).unwrap();
-        let embedded = lightcraft_meta::try_extract(&original).unwrap();
+        let embedded = evolight_meta::try_extract(&original).unwrap();
         assert!(embedded.gps.is_none(), "{name} fixture should isolate place names");
         let place_name = match name {
             "sublocation" => embedded.sublocation.as_deref(),
@@ -803,12 +803,12 @@ fn remove_location_refuses_original_with_unreadable_non_psd_xmp() {
     let dir = temp_dir("export-noloc-malformed-xmp");
     let path = dir.join("Unreadable.jpg");
     let pixels = [96u8; 12];
-    let image = lightcraft_codecs::EncodeImage::new(2, 2, 3, lightcraft_codecs::Samples::U8(&pixels));
+    let image = evolight_codecs::EncodeImage::new(2, 2, 3, evolight_codecs::Samples::U8(&pixels));
     let xmp = "<x:xmpmeta><broken";
-    let encoded = lightcraft_codecs::EncodeMeta { xmp: Some(xmp), ..Default::default() };
-    let bytes = lightcraft_codecs::encode_jpeg(&image, 90, lightcraft_codecs::ChromaSubsampling::S444, &encoded).unwrap();
-    assert!(lightcraft_meta::parse_xmp(xmp).is_err(), "fixture XMP should be malformed");
-    let metadata = lightcraft_meta::try_extract(&bytes).unwrap();
+    let encoded = evolight_codecs::EncodeMeta { xmp: Some(xmp), ..Default::default() };
+    let bytes = evolight_codecs::encode_jpeg(&image, 90, evolight_codecs::ChromaSubsampling::S444, &encoded).unwrap();
+    assert!(evolight_meta::parse_xmp(xmp).is_err(), "fixture XMP should be malformed");
+    let metadata = evolight_meta::try_extract(&bytes).unwrap();
     assert!(metadata.gps.is_none() && metadata.city.is_none(), "best-effort extraction omits malformed XMP");
     std::fs::write(&path, bytes).unwrap();
 
@@ -827,7 +827,7 @@ fn remove_location_original_place_refusal_writes_no_files() {
 
     let dir = temp_dir("export-noloc-place-no-write");
     let source = dir.join("City.jpg");
-    let original = jpeg_with_xmp(&lightcraft_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
+    let original = jpeg_with_xmp(&evolight_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
     std::fs::write(&source, &original).unwrap();
     let output = dir.join("out");
     std::fs::create_dir_all(&output).unwrap();
@@ -858,7 +858,7 @@ fn remove_location_original_place_refusal_writes_no_files() {
 fn remove_location_checks_embedded_places_after_catalog_clear() {
     let dir = temp_dir("export-noloc-place-catalog-clear");
     let source = dir.join("City.jpg");
-    let original = jpeg_with_xmp(&lightcraft_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
+    let original = jpeg_with_xmp(&evolight_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
     std::fs::write(&source, &original).unwrap();
 
     let mut session = Session::new().with_fs();
@@ -867,7 +867,7 @@ fn remove_location_checks_embedded_places_after_catalog_clear() {
     assert_eq!(session.catalog.photo(id).unwrap().meta.city, "Embedded Place");
     session.execute("photo.setMeta", &json!({"ids": [id.0], "city": ""})).unwrap();
     assert!(session.catalog.photo(id).unwrap().meta.city.is_empty());
-    assert_eq!(lightcraft_meta::try_extract(&std::fs::read(&source).unwrap()).unwrap().city.as_deref(), Some("Embedded Place"));
+    assert_eq!(evolight_meta::try_extract(&std::fs::read(&source).unwrap()).unwrap().city.as_deref(), Some("Embedded Place"));
 
     let options = ExportOptions { format: ExportFormat::Original, remove_location: true, ..Default::default() };
     let error = export_photo(&mut session, id, &options, 1).err().expect("embedded place name should refuse Original export");
@@ -881,13 +881,13 @@ fn remove_location_allows_original_without_embedded_location() {
     let embedded_path = dir.join("Embedded.jpg");
     let no_location_path = dir.join("NoLocation.jpg");
     let blank_path = dir.join("Blank.jpg");
-    let embedded = jpeg_with_xmp(&lightcraft_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
+    let embedded = jpeg_with_xmp(&evolight_meta::Metadata { city: Some("Embedded Place".into()), ..Default::default() });
     let no_location = jpeg_with_xmp(&Default::default());
-    let blank = jpeg_with_xmp(&lightcraft_meta::Metadata { city: Some("  \t".into()), ..Default::default() });
+    let blank = jpeg_with_xmp(&evolight_meta::Metadata { city: Some("  \t".into()), ..Default::default() });
     std::fs::write(&embedded_path, &embedded).unwrap();
     std::fs::write(&no_location_path, &no_location).unwrap();
     std::fs::write(&blank_path, &blank).unwrap();
-    assert!(lightcraft_meta::try_extract(&blank).unwrap().city.is_none(), "whitespace-only XMP place names are blank");
+    assert!(evolight_meta::try_extract(&blank).unwrap().city.is_none(), "whitespace-only XMP place names are blank");
 
     let mut session = Session::new().with_fs();
     session
@@ -904,7 +904,7 @@ fn remove_location_allows_original_without_embedded_location() {
     let keep = ExportOptions { format: ExportFormat::Original, ..Default::default() };
     let kept = export_photo(&mut session, embedded_id, &keep, 1).unwrap();
     assert_eq!(kept.bytes, embedded, "removeLocation=false still copies the source byte for byte");
-    assert_eq!(lightcraft_meta::try_extract(&kept.bytes).unwrap().city.as_deref(), Some("Embedded Place"));
+    assert_eq!(evolight_meta::try_extract(&kept.bytes).unwrap().city.as_deref(), Some("Embedded Place"));
 
     let remove = ExportOptions { format: ExportFormat::Original, remove_location: true, ..Default::default() };
     for (id, source) in [(no_location_id, &no_location), (blank_id, &blank)] {
@@ -916,7 +916,7 @@ fn remove_location_allows_original_without_embedded_location() {
     let catalog_only = export_photo(&mut session, no_location_id, &remove, 1).unwrap();
     let sidecar = catalog_only.sidecars.first().unwrap().1.as_slice();
     let packet = std::str::from_utf8(sidecar).unwrap();
-    assert!(lightcraft_meta::parse_xmp(packet).unwrap().metadata.city.is_none(), "catalog-only place name is removed from the sidecar");
+    assert!(evolight_meta::parse_xmp(packet).unwrap().metadata.city.is_none(), "catalog-only place name is removed from the sidecar");
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -933,7 +933,7 @@ fn metadata_none_in_any_case_exports_no_metadata() {
         for (k, v) in extra.as_object().unwrap() {
             p[k] = v.clone();
         }
-        lightcraft_meta::extract(&export_photo(s, id, &ExportOptions::from_params(&p).unwrap(), 1).unwrap().bytes)
+        evolight_meta::extract(&export_photo(s, id, &ExportOptions::from_params(&p).unwrap(), 1).unwrap().bytes)
     };
     let all = export(&mut s, json!({}));
     assert!(all.gps.is_some() && all.city.is_some(), "the default keeps everything: {all:?}");
@@ -950,7 +950,7 @@ fn metadata_none_in_any_case_exports_no_metadata() {
 fn export_writes_camera_make_and_lens_make_to_exif() {
     let dir = temp_dir("export-raw-exif");
     let src = dir.join("Canon.dng");
-    let meta = lightcraft_meta::Metadata {
+    let meta = evolight_meta::Metadata {
         make: Some("Canon".into()),
         model: Some("EOS R5".into()),
         lens_make: Some("Sigma".into()),
@@ -962,7 +962,7 @@ fn export_writes_camera_make_and_lens_make_to_exif() {
     s.execute("library.import", &json!({"paths": [src.to_string_lossy()]})).unwrap();
     let id = s.catalog.photos().next().unwrap().id;
     let e = export_photo(&mut s, id, &ExportOptions::from_json(&json!({"format": "jpeg", "longEdge": 64, "metadata": "all"})), 1).unwrap();
-    let back = lightcraft_meta::extract(&e.bytes);
+    let back = evolight_meta::extract(&e.bytes);
     assert_eq!(back.make.as_deref(), Some("Canon"), "EXIF Make is missing: {back:?}");
     assert_eq!(back.model.as_deref(), Some("EOS R5"), "EXIF Model holds the model alone: {back:?}");
     assert_eq!(back.lens_make.as_deref(), Some("Sigma"), "EXIF LensMake is missing: {back:?}");
@@ -973,10 +973,10 @@ fn export_writes_camera_make_and_lens_make_to_exif() {
 #[test]
 fn remove_location_refuses_a_raw_that_embeds_gps() {
     let dir = temp_dir("export-noloc-raw");
-    let gps = lightcraft_meta::Metadata { gps: Some(lightcraft_meta::Gps { latitude: 10.0, longitude: 20.0, altitude: None }), ..Default::default() };
+    let gps = evolight_meta::Metadata { gps: Some(evolight_meta::Gps { latitude: 10.0, longitude: 20.0, altitude: None }), ..Default::default() };
     let raw = dir.join("Geo.dng");
-    let bytes = synthetic_dng_with(Some(&lightcraft_meta::write_xmp(&gps, None)), Default::default());
-    assert!(lightcraft_meta::extract(&bytes).gps.is_some(), "fixture embeds GPS");
+    let bytes = synthetic_dng_with(Some(&evolight_meta::write_xmp(&gps, None)), Default::default());
+    assert!(evolight_meta::extract(&bytes).gps.is_some(), "fixture embeds GPS");
     std::fs::write(&raw, bytes).unwrap();
     let mut s = Session::new().with_fs();
     s.execute("library.import", &json!({"paths": [raw.to_string_lossy()]})).unwrap();
@@ -989,10 +989,10 @@ fn remove_location_refuses_a_raw_that_embeds_gps() {
 #[test]
 fn remove_location_refuses_a_psd_that_embeds_gps() {
     let dir = temp_dir("export-noloc-psd");
-    let gps = lightcraft_meta::Metadata { gps: Some(lightcraft_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
+    let gps = evolight_meta::Metadata { gps: Some(evolight_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
     let path = dir.join("Geo.psd");
     let bytes = synthetic_psd_with_metadata(&gps);
-    assert_eq!(lightcraft_meta::extract(&bytes).gps, gps.gps, "the fixture embeds EXIF GPS");
+    assert_eq!(evolight_meta::extract(&bytes).gps, gps.gps, "the fixture embeds EXIF GPS");
     std::fs::write(&path, &bytes).unwrap();
     let mut session = Session::new().with_fs();
     session.execute("library.import", &json!({"paths": [path.to_string_lossy()]})).unwrap();
@@ -1007,11 +1007,11 @@ fn remove_location_refuses_a_psd_with_unreadable_xmp() {
     let dir = temp_dir("export-noloc-psd-xmp");
     let path = dir.join("Unreadable.psd");
     let pixels = [40, 80, 120];
-    let image = lightcraft_codecs::EncodeImage::new(1, 1, 3, lightcraft_codecs::Samples::U8(&pixels));
+    let image = evolight_codecs::EncodeImage::new(1, 1, 3, evolight_codecs::Samples::U8(&pixels));
     let xmp = "<x:xmpmeta><broken";
-    let embedded = lightcraft_codecs::EncodeMeta { xmp: Some(xmp), ..Default::default() };
-    let bytes = lightcraft_codecs::encode_psd(&image, &embedded).unwrap();
-    assert_eq!(lightcraft_meta::extract(&bytes), lightcraft_meta::Metadata::default(), "ordinary extraction stays best-effort");
+    let embedded = evolight_codecs::EncodeMeta { xmp: Some(xmp), ..Default::default() };
+    let bytes = evolight_codecs::encode_psd(&image, &embedded).unwrap();
+    assert_eq!(evolight_meta::extract(&bytes), evolight_meta::Metadata::default(), "ordinary extraction stays best-effort");
     std::fs::write(&path, bytes).unwrap();
 
     let mut session = Session::new().with_fs();
@@ -1026,16 +1026,16 @@ fn remove_location_refuses_a_psd_with_unreadable_xmp() {
 fn remove_location_refuses_a_psd_with_invalid_utf8_xmp() {
     let dir = temp_dir("export-noloc-psd-invalid-utf8");
     let path = dir.join("Invalid.psd");
-    let gps = lightcraft_meta::Metadata { gps: Some(lightcraft_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
-    let xmp = lightcraft_meta::write_xmp(&gps, None);
+    let gps = evolight_meta::Metadata { gps: Some(evolight_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
+    let xmp = evolight_meta::write_xmp(&gps, None);
     let pixels = [40, 80, 120];
-    let image = lightcraft_codecs::EncodeImage::new(1, 1, 3, lightcraft_codecs::Samples::U8(&pixels));
-    let embedded = lightcraft_codecs::EncodeMeta { xmp: Some(&xmp), ..Default::default() };
-    let mut bytes = lightcraft_codecs::encode_psd(&image, &embedded).unwrap();
-    assert_eq!(lightcraft_meta::extract(&bytes).gps, gps.gps);
+    let image = evolight_codecs::EncodeImage::new(1, 1, 3, evolight_codecs::Samples::U8(&pixels));
+    let embedded = evolight_codecs::EncodeMeta { xmp: Some(&xmp), ..Default::default() };
+    let mut bytes = evolight_codecs::encode_psd(&image, &embedded).unwrap();
+    assert_eq!(evolight_meta::extract(&bytes).gps, gps.gps);
     let latitude = bytes.windows(2).position(|bytes| bytes == b"45").unwrap();
     bytes[latitude] = 0xff;
-    assert!(lightcraft_meta::extract(&bytes).gps.is_none());
+    assert!(evolight_meta::extract(&bytes).gps.is_none());
     std::fs::write(&path, bytes).unwrap();
 
     let mut session = Session::new().with_fs();
@@ -1049,10 +1049,10 @@ fn remove_location_refuses_a_psd_with_invalid_utf8_xmp() {
 #[test]
 fn remove_location_refuses_a_psd_with_unreadable_resources() {
     let dir = temp_dir("export-noloc-psd-malformed");
-    let gps = lightcraft_meta::Metadata { gps: Some(lightcraft_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
+    let gps = evolight_meta::Metadata { gps: Some(evolight_meta::Gps { latitude: 45.0, longitude: 7.0, altitude: None }), ..Default::default() };
     let path = dir.join("Geo.psd");
     let valid_bytes = synthetic_psd_with_metadata(&gps);
-    assert_eq!(lightcraft_meta::extract(&valid_bytes).gps, gps.gps, "the fixture embeds EXIF GPS before corruption");
+    assert_eq!(evolight_meta::extract(&valid_bytes).gps, gps.gps, "the fixture embeds EXIF GPS before corruption");
     let mut bytes = valid_bytes;
     let colour_length = usize::try_from(u32::from_be_bytes(bytes[26..30].try_into().unwrap())).unwrap();
     let resource_length_at = 30 + colour_length;
@@ -1062,7 +1062,7 @@ fn remove_location_refuses_a_psd_with_unreadable_resources() {
     bytes.splice(resource_end..resource_end, *b"BAD!");
     bytes[resource_length_at..resource_length_at + 4].copy_from_slice(&u32::try_from(resource_length + 4).unwrap().to_be_bytes());
 
-    assert!(lightcraft_meta::extract(&bytes).gps.is_none(), "the malformed trailing resource reproduces the metadata gap");
+    assert!(evolight_meta::extract(&bytes).gps.is_none(), "the malformed trailing resource reproduces the metadata gap");
     std::fs::write(&path, bytes).unwrap();
     let mut session = Session::new().with_fs();
     session.execute("library.import", &json!({"paths": [path.to_string_lossy()]})).unwrap();
@@ -1078,7 +1078,7 @@ fn hdr_png_export_is_16_bit_pq_rec2020() {
     let id = sunset(&mut s);
     let o = ExportOptions::from_json(&json!({"longEdge": 160, "format": "png", "hdr": true}));
     assert!(o.hdr_output());
-    assert_eq!(o.effective_space(), lightcraft_pipeline::OutputSpace::Rec2020);
+    assert_eq!(o.effective_space(), evolight_pipeline::OutputSpace::Rec2020);
     // a photo without an HDR edit exports as an ordinary (sRGB, 8-bit) PNG
     let sdr = export_photo(&mut s, id, &o, 1).unwrap();
     assert!(!sdr.bytes.windows(4).any(|w| w == b"cICP"));
@@ -1125,7 +1125,7 @@ fn jxl_export_writes_metadata() {
     let id = sunset(&mut s);
     let o = ExportOptions::from_json(&json!({"longEdge": 120, "format": "jxl", "quality": 80}));
     let e = export_photo(&mut s, id, &o, 1).unwrap();
-    let d = lightcraft_codecs::decode(&e.bytes, Default::default()).unwrap();
+    let d = evolight_codecs::decode(&e.bytes, Default::default()).unwrap();
     assert_eq!(d.width.max(d.height), 120);
     assert!(d.xmp.as_deref().is_some_and(|x| x.contains("Golden horizon")), "title in the XMP box");
     assert!(d.exif.is_some(), "EXIF box");
@@ -1404,7 +1404,7 @@ mod apple_photos {
         assert_eq!(s.execute("export.addToPhotos", &json!({"paths": paths})).unwrap()["imported"], 2);
     }
 
-    /// The desktop app, lightcraft-cli and the MCP server get the real runner from `with_fs`, on
+    /// The desktop app, evolight-cli and the MCP server get the real runner from `with_fs`, on
     /// macOS only. (Installed, never run here.)
     #[test]
     fn with_fs_installs_the_runner_on_macos_only() {
@@ -1424,7 +1424,7 @@ fn same_folder_as_original_exports_next_to_each_photo() {
     let (a, b) = (dir.join("A"), dir.join("B"));
     // two different photos (the same bytes would be imported once)
     let jpeg = |blue: u8| {
-        let img = lightcraft_raster::Rgba8::from_fn(48, 32, |x, y| [(x * 5) as u8, (y * 7) as u8, blue, 255]);
+        let img = evolight_raster::Rgba8::from_fn(48, 32, |x, y| [(x * 5) as u8, (y * 7) as u8, blue, 255]);
         crate::export::encode_image(&img, &ExportOptions::default()).unwrap()
     };
     let originals = [(&a, jpeg(120)), (&b, jpeg(30))];
@@ -1535,7 +1535,7 @@ fn sixteen_bit_zip_tiff_export_is_never_larger_than_uncompressed() {
 /// An absurd export size is refused, not a multiply overflow (it panicked before the fix).
 #[test]
 fn huge_export_size_is_an_error() {
-    use lightcraft_pipeline::{OutputDepth, OutputSpace};
+    use evolight_pipeline::{OutputDepth, OutputSpace};
     let mut s = Session::with_demo();
     let id = s.active().unwrap();
     let huge = usize::MAX >> 8;

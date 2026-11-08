@@ -7,7 +7,7 @@ use egui::{Event, PointerButton, Pos2, vec2};
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 
@@ -35,7 +35,7 @@ fn drag(h: &mut Headless, button: PointerButton, from: Pos2, to: Pos2) -> egui::
 
 #[test]
 fn a_middle_drag_pans_with_the_healing_brush_and_adds_no_spot() {
-    let app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1200.0, 800.0], 1.0);
     for (method, params) in [
         ("ui.set", json!({"view": "detail"})),

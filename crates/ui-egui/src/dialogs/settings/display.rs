@@ -1,12 +1,12 @@
 use super::appearance::appearance;
 use super::widgets::{check, choices, heading, hint, path_label, row};
-use super::{GridBadges, LightcraftApp, RichText, Tokens, Value, json, register};
+use super::{GridBadges, EvoLightApp, RichText, Tokens, Value, json, register};
 
 // ---------------------------------------------------------------------------------- Interface
 
 /// The monitor profile (`app.displayProfile`): previews are shown through the display's ICC
 /// profile, so wide-gamut and calibrated displays show colours as they are.
-pub(super) fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(super) fn display_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, t, crate::i18n::tr("Monitor profile"));
     let current = app.renderer.display().cloned();
     let screen = current.as_ref().is_some_and(|d| d.path == crate::SCREEN_PROFILE);
@@ -52,8 +52,8 @@ pub(super) fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
         }
         row(ui, t, crate::i18n::tr("Type"), |ui| {
             let kind = match d.profile.kind {
-                lightcraft_engine::display::DisplayKind::MatrixTrc => crate::i18n::tr("Matrix/TRC"),
-                lightcraft_engine::display::DisplayKind::Lut => crate::i18n::tr("LUT-based"),
+                evolight_engine::display::DisplayKind::MatrixTrc => crate::i18n::tr("Matrix/TRC"),
+                evolight_engine::display::DisplayKind::Lut => crate::i18n::tr("LUT-based"),
             };
             ui.label(RichText::new(kind).color(t.text));
         });
@@ -75,7 +75,7 @@ pub(super) fn display_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens
     hint(ui, t, crate::i18n::tr("Profiles assigned in your desktop's colour settings are usually in ~/.local/share/icc."));
 }
 
-pub(super) fn interface_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(super) fn interface_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     let system = app.system_theme(ui.ctx());
     appearance(ui, t, &mut app.ui.settings, system);
     heading(ui, t, crate::i18n::tr("Filmstrip"));
@@ -114,7 +114,7 @@ pub(super) fn interface_tab(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Toke
 /// which, the three lines each of Info 1 and Info 2 shows, which of them shows briefly when the
 /// photo changes, and whether the loupe shows its loading and rendering message
 /// (`view.viewOptions`). Changes apply as they are made.
-pub(in super::super) fn view_options(app: &mut LightcraftApp, ui: &mut egui::Ui, t: &Tokens) {
+pub(in super::super) fn view_options(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
     use crate::state::{InfoOverlay as I, LoupeInfo, LoupeInfoField as F};
     heading(ui, t, crate::i18n::tr("Loupe View"));
     let mut show = app.ui.info_overlay != I::Off;
@@ -167,7 +167,7 @@ pub(in super::super) fn view_options(app: &mut LightcraftApp, ui: &mut egui::Ui,
 
 /// A playback duration slider (`slider:{id}`). While it is dragged the value changes in memory
 /// (the slideshow reads it); letting go saves it through `slideshow.playback`.
-pub(super) fn duration_slider(app: &mut LightcraftApp, ui: &mut egui::Ui, id: &str, key: &str, value: f64, range: std::ops::RangeInclusive<f64>) {
+pub(super) fn duration_slider(app: &mut EvoLightApp, ui: &mut egui::Ui, id: &str, key: &str, value: f64, range: std::ops::RangeInclusive<f64>) {
     let mut v = value;
     let r = ui.add(egui::Slider::new(&mut v, range).logarithmic(key == "slideDuration").suffix(" s").max_decimals(1));
     register(ui, format!("slider:{id}"), r.rect);
@@ -189,7 +189,7 @@ pub(super) fn duration_slider(app: &mut LightcraftApp, ui: &mut egui::Ui, id: &s
 /// only. A file that can't be used is an error and changes nothing. Returns the profile in use:
 /// `{path, description, kind (matrix|lut), primaries {red, green, blue: [x, y]}}`, with
 /// `path: null, screen: true` for the screen's profile.
-pub fn display_profile(app: &mut LightcraftApp, p: &Value) -> Result<Value, String> {
+pub fn display_profile(app: &mut EvoLightApp, p: &Value) -> Result<Value, String> {
     let path = match p.get("path") {
         None => None,
         Some(Value::Null) => Some(String::new()),
@@ -197,7 +197,7 @@ pub fn display_profile(app: &mut LightcraftApp, p: &Value) -> Result<Value, Stri
         Some(_) => return Err("app.displayProfile: path must be a string or null".into()),
     };
     if let Some(path) = path {
-        let d = lightcraft_engine::display::Display::load_opt(&path).map_err(|e| format!("app.displayProfile: {e}"))?;
+        let d = evolight_engine::display::Display::load_opt(&path).map_err(|e| format!("app.displayProfile: {e}"))?;
         app.renderer.set_display(d);
         app.ui.settings.display_profile = path.clone();
         app.display_applied = Some(path);

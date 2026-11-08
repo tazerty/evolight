@@ -3,7 +3,7 @@
 //! On an SDR desktop Windows doesn't colour-manage ordinary windows: the values an app draws go to
 //! the monitor as they are, so on a wide-gamut monitor sRGB previews look oversaturated, and on a
 //! calibrated one the calibration is ignored. Photo apps convert to the monitor's profile themselves.
-//! LightCraft reads it here and shows previews through it while no profile is chosen in Settings ▸
+//! EvoLight reads it here and shows previews through it while no profile is chosen in Settings ▸
 //! Display, as it does with the screen's profile on macOS and colord's on Linux.
 //!
 //! When Windows colour-manages the desktop itself (HDR, or Auto Color Management on Windows 11), it
@@ -17,7 +17,7 @@
 //!
 //! The Win32 calls (`MonitorFromWindow`, `GetMonitorInfoW`, `EnumDisplayDevicesW`, the `Wcs…`
 //! profile functions, `QueryDisplayConfig` + `DisplayConfigGetDeviceInfo`) are in the `win32` module,
-//! the only place besides `crates/sysmem` where LightCraft allows `unsafe`. The API is safe, and any
+//! the only place besides `crates/sysmem` where EvoLight allows `unsafe`. The API is safe, and any
 //! failure answers [`MonitorColor::Unknown`].
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
@@ -360,7 +360,7 @@ mod tests {
         match answer {
             MonitorColor::Profile(p) => assert!(p.is_file(), "{}", p.display()),
             MonitorColor::ManagedByWindows | MonitorColor::NoProfile => {}
-            MonitorColor::Unknown => lightcraft_testkit::skip!(System, "no monitor answers for the desktop window (a session without a display)"),
+            MonitorColor::Unknown => evolight_testkit::skip!(System, "no monitor answers for the desktop window (a session without a display)"),
         }
     }
 }

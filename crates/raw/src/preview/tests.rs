@@ -1,5 +1,5 @@
 use super::*;
-use lightcraft_tiff::{IfdBuilder, ImageData, TiffWriter, Value};
+use evolight_tiff::{IfdBuilder, ImageData, TiffWriter, Value};
 
 fn fake_jpeg(n: usize) -> Vec<u8> {
     let mut j = vec![0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 8, 0, 1, 0, 1, 1, 1, 0x11, 0];
@@ -394,10 +394,10 @@ fn cr3_with_color_space(exif: Option<u16>, note: Option<u16>) -> Vec<u8> {
     let block = |tag: u16, v: Option<u16>| {
         let ifd =
             v.map_or_else(|| IfdBuilder::new().with(t::ISO_SPEED, Value::Short(vec![100])), |v| IfdBuilder::new().with(tag, Value::Short(vec![v])));
-        TiffWriter::new(lightcraft_tiff::ByteOrder::Little, false).write(&[ifd]).unwrap()
+        TiffWriter::new(evolight_tiff::ByteOrder::Little, false).write(&[ifd]).unwrap()
     };
     let cmt1 =
-        TiffWriter::new(lightcraft_tiff::ByteOrder::Little, false).write(&[IfdBuilder::new().with(t::MAKE, Value::Ascii("Canon".into()))]).unwrap();
+        TiffWriter::new(evolight_tiff::ByteOrder::Little, false).write(&[IfdBuilder::new().with(t::MAKE, Value::Ascii("Canon".into()))]).unwrap();
     let canon_uuid = [0x85, 0xc0, 0xb6, 0x87, 0x82, 0x0f, 0x11, 0xe0, 0x81, 0x11, 0xf4, 0xce, 0x46, 0x2b, 0x6a, 0x48];
     let boxes = [bx(b"CMT1", &cmt1), bx(b"CMT2", &block(0xA001, exif)), bx(b"CMT3", &block(0x00b4, note))].concat();
     let mut file = bx(b"ftyp", b"crx \0\0\0\x01crx isom");
@@ -444,7 +444,7 @@ fn cr2_preview_colour_space_comes_from_the_canon_maker_note() {
         }
         let mut ifd0 = IfdBuilder::new().with(t::MAKE, Value::Ascii(make.into()));
         ifd0.set_child(t::EXIF_IFD, exif);
-        TiffWriter::new(lightcraft_tiff::ByteOrder::Little, false).write(&[ifd0]).unwrap()
+        TiffWriter::new(evolight_tiff::ByteOrder::Little, false).write(&[ifd0]).unwrap()
     };
     assert_eq!(embedded_preview_color_space(&cr2("Canon", 0xFFFF, Some(2))), Some(AdobeRgb));
     assert_eq!(embedded_preview_color_space(&cr2("Canon", 1, Some(1))), Some(Srgb));
@@ -473,7 +473,7 @@ fn scan_jpeg(nc: u8, n: usize) -> Vec<u8> {
 }
 
 /// `units` copies of a 200-byte record whose `d8 ff db` start runs each walk on through the
-/// starts after it (a crafted Minolta-like container).
+/// starts after it (a built Minolta-like container).
 fn many_fake_jpegs(units: usize) -> Vec<u8> {
     let mut unit = vec![0u8, 0xd8, 0xff, 0xdb, 0x00, 0x02, 0xff, 0xda, 0x00, 0x02];
     unit.extend(std::iter::repeat_n(0x55u8, 190));
@@ -492,7 +492,7 @@ fn policy_budget(len: usize) -> u64 {
     (len as u64 * 8).max(1 << 20)
 }
 
-/// A crafted 40 MB container full of JPEG-like starts (each walk running on through the starts
+/// A built 40 MB container full of JPEG-like starts (each walk running on through the starts
 /// after it) is scanned in bounded work: the walks share a budget (without it this file would
 /// walk about 8·10^10 bytes), so the charged work stays within the policy budget plus one walk's
 /// reach. No wall clock: this cannot fail on a slow runner, and removing the budget shows up as
@@ -539,7 +539,7 @@ fn the_production_wrapper_stops_at_the_shared_budget() {
 /// for each candidate) the scan walks all 200 walks, 4 MB, instead of about 1 MB — so a negative
 /// run costs megabytes, not the 8·10^10 bytes of the 40 MB fixture.
 #[test]
-fn the_scan_budget_bounds_the_work_a_crafted_file_can_cause() {
+fn the_scan_budget_bounds_the_work_a_built_file_can_cause() {
     let f = many_fake_jpegs(200);
     let budget = policy_budget(f.len());
     let (found, walked) = scan_with_budget(&f, budget as usize);

@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use egui::{Align2, RichText, vec2};
 use serde_json::json;
 
-use crate::LightcraftApp;
+use crate::EvoLightApp;
 use crate::state::{AppSettings, LaunchLibrary};
 use crate::theme::Tokens;
 use crate::widgets::register;
@@ -117,7 +117,7 @@ impl WindowBarrier {
 
 /// The blocking library window that is present (not dismissed), if any: the launch chooser when
 /// it is shown, otherwise the error window.
-fn present_mode(app: &LightcraftApp) -> Option<WindowMode> {
+fn present_mode(app: &EvoLightApp) -> Option<WindowMode> {
     let problem = app.library_problem.as_ref().filter(|p| !p.dismissed)?;
     Some(if problem.chooser.is_some() { WindowMode::Chooser } else { WindowMode::Error })
 }
@@ -127,7 +127,7 @@ fn present_mode(app: &LightcraftApp) -> Option<WindowMode> {
 /// Any other dialog (Settings opened before Alt/Option created the chooser, for example) is not
 /// owned by the launch list: the blocking window stays visible over it and keeps owning input,
 /// instead of stepping aside for a dialog it did not open.
-fn chooser_owns_dialog(app: &LightcraftApp) -> bool {
+fn chooser_owns_dialog(app: &EvoLightApp) -> bool {
     app.library_problem.as_ref().is_some_and(|p| p.chooser.is_some())
         && matches!(
             app.ui.dialog.as_ref(),
@@ -137,7 +137,7 @@ fn chooser_owns_dialog(app: &LightcraftApp) -> bool {
 
 /// The window actually drawn this pass. A prompt suppresses it, and the launch list yields only to
 /// the New Library name dialog it opened itself.
-fn visible_mode(app: &LightcraftApp) -> Option<WindowMode> {
+fn visible_mode(app: &EvoLightApp) -> Option<WindowMode> {
     let mode = present_mode(app)?;
     if crate::panels::notices::blocks_input(app) {
         return None;
@@ -150,13 +150,13 @@ fn visible_mode(app: &LightcraftApp) -> Option<WindowMode> {
 
 /// Whether the blocking library window is actually on screen over the rest of the UI this frame,
 /// so a background dialog's own raw input handlers must stay still.
-pub(crate) fn blocks_dialog_input(app: &LightcraftApp) -> bool {
+pub(crate) fn blocks_dialog_input(app: &EvoLightApp) -> bool {
     visible_mode(app).is_some()
 }
 
 /// A window drawn before its barrier saw it (a command late in a draw pass created it) must not
 /// settle this pass: arm the transition so the next frame gets the shielded first draw.
-fn note_first_draw(app: &mut LightcraftApp, mode: WindowMode) {
+fn note_first_draw(app: &mut EvoLightApp, mode: WindowMode) {
     if app.library_window_input.shown != Some(mode) && !app.library_window_input.transition {
         app.library_window_input.begin_transition();
     }
@@ -177,7 +177,7 @@ fn clear_focus(ctx: &egui::Context) {
 /// accessibility input. `keys_down` is cleared so no key is left held after the discarded pass;
 /// touch End/Cancel still reach egui to clear its private touch state. Modifier and window-focus
 /// changes also survive, as for a prompt.
-pub(crate) fn prepare_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context, batch_in_flight: bool) {
+pub(crate) fn prepare_ui_pass(app: &mut EvoLightApp, ctx: &egui::Context, batch_in_flight: bool) {
     if ctx.current_pass_index() != 0 {
         return;
     }
@@ -229,7 +229,7 @@ pub(crate) fn prepare_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context, batc
 }
 
 /// Whether `draw_window` must render only the new blocking window for this first pass.
-pub(crate) fn shield_pass(app: &mut LightcraftApp, ctx: &egui::Context) -> bool {
+pub(crate) fn shield_pass(app: &mut EvoLightApp, ctx: &egui::Context) -> bool {
     let shield = ctx.current_pass_index() == 0 && app.library_window_input.transition && visible_mode(app).is_some();
     if shield {
         app.library_window_input.shielded = true;
@@ -239,7 +239,7 @@ pub(crate) fn shield_pass(app: &mut LightcraftApp, ctx: &egui::Context) -> bool 
 
 /// Reset the per-pass draw witness before any panel runs. `show` marks the window only when it
 /// actually draws it; a prompt/dialog hiding the window must not inherit a previous pass's mark.
-pub(crate) fn begin_draw(app: &mut LightcraftApp) {
+pub(crate) fn begin_draw(app: &mut EvoLightApp) {
     app.library_window_input.drawn = None;
 }
 
@@ -247,7 +247,7 @@ pub(crate) fn begin_draw(app: &mut LightcraftApp) {
 /// pass settles it; a window hidden by a prompt or by the dialog it opened, or one that appeared
 /// midway through this pass (the banner's Open Library… button), keeps the transition armed so
 /// the first pass that draws it again is shielded.
-pub(crate) fn finish_ui_pass(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn finish_ui_pass(app: &mut EvoLightApp, ctx: &egui::Context) {
     if ctx.will_discard() {
         return;
     }
@@ -285,7 +285,7 @@ pub enum Launch {
     Ask,
 }
 
-/// What to open at launch: `--library` (`flag`), else `$LIGHTCRAFT_LIBRARY` (`env`), else with
+/// What to open at launch: `--library` (`flag`), else `$EVOLIGHT_LIBRARY` (`env`), else with
 /// *Ask me* the list, else the library last opened, else `default` (the default location).
 /// `settings` is `None` without a settings file; `memory` (`--memory`) never asks.
 pub fn launch_plan(memory: bool, flag: Option<PathBuf>, env: Option<PathBuf>, settings: Option<&AppSettings>, default: Option<PathBuf>) -> Launch {
@@ -331,7 +331,7 @@ pub struct Chooser {
     /// Its rows' checks were started ([`logic`]).
     pub asked: bool,
     /// The library open behind the window (Alt/Option held at launch), by
-    /// [`lightcraft_engine::Session::library_generation`]: Esc keeps it. `None`: no library is open.
+    /// [`evolight_engine::Session::library_generation`]: Esc keeps it. `None`: no library is open.
     pub over: Option<u64>,
 }
 
@@ -376,7 +376,7 @@ impl LibraryProblem {
     }
 
     /// The window listing the recent libraries, each checked now without writing anything
-    /// ([`unavailable`]): one that is gone, isn't a LightCraft library any more or can't be read
+    /// ([`unavailable`]): one that is gone, isn't a EvoLight library any more or can't be read
     /// is greyed out with the reason. The last library opened is selected, or else the first one
     /// that can be opened.
     #[cfg(test)]
@@ -452,7 +452,7 @@ pub enum Unavailable {
     NotAFolder,
     /// The folder can't be listed (the system's reason).
     Unreadable(String),
-    /// The folder holds no LightCraft library any more.
+    /// The folder holds no EvoLight library any more.
     NoLibrary,
     /// The library's catalog file can't be opened (the system's reason).
     CatalogUnreadable(String),
@@ -479,7 +479,7 @@ impl Unavailable {
             Unavailable::NotFound => crate::i18n::tr("Not found: moved, renamed or on a disconnected drive").to_string(),
             Unavailable::NotAFolder => crate::i18n::tr("This is a file, not a library folder").to_string(),
             Unavailable::Unreadable(e) => format!("{} {e}", crate::i18n::tr("This folder can't be read:")),
-            Unavailable::NoLibrary => crate::i18n::tr("There is no LightCraft library in this folder any more").to_string(),
+            Unavailable::NoLibrary => crate::i18n::tr("There is no EvoLight library in this folder any more").to_string(),
             Unavailable::CatalogUnreadable(e) => format!("{} {e}", crate::i18n::tr("The library's catalog can't be read:")),
             Unavailable::CheckFailed(e) => e.clone(),
             Unavailable::LookupFailed(e) => format!("{} {e}", crate::i18n::tr("This library couldn't be checked:")),
@@ -621,7 +621,7 @@ impl RecentChecks {
 /// Check each of `paths` on a worker of its own (one that is being checked already is left to
 /// finish). The activity stack lists each check while it runs (a quick one doesn't show: rows
 /// appear after half a second); none can be stopped, as a stat that hangs can't be.
-fn start_checks(app: &mut LightcraftApp, paths: Vec<String>) {
+fn start_checks(app: &mut EvoLightApp, paths: Vec<String>) {
     for path in paths {
         if app.recent_checks.pending.contains_key(&path) {
             continue;
@@ -667,7 +667,7 @@ fn start_checks(app: &mut LightcraftApp, paths: Vec<String>) {
 
 /// Checks whose worker stopped without answering (it panicked: `tasks::poll` already said so)
 /// end as failed, so the row and the menu don't wait for them forever.
-fn reap_checks(app: &mut LightcraftApp) {
+fn reap_checks(app: &mut EvoLightApp) {
     // (every check has the same label: when none is listed any more, the ones still pending died)
     if app.recent_checks.pending.is_empty() || app.tasks.is_running(CHECK_LABEL) {
         return;
@@ -683,7 +683,7 @@ fn reap_checks(app: &mut LightcraftApp) {
 
 /// Put the answers in into the launch list; once none is missing, select as
 /// [`LibraryProblem::choose`] does unless the person moved the highlight.
-fn apply_answers(app: &mut LightcraftApp) {
+fn apply_answers(app: &mut EvoLightApp) {
     let last = app.ui.settings.library_path.clone();
     let checks = &app.recent_checks;
     let Some(c) = app.library_problem.as_mut().and_then(|p| p.chooser.as_mut()) else { return };
@@ -721,12 +721,12 @@ fn unavailable(path: &str) -> Option<Unavailable> {
         Ok(_) => {}
     }
     // opening would make a new, empty library in it
-    if !lightcraft_engine::library::is_library(dir) {
+    if !evolight_engine::library::is_library(dir) {
         return Some(Unavailable::NoLibrary);
     }
     // the catalog the open reads first: the snapshot, else the log alone (opened to read, not read)
-    let snapshot = dir.join(lightcraft_catalog::journal::SNAPSHOT);
-    let catalog = if snapshot.is_file() { snapshot } else { dir.join(lightcraft_catalog::journal::LOG) };
+    let snapshot = dir.join(evolight_catalog::journal::SNAPSHOT);
+    let catalog = if snapshot.is_file() { snapshot } else { dir.join(evolight_catalog::journal::LOG) };
     if let Err(e) = std::fs::File::open(&catalog) {
         return Some(Unavailable::CatalogUnreadable(e.to_string()));
     }
@@ -738,9 +738,9 @@ fn unavailable(path: &str) -> Option<Unavailable> {
 /// missing. A folder that can't be looked into (no permission, a share that timed out) says so
 /// instead: the library may well be there.
 pub fn missing_library_reason(dir: &Path) -> Option<String> {
-    match lightcraft_engine::library::library_state(dir) {
+    match evolight_engine::library::library_state(dir) {
         Ok(true) => None,
-        Ok(false) if dir.exists() => Some(crate::i18n::tr("There is no LightCraft library in this folder any more.").to_string()),
+        Ok(false) if dir.exists() => Some(crate::i18n::tr("There is no EvoLight library in this folder any more.").to_string()),
         Ok(false) => {
             Some(crate::i18n::tr("The library isn't there: it was moved or renamed, or its drive or network share isn't connected.").to_string())
         }
@@ -751,7 +751,7 @@ pub fn missing_library_reason(dir: &Path) -> Option<String> {
 /// Try Again: reopen the problem's library. One that must exist already (`existing_only`) is
 /// opened only once its folder holds a library again (a share remounted): until then the window
 /// stays with the reason, and nothing is created there (issue #3239).
-fn retry(app: &mut LightcraftApp, problem: LibraryProblem) {
+fn retry(app: &mut EvoLightApp, problem: LibraryProblem) {
     if problem.existing_only
         && let Some(why) = missing_library_reason(Path::new(&problem.path))
     {
@@ -783,7 +783,7 @@ enum Choice {
 
 /// Whether dropped photos wait for a library ([`hold_dropped`]): none is open and the window
 /// asking for one is up (not dismissed by Continue Without Saving).
-pub fn holds_drops(app: &LightcraftApp) -> bool {
+pub fn holds_drops(app: &EvoLightApp) -> bool {
     app.session.library.is_none() && app.library_problem.as_ref().is_some_and(|p| !p.dismissed)
 }
 
@@ -800,7 +800,7 @@ pub fn holds_drops(app: &LightcraftApp) -> bool {
 /// that answer arrives, so the queued drop waits too. With no library open a dialog (or a library
 /// picker that will open one) in front of the window would otherwise refuse the drop or consume it
 /// before the photos could reach [`hold_dropped`].
-pub fn blocks_file_drops(app: &LightcraftApp) -> bool {
+pub fn blocks_file_drops(app: &EvoLightApp) -> bool {
     if app.library_problem.as_ref().is_none_or(|p| p.dismissed) {
         return false;
     }
@@ -815,7 +815,7 @@ pub fn blocks_file_drops(app: &LightcraftApp) -> bool {
 /// library that failed to open): kept with the command line's files and imported once a library
 /// opens, instead of going into the session the next library replaces. Gives the photos back when
 /// a library is open or Continue Without Saving was chosen.
-pub fn hold_dropped(app: &mut LightcraftApp, ctx: &egui::Context, photos: Vec<String>) -> Option<Vec<String>> {
+pub fn hold_dropped(app: &mut EvoLightApp, ctx: &egui::Context, photos: Vec<String>) -> Option<Vec<String>> {
     // called every frame, with nothing dropped most of the time: only a real drop is held (and toasted)
     if photos.is_empty() || !holds_drops(app) {
         return Some(photos);
@@ -828,7 +828,7 @@ pub fn hold_dropped(app: &mut LightcraftApp, ctx: &egui::Context, photos: Vec<St
 
 /// Open `path` (`None`: ask for a folder) through `app.openLibrary`; on success the problem is
 /// over (and command-line files are imported), else it shows the new error.
-fn open(app: &mut LightcraftApp, path: Option<String>) {
+fn open(app: &mut EvoLightApp, path: Option<String>) {
     let params = match &path {
         Some(p) => json!({"path": p}),
         None => json!({}),
@@ -873,7 +873,7 @@ fn open(app: &mut LightcraftApp, path: Option<String>) {
 /// (issue #374). While another import or a Synchronize Folder runs they keep waiting, and a toast
 /// says why once (issue #2779). Called from the background logic, so they go in as soon as that
 /// ends even while the window is hidden.
-pub(crate) fn import_waiting(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub(crate) fn import_waiting(app: &mut EvoLightApp, ctx: &egui::Context) {
     if app.waiting_import.files.is_empty() {
         return;
     }
@@ -893,7 +893,7 @@ pub(crate) fn import_waiting(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// Clear the problem once a library is open (e.g. through Settings → Open Library…) — another
 /// one than the launch list was opened over; offer the list when Alt/Option is held as the window
 /// appears; and the list's keys.
-pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
+pub fn logic(app: &mut EvoLightApp, ctx: &egui::Context) {
     if let Some(p) = &app.library_problem
         && app.session.library.is_some()
         && p.chooser.as_ref().and_then(|c| c.over) != Some(app.session.library_generation())
@@ -972,7 +972,7 @@ pub fn logic(app: &mut LightcraftApp, ctx: &egui::Context) {
 /// Alt/Option held during the first [`ALT_SECONDS`] after the window appears opens the launch list
 /// once, over the library that opened (opening another one closes it). Not while files from the
 /// command line are importing into that library.
-fn alt_at_launch(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn alt_at_launch(app: &mut EvoLightApp, ctx: &egui::Context) {
     if !app.alt_asks_for_library {
         return;
     }
@@ -997,14 +997,14 @@ fn alt_at_launch(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// The launch list on screen (not covered by the New Library name dialog it opened).
-fn chooser_shown(app: &LightcraftApp) -> Option<&Chooser> {
+fn chooser_shown(app: &EvoLightApp) -> Option<&Chooser> {
     let p = app.library_problem.as_ref().filter(|p| !p.dismissed)?;
     p.chooser.as_ref().filter(|_| !chooser_owns_dialog(app))
 }
 
 /// ↑ / ↓ move the selection, Return opens it (unless a button has the keyboard focus: it acts
 /// itself), Esc quits — or, over a library already open, keeps it. Taken before the shortcuts.
-fn chooser_keys(app: &mut LightcraftApp, ctx: &egui::Context) {
+fn chooser_keys(app: &mut EvoLightApp, ctx: &egui::Context) {
     let Some(c) = chooser_shown(app) else { return };
     let (n, selected, over) = (c.libraries.len(), c.selected, c.over.is_some());
     let focused = ctx.memory(|m| m.focused().is_some());
@@ -1031,7 +1031,7 @@ fn chooser_keys(app: &mut LightcraftApp, ctx: &egui::Context) {
 }
 
 /// Highlight row `at` of the launch list.
-fn select(app: &mut LightcraftApp, at: usize) {
+fn select(app: &mut EvoLightApp, at: usize) {
     if let Some(c) = app.library_problem.as_mut().and_then(|p| p.chooser.as_mut())
         && at < c.libraries.len()
     {
@@ -1063,7 +1063,7 @@ fn dim(ctx: &egui::Context) {
 /// or settings notice that was on screen when this frame began: the launch list/error window is
 /// `Order::Foreground` too, so drawing it after the prompt could cover it and let the same
 /// click or key act twice. It returns on the first pass after the prompt goes away.
-pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
+pub fn show(app: &mut EvoLightApp, ctx: &egui::Context, blocked: bool) {
     if blocked || crate::panels::notices::blocks_input(app) {
         return;
     }
@@ -1088,9 +1088,9 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
     let frame = egui::Frame::window(&ctx.global_style()).inner_margin(egui::Margin::symmetric(18, 14));
     // what the window says, in one piece, for a screen reader: the labels below are separate nodes
     let description = if problem.path.is_empty() {
-        format!("{} {} {EXPLANATION}", crate::i18n::tr("LightCraft couldn't find where to keep your library."), problem.error)
+        format!("{} {} {EXPLANATION}", crate::i18n::tr("EvoLight couldn't find where to keep your library."), problem.error)
     } else {
-        format!("{} {}. {} {EXPLANATION}", crate::i18n::tr("LightCraft couldn't open the library at"), problem.path, problem.error)
+        format!("{} {}. {} {EXPLANATION}", crate::i18n::tr("EvoLight couldn't open the library at"), problem.path, problem.error)
     };
     let shown = egui::Window::new(crate::i18n::tr("Your library couldn't be opened"))
         .id(egui::Id::unique(ERROR_WINDOW_ID))
@@ -1105,9 +1105,9 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
             ui.set_width(440.0);
             ui.spacing_mut().item_spacing.y = 8.0;
             if problem.path.is_empty() {
-                ui.label(RichText::new(crate::i18n::tr("LightCraft couldn't find where to keep your library.")).color(t.text));
+                ui.label(RichText::new(crate::i18n::tr("EvoLight couldn't find where to keep your library.")).color(t.text));
             } else {
-                ui.label(RichText::new(crate::i18n::tr("LightCraft couldn't open the library at")).color(t.text_label));
+                ui.label(RichText::new(crate::i18n::tr("EvoLight couldn't open the library at")).color(t.text_label));
                 ui.label(RichText::new(&problem.path).font(t.semibold(12.5)).color(t.text));
             }
             ui.add(egui::Label::new(RichText::new(&problem.error).color(t.caution)).wrap());
@@ -1140,7 +1140,7 @@ pub fn show(app: &mut LightcraftApp, ctx: &egui::Context, blocked: bool) {
 }
 
 /// Carry out `choice` (a button or key of either window).
-fn act(app: &mut LightcraftApp, choice: Choice) {
+fn act(app: &mut EvoLightApp, choice: Choice) {
     let Some(problem) = app.library_problem.clone() else { return };
     let chosen = problem.chooser.as_ref().and_then(|c| c.selected.and_then(|i| c.libraries.get(i)).map(|l| (l.clone(), c.over)));
     match choice {
@@ -1190,7 +1190,7 @@ fn act(app: &mut LightcraftApp, choice: Choice) {
 
 /// The launch list (issue #1290): the recent libraries, greyed out with the reason when they
 /// can't be opened, and Open / Open Another… / New Library… / Remove from List / Quit.
-fn show_chooser(app: &mut LightcraftApp, ctx: &egui::Context, problem: &LibraryProblem, chooser: &Chooser) {
+fn show_chooser(app: &mut EvoLightApp, ctx: &egui::Context, problem: &LibraryProblem, chooser: &Chooser) {
     let t = Tokens::get(ctx);
     dim(ctx);
     let mut choice = None;
@@ -1321,7 +1321,7 @@ fn recent_row(ui: &mut egui::Ui, t: &Tokens, i: usize, library: &RecentLibrary, 
 }
 
 /// The banner under the top bar while the session is temporary (Continue Without Saving).
-pub fn banner(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+pub fn banner(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     if !app.library_problem.as_ref().is_some_and(|p| p.dismissed) {
         return;
     }

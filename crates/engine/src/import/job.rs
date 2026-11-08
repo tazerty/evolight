@@ -36,7 +36,7 @@ pub struct ImportJob {
     /// session's thread, and a table of a library of millions of photos takes seconds. With it,
     /// whether a photo in Recently Deleted is passed over (an import that replaces such photos,
     /// as the options said when the import was set up).
-    pub(super) library: Option<(lightcraft_catalog::Catalog, bool)>,
+    pub(super) library: Option<(evolight_catalog::Catalog, bool)>,
     /// path → (photo, a Local browse record?)
     pub(super) by_path: HashMap<String, (PhotoId, bool)>,
     /// content hash → the photo that has it (`None`: a file earlier in this import)
@@ -232,7 +232,7 @@ impl ImportJob {
     /// the first files (on the thread that prepares them), from the library as it was then. The
     /// snapshot comes back: the files the import is adding are ranked against it for the ownership
     /// of the shared stem sidecars they read ([`crate::sidecar::ImportStems`]).
-    fn look_up_library(&mut self) -> Option<lightcraft_catalog::Catalog> {
+    fn look_up_library(&mut self) -> Option<evolight_catalog::Catalog> {
         let (library, fresh) = self.library.take()?;
         for p in library.photos() {
             // a trashed photo is replaced by a fresh import, so it doesn't count as a duplicate
@@ -472,7 +472,7 @@ impl ImportJob {
 
 /// Identity of a candidate preview at the bounded requested edge, without constructing a job.
 pub fn candidate_thumb_key(c: &ImportCandidate, edge: usize) -> u64 {
-    lightcraft_preview::Hasher128::new().str(&c.path).u64(c.file_size).u64(edge.clamp(64, 1024) as u64).finish().0 as u64
+    evolight_preview::Hasher128::new().str(&c.path).u64(c.file_size).u64(edge.clamp(64, 1024) as u64).finish().0 as u64
 }
 
 impl Session {
@@ -508,7 +508,7 @@ impl Session {
             origin: p.source.clone(),
             info: crate::media::source_info(&p),
             settings: p.develop.clone(),
-            request: lightcraft_pipeline::RenderRequest::fit(render_edge, render_edge),
+            request: evolight_pipeline::RenderRequest::fit(render_edge, render_edge),
             key,
             cache: None,
             stages: None,

@@ -1,7 +1,7 @@
 //! `ids` that aren't photo ids are an error, never "the selection": a command that fell back to the
 //! selection on `{"ids": 3}` acted on photos the call didn't name.
 
-use lightcraft_catalog::{AlbumId, PhotoId};
+use evolight_catalog::{AlbumId, PhotoId};
 use serde_json::{Value, json};
 
 use crate::Session;
@@ -89,13 +89,13 @@ fn single_photo_commands_refuse_an_id_that_is_not_a_photo_id() {
     let (mut s, vis, _) = session();
     let active = s.active().unwrap();
     let mut meta = s.catalog.photo(active).unwrap().meta.clone();
-    meta.regions = vec![lightcraft_meta::Region {
-        rect: lightcraft_geom::Rect { x0: 0.1, y0: 0.1, x1: 0.3, y1: 0.3 },
-        kind: lightcraft_meta::RegionKind::Face,
+    meta.regions = vec![evolight_meta::Region {
+        rect: evolight_geom::Rect { x0: 0.1, y0: 0.1, x1: 0.3, y1: 0.3 },
+        kind: evolight_meta::RegionKind::Face,
         name: None,
         description: None,
     }];
-    s.commit("setup", lightcraft_catalog::Op::SetMeta { id: active, meta: Box::new(meta) }).unwrap();
+    s.commit("setup", evolight_catalog::Op::SetMeta { id: active, meta: Box::new(meta) }).unwrap();
     let source = |s: &Session| format!("{:?}", s.catalog.photo(active).unwrap().source);
     let before = source(&s);
     let commits = s.commits();

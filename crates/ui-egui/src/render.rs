@@ -16,12 +16,12 @@
 
 use std::collections::HashMap;
 
-use lightcraft_catalog::PhotoId;
-use lightcraft_engine::Session;
-use lightcraft_engine::media::{QuickJob, QuickSource, RenderJob, RenderResult};
-use lightcraft_engine::pipeline::StageCache;
-use lightcraft_preview::JobPool;
-use lightcraft_raster::Histogram;
+use evolight_catalog::PhotoId;
+use evolight_engine::Session;
+use evolight_engine::media::{QuickJob, QuickSource, RenderJob, RenderResult};
+use evolight_engine::pipeline::StageCache;
+use evolight_preview::JobPool;
+use evolight_raster::Histogram;
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -64,7 +64,7 @@ pub enum Slot {
     Second,
     /// A slideshow slide (the one up, the one fading out, the next ones prepared in advance; see
     /// [`crate::panels::slideshow`]): a photo's, or a title screen.
-    Slide(lightcraft_engine::slideshow::Item),
+    Slide(evolight_engine::slideshow::Item),
     /// The small composed slide in Settings ▸ Slideshow (the active photo with the layout being
     /// edited).
     SlidePreview,
@@ -75,8 +75,8 @@ pub enum Slot {
 
 /// Settings that can change the rendered frame. Colour-only edits, including temporarily
 /// hidden grading wheels, must not discard a decoded RAW's actual aspect ratio.
-pub(crate) fn geometry_look(settings: &lightcraft_develop::DevelopSettings) -> u64 {
-    let geometry = lightcraft_develop::DevelopSettings {
+pub(crate) fn geometry_look(settings: &evolight_develop::DevelopSettings) -> u64 {
+    let geometry = evolight_develop::DevelopSettings {
         crop: settings.crop,
         orientation: settings.orientation,
         geometry: settings.geometry.clone(),
@@ -122,19 +122,19 @@ impl Tex {
     }
 }
 
-/// Draws renders that stayed on the GPU ([`lightcraft_engine::media::ScreenFrame`]): the window's
+/// Draws renders that stayed on the GPU ([`evolight_engine::media::ScreenFrame`]): the window's
 /// renderer registers their textures. Installed by a host whose GPU renderer runs on the window's
 /// device (the desktop app); without one, every render comes back as pixels.
 pub trait ScreenTextures {
     /// Show `frame` under `id` (one this returned before, updated in place) or a new id; `None`
     /// when it can't be shown.
-    fn show(&mut self, frame: &lightcraft_engine::media::ScreenFrame, id: Option<egui::TextureId>) -> Option<egui::TextureId>;
+    fn show(&mut self, frame: &evolight_engine::media::ScreenFrame, id: Option<egui::TextureId>) -> Option<egui::TextureId>;
     /// Release `id` (and the texture it shows).
     fn free(&mut self, id: egui::TextureId);
     /// The pixels `frame` holds, read back from the GPU: only for a headless screenshot of a view
     /// that shows it ([`Renderer::cpu_textures`]). `None` when they can't be read (the view is
     /// then left out of the picture).
-    fn read(&self, frame: &lightcraft_engine::media::ScreenFrame) -> Option<egui::ColorImage> {
+    fn read(&self, frame: &evolight_engine::media::ScreenFrame) -> Option<egui::ColorImage> {
         let _ = frame;
         None
     }
@@ -163,7 +163,7 @@ struct Finished {
 struct Requested {
     look: Option<(u64, bool)>,
     id: u64,
-    source: Option<lightcraft_catalog::Source>,
+    source: Option<evolight_catalog::Source>,
 }
 
 struct Queued {
@@ -176,7 +176,7 @@ struct Queued {
 /// The texture of a render: its pixels as egui wants them. Renders are opaque, so the common case
 /// is a plain copy; only a pixel with alpha pays for premultiplying. (The generic conversion, on
 /// the UI thread, was most of the time a 5 MP zoom window took to show.)
-pub(crate) fn color_image(img: &lightcraft_raster::Rgba8) -> egui::ColorImage {
+pub(crate) fn color_image(img: &evolight_raster::Rgba8) -> egui::ColorImage {
     let pixels = img
         .data
         .iter()
@@ -273,13 +273,13 @@ pub struct Renderer {
     shown_ids: HashMap<Slot, u64>,
     /// Requests made before this id belong to a library or preview cache that is gone.
     epoch: u64,
-    preview_generation: Option<(std::sync::Weak<lightcraft_preview::PreviewCache>, u64)>,
+    preview_generation: Option<(std::sync::Weak<evolight_preview::PreviewCache>, u64)>,
     /// Last thumbnail inputs; weak identities do not retain photo histories or force deep clones.
     /// (photo, size bucket, job key, whether the request went through an embedded stand-in, and the
     /// priority of the caller that queued it — a stand-in's background render runs below that)
-    thumb_inputs: HashMap<PhotoId, (std::sync::Weak<lightcraft_catalog::Photo>, usize, u64, bool, u32)>,
+    thumb_inputs: HashMap<PhotoId, (std::sync::Weak<evolight_catalog::Photo>, usize, u64, bool, u32)>,
     /// Photos whose grid thumbnail is the camera's embedded preview itself (no render behind it).
-    embedded_thumbs: HashMap<PhotoId, (std::sync::Weak<lightcraft_catalog::Photo>, usize, u64)>,
+    embedded_thumbs: HashMap<PhotoId, (std::sync::Weak<evolight_catalog::Photo>, usize, u64)>,
     pool: JobPool<Slot, Finished>,
     /// Jobs run elsewhere (see [`RenderOffload`]); `queue` holds the ones not started yet.
     offload: Option<Box<dyn RenderOffload>>,
@@ -337,7 +337,7 @@ pub struct Renderer {
     #[cfg(test)]
     pub(crate) stage_budget_override: Option<usize>,
     /// The monitor profile textures are made for (`app.displayProfile`; `None`: sRGB).
-    display: Option<Arc<lightcraft_engine::display::Display>>,
+    display: Option<Arc<evolight_engine::display::Display>>,
     /// Since when nothing has been pending, and whether the GPU pool was trimmed since.
     #[cfg(not(target_arch = "wasm32"))]
     idle: Option<(std::time::Instant, bool)>,
@@ -348,7 +348,7 @@ pub struct Renderer {
     /// The GPU-resident render each of those shows, kept with [`Self::keep_pixels`]: a headless
     /// screenshot reads it back ([`Self::cpu_textures`]) instead of finding no pixels (a white
     /// photo, review of PR #1065).
-    native_frames: HashMap<Slot, lightcraft_engine::media::ScreenFrame>,
+    native_frames: HashMap<Slot, evolight_engine::media::ScreenFrame>,
 }
 
 /// How many [`Slot::QuickAhead`] stand-ins the loupe keeps ready.
@@ -450,7 +450,7 @@ impl Renderer {
 
 impl Renderer {
     /// Would asking for this thumbnail again (at `priority`) change nothing?
-    pub fn thumb_current(&self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, priority: u32) -> bool {
+    pub fn thumb_current(&self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, priority: u32) -> bool {
         let Some(&(ref old, size, key, quick, _)) = self.thumb_inputs.get(&photo.id) else { return false };
         if old.as_ptr() != Arc::as_ptr(photo) {
             return false;
@@ -493,7 +493,7 @@ impl Renderer {
     /// embedded JPEG already covers — see `grid::skips_the_real_render`. A preview that arrived at
     /// a larger bucket and is still held is final for a smaller cell too, so print cells at
     /// different sizes do not replace it every frame.
-    pub fn thumb_quick_is_final(&self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, priority: u32) -> bool {
+    pub fn thumb_quick_is_final(&self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, priority: u32) -> bool {
         let Some((old, size, key)) = self.embedded_thumbs.get(&photo.id) else { return false };
         if old.as_ptr() != Arc::as_ptr(photo) || *size < bucket {
             return false;
@@ -512,7 +512,7 @@ impl Renderer {
 
     /// Whether this photo's embedded-preview thumbnail is pending at the requested priority, or
     /// already running. A queued priority change must reach the grid's stand-in request.
-    pub fn thumb_quick_pending(&self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, priority: u32) -> bool {
+    pub fn thumb_quick_pending(&self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, priority: u32) -> bool {
         let Some((old, size, key, quick, _)) = self.thumb_inputs.get(&photo.id) else { return false };
         let slot = Slot::ThumbQuick(photo.id);
         old.as_ptr() == Arc::as_ptr(photo)
@@ -542,7 +542,7 @@ impl Renderer {
     /// coalesced: its callers ask for their own bucket as before. A stale texture from before an
     /// edit does not count — it is still displayed while the replacement renders, and comparing
     /// the key (not presence) keeps coalescing across buckets in the meantime.
-    pub fn thumb_pending_other_bucket(&self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, priority: u32) -> bool {
+    pub fn thumb_pending_other_bucket(&self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, priority: u32) -> bool {
         let Some(&(ref old, size, key, _, requested_priority)) = self.thumb_inputs.get(&photo.id) else { return false };
         if old.as_ptr() != Arc::as_ptr(photo) || size == bucket {
             return false;
@@ -559,7 +559,7 @@ impl Renderer {
     /// Remember that the camera's embedded preview is this photo's final thumbnail, so the grid's
     /// per-frame requests stop at it (the quick render's key, which [`Self::thumb_quick_is_final`]
     /// compares against).
-    pub fn remember_embedded_thumb(&mut self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, key: u64, priority: u32) {
+    pub fn remember_embedded_thumb(&mut self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, key: u64, priority: u32) {
         let slot = Slot::Thumb(photo.id);
         if self.pending.get(&slot).is_some_and(|(pending_key, _)| *pending_key != key) {
             // An edit can still be rendering when Undo restores this embedded-final thumbnail.
@@ -573,7 +573,7 @@ impl Renderer {
         self.embedded_thumbs.insert(photo.id, (Arc::downgrade(photo), bucket, key));
     }
 
-    pub fn remember_thumb(&mut self, photo: &Arc<lightcraft_catalog::Photo>, bucket: usize, key: u64, quick: bool, priority: u32) {
+    pub fn remember_thumb(&mut self, photo: &Arc<evolight_catalog::Photo>, bucket: usize, key: u64, quick: bool, priority: u32) {
         if self.thumb_inputs.len() >= 1024 && !self.thumb_inputs.contains_key(&photo.id) {
             self.thumb_inputs.retain(|_, (p, _, _, _, _)| p.strong_count() > 0);
             if self.thumb_inputs.len() >= 1024
@@ -586,7 +586,7 @@ impl Renderer {
     }
 
     /// Views that render straight into the display profile's primaries (wide gamut); everything
-    /// else is rendered for sRGB and converted ([`lightcraft_engine::display::present`]).
+    /// else is rendered for sRGB and converted ([`evolight_engine::display::present`]).
     fn renders_for_display(slot: Slot) -> bool {
         matches!(
             slot,
@@ -610,7 +610,7 @@ impl Renderer {
         }
         let job = job.with_display(self.display.clone());
         // a drag's drafts are only drawn: they may stay on the GPU when the window can show them
-        if self.screen.is_some() && job.request.quality == lightcraft_pipeline::Quality::Draft { job.on_screen() } else { job }
+        if self.screen.is_some() && job.request.quality == evolight_pipeline::Quality::Draft { job.on_screen() } else { job }
     }
 
     /// Show GPU-resident renders through `screen` from now on (the desktop app, once its GPU
@@ -630,13 +630,13 @@ impl Renderer {
     }
 
     /// The display profile textures are made for (`None`: sRGB).
-    pub fn display(&self) -> Option<&Arc<lightcraft_engine::display::Display>> {
+    pub fn display(&self) -> Option<&Arc<evolight_engine::display::Display>> {
         self.display.as_ref()
     }
 
     /// Show previews through `display` from now on (`app.displayProfile`): when it changes, every
     /// texture is made again for the new one.
-    pub fn set_display(&mut self, display: Option<Arc<lightcraft_engine::display::Display>>) {
+    pub fn set_display(&mut self, display: Option<Arc<evolight_engine::display::Display>>) {
         if display.as_ref().map(|d| d.id()) != self.display_id() {
             self.forget_all();
         }
@@ -644,10 +644,10 @@ impl Renderer {
     }
 
     /// Run `job` and make its image ready for `display` (on the worker thread).
-    fn run_for(job: impl FnOnce() -> RenderResult, display: &Option<Arc<lightcraft_engine::display::Display>>) -> Finished {
+    fn run_for(job: impl FnOnce() -> RenderResult, display: &Option<Arc<evolight_engine::display::Display>>) -> Finished {
         let mut r = job();
         if let Some(d) = display {
-            lightcraft_engine::display::present(&mut r, d);
+            evolight_engine::display::present(&mut r, d);
         }
         let color = r.rendered.as_ref().ok().map(|x| Arc::new(color_image(&x.image)));
         Finished { look: None, result: r, color }
@@ -712,7 +712,7 @@ impl Renderer {
         }
         self.note_request(slot, job.key, priority, "requested", || render_subject(slot, job.photo, Some(&job.origin)));
         self.pending.insert(slot, (job.key, priority));
-        job.request_id = lightcraft_preview::next_tick();
+        job.request_id = evolight_preview::next_tick();
         self.requests.insert(
             slot,
             Requested { look: Some((geometry_look(&job.settings), job.request.apply_crop)), id: job.request_id, source: Some(job.origin.clone()) },
@@ -735,20 +735,20 @@ impl Renderer {
             priority,
             Box::new(move || {
                 let look = Some((geometry_look(&job.settings), job.request.apply_crop));
-                let run = || if background { lightcraft_engine::memory::in_background(|| job.run()) } else { job.run() };
+                let run = || if background { evolight_engine::memory::in_background(|| job.run()) } else { job.run() };
                 Finished { look, ..Self::run_for(run, &display) }
             }),
         );
     }
 
     /// Prepare a visible import preview at its size bucket, retaining a sharper existing texture.
-    pub fn import_preview(&mut self, session: &mut Session, candidate: &lightcraft_engine::import::ImportCandidate, index: u32, edge: usize) {
+    pub fn import_preview(&mut self, session: &mut Session, candidate: &evolight_engine::import::ImportCandidate, index: u32, edge: usize) {
         let slot = Slot::Import(index);
         let edge = edge.clamp(64, 1024);
         if candidate.error.is_some() || self.textures.get(&slot).is_some_and(|tex| tex.size.into_iter().max().unwrap_or(0) >= edge) {
             return;
         }
-        let key = lightcraft_engine::import::candidate_thumb_key(candidate, edge);
+        let key = evolight_engine::import::candidate_thumb_key(candidate, edge);
         if self.quick_tried.get(&slot) == Some(&key) {
             return;
         }
@@ -802,10 +802,10 @@ impl Renderer {
             .small
             .as_ref()
             .map(|job| job.origin.clone())
-            .or_else(|| job.embedded.as_ref().map(|(path, _, _)| lightcraft_catalog::Source::File { path: path.clone() }));
+            .or_else(|| job.embedded.as_ref().map(|(path, _, _)| evolight_catalog::Source::File { path: path.clone() }));
         self.note_request(slot, job.key, priority, "stand-in requested", || render_subject(slot, job.photo, source.as_ref()));
         self.pending.insert(slot, (job.key, priority));
-        job.request_id = lightcraft_preview::next_tick();
+        job.request_id = evolight_preview::next_tick();
         self.requests.insert(
             slot,
             Requested { look: job.small.as_ref().map(|j| (geometry_look(&j.settings), j.request.apply_crop)), id: job.request_id, source },
@@ -818,7 +818,7 @@ impl Renderer {
             key,
             priority,
             Box::new(move || {
-                let run = || if background { lightcraft_engine::memory::in_background(|| job.run()) } else { job.run() };
+                let run = || if background { evolight_engine::memory::in_background(|| job.run()) } else { job.run() };
                 Self::run_for(run, &display)
             }),
         );
@@ -895,7 +895,7 @@ impl Renderer {
     /// Render a slideshow title screen into `slot` (once per screen key, like [`Self::request`]):
     /// a slide with no photo, composed on a worker (on wasm: the job pool's inline runs, not the
     /// offload, which only knows photo renders).
-    pub fn request_title(&mut self, slot: Slot, compose: Arc<lightcraft_engine::slide_title::TitleCompose>, priority: u32) {
+    pub fn request_title(&mut self, slot: Slot, compose: Arc<evolight_engine::slide_title::TitleCompose>, priority: u32) {
         if matches!(slot, Slot::Slide(_)) {
             self.slides_live = true;
         }
@@ -905,7 +905,7 @@ impl Renderer {
         }
         self.note_request(slot, key, priority, "title screen requested", || format!("render {slot:?}"));
         self.pending.insert(slot, (key, priority));
-        let request_id = lightcraft_preview::next_tick();
+        let request_id = evolight_preview::next_tick();
         self.requests.insert(slot, Requested { look: None, id: request_id, source: None });
         let display = self.display.clone();
         self.pool.submit(slot, key, priority, Box::new(move || Self::run_for(|| compose.result(request_id), &display)));
@@ -920,7 +920,7 @@ impl Renderer {
         self.prefetched.insert(slot, job.key);
         self.note_request(slot, job.key, priority, "prefetch requested", || render_subject(slot, job.photo, Some(&job.origin)));
         self.pending.insert(slot, (job.key, priority));
-        job.request_id = lightcraft_preview::next_tick();
+        job.request_id = evolight_preview::next_tick();
         self.requests.insert(
             slot,
             Requested { look: Some((geometry_look(&job.settings), job.request.apply_crop)), id: job.request_id, source: Some(job.origin.clone()) },
@@ -930,7 +930,7 @@ impl Renderer {
             slot,
             key,
             priority,
-            Box::new(move || Finished { look: None, result: lightcraft_engine::memory::in_background(|| job.run()), color: None }),
+            Box::new(move || Finished { look: None, result: evolight_engine::memory::in_background(|| job.run()), color: None }),
         );
     }
 
@@ -951,7 +951,7 @@ impl Renderer {
 
     /// Drop the slideshow slides other than `keep`: their textures and their requests that have
     /// not started (a slide that is no longer near is not worth rendering).
-    pub fn release_slides(&mut self, keep: &[lightcraft_engine::slideshow::Item]) {
+    pub fn release_slides(&mut self, keep: &[evolight_engine::slideshow::Item]) {
         if !self.slides_live {
             return;
         }
@@ -974,7 +974,7 @@ impl Renderer {
         self.requests.clear();
         self.offload_looks.clear();
         self.shown_ids.clear();
-        self.epoch = lightcraft_preview::next_tick();
+        self.epoch = evolight_preview::next_tick();
         self.preview_generation = None;
         self.pool.reprioritize(|_, _| None);
         self.thumb_inputs.clear();
@@ -1099,14 +1099,14 @@ impl Renderer {
     /// send each undecodable file back to the decoder (issue #2682: 37 tries each in 154 s idle).
     /// A file `files` knows to be missing (its drive unplugged) is still tried at every change, so
     /// its photo comes back with the drive, as before.
-    fn follow_catalog(&mut self, catalog: &lightcraft_catalog::Catalog, files: &lightcraft_engine::availability::Availability) {
+    fn follow_catalog(&mut self, catalog: &evolight_catalog::Catalog, files: &evolight_engine::availability::Availability) {
         let rev = catalog.revision;
         if rev == self.catalog_rev {
             return;
         }
         if let Some(touched) = catalog.touched_since(self.catalog_rev) {
             let missing =
-                |id| matches!(catalog.photo(id).map(|p| &p.source), Some(lightcraft_catalog::Source::File { path }) if files.is_offline(path));
+                |id| matches!(catalog.photo(id).map(|p| &p.source), Some(evolight_catalog::Source::File { path }) if files.is_offline(path));
             for f in self.failed.values_mut() {
                 if f.2 == self.catalog_rev && touched.binary_search(&f.3).is_err() && !missing(f.3) {
                     f.2 = rev;
@@ -1304,7 +1304,7 @@ impl Renderer {
     fn convert_for_display(&self, r: &mut RenderResult) -> bool {
         let Some(d) = &self.display else { return false };
         let before = r.display;
-        lightcraft_engine::display::present(r, d);
+        evolight_engine::display::present(r, d);
         r.display != before
     }
 
@@ -1531,8 +1531,8 @@ impl Renderer {
         }
         let waited = now.duration_since(since);
         if waited >= IDLE_TRIM {
-            lightcraft_engine::gpu::trim_pool(0);
-            lightcraft_engine::memory::release();
+            evolight_engine::gpu::trim_pool(0);
+            evolight_engine::memory::release();
             self.idle = Some((since, true));
         } else {
             ctx.request_repaint_after(IDLE_TRIM - waited);
@@ -1545,12 +1545,12 @@ impl Renderer {
         if let Some(b) = self.stage_budget_override {
             return b;
         }
-        lightcraft_engine::memory::budget() / STAGE_BUDGET_SHARE
+        evolight_engine::memory::budget() / STAGE_BUDGET_SHARE
     }
 
     /// Clear stage caches, least useful first, until what they hold fits [`Self::stage_budget`].
     fn trim_stages(&mut self) {
-        let sizes: Vec<(Slot, usize)> = self.stages.iter().map(|(slot, c)| (*slot, c.bytes() + lightcraft_engine::gpu::stage_bytes(c))).collect();
+        let sizes: Vec<(Slot, usize)> = self.stages.iter().map(|(slot, c)| (*slot, c.bytes() + evolight_engine::gpu::stage_bytes(c))).collect();
         for slot in stage_trim_order(&sizes, self.stage_budget()) {
             if let Some(c) = self.stages.get(&slot) {
                 c.clear();
@@ -1562,11 +1562,11 @@ impl Renderer {
     /// What the renderer holds: per-view stage caches (CPU images and GPU buffers) and textures.
     pub fn memory(&self) -> serde_json::Value {
         let cpu: usize = self.stages.values().map(|s| s.bytes()).sum();
-        let gpu: usize = self.stages.values().map(|s| lightcraft_engine::gpu::stage_bytes(s)).sum();
+        let gpu: usize = self.stages.values().map(|s| evolight_engine::gpu::stage_bytes(s)).sum();
         let tex: usize = self.textures.values().map(|t| t.size[0] * t.size[1] * 4).sum();
         let copies: usize = self.textures.values().filter_map(|t| t.pixels.as_ref()).map(|p| p.pixels.len() * 4).sum();
         serde_json::json!({
-            "stageCaches": {"count": self.stages.len(), "cpuBytes": cpu, "gpuBytes": gpu, "budgetBytes": self.stage_budget(), "trimmed": self.stages_trimmed, "sharedSourceBytes": lightcraft_engine::gpu::shared_source_bytes()},
+            "stageCaches": {"count": self.stages.len(), "cpuBytes": cpu, "gpuBytes": gpu, "budgetBytes": self.stage_budget(), "trimmed": self.stages_trimmed, "sharedSourceBytes": evolight_engine::gpu::shared_source_bytes()},
             "textures": {"count": self.textures.len(), "bytes": tex, "cpuCopyBytes": copies},
         })
     }
@@ -1667,8 +1667,8 @@ impl Renderer {
     /// Log a render decision at debug level: each request, and how it ended when it ended without
     /// a picture or a failure (failures stay warnings). One "requested" line per request tells a
     /// file asked for 37 times from one asked once and failing inside (issue #2682). `line` is only
-    /// built when the log takes debug lines (`LIGHTCRAFT_LOG=debug`, or
-    /// `RUST_LOG=lightcraft_ui_egui::render=debug`), so the grid's requests cost nothing more otherwise.
+    /// built when the log takes debug lines (`EVOLIGHT_LOG=debug`, or
+    /// `RUST_LOG=evolight_ui_egui::render=debug`), so the grid's requests cost nothing more otherwise.
     fn decided(&mut self, line: impl FnOnce() -> String) {
         if !logs_decisions() {
             return;
@@ -1725,16 +1725,16 @@ fn logs_decisions() -> bool {
 /// How the log names a render: its slot, its photo and that photo's source, for every
 /// catalog-backed render slot (#1890). Debug-format paths so whitespace/control characters cannot
 /// forge another log entry.
-fn render_subject(slot: Slot, photo: PhotoId, source: Option<&lightcraft_catalog::Source>) -> String {
+fn render_subject(slot: Slot, photo: PhotoId, source: Option<&evolight_catalog::Source>) -> String {
     match source {
-        Some(lightcraft_catalog::Source::File { path }) => format!("render {slot:?}, {photo:?}, file {path:?}"),
-        Some(lightcraft_catalog::Source::Demo { scene }) => format!("render {slot:?}, {photo:?}, demo scene {scene}"),
+        Some(evolight_catalog::Source::File { path }) => format!("render {slot:?}, {photo:?}, file {path:?}"),
+        Some(evolight_catalog::Source::Demo { scene }) => format!("render {slot:?}, {photo:?}, demo scene {scene}"),
         None => format!("render {slot:?}, {photo:?}, source unavailable"),
     }
 }
 
 /// Include the source identity in diagnostics ([`render_subject`]).
-fn render_failure_message(slot: Slot, photo: PhotoId, source: Option<&lightcraft_catalog::Source>, error: &str) -> String {
+fn render_failure_message(slot: Slot, photo: PhotoId, source: Option<&evolight_catalog::Source>, error: &str) -> String {
     format!("{}: {error}", render_subject(slot, photo, source))
 }
 
@@ -1745,8 +1745,8 @@ fn abandoned_line(slot: Slot, request: Option<&Requested>, why: &str) -> String 
     let source = request.and_then(|r| r.source.as_ref());
     match (slot, source) {
         (Slot::Thumb(id) | Slot::ThumbQuick(id), _) => format!("{}: abandoned, {why}", render_subject(slot, id, source)),
-        (_, Some(lightcraft_catalog::Source::File { path })) => format!("render {slot:?}, file {path:?}: abandoned, {why}"),
-        (_, Some(lightcraft_catalog::Source::Demo { scene })) => format!("render {slot:?}, demo scene {scene}: abandoned, {why}"),
+        (_, Some(evolight_catalog::Source::File { path })) => format!("render {slot:?}, file {path:?}: abandoned, {why}"),
+        (_, Some(evolight_catalog::Source::Demo { scene })) => format!("render {slot:?}, demo scene {scene}: abandoned, {why}"),
         (_, None) => format!("render {slot:?}: abandoned, {why}"),
     }
 }
@@ -1882,12 +1882,12 @@ mod stage_budget_tests {
     // Given real stage caches over the budget, the renderer clears them (the open photo's last)
     #[test]
     fn the_renderer_trims_real_stage_caches() {
-        use lightcraft_engine::pipeline::{RenderRequest, SourceInfo, render_cached};
-        let src = std::sync::Arc::new(lightcraft_raster::Rgb32f::from_fn(320, 240, |x, y| [x as f32 / 320.0, y as f32 / 240.0, 0.3]));
+        use evolight_engine::pipeline::{RenderRequest, SourceInfo, render_cached};
+        let src = std::sync::Arc::new(evolight_raster::Rgb32f::from_fn(320, 240, |x, y| [x as f32 / 320.0, y as f32 / 240.0, 0.3]));
         let mut r = Renderer::default();
         for slot in [Slot::Main, Slot::Hover] {
             let cache: Arc<StageCache> = Default::default();
-            let mut s = lightcraft_engine::develop::DevelopSettings::default();
+            let mut s = evolight_engine::develop::DevelopSettings::default();
             s.effects.clarity = 50.0;
             render_cached(&src, &SourceInfo::default(), &s, &RenderRequest::fit(320, 240), &cache);
             assert!(cache.bytes() > 0);
@@ -1924,7 +1924,7 @@ mod color_image_tests {
     // The texture a render becomes is what egui would make of its bytes, whatever the alpha
     #[test]
     fn the_fast_conversion_equals_eguis() {
-        let img = lightcraft_raster::Rgba8::from_fn(37, 29, |x, y| {
+        let img = evolight_raster::Rgba8::from_fn(37, 29, |x, y| {
             let a = match (x + y) % 5 {
                 0 => 0,
                 1 => 17,
@@ -1943,12 +1943,12 @@ mod color_image_tests {
     // longer converts a 10 MP window on every slider step); a failed render has none
     #[test]
     fn the_worker_converts_the_texture_pixels() {
-        let image = lightcraft_raster::Rgba8::from_fn(5, 3, |x, y| [(x * 40) as u8, (y * 80) as u8, 7, 255]);
+        let image = evolight_raster::Rgba8::from_fn(5, 3, |x, y| [(x * 40) as u8, (y * 80) as u8, 7, 255]);
         let result = |rendered| RenderResult {
             request_id: 1,
             source_key: None,
             photo: PhotoId(1),
-            level: lightcraft_engine::SourceLevel::Preview,
+            level: evolight_engine::SourceLevel::Preview,
             key: 1,
             rendered,
             gpu_fallback: None,
@@ -1958,7 +1958,7 @@ mod color_image_tests {
             frame: None,
         };
         let histogram = Histogram::of_srgb8(&image);
-        let ok = Renderer::run_for(|| result(Ok(lightcraft_pipeline::Rendered { image: image.clone(), histogram, deep: None })), &None);
+        let ok = Renderer::run_for(|| result(Ok(evolight_pipeline::Rendered { image: image.clone(), histogram, deep: None })), &None);
         assert_eq!(ok.color.map(|c| c.pixels.clone()), Some(color_image(&image).pixels));
         let failed = Renderer::run_for(|| result(Err("unreadable".into())), &None);
         assert!(failed.color.is_none());
@@ -1966,7 +1966,7 @@ mod color_image_tests {
 
     #[test]
     fn an_empty_image_is_an_empty_texture() {
-        let img = lightcraft_raster::Rgba8::new(0, 0);
+        let img = evolight_raster::Rgba8::new(0, 0);
         assert!(color_image(&img).pixels.is_empty());
     }
 }

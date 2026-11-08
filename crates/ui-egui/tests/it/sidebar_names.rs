@@ -6,19 +6,19 @@ use egui_kittest::{
     Harness,
     kittest::{NodeT, Queryable},
 };
-use lightcraft_ui_egui::{
-    LightcraftApp, Services,
+use evolight_ui_egui::{
+    EvoLightApp, Services,
     state::{RightPanel, ViewMode},
 };
 
-fn sidebar() -> Harness<'static, LightcraftApp> {
-    let mut app = LightcraftApp::new(lightcraft_engine::Session::with_demo(), Services { png: None, ..Default::default() });
+fn sidebar() -> Harness<'static, EvoLightApp> {
+    let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services { png: None, ..Default::default() });
     app.headless_host = true;
     app.ui.left_panel = true;
     app.ui.view = ViewMode::PhotoGrid;
     app.ui.right = RightPanel::None;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -28,7 +28,7 @@ fn sidebar() -> Harness<'static, LightcraftApp> {
     h
 }
 
-fn button_names(h: &Harness<'_, LightcraftApp>) -> Vec<String> {
+fn button_names(h: &Harness<'_, EvoLightApp>) -> Vec<String> {
     h.root().children_recursive().filter(|n| n.accesskit_node().role() == Role::Button).filter_map(|n| n.accesskit_node().label()).collect()
 }
 
@@ -46,19 +46,19 @@ fn a_disclosure_triangle_names_its_row() {
 /// "Expand March").
 #[test]
 fn a_month_triangle_names_its_year() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     let ids: Vec<_> = session.catalog.photos().map(|p| p.id).take(2).collect();
     for (id, captured) in ids.into_iter().zip(["2025-03-05T10:00:00", "2026-03-05T10:00:00"]) {
-        session.catalog.apply(lightcraft_catalog::Op::SetCaptured { id, captured: Some(captured.into()) }).expect("the capture time is set");
+        session.catalog.apply(evolight_catalog::Op::SetCaptured { id, captured: Some(captured.into()) }).expect("the capture time is set");
     }
     // Keep host-folder discovery from moving rows between a queued click and its frame (#3858).
-    let mut app = LightcraftApp::new(session, Services { png: None, local_places: Some(Vec::new()), ..Default::default() });
+    let mut app = EvoLightApp::new(session, Services { png: None, local_places: Some(Vec::new()), ..Default::default() });
     app.headless_host = true;
     app.ui.left_panel = true;
     app.ui.view = ViewMode::PhotoGrid;
     app.ui.right = RightPanel::None;
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },
@@ -79,7 +79,7 @@ fn a_month_triangle_names_its_year() {
 /// they open, by its own name and not its whole path ("Expand Italy", not "Expand Trips|Italy").
 #[test]
 fn a_keyword_list_triangle_names_its_keyword() {
-    let mut session = lightcraft_engine::Session::with_demo();
+    let mut session = evolight_engine::Session::with_demo();
     for (name, parent) in [("Trips", None), ("Italy", Some("Trips")), ("Rome", Some("Trips|Italy"))] {
         let params = match parent {
             Some(p) => serde_json::json!({"name": name, "parent": p}),
@@ -87,7 +87,7 @@ fn a_keyword_list_triangle_names_its_keyword() {
         };
         session.execute("keyword.create", &params).expect("a keyword is created");
     }
-    let mut app = LightcraftApp::new(session, Services { png: None, ..Default::default() });
+    let mut app = EvoLightApp::new(session, Services { png: None, ..Default::default() });
     app.headless_host = true;
     app.ui.left_panel = false;
     app.ui.view = ViewMode::PhotoGrid;
@@ -95,7 +95,7 @@ fn a_keyword_list_triangle_names_its_keyword() {
     // Trips is open, so Italy (which has Rome below it) shows, closed
     app.ui.keyword_list_open = vec!["trips".to_string()];
     let mut h = Harness::builder().with_size(vec2(1500.0, 950.0)).build_ui_state(
-        |ui, app: &mut LightcraftApp| {
+        |ui, app: &mut EvoLightApp| {
             app.logic(&ui.ctx().clone());
             app.ui(ui);
         },

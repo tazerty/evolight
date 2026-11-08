@@ -13,8 +13,8 @@ pub const FONT_SEMIBOLD: &str = "semibold";
 const WEB_CHINESE_FONT: &str = "web Noto Sans CJK SC";
 
 /// Shared colour-label palette for badges, thumbnail surrounds and feedback.
-pub fn label_color(label: lightcraft_catalog::ColorLabel) -> Color32 {
-    use lightcraft_catalog::ColorLabel;
+pub fn label_color(label: evolight_catalog::ColorLabel) -> Color32 {
+    use evolight_catalog::ColorLabel;
     match label {
         ColorLabel::Red => Color32::from_rgb(222, 72, 72),
         ColorLabel::Yellow => Color32::from_rgb(232, 196, 58),
@@ -25,12 +25,12 @@ pub fn label_color(label: lightcraft_catalog::ColorLabel) -> Color32 {
 }
 
 /// A translucent label colour over thumbnail chrome; selection remains brighter.
-pub fn label_background(base: Color32, label: Option<lightcraft_catalog::ColorLabel>, selected: bool) -> Color32 {
+pub fn label_background(base: Color32, label: Option<evolight_catalog::ColorLabel>, selected: bool) -> Color32 {
     label.map_or(base, |l| base.lerp_to_gamma(label_color(l), if selected { 0.32 } else { 0.22 }))
 }
 
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
-pub fn label_toast_colors(label: lightcraft_catalog::ColorLabel) -> (Color32, Color32) {
+pub fn label_toast_colors(label: evolight_catalog::ColorLabel) -> (Color32, Color32) {
     (Color32::WHITE.lerp_to_gamma(label_color(label), 0.3), Color32::from_rgb(36, 24, 24))
 }
 
@@ -399,14 +399,14 @@ pub fn install_fonts(ctx: &egui::Context) {
 
 /// Install the browser's separately downloaded Chinese face alongside the embedded faces.
 pub fn install_fonts_with_chinese(ctx: &egui::Context, chinese: Option<&Arc<FontData>>) {
-    ctx.set_fonts(font_definitions_with_chinese(lightcraft_engine::CRAFT_FONTS, chinese));
+    ctx.set_fonts(font_definitions_with_chinese(evolight_engine::EVO_FONTS, chinese));
 }
 
-/// Inter remains the default UI face. Egui's default faces and craft-fonts cover other scripts;
+/// Inter remains the default UI face. Egui's default faces and evo-fonts cover other scripts;
 /// the browser's separate Chinese face precedes Japanese faces within the CJK fallback list.
-/// Without craft-fonts or that separate face, CJK text shows boxes.
-pub fn font_definitions(craft: &'static [lightcraft_engine::CraftFont]) -> FontDefinitions {
-    font_definitions_with_chinese(craft, None)
+/// Without evo-fonts or that separate face, CJK text shows boxes.
+pub fn font_definitions(evo: &'static [evolight_engine::EvoFont]) -> FontDefinitions {
+    font_definitions_with_chinese(evo, None)
 }
 
 /// egui's emoji face (monochrome Noto Emoji), one of its bundled defaults.
@@ -426,27 +426,27 @@ pub fn base_definitions() -> FontDefinitions {
 
 /// The web build keeps the large Simplified Chinese face outside the size-limited WASM module.
 /// Prefer it for Chinese UI text, including Traditional Chinese until it has its own face.
-pub fn font_definitions_with_chinese(craft: &'static [lightcraft_engine::CraftFont], chinese: Option<&Arc<FontData>>) -> FontDefinitions {
+pub fn font_definitions_with_chinese(evo: &'static [evolight_engine::EvoFont], chinese: Option<&Arc<FontData>>) -> FontDefinitions {
     let mut fonts = base_definitions();
     fonts.font_data.insert("Inter".into(), Arc::new(FontData::from_static(include_bytes!("../../../assets/fonts/Inter-Regular.ttf"))));
     fonts.font_data.insert("Inter-SemiBold".into(), Arc::new(FontData::from_static(include_bytes!("../../../assets/fonts/Inter-SemiBold.ttf"))));
-    // Craft-fonts faces in preference order for a family drawn in `style`.
+    // Evo-fonts faces in preference order for a family drawn in `style`.
     let fallback = |style: &str| {
-        lightcraft_engine::fonts::ui_fallback(craft, crate::i18n::language().script(), style)
+        evolight_engine::fonts::ui_fallback(evo, crate::i18n::language().script(), style)
             .into_iter()
-            .map(craft_font_name)
+            .map(evo_font_name)
             .collect::<Vec<String>>()
     };
     let (mut regular, mut bold) = (fallback("Regular"), fallback("Bold"));
     for name in regular.iter().chain(bold.iter()) {
-        if let Some(font) = craft.iter().find(|font| &craft_font_name(font) == name) {
+        if let Some(font) = evo.iter().find(|font| &evo_font_name(font) == name) {
             fonts.font_data.insert(name.clone(), Arc::new(FontData::from_static(font.bytes)));
         }
     }
     // A variable face holds every weight in its one file: strong text draws it heavier, from the
     // same bytes. A face with one fixed weight stays as it is.
     for name in &mut bold {
-        let Some(font) = craft.iter().find(|font| &craft_font_name(font) == name) else { continue };
+        let Some(font) = evo.iter().find(|font| &evo_font_name(font) == name) else { continue };
         let Some(heavier) = strong_weight(font.bytes) else { continue };
         *name = format!("{name} strong");
         fonts.font_data.insert(name.clone(), Arc::new(heavier));
@@ -487,7 +487,7 @@ pub fn font_definitions_with_chinese(craft: &'static [lightcraft_engine::CraftFo
 /// The font families used by this app instance, including the browser's separately loaded face.
 pub fn font_credits(chinese_loaded: bool) -> String {
     let mut families = vec!["Inter"];
-    for f in lightcraft_engine::CRAFT_FONTS {
+    for f in evolight_engine::EVO_FONTS {
         if !families.contains(&f.family) {
             families.push(f.family);
         }
@@ -514,8 +514,8 @@ fn strong_weight(bytes: &'static [u8]) -> Option<FontData> {
     Some(face.tweak(tweak))
 }
 
-fn craft_font_name(f: &lightcraft_engine::CraftFont) -> String {
-    format!("craft-fonts {} {}", f.family, f.style)
+fn evo_font_name(f: &evolight_engine::EvoFont) -> String {
+    format!("evo-fonts {} {}", f.family, f.style)
 }
 
 /// Points one mouse-wheel notch (a line) scrolls.
@@ -530,7 +530,7 @@ pub const WHEEL_STRIP_SHARE: f32 = 1.0 / 3.0;
 pub const WHEEL_ZOOM_PER_POINT: f32 = 40.0 / 200.0 / WHEEL_LINE_POINTS;
 
 fn theme_id() -> egui::Id {
-    egui::Id::unique("lightcraft-theme")
+    egui::Id::unique("evolight-theme")
 }
 
 /// The theme `ctx` is styled with (none before the first [`apply_kind`]).
@@ -540,12 +540,12 @@ pub fn current(ctx: &egui::Context) -> Option<ThemeKind> {
 
 /// Windows only: tell the window its theme again, the first time it has focus. A first theme that
 /// reaches a focused window as it comes up changes the title's colour but not the caption's, so
-/// with LightCraft dark on a light system the title is white on a light caption (it looks blank),
+/// with EvoLight dark on a light system the title is white on a light caption (it looks blank),
 /// and light on dark is dark on dark, until focus next moves (#3381). The same command repaints
 /// the caption once the window is up. A window that opens without focus shows the right colours
 /// from the start.
 pub fn refresh_window_on_first_focus(ctx: &egui::Context) {
-    let done = egui::Id::unique("lightcraft-window-theme-refreshed");
+    let done = egui::Id::unique("evolight-window-theme-refreshed");
     if !cfg!(target_os = "windows") || !ctx.input(|i| i.focused) || ctx.data(|d| d.get_temp::<bool>(done)).is_some() {
         return;
     }
@@ -596,7 +596,7 @@ pub fn apply_kind(ctx: &egui::Context, kind: ThemeKind) {
     v.popup_shadow = egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(popup) };
     v.window_shadow = egui::epaint::Shadow { offset: [0, 8], blur: 30, spread: 0, color: Color32::from_black_alpha(window) };
     let w = &mut v.widgets;
-    craft_ui::theme::WidgetPalette { noninteractive: t.chrome, inactive: t.button, hovered: t.hover, active: t.pressed, open: t.hover }.apply_to(
+    evo_ui::theme::WidgetPalette { noninteractive: t.chrome, inactive: t.button, hovered: t.hover, active: t.pressed, open: t.hover }.apply_to(
         w,
         CornerRadius::same(4),
         Stroke::new(1.0, t.text_label),
@@ -636,7 +636,7 @@ mod tests {
             }
             // the selected ring also sits on a selected cell (square grid, filmstrip), label-tinted or not
             let mut selected_cells = vec![("grid", t.grid_bg), ("selected cell", t.cell_selected)];
-            for label in lightcraft_catalog::ColorLabel::ALL {
+            for label in evolight_catalog::ColorLabel::ALL {
                 selected_cells.push(("labelled selected cell", label_background(t.cell_selected, Some(label), true)));
             }
             for (what, surface) in selected_cells {
@@ -713,14 +713,14 @@ mod tests {
     /// Exercise the Thai characters of the reported folder name through every egui family.
     #[test]
     fn thai_folder_name_has_glyphs_in_every_ui_family() {
-        if lightcraft_engine::CRAFT_FONTS.is_empty() {
-            lightcraft_testkit::skip!(Fonts, "built without CRAFT_FONTS_DIR: no craft-fonts to check");
+        if evolight_engine::EVO_FONTS.is_empty() {
+            evolight_testkit::skip!(Fonts, "built without EVO_FONTS_DIR: no evo-fonts to check");
             return;
         }
-        let thai = lightcraft_engine::CRAFT_FONTS.iter().find(|f| f.covers("Thai")).expect("font input includes Thai");
+        let thai = evolight_engine::EVO_FONTS.iter().find(|f| f.covers("Thai")).expect("font input includes Thai");
         set_language(Locale::En);
-        let definitions = font_definitions(lightcraft_engine::CRAFT_FONTS);
-        let name = craft_font_name(thai);
+        let definitions = font_definitions(evolight_engine::EVO_FONTS);
+        let name = evo_font_name(thai);
         assert!(definitions.font_data.contains_key(&name));
         // (The strong family has the face's heavier twin instead when it is a variable font.)
         let strong = format!("{name} strong");
@@ -747,7 +747,7 @@ mod tests {
     /// Evora (E10): no UI family falls back on egui's emoji face, and the face is not loaded.
     #[test]
     fn no_ui_family_uses_the_emoji_face() {
-        let definitions = font_definitions(lightcraft_engine::CRAFT_FONTS);
+        let definitions = font_definitions(evolight_engine::EVO_FONTS);
         assert!(!definitions.font_data.contains_key(EMOJI_FACE));
         for (family, names) in &definitions.families {
             assert!(!names.iter().any(|name| name == EMOJI_FACE), "{family:?}");
@@ -756,14 +756,14 @@ mod tests {
 
     #[test]
     fn native_chinese_face_falls_back_after_default_faces() {
-        static FACES: &[lightcraft_engine::CraftFont] = &[
-            lightcraft_engine::CraftFont {
+        static FACES: &[evolight_engine::EvoFont] = &[
+            evolight_engine::EvoFont {
                 family: "BIZ UDPGothic",
                 style: "Regular",
                 scripts: &["Jpan", "Latn"],
                 bytes: include_bytes!("../../../assets/fonts/Inter-Regular.ttf"),
             },
-            lightcraft_engine::CraftFont {
+            evolight_engine::EvoFont {
                 family: "Noto Sans CJK SC",
                 style: "Regular",
                 scripts: &["Hans", "Latn"],
@@ -774,7 +774,7 @@ mod tests {
         let definitions = font_definitions(FACES);
         let defaults = base_definitions();
         let default_prop = defaults.families.get(&FontFamily::Proportional).expect("default proportional fonts");
-        let chinese = "craft-fonts Noto Sans CJK SC Regular";
+        let chinese = "evo-fonts Noto Sans CJK SC Regular";
         for (family, primary) in [(FontFamily::Proportional, "Inter"), (FontFamily::Name(FONT_SEMIBOLD.into()), "Inter-SemiBold")] {
             let names = definitions.families.get(&family).expect("UI font family");
             assert_eq!(names.first().map(String::as_str), Some(primary));
@@ -792,13 +792,13 @@ mod tests {
     fn separate_web_chinese_face_is_available_in_every_ui_family() {
         // Simulate the WASM build, which embeds only the Japanese face. The Chinese face arrives
         // as a separate file and must precede that face when the UI uses Chinese.
-        static JAPANESE: &[lightcraft_engine::CraftFont] = &[lightcraft_engine::CraftFont {
+        static JAPANESE: &[evolight_engine::EvoFont] = &[evolight_engine::EvoFont {
             family: "BIZ UDPGothic",
             style: "Regular",
             scripts: &["Jpan", "Latn"],
             bytes: include_bytes!("../../../assets/fonts/Inter-Regular.ttf"),
         }];
-        let embedded = lightcraft_engine::CRAFT_FONTS.iter().find(|font| font.family == "Noto Sans CJK SC" && font.style == "Regular");
+        let embedded = evolight_engine::EVO_FONTS.iter().find(|font| font.family == "Noto Sans CJK SC" && font.style == "Regular");
         let fallback: &'static [u8] = include_bytes!("../../../assets/fonts/Inter-Regular.ttf");
         let source = embedded.map_or(fallback, |font| font.bytes);
         let chinese = Arc::new(FontData::from_static(source));
@@ -828,7 +828,7 @@ mod tests {
         set_language(Locale::Ja);
         let japanese = font_definitions_with_chinese(JAPANESE, Some(&chinese));
         let names = japanese.families.get(&FontFamily::Proportional).expect("proportional fonts");
-        assert_eq!(names.get(1 + default_count).map(String::as_str), Some("craft-fonts BIZ UDPGothic Regular"));
+        assert_eq!(names.get(1 + default_count).map(String::as_str), Some("evo-fonts BIZ UDPGothic Regular"));
         assert_eq!(names.get(2 + default_count).map(String::as_str), Some(WEB_CHINESE_FONT));
         set_language(Locale::En);
     }
@@ -862,9 +862,9 @@ mod tests {
         })
     }
 
-    /// The craft-fonts face for Arabic, when it is a variable font with a weight axis.
-    fn variable_arabic_face() -> Option<&'static lightcraft_engine::CraftFont> {
-        let face = lightcraft_engine::CRAFT_FONTS.iter().find(|font| font.covers("Arab"))?;
+    /// The evo-fonts face for Arabic, when it is a variable font with a weight axis.
+    fn variable_arabic_face() -> Option<&'static evolight_engine::EvoFont> {
+        let face = evolight_engine::EVO_FONTS.iter().find(|font| font.covers("Arab"))?;
         FontData::from_static(face.bytes).variation_axes().iter().any(|axis| axis.tag.to_be_bytes() == *b"wght").then_some(face)
     }
 
@@ -872,15 +872,15 @@ mod tests {
     /// tab name used to be drawn at regular weight beside a bold Latin one.
     #[test]
     fn strong_arabic_text_is_heavier_than_regular_with_a_variable_face() {
-        // Given a build with craft-fonts whose Arabic face has a weight axis
+        // Given a build with evo-fonts whose Arabic face has a weight axis
         if variable_arabic_face().is_none() {
-            eprintln!("skipped: built without a variable-weight craft-fonts face for Arabic");
+            eprintln!("skipped: built without a variable-weight evo-fonts face for Arabic");
             return;
         }
         set_language(Locale::En);
         // When an Arabic word is laid out regular and strong at the same size
-        let (regular_width, regular_ink) = width_and_ink(font_definitions(lightcraft_engine::CRAFT_FONTS), ARABIC_WORD, FontFamily::Proportional);
-        let (strong_width, strong_ink) = width_and_ink(font_definitions(lightcraft_engine::CRAFT_FONTS), ARABIC_WORD, semibold_family());
+        let (regular_width, regular_ink) = width_and_ink(font_definitions(evolight_engine::EVO_FONTS), ARABIC_WORD, FontFamily::Proportional);
+        let (strong_width, strong_ink) = width_and_ink(font_definitions(evolight_engine::EVO_FONTS), ARABIC_WORD, semibold_family());
         eprintln!("{ARABIC_WORD}: regular {regular_width} px, ink {regular_ink}; strong {strong_width} px, ink {strong_ink}");
         // Then the strong one is wider and puts down more ink
         assert!(strong_width > regular_width, "strong Arabic is wider than regular: strong {strong_width} px, regular {regular_width} px");
@@ -891,17 +891,17 @@ mod tests {
     /// font file has it, and Latin text keeps Inter in both weights.
     #[test]
     fn regular_text_and_latin_are_unchanged_by_the_strong_variable_face() {
-        // Given a build with craft-fonts whose Arabic face has a weight axis
+        // Given a build with evo-fonts whose Arabic face has a weight axis
         let Some(arabic) = variable_arabic_face() else {
-            eprintln!("skipped: built without a variable-weight craft-fonts face for Arabic");
+            eprintln!("skipped: built without a variable-weight evo-fonts face for Arabic");
             return;
         };
         set_language(Locale::En);
         // When the UI builds its fonts
-        let definitions = font_definitions(lightcraft_engine::CRAFT_FONTS);
+        let definitions = font_definitions(evolight_engine::EVO_FONTS);
         // Then the regular Arabic face is the font file untouched, and the only Arabic face of
         // the regular and monospace families
-        let name = craft_font_name(arabic);
+        let name = evo_font_name(arabic);
         assert_eq!(definitions.font_data.get(&name).map(|data| &data.tweak), Some(&egui::FontTweak::default()));
         let plain_weight = egui::epaint::text::VariationCoords::default();
         for family in [FontFamily::Proportional, FontFamily::Monospace] {
@@ -919,7 +919,7 @@ mod tests {
         plain.families.insert(FontFamily::Proportional, vec!["Inter".into(), "Arabic".into()]);
         let (width, ink) = width_and_ink(definitions.clone(), ARABIC_WORD, FontFamily::Proportional);
         assert_eq!((width, ink), width_and_ink(plain, ARABIC_WORD, FontFamily::Proportional));
-        // And Latin text, strong and regular, is as it is without craft-fonts
+        // And Latin text, strong and regular, is as it is without evo-fonts
         for family in [FontFamily::Proportional, semibold_family()] {
             assert_eq!(
                 width_and_ink(definitions.clone(), "Library", family.clone()),
@@ -933,20 +933,20 @@ mod tests {
     }
 
     /// A face with one fixed weight is registered once: nothing heavier can be asked of it. Without
-    /// craft-fonts there is nothing to register at all.
+    /// evo-fonts there is nothing to register at all.
     #[test]
     fn a_static_face_has_no_strong_twin() {
         // Given a face without a weight axis for another script
-        static FACES: &[lightcraft_engine::CraftFont] = &[lightcraft_engine::CraftFont {
+        static FACES: &[evolight_engine::EvoFont] = &[evolight_engine::EvoFont {
             family: "Static Sans",
             style: "Regular",
             scripts: &["Thai"],
             bytes: include_bytes!("../../../assets/fonts/Inter-Regular.ttf"),
         }];
         set_language(Locale::En);
-        for craft in [FACES, &[]] {
+        for evo in [FACES, &[]] {
             // When the UI builds its fonts
-            let definitions = font_definitions(craft);
+            let definitions = font_definitions(evo);
             // Then no face is drawn at another weight than its file has, and the strong family
             // holds what the regular one does after Inter
             assert!(definitions.font_data.values().all(|data| data.tweak.coords == egui::epaint::text::VariationCoords::default()));
@@ -954,7 +954,7 @@ mod tests {
             let strong = definitions.families.get(&semibold_family()).expect("strong family");
             assert_eq!(regular.get(1..), strong.get(1..));
             // Evora (E10): egui's emoji face is not loaded, so the count starts from base_definitions().
-            assert_eq!(definitions.font_data.len(), base_definitions().font_data.len() + 2 + craft.len());
+            assert_eq!(definitions.font_data.len(), base_definitions().font_data.len() + 2 + evo.len());
         }
     }
 }

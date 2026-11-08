@@ -1,7 +1,7 @@
 //! Library commands: view source, filter/sort, selection, ratings/flags/labels, rotate, delete,
 //! metadata, albums, import.
 
-use lightcraft_catalog::{Album, AlbumId, ColorLabel, CopyrightStatus, Filter, Flag, GroupBy, Op, PhotoId, Sort, SortKey};
+use evolight_catalog::{Album, AlbumId, ColorLabel, CopyrightStatus, Filter, Flag, GroupBy, Op, PhotoId, Sort, SortKey};
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, bool_or, cmd, has_active, has_library_selection, has_selection, ok, str_param};

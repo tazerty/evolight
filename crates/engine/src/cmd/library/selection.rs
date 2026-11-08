@@ -91,7 +91,7 @@ pub(super) fn for_targets(s: &mut Session, p: &Value, label: &str, f: impl Fn(Ph
 pub(super) fn change_rating(s: &mut Session, p: &Value, delta: i8, label: &str) -> Result<Value> {
     let mut ops = Vec::new();
     for id in s.targets(p)? {
-        let old = s.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?.rating;
+        let old = s.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?.rating;
         let rating = (i16::from(old) + i16::from(delta)).clamp(0, 5) as u8;
         if rating != old {
             ops.push(Op::SetRating { id, rating });
@@ -109,7 +109,7 @@ pub(super) fn change_rating(s: &mut Session, p: &Value, delta: i8, label: &str) 
 pub(super) fn change_flag(s: &mut Session, p: &Value, label: &str, step: impl Fn(Flag) -> Flag) -> Result<Value> {
     let mut ops = Vec::new();
     for id in s.targets(p)? {
-        let old = s.catalog.photo(id).ok_or(lightcraft_catalog::CatalogError::NoPhoto(id))?.flag;
+        let old = s.catalog.photo(id).ok_or(evolight_catalog::CatalogError::NoPhoto(id))?.flag;
         let flag = step(old);
         if flag != old {
             ops.push(Op::SetFlag { id, flag });
@@ -186,12 +186,12 @@ pub(super) fn rotate(s: &mut Session, p: &Value, cw: bool) -> Result<Value> {
             let mut d = (*before).clone();
             d.orientation = d.orientation.rotated(cw);
             // the crop lives in the oriented frame, so it turns with the image (else it keeps the old width and height and cuts the photo)
-            let turn = lightcraft_geom::Orientation::Normal.rotated(cw);
+            let turn = evolight_geom::Orientation::Normal.rotated(cw);
             d.crop.geometry.rect = turn.map_norm_rect(d.crop.geometry.rect);
             // and so do the masks: on the photo first (an old one), then turned with it
             s.attach_masks(id, &before, &mut d);
             for m in &mut d.masks {
-                lightcraft_pipeline::mask_space::turn(m, turn);
+                evolight_pipeline::mask_space::turn(m, turn);
             }
             d.crop.aspect = d.crop.aspect.map(|(w, h)| (h, w));
             ops.extend(s.develop_op(id, d, "Rotate"));
@@ -224,13 +224,13 @@ pub(super) fn flip(s: &mut Session, p: &Value, horizontal: bool) -> Result<Value
 /// `library.selectBy`: select the photos in view that match every given criterion.
 pub(super) fn select_by(s: &mut Session, p: &Value) -> Result<Value> {
     const C: &str = "library.selectBy";
-    let flag: Option<lightcraft_catalog::Flag> = match p.get("flag") {
+    let flag: Option<evolight_catalog::Flag> = match p.get("flag") {
         Some(v) => Some(serde_json::from_value(v.clone()).map_err(|_| bad(C, "flag is pick, reject or none"))?),
         None => None,
     };
     let rating = p.get("rating").and_then(Value::as_u64).map(|r| r.min(5) as u8);
     let op = p.get("ratingOp").and_then(Value::as_str).unwrap_or("gte");
-    let label: Option<Option<lightcraft_catalog::ColorLabel>> = match p.get("label").and_then(Value::as_str) {
+    let label: Option<Option<evolight_catalog::ColorLabel>> = match p.get("label").and_then(Value::as_str) {
         Some("none") => Some(None),
         Some(l) => Some(Some(serde_json::from_value(json!(l)).map_err(|_| bad(C, format!("unknown label `{l}`")))?)),
         None => None,
@@ -238,7 +238,7 @@ pub(super) fn select_by(s: &mut Session, p: &Value) -> Result<Value> {
     if flag.is_none() && rating.is_none() && label.is_none() {
         return Err(bad(C, "give flag, rating and/or label"));
     }
-    let matches = |ph: &lightcraft_catalog::Photo| {
+    let matches = |ph: &evolight_catalog::Photo| {
         flag.is_none_or(|f| ph.flag == f)
             && rating.is_none_or(|r| match op {
                 "eq" => ph.rating == r,

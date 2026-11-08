@@ -1,6 +1,6 @@
-use super::{GESTURE_TIMEOUT_MS, InjectedDrop, InjectedPress, LightcraftApp, drop_overlay, import, panels};
+use super::{GESTURE_TIMEOUT_MS, InjectedDrop, InjectedPress, EvoLightApp, drop_overlay, import, panels};
 
-impl LightcraftApp {
+impl EvoLightApp {
     /// Preserve the currently queued handles while a prompt or blocking library window owns
     /// drops. Hosts call this in their UI phase even if the app is not ready to draw yet.
     pub fn defer_dropped_files(&mut self) {
@@ -301,7 +301,7 @@ mod drop_tests {
 
     #[test]
     fn dropped_presets_are_told_apart_from_photos() {
-        for p in ["/a/Look.lrtemplate", "/a/b.XMP", "/a/pack.zip", "/a/x.lcpreset", "/a/Magic Hour.mplumpack", "/a/Pop.lmp", "/a/Bundle.LMP"] {
+        for p in ["/a/Look.lrtemplate", "/a/b.XMP", "/a/pack.zip", "/a/x.evolightpreset", "/a/Magic Hour.mplumpack", "/a/Pop.lmp", "/a/Bundle.LMP"] {
             assert!(crate::is_preset_file(p), "{p}");
         }
         for p in ["/a/IMG_1.CR2", "/a/b.dng", "/a/c.jpg", "/a/folder"] {

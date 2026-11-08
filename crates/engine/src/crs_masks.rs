@@ -1,5 +1,5 @@
 //! Interchange: local corrections (masks) stored as `crs:` structures in XMP sidecars, XMP
-//! presets and `.lrtemplate` files → our [`Mask`](lightcraft_develop::Mask)s.
+//! presets and `.lrtemplate` files → our [`Mask`](evolight_develop::Mask)s.
 //!
 //! Four containers hold them: `MaskGroupBasedCorrections` (current: each correction has a list
 //! of mask components) and the older `GradientBasedCorrections`, `CircularGradientBasedCorrections`
@@ -13,7 +13,7 @@
 
 use std::collections::BTreeMap;
 
-use lightcraft_meta::XmpValue;
+use evolight_meta::XmpValue;
 use serde_json::{Value, json};
 
 /// Top-level properties keyed `prefix:name`, with structure.
@@ -300,7 +300,7 @@ pub fn masks(values: &Values, aspect: f64) -> (Vec<Value>, Vec<String>) {
 /// beside `RetouchAreas` for older readers and read on its own when that is all there is).
 pub const SPOT_CONTAINERS: [&str; 2] = ["crs:RetouchAreas", "crs:RetouchInfo"];
 
-/// One `RetouchAreas` item → a [`Spot`](lightcraft_develop::Spot) as JSON. `aspect` = width /
+/// One `RetouchAreas` item → a [`Spot`](evolight_develop::Spot) as JSON. `aspect` = width /
 /// height of the target: horizontal sizes are stored as fractions of the width, ours of the long
 /// edge. Returns the component kind it can't carry over.
 fn spot(item: &XmpValue, aspect: f64) -> Result<Value, String> {

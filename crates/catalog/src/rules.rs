@@ -1051,7 +1051,7 @@ impl Rule {
             "stacked" => yes(cat.stack_of(p.id).is_some()),
             "cropped" => yes(p.is_cropped()),
             "treatment" => {
-                let t = if p.develop.treatment == lightcraft_develop::Treatment::Bw { "monochrome" } else { "color" };
+                let t = if p.develop.treatment == evolight_develop::Treatment::Bw { "monochrome" } else { "color" };
                 (t == want) == (op == "is")
             }
             "keywords" => names_op(op, &m.keywords, &want),

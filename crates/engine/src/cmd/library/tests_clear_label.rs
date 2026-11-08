@@ -1,5 +1,5 @@
 //! `photo.clearLabel`: the colour label taken off, as a command that can have a key of its own (#2980).
-use lightcraft_catalog::{ColorLabel, Op, Photo, PhotoId, Source};
+use evolight_catalog::{ColorLabel, Op, Photo, PhotoId, Source};
 use serde_json::json;
 
 use crate::{Result, Session};
@@ -9,7 +9,7 @@ fn session() -> Result<Session> {
     for (id, label) in [(1, Some(ColorLabel::Red)), (2, Some(ColorLabel::Purple)), (3, Some(ColorLabel::Blue)), (4, None)] {
         let mut photo = Photo::new(
             PhotoId(id),
-            Source::File { path: format!("/lightcraft-clear-label/{id}.jpg") },
+            Source::File { path: format!("/evolight-clear-label/{id}.jpg") },
             &format!("{id}.jpg"),
             "JPEG",
             40,

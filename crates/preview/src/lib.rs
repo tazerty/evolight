@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 pub use disk::{DiskCache, decode_jpeg, encode_jpeg, jpeg_dims};
 pub use hash::{Hash128, Hasher128, hash_bytes};
-use lightcraft_raster::Rgba8;
+use evolight_raster::Rgba8;
 pub use lru::{Lru, next_tick};
 pub use pool::JobPool;
 

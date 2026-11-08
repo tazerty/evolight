@@ -10,7 +10,7 @@ use serde_json::json;
 use crate::dialogs::import::ImportDialog;
 use crate::headless::Headless;
 use crate::state::{Dialog, ViewMode};
-use crate::{LightcraftApp, Services};
+use crate::{EvoLightApp, Services};
 
 const T: Duration = Duration::from_secs(20);
 const SETTLE: Duration = Duration::from_secs(120);
@@ -22,8 +22,8 @@ fn folder(tag: &str) -> PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     for i in 0..2u8 {
         let data: Vec<[u8; 4]> = (0..40 * 30).map(|k| [(k % 40 * 6) as u8, i * 90, 7, 255]).collect();
-        let img = lightcraft_raster::Rgba8 { width: 40, height: 30, data };
-        let png = lightcraft_codecs::encode_png(&lightcraft_codecs::EncodeImage::rgba8(&img), &lightcraft_codecs::EncodeMeta::default()).unwrap();
+        let img = evolight_raster::Rgba8 { width: 40, height: 30, data };
+        let png = evolight_codecs::encode_png(&evolight_codecs::EncodeImage::rgba8(&img), &evolight_codecs::EncodeMeta::default()).unwrap();
         std::fs::write(dir.join(format!("img{i}.png")), png).unwrap();
     }
     dir
@@ -32,7 +32,7 @@ fn folder(tag: &str) -> PathBuf {
 /// The app with an empty library and the import review open on a folder of two photos.
 fn review(tag: &str) -> (Headless, PathBuf) {
     let dir = folder(tag);
-    let app = LightcraftApp::new(lightcraft_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
+    let app = EvoLightApp::new(evolight_engine::Session::new().with_fs(), Services { png: None, ..Default::default() });
     let mut h = Headless::new(app, [1300.0, 1400.0], 1.0);
     h.app.ui.view = ViewMode::PhotoGrid;
     let r = h.request("engine.execute", json!({"command": "file.addPhotos", "params": {"paths": [dir.to_string_lossy()]}}), T);

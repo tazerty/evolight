@@ -1,9 +1,9 @@
 //! `read_header` (import probes) agrees with a decode on dimensions and orientation, refuses what a
 //! decode refuses (truncated files included), and returns errors — never panics — on hostile input.
 
-use lightcraft_codecs::exif::minimal_exif;
-use lightcraft_codecs::*;
-use lightcraft_raster::Rgba8;
+use evolight_codecs::exif::minimal_exif;
+use evolight_codecs::*;
+use evolight_raster::Rgba8;
 
 fn pixels(w: usize, h: usize) -> Rgba8 {
     Rgba8::from_fn(w, h, |x, y| [(x * 37 % 256) as u8, (y * 53 % 256) as u8, ((x ^ y) * 9 % 256) as u8, (128 + x % 100) as u8])
@@ -209,8 +209,8 @@ fn samsung_sef_trailer_without_eoi() {
     let small = decode(&pano, DecodeOptions::fit(32, 32)).unwrap();
     assert_eq!((small.source_width, small.source_height), (160, 96));
     // the fast display decode too, scaled (where the trailer after the scan used to fail it)
-    let (fit, _) = lightcraft_codecs::decode_jpeg_srgb8_fit(&pano, 32, 32).unwrap().unwrap();
-    let (fit_ref, _) = lightcraft_codecs::decode_jpeg_srgb8_fit(&jpeg, 32, 32).unwrap().unwrap();
+    let (fit, _) = evolight_codecs::decode_jpeg_srgb8_fit(&pano, 32, 32).unwrap().unwrap();
+    let (fit_ref, _) = evolight_codecs::decode_jpeg_srgb8_fit(&jpeg, 32, 32).unwrap().unwrap();
     assert_eq!((fit.width, fit.height, &fit.data), (fit_ref.width, fit_ref.height, &fit_ref.data));
     // an FF D9 inside the SEF data is not the image's end
     let eoi_in_data = sef_file(scan, block, b"SEFH", 0x08E0, &[0xFF, 0xC0, 0, 0x11, 0xFF, 0xD9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], None);

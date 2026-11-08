@@ -1,11 +1,11 @@
-use super::{Align2, Color32, LightcraftApp, PhotoId, Pos2, Rect, Sense, Slot, Stroke, StrokeKind, Tokens, json, pos2, register, vec2};
+use super::{Align2, Color32, EvoLightApp, PhotoId, Pos2, Rect, Sense, Slot, Stroke, StrokeKind, Tokens, json, pos2, register, vec2};
 
 /// Size of the Navigator mini map (points).
 const NAV_W: f32 = 180.0;
 
 /// The Navigator: while zoomed in, a mini map of the photo at the canvas' bottom right with the
 /// visible region outlined; click or drag on it to pan. Returns the area it covers.
-pub(super) fn navigator(app: &mut LightcraftApp, ui: &mut egui::Ui, canvas: Rect, img: Rect, id: PhotoId) -> Option<Rect> {
+pub(super) fn navigator(app: &mut EvoLightApp, ui: &mut egui::Ui, canvas: Rect, img: Rect, id: PhotoId) -> Option<Rect> {
     let zoomed = img.width() > canvas.width() + 1.0 || img.height() > canvas.height() + 1.0;
     if !app.ui.navigator || !zoomed || app.ui.fullscreen {
         return None;
@@ -55,7 +55,7 @@ pub(super) fn film_label(name: &str) -> String {
 /// photo and scrolling sideways with the wheel. Clicks select: Command toggles and Shift extends
 /// the range; in Compare they adjust the pair's selection, and a plain click replaces the active
 /// side.
-pub(crate) fn filmstrip(app: &mut LightcraftApp, ui: &mut egui::Ui, r: Rect) {
+pub(crate) fn filmstrip(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect) {
     let t = Tokens::get(ui.ctx());
     ui.painter().rect_filled(r, 0.0, t.canvas);
     ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(r.width(), 4.0)), 0.0, Color32::from_gray(0x20));
@@ -103,7 +103,7 @@ pub(crate) fn filmstrip(app: &mut LightcraftApp, ui: &mut egui::Ui, r: Rect) {
             let state = app.session.selection.state_of(*id);
             let p = ui.painter();
             let label = app.session.catalog.photo(*id).and_then(|ph| ph.label);
-            let selected = state != lightcraft_engine::SelectionState::NotSelected;
+            let selected = state != evolight_engine::SelectionState::NotSelected;
             let base = if selected {
                 t.cell_selected
             } else if resp.hovered() {
@@ -213,9 +213,9 @@ pub(crate) fn film_spoken(file_name: &str, failed: bool) -> String {
 }
 
 /// Rating, flag and edited badges along a filmstrip thumbnail's bottom edge (Settings → Interface).
-fn film_badges(p: &egui::Painter, t: &Tokens, fr: Rect, ph: &lightcraft_catalog::Photo) {
+fn film_badges(p: &egui::Painter, t: &Tokens, fr: Rect, ph: &evolight_catalog::Photo) {
     use crate::icons::{Icon, paint};
-    use lightcraft_catalog::Flag;
+    use evolight_catalog::Flag;
     let edited = ph.is_edited();
     if ph.rating == 0 && ph.flag == Flag::None && !edited {
         return;

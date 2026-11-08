@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
-use lightcraft_catalog::PhotoId;
+use evolight_catalog::PhotoId;
 use serde_json::json;
 
 use crate::Session;
@@ -20,7 +20,7 @@ fn temp_dir(tag: &str) -> PathBuf {
 }
 
 fn png(p: &Path, seed: u8) {
-    let img = lightcraft_raster::Rgba8::from_fn(600, 400, |x, y| [(x % 251) as u8, (y % 241) as u8, seed, 255]);
+    let img = evolight_raster::Rgba8::from_fn(600, 400, |x, y| [(x % 251) as u8, (y % 241) as u8, seed, 255]);
     let b =
         crate::export::encode_image(&img, &crate::export::ExportOptions { format: crate::export::ExportFormat::Png, ..Default::default() }).unwrap();
     std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -103,7 +103,7 @@ fn the_loupe_uses_a_built_preview_that_is_big_enough() {
 /// and refuses to enlarge.
 #[test]
 fn a_cached_view_is_fitted_down_never_up() {
-    let img = lightcraft_raster::Rgba8::from_fn(400, 200, |x, _| if x % 2 == 0 { [200, 100, 0, 255] } else { [100, 50, 0, 255] });
+    let img = evolight_raster::Rgba8::from_fn(400, 200, |x, _| if x % 2 == 0 { [200, 100, 0, 255] } else { [100, 50, 0, 255] });
     let f = crate::media::fit_cached(&img, 100, 100).unwrap();
     assert_eq!((f.width, f.height), (100, 50));
     assert!(f.data.iter().all(|p| p[0] == 150 && p[1] == 75), "averaged");
@@ -183,7 +183,7 @@ fn a_forced_build_renders_the_thumbnail_again() {
     let jobs = crate::cmd::previews::jobs_for(&mut s, ids[0], Some(300));
     let thumb = jobs.iter().find(|j| j.view_cache.is_none() && j.cache.is_some()).expect("a thumbnail job");
     let ((cache, key), generation) = (thumb.cache.clone().unwrap(), thumb.cache_generation);
-    let stand_in = lightcraft_raster::Rgba8 { width: 1, height: 1, data: vec![[1, 2, 3, 255]] };
+    let stand_in = evolight_raster::Rgba8 { width: 1, height: 1, data: vec![[1, 2, 3, 255]] };
     assert!(cache.put_at(generation, key, std::sync::Arc::new(stand_in)));
     let r = build(&mut s, false);
     assert_eq!(r["skipped"], 1, "{r}");
@@ -371,7 +371,7 @@ fn a_view_change_stops_the_background_build_for_the_old_view() {
     }
     let b = s.preview_build.clone().expect("the view is prepared");
     assert!(b.running());
-    s.catalog.apply(lightcraft_catalog::Op::RemovePhoto { id: ids[5] }).unwrap();
+    s.catalog.apply(evolight_catalog::Op::RemovePhoto { id: ids[5] }).unwrap();
     s.prep_tick(mode, Some(ids[2]), false);
     let stopped = b.cancel.load(Ordering::Relaxed);
     drop(hold);
@@ -445,7 +445,7 @@ fn a_preview_kept_only_in_memory_is_built_and_written() {
     let jobs = crate::cmd::previews::jobs_for(&mut s, ids[0], Some(300));
     assert!(!jobs.is_empty());
     for j in &jobs {
-        let img = std::sync::Arc::new(lightcraft_raster::Rgba8::new(300, 200));
+        let img = std::sync::Arc::new(evolight_raster::Rgba8::new(300, 200));
         if let Some((cache, key)) = &j.view_cache {
             cache.put_memory(*key, img);
         } else if let Some((cache, key)) = &j.cache {

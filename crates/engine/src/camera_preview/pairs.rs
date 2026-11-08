@@ -18,7 +18,7 @@ pub(super) fn luma(p: [f64; 3]) -> f64 {
     p[0] * 0.2627 + p[1] * 0.6780 + p[2] * 0.0593
 }
 
-/// The finish stage's tone map and chroma curve (`lightcraft_pipeline::finish`).
+/// The finish stage's tone map and chroma curve (`evolight_pipeline::finish`).
 pub(super) fn displayed(scene: [f64; 3], tone: &ToneMap) -> [f64; 3] {
     let scene = scene.map(|v| v.max(0.0));
     let y = luma(scene);
@@ -160,7 +160,7 @@ pub(super) fn fit_tone_with_shadows(
     // knots. The usual held-out gates still check the completed look on the colour pairs.
     if let Some(old) = original {
         let (before, after) = (error(&old), error(&candidate));
-        if lightcraft_pipeline::profiling() {
+        if evolight_pipeline::profiling() {
             eprintln!("[profile] camera toe: {dark} dark pairs, held-out error {before:.5} -> {after:.5}");
         }
         if !after.is_finite() || after >= before * 0.99 {
@@ -349,7 +349,7 @@ fn fit_pairs_on(
             (0..3).map(|c| (original[c] - target[c]).powi(2)).sum::<f64>()
         })
         .sum();
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] camera look holdout RMS {:.5} -> {:.5} ({samples} channels{}{})",
             (before / samples as f64).sqrt(),
@@ -449,7 +449,7 @@ fn fit_partial_on(sensor: &Rgb32f, reference: &Rgb32f, edge_limit: Option<f32>, 
     let (pairs, bright) = collect_pairs(sensor, reference, 0.005, edge_limit, false)?;
     let related = rank_correlation(&pairs);
     if related < PARTIAL_MIN_RANK_CORRELATION {
-        if lightcraft_pipeline::profiling() {
+        if evolight_pipeline::profiling() {
             eprintln!("[profile] camera look partial: luminance rank correlation {related:.3}, not the same picture");
         }
         return None;
@@ -483,7 +483,7 @@ fn fit_partial_on(sensor: &Rgb32f, reference: &Rgb32f, edge_limit: Option<f32>, 
             samples += 1;
         }
     }
-    if lightcraft_pipeline::profiling() {
+    if evolight_pipeline::profiling() {
         eprintln!(
             "[profile] camera look partial (tone{}{}) holdout RMS {:.5} -> {:.5} ({samples} channels{})",
             if look.tone.chroma().iter().any(|k| *k != 1.0) { ", chroma" } else { "" },

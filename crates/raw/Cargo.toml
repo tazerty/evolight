@@ -1,22 +1,22 @@
 [package]
-name = "lightcraft-raw"
+name = "evolight-raw"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "LightCraft RAW decoding, demosaicing and DNG colour model (L1)"
+description = "EvoLight RAW decoding, demosaicing and DNG colour model (L1)"
 
 [lints]
 workspace = true
 
 [dependencies]
-lightcraft-tiff = { workspace = true }
-lightcraft-meta = { workspace = true }
-lightcraft-raster = { workspace = true }
-lightcraft-color = { workspace = true }
-lightcraft-geom = { workspace = true }
+evolight-tiff = { workspace = true }
+evolight-meta = { workspace = true }
+evolight-raster = { workspace = true }
+evolight-color = { workspace = true }
+evolight-geom = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
-craft-crw = { workspace = true }
+evo-crw = { workspace = true }
 thiserror = { workspace = true }
 rayon = { workspace = true }
 miniz_oxide = { workspace = true }
@@ -32,7 +32,7 @@ jxl = ["dep:jxl-oxide"]
 
 [dev-dependencies]
 # tests record why they skip (`cargo xtask ci` lists the skips)
-lightcraft-testkit = { workspace = true }
+evolight-testkit = { workspace = true }
 proptest = { workspace = true }
 zune-jpegxl = { workspace = true }
 # Pinned CC0 corpus identities; not a product dependency.

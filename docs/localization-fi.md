@@ -4,7 +4,7 @@ Suomen (`fi`, englanniksi **Finnish**, omakielinen nimi **Suomi**) saa käyttö�
 **Muokkaa → Kieli → Suomi** tai **Asetukset → Yleiset → Kieli**. Muutos tulee voimaan heti ja
 tallentuu seuraavaa käynnistystä varten. Komento on `app.language.finnish`; ohjauskanava
 hyväksyy `ui.set {"language":"fi"}` sekä tunnisteet `fi-FI` ja `fi_FI.UTF-8`. Ikkunattomassa
-ajossa voi käyttää `LIGHTCRAFT_LANGUAGE=fi`.
+ajossa voi käyttää `EVOLIGHT_LANGUAGE=fi`.
 
 Luettelot `crates/ui-egui/locales/fi.json` ja `fi-formats.json` on laadittu tekoälyavusteisesti
 (Claude) englanninkielisten lähdemerkkijonojen merkityksestä, kokonaisina fraaseina. Avainlista
