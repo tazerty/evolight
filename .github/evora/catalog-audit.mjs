@@ -37,8 +37,12 @@ const OVERRIDES = 'crates/ui-egui/overrides/display-overrides.json';
 // Termes sensibles (D-16, E9) : jamais affichés après surcharge ; et termes relevés pour information.
 // EVORA-REV-34 (E1) : le nom amont « EvoLight » ne s'affiche plus (affiché « Revela » par la surcharge).
 // EVORA-REV-46 (décision Q-EVO-1) : aucun nom de moteur affiché, graphies voisines et autres moteurs compris.
+// EVORA-REV-68 (E1) : les formes que le renommage (evo_renommer.py d'Evora, profil moteur) écrit à la place
+// des marques amont (« Upstream » pour le nom d'équipe, « upstream-site » pour le domaine du site,
+// https://evora.st pour ses liens et son Discord) : une marque passée par le renommage reste visible ici.
+export const RENAMED_BRAND_TERMS = ['Upstream', 'upstream-site', 'evora.st'];
 export const SENSITIVE_TERMS = ['Lumetri', 'Lightroom', 'Acrobat', 'Premiere', 'Adobe', 'Cycore', 'EvoLight', 'evolight', 'EVOLIGHT',
-  'EvoPhoto', 'EvoFilm', 'EvoVector', 'EvoEffect', 'EvoPdf', 'EvoDesign'];
+  'EvoPhoto', 'EvoFilm', 'EvoVector', 'EvoEffect', 'EvoPdf', 'EvoDesign', ...RENAMED_BRAND_TERMS];
 export const INFO_TERMS = ['Apple Photos'];
 const RUST_DIRS = ['crates/ui-egui/src', 'apps/evolight-web/src'];
 const TEXT_DEFAULT = new Set(['#', '*', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '\u00A9', '\u00AE', '\u2122']);
@@ -293,6 +297,11 @@ function selftest() {
   writeFileSync(join(neighbours, OVERRIDES), JSON.stringify({ replace: [['EvoPhoto', 'Lumbra', 'name'], ['evolight-', 'revela-', 'name']], messages: {} }));
   const nYes = report(neighbours, false, true);
   checks.push(['autre moteur et minuscules remplacés : 0 affiché, la porte reste verte', nYes.tm.blocking === 0 && nYes.failed === false]);
+  // EVORA-REV-68 (E1) : deux messages de marque des catalogues amont tels que le renommage les rend (sortie
+  // réelle de evo_renommer.py, profil moteur), sans autre terme : la porte rougit
+  const renamed = mk('renomme', { 'Join the Upstream Discord': 'Rejoindre le Discord Upstream', 'Upstream Website': 'Site web Upstream (https://evora.st)' }, 'fn f() {}\n');
+  const rNo = report(renamed, false, true);
+  checks.push(['restes du renommage (Upstream, evora.st) : 5 affichés, la porte rougit', rNo.tm.blocking === 5 && rNo.failed === true]);
   // E10 jugé tel qu'affiché : un émoji couvert par une surcharge, puis la même surcharge défaite
   const shownCase = mk('affiche', { 'Marked ⚠ in the list': 'Marqué ⚠ dans la liste' }, 'fn f() {}\n');
   const sNo = report(shownCase, false);

@@ -24,7 +24,19 @@ import { tmpdir } from 'node:os';
 // Termes de marque interdits hors de LICENSES/ (recherche insensible à la casse, binaires compris).
 // Le nom amont retiré n'est jamais écrit en clair dans le dépôt : il est reconstitué ici.
 const BRAND = 'art' + 'c' + 'raft';
-export const BRAND_TERMS = [BRAND, 'getart' + 'c' + 'raft', 'discord.gg', 'discord.com', 'discordapp'];
+// EVORA-REV-68 : le renommage (bin/dev/creative/evo_renommer.py d'Evora, profil moteur) tourne AVANT
+// le build ; il écrit « Upstream » à la place du nom d'équipe amont, « upstream-site » à la place du
+// domaine de son site, et https://evora.st à la place des liens de ce site et de son Discord. Une
+// marque passée par le renommage n'a donc plus aucune des formes d'origine : la porte cherche aussi
+// ses restes (aucune adresse Evora n'est attendue dans le bundle, evora-host.json de l'artefact est vide).
+export const RENAMED_BRAND_TERMS = ['upstream-site', 'upstream launcher', 'join the upstream', 'upstream website', 'evora.st'];
+export const BRAND_TERMS = [BRAND, 'getart' + 'c' + 'raft', 'discord.gg', 'discord.com', 'discordapp', ...RENAMED_BRAND_TERMS];
+// Sortie RÉELLE de evo_renommer.py (transform, profil moteur, 2026-11-08) pour les cinq messages de
+// marque des catalogues amont du tag v0.19.0 et pour un lien du site et du Discord : le piège de
+// l'auto-test, ce qu'un reste de marque devient une fois le moteur renommé.
+export const RENAMED_BRAND_SAMPLE = ['Join the Upstream Discord', 'Join the Upstream Discord…', 'Join the Upstream community on Discord',
+  'Upstream Website', 'Upstream — more creative apps', 'Join the Upstream Discord https://evora.st',
+  'Visit https://evora.st for news, or the Upstream launcher.', 'The Upstream team; site upstream-site.com'].join('\n');
 // Fichiers qu'un hébergeur interpréterait : jamais dans l'artefact (le provisionnement d'Evora pose ses en-têtes).
 const HOSTING_NAMES = new Set(['.htaccess', '.htpasswd', '_headers', '_redirects', 'web.config', '.user.ini', 'nginx.conf']);
 const HOSTING_EXT = new Set(['.conf', '.php', '.phtml', '.phar', '.cgi', '.pl', '.py', '.sh', '.asp', '.aspx', '.jsp']);
@@ -82,9 +94,10 @@ export function gateBrands(dir) {
     }
     if (fileTotal > 0) perFile.push(`${f.rel} : ${fileTotal}`);
   }
-  const total = perTerm[BRAND] + perTerm['discord.gg'] + perTerm['discord.com'] + perTerm.discordapp;
+  const total = perTerm[BRAND] + perTerm['discord.gg'] + perTerm['discord.com'] + perTerm.discordapp
+    + RENAMED_BRAND_TERMS.reduce((n, t) => n + perTerm[t], 0);
   return {
-    name: 'Marques (nom et site amont, Discord) hors LICENSES/',
+    name: 'Marques (nom et site amont, Discord, restes du renommage) hors LICENSES/',
     ok: total === 0,
     metrics: { ...perTerm, licensesUpstream: licenses, evolightInfo: evolight },
     details: [
@@ -302,13 +315,13 @@ function render(results, title) {
 }
 
 // --- Auto-test : chaque porte rougit sur un paquet piégé, et le témoin reste vert -------------
-function makePackage(base, name, { trapped }) {
+function makePackage(base, name, { trapped, app: appText }) {
   const top = join(base, name);
   const dir = join(top, 'pkg');
   mkdirSync(join(dir, LICENSES_DIR), { recursive: true });
   const index = '<!doctype html><title>x</title><script type="module">import("./app.js");</script>'
     + (trapped ? '<button onclick="go()">x</button>' : '') + '\n';
-  const app = trapped ? `console.log("Join the ${BRAND} Discord https://discord.gg/x")\n` : 'console.log("ok")\n';
+  const app = appText ?? (trapped ? `console.log("Join the ${BRAND} Discord https://discord.gg/x")\n` : 'console.log("ok")\n');
   const wasm = Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
   const files = { 'index.html': index, 'app.js': app, 'm.wasm': wasm };
   for (const [f, data] of Object.entries(files)) {
@@ -333,11 +346,15 @@ function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'evora-bundle-selftest-'));
   const trap = makePackage(base, 'piege', { trapped: true });
   const clean = makePackage(base, 'temoin', { trapped: false });
+  // EVORA-REV-68 : un paquet propre en tout, sauf des restes de marque tels que le renommage les écrit
+  const renamed = gateBrands(makePackage(base, 'renomme', { trapped: false, app: `console.log(${JSON.stringify(RENAMED_BRAND_SAMPLE)})\n` }).dir);
   const t = Object.fromEntries(checkAll(trap.dir, trap.zip).map((r, i) => [i, r]));
   const c = checkAll(clean.dir, clean.zip);
   const checks = [
     ['marques : rouge sur le nom amont et discord.gg', !t[0].ok && t[0].metrics[BRAND] === 1 && t[0].metrics['discord.gg'] === 1],
     ['marques : la mention de LICENSES/ ne compte pas', t[0].metrics.licensesUpstream === 1],
+    ['marques : rouge sur les restes du renommage (sortie réelle de l\'outil), aucune forme d\'origine présente',
+      !renamed.ok && renamed.metrics[BRAND] === 0 && renamed.metrics['discord.gg'] === 0 && RENAMED_BRAND_TERMS.every((x) => renamed.metrics[x] >= 1)],
     ["hébergement : rouge sur .htaccess, _headers, *.conf et le lien symbolique", !t[1].ok && t[1].details.filter((d) => !d.startsWith('archive')).length === 4],
     ["hébergement : rouge aussi d'après la liste de l'archive", t[1].details.some((d) => d.startsWith('archive') && d.includes('.htaccess'))],
     ['précompression : rouge sur un .gz infidèle et un .br absent', !t[2].ok && t[2].details.some((d) => d.includes('app.js.gz ne redonne')) && t[2].details.some((d) => d.includes('m.wasm.br absent'))],
