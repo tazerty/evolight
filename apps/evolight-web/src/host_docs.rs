@@ -15,9 +15,10 @@
 //!   photo becomes saved only on `evora:saved {ok: true}`, and only if it hasn't changed since the
 //!   save was sent; otherwise it stays modified (§4.5).
 //! - **Commands** (`command`): the compiled list [`COMMANDS`] only (CdC §5.3); `revela.apply
-//!   {docRef, settings | xmp, baseline?}` applies Evora's settings or a sidecar to a photo, as the
-//!   new baseline unless `baseline: false`; `develop.get {docRef}` and `develop.controls {section?}`
-//!   are the engine's own queries.
+//!   {docRef, settings | xmp | meta, baseline?}` applies Evora's settings, a sidecar, or the marks
+//!   Evora keeps in base (`meta {rating, label, flag}`, DP-REV-05) to a photo, as the new baseline
+//!   unless `baseline: false`; `develop.get {docRef}` and `develop.controls {section?}` are the
+//!   engine's own queries.
 //! - **Shown photo** (`evora:active`, `evora:activate`) and **removed photo** (`evora:closed`).
 //! - **Exports** (`export.drive`): every file the engine writes goes to Evora's Drive
 //!   (`evora:export`), never to a download; its `docRef` is the photo the file was made from, by
@@ -29,7 +30,7 @@ use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 
 use evolight_engine::Selection;
-use evolight_engine::catalog::{PhotoId, Source};
+use evolight_engine::catalog::{ColorLabel, Flag, Op, PhotoId, Source};
 use evolight_ui_egui::EvoLightApp;
 use serde_json::{Value, json};
 
@@ -376,30 +377,44 @@ impl HostDocs {
         self.index(doc_ref).ok_or("not_found")
     }
 
-    /// `revela.apply {docRef, settings | xmp, baseline?}` (CdC §5.2): Evora's settings (a partial
-    /// or complete settings object, merged as Apply Settings JSON does) or an XMP sidecar (read as
-    /// Read Metadata from File does, from the text), as one history step; the result becomes the
-    /// photo's baseline unless `baseline` is `false`.
+    /// `revela.apply {docRef, settings | xmp | meta, baseline?}` (CdC §5.2): Evora's settings (a
+    /// partial or complete settings object, merged as Apply Settings JSON does), an XMP sidecar
+    /// (read as Read Metadata from File does, from the text), or the marks Evora keeps in base
+    /// (`meta`, DP-REV-05; with `settings` or alone, never with `xmp`, which carries its own
+    /// marks), as one history step; the result becomes the photo's baseline unless `baseline` is
+    /// `false`.
     fn apply(&mut self, app: &mut EvoLightApp, params: &Value) -> Result<Value, &'static str> {
-        let i = self.doc_of(params, &["settings", "xmp", "baseline"])?;
+        let i = self.doc_of(params, &["settings", "xmp", "baseline", "meta"])?;
         let photo = self.docs[i].photo;
         let baseline = match params.get("baseline") {
             None => true,
             Some(Value::Bool(b)) => *b,
             Some(_) => return Err("invalid_content"),
         };
-        let op = match (params.get("settings"), params.get("xmp")) {
-            (Some(settings), None) if settings.is_object() => {
+        let marks = match params.get("meta") {
+            None => None,
+            Some(meta) => Some(mark_ops(photo, meta)?),
+        };
+        let op = match (params.get("settings"), params.get("xmp"), marks) {
+            (Some(settings), None, marks) if settings.is_object() => {
                 let current = app.session.develop_of(photo).ok_or("not_found")?;
                 let merged = current.merged(settings).map_err(|_| "invalid_content")?;
-                app.session.develop_op(photo, merged, APPLY_LABEL).ok_or("not_found")?
+                let develop = app.session.develop_op(photo, merged, APPLY_LABEL).ok_or("not_found")?;
+                match marks {
+                    None => develop,
+                    Some(mut ops) => {
+                        ops.push(develop);
+                        Op::Batch { ops }
+                    }
+                }
             }
-            (None, Some(xmp)) => {
+            (None, Some(xmp), None) => {
                 let xmp = xmp.as_str().filter(|x| !x.trim().is_empty()).ok_or("invalid_content")?;
                 let target = evolight_engine::crs::Target::for_photo(app.session.catalog.photo(photo).ok_or("not_found")?);
                 let sidecar = evolight_engine::sidecar::parse_sidecar(xmp, target).map_err(|_| "invalid_content")?;
                 app.session.sidecar_op(photo, sidecar).map_err(|_| "invalid_content")?
             }
+            (None, None, Some(ops)) => Op::Batch { ops },
             _ => return Err("invalid_content"),
         };
         app.session.commit(APPLY_LABEL, op).map_err(|_| "invalid_content")?;
@@ -436,6 +451,36 @@ impl HostDocs {
             .collect();
         json!({"docs": docs, "active": self.told_active, "autoWrite": app.session.xmp.auto_write})
     }
+}
+
+/// The ops of `revela.apply.meta` (DP-REV-05): the marks Evora keeps in base for the photo, in
+/// the exact vocabulary of `App\Models\Revela\RevelaMarks` — the three keys given, nothing else;
+/// `rating` 0 to 5, `flag` `"pick" | "reject" | "none"`, `label` a color or `null`.
+fn mark_ops(photo: PhotoId, meta: &Value) -> Result<Vec<Op>, &'static str> {
+    let o = meta.as_object().ok_or("invalid_content")?;
+    if o.len() != 3 || !(o.contains_key("rating") && o.contains_key("label") && o.contains_key("flag")) {
+        return Err("invalid_content");
+    }
+    let rating = o.get("rating").and_then(Value::as_u64).filter(|r| *r <= 5).ok_or("invalid_content")? as u8;
+    let flag = match o.get("flag").and_then(Value::as_str) {
+        Some("pick") => Flag::Pick,
+        Some("reject") => Flag::Reject,
+        Some("none") => Flag::None,
+        _ => return Err("invalid_content"),
+    };
+    let label = match o.get("label") {
+        Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(match s.as_str() {
+            "red" => ColorLabel::Red,
+            "yellow" => ColorLabel::Yellow,
+            "green" => ColorLabel::Green,
+            "blue" => ColorLabel::Blue,
+            "purple" => ColorLabel::Purple,
+            _ => return Err("invalid_content"),
+        }),
+        _ => return Err("invalid_content"),
+    };
+    Ok(vec![Op::SetRating { id: photo, rating }, Op::SetFlag { id: photo, flag }, Op::SetLabel { id: photo, label }])
 }
 
 /// `develop.controls {section?}`: the engine's own query, for the photo shown.
