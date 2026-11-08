@@ -34,7 +34,7 @@ title bars differ.
 
 ### Override
 
-`<PREFIX>_TITLEBAR` forces the choice. With the default prefix `CRAFT`: `EVO_TITLEBAR=app` forces
+`<PREFIX>_TITLEBAR` forces the choice. With the default prefix `EVO`: `EVO_TITLEBAR=app` forces
 the app frame, `=system` (or `=desktop`) forces the desktop frame. Apps pass their own prefix
 (`Prefix::new("EVOPDF")` → `EVOPDF_TITLEBAR`) so each keeps its own variable name.
 

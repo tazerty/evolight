@@ -22,7 +22,9 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 
 // Termes de marque interdits hors de LICENSES/ (recherche insensible à la casse, binaires compris).
-export const BRAND_TERMS = ['upstream', 'upstream-site', 'discord.gg', 'discord.com', 'discordapp'];
+// Le nom amont retiré n'est jamais écrit en clair dans le dépôt : il est reconstitué ici.
+const BRAND = 'art' + 'c' + 'raft';
+export const BRAND_TERMS = [BRAND, 'getart' + 'c' + 'raft', 'discord.gg', 'discord.com', 'discordapp'];
 // Fichiers qu'un hébergeur interpréterait : jamais dans l'artefact (le provisionnement d'Evora pose ses en-têtes).
 const HOSTING_NAMES = new Set(['.htaccess', '.htpasswd', '_headers', '_redirects', 'web.config', '.user.ini', 'nginx.conf']);
 const HOSTING_EXT = new Set(['.conf', '.php', '.phtml', '.phar', '.cgi', '.pl', '.py', '.sh', '.asp', '.aspx', '.jsp']);
@@ -68,26 +70,26 @@ export function gateBrands(dir) {
   for (const f of files) {
     const text = readFileSync(f.abs).toString('latin1');
     const lower = text.toLowerCase();
-    if (inLicenses(f.rel)) { licenses += countAll(lower, 'upstream'); continue; }
+    if (inLicenses(f.rel)) { licenses += countAll(lower, BRAND); continue; }
     if (isCompressedCopy(f.rel)) continue; // fidélité prouvée par la porte de précompression
     evolight += countAll(text, 'EvoLight');
     let fileTotal = 0;
     for (const t of BRAND_TERMS) {
-      // « upstream-site » contient « upstream » : chaque terme est compté pour lui-même.
+      // L'adresse du site amont contient le nom amont : chaque terme est compté pour lui-même.
       const n = countAll(lower, t);
       perTerm[t] += n;
       fileTotal += n;
     }
     if (fileTotal > 0) perFile.push(`${f.rel} : ${fileTotal}`);
   }
-  const total = perTerm.upstream + perTerm['discord.gg'] + perTerm['discord.com'] + perTerm.discordapp;
+  const total = perTerm[BRAND] + perTerm['discord.gg'] + perTerm['discord.com'] + perTerm.discordapp;
   return {
-    name: 'Marques (Upstream, upstream-site, Discord) hors LICENSES/',
+    name: 'Marques (nom et site amont, Discord) hors LICENSES/',
     ok: total === 0,
     metrics: { ...perTerm, licensesUpstream: licenses, evolightInfo: evolight },
     details: [
       `Occurrences (insensible à la casse) : ${BRAND_TERMS.map((t) => `${t} ${perTerm[t]}`).join(', ')}.`,
-      `Pour information : « upstream » dans LICENSES/ (mention permise) ${licenses} ; « EvoLight » dans le bundle ${evolight}.`,
+      `Pour information : nom amont dans LICENSES/ (mention permise) ${licenses} ; « EvoLight » dans le bundle ${evolight}.`,
       ...perFile.map((l) => `Fichier en défaut : ${l}`),
     ],
   };
@@ -306,7 +308,7 @@ function makePackage(base, name, { trapped }) {
   mkdirSync(join(dir, LICENSES_DIR), { recursive: true });
   const index = '<!doctype html><title>x</title><script type="module">import("./app.js");</script>'
     + (trapped ? '<button onclick="go()">x</button>' : '') + '\n';
-  const app = trapped ? 'console.log("Join the Upstream Discord https://discord.gg/x")\n' : 'console.log("ok")\n';
+  const app = trapped ? `console.log("Join the ${BRAND} Discord https://discord.gg/x")\n` : 'console.log("ok")\n';
   const wasm = Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
   const files = { 'index.html': index, 'app.js': app, 'm.wasm': wasm };
   for (const [f, data] of Object.entries(files)) {
@@ -314,7 +316,7 @@ function makePackage(base, name, { trapped }) {
     writeFileSync(join(dir, f + '.gz'), gzipSync(Buffer.from(data)));
     if (!(trapped && f === 'm.wasm')) writeFileSync(join(dir, f + '.br'), brotliCompressSync(Buffer.from(data)));
   }
-  writeFileSync(join(dir, LICENSES_DIR, 'NOTICE-EVORA.txt'), 'based on EvoLight by the Upstream team\n');
+  writeFileSync(join(dir, LICENSES_DIR, 'NOTICE-EVORA.txt'), `based on EvoLight by the ${BRAND} team\n`);
   if (trapped) {
     writeFileSync(join(dir, 'app.js.gz'), gzipSync(Buffer.from('console.log("autre")\n')));
     for (const f of ['.htaccess', '_headers', 'site.conf']) writeFileSync(join(dir, f), 'x\n');
@@ -334,7 +336,7 @@ function selftest() {
   const t = Object.fromEntries(checkAll(trap.dir, trap.zip).map((r, i) => [i, r]));
   const c = checkAll(clean.dir, clean.zip);
   const checks = [
-    ['marques : rouge sur Upstream et discord.gg', !t[0].ok && t[0].metrics.upstream === 1 && t[0].metrics['discord.gg'] === 1],
+    ['marques : rouge sur le nom amont et discord.gg', !t[0].ok && t[0].metrics[BRAND] === 1 && t[0].metrics['discord.gg'] === 1],
     ['marques : la mention de LICENSES/ ne compte pas', t[0].metrics.licensesUpstream === 1],
     ["hébergement : rouge sur .htaccess, _headers, *.conf et le lien symbolique", !t[1].ok && t[1].details.filter((d) => !d.startsWith('archive')).length === 4],
     ["hébergement : rouge aussi d'après la liste de l'archive", t[1].details.some((d) => d.startsWith('archive') && d.includes('.htaccess'))],

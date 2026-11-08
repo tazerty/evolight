@@ -69,7 +69,7 @@ env:
   # tazerty/evo-fonts à la révision du release.yml amont au tag (« bump deliberately ») ; depuis
   # v0.9.1, crates/engine/build.rs exige Noto Sans Thai Regular quand EVO_FONTS_REQUIRED est posé,
   # et depuis v0.14.0 le module web embarque aussi Noto Sans Georgian (présente à cette révision).
-  EVO_FONTS_REV: a71c20e30af613287c504f7e685ca8fad77752bc
+  EVO_FONTS_REV: 694feb975e8c85807341856d54c4973949dac49e
   # Outils des portes : binaires officiels épinglés par version ET par empreinte (digest publié par
   # GitHub pour l'asset de la release, relu le 2026-10-13).
   CARGO_DENY_VERSION: "0.20.2"
@@ -290,7 +290,7 @@ jobs:
           for f in LICENSE LICENSE-MIT LICENSE-APACHE COPYRIGHT NOTICE assets/ATTRIBUTION.md; do
             if [ -f "$f" ]; then cp "$f" "$WORK/$NAME/LICENSES/"; fi
           done
-          # E1 : mention en texte simple « basé sur EvoLight par l'équipe Upstream » (licence de marque amont).
+          # E1 : mention en texte simple du projet d'origine, seulement dans LICENSES/ (licence de marque amont).
           cp packaging/evora/NOTICE-EVORA.txt "$WORK/$NAME/LICENSES/"
           for lic in evo-fonts/fonts/*/OFL.txt; do
             [ -f "$lic" ] || continue
@@ -364,6 +364,13 @@ jobs:
         run: |
           node .github/evora/bundle-gates.mjs check "${{ steps.unpacked.outputs.dir }}" --zip "${{ steps.pkg.outputs.zip }}" \
             --summary "$GITHUB_STEP_SUMMARY" --json "$RUNNER_TEMP/evora-diag/bundle-gates.json"
+
+      - name: Porte zéro terme — le nom amont retiré absent du site, hors LICENSES/
+        id: g_term
+        continue-on-error: true
+        run: |
+          python3 .github/evora/zero-terme.py selftest
+          python3 .github/evora/zero-terme.py check "${{ steps.unpacked.outputs.dir }}"
 
       - name: Porte E6 — polices (evo-fonts épinglé, police chinoise servie à part)
         id: g_e6
@@ -446,6 +453,7 @@ jobs:
           E6: ${{ steps.g_e6.outcome }}
           ABOUT: ${{ steps.g_about.outcome }}
           BUNDLE: ${{ steps.g_bundle.outcome }}
+          TERM: ${{ steps.g_term.outcome }}
           SABOTAGE: ${{ steps.g_smoke_sabotage.outcome }}
           SMOKE: ${{ steps.g_smoke.outcome }}
           WITNESS: ${{ steps.g_ehp_witness.outcome }}
@@ -462,13 +470,14 @@ jobs:
             echo "| E6 polices (evo-fonts épinglé, police chinoise à part) | $E6 |"
             echo "| cargo-about (LICENSES/ des crates) | $ABOUT |"
             echo "| Bundle (marques, hébergement, .gz/.br, CSP, taille) | $BUNDLE |"
+            echo "| Zéro terme (nom amont retiré absent du site, hors LICENSES/) | $TERM |"
             echo "| Sabotage CSP du test de fumée (doit rougir) | $SABOTAGE |"
             echo "| Test de fumée (autre origine, démarrage à froid, audit de rendu E10 et E9, pont EHP E4/E5) | $SMOKE |"
             echo "| Témoins du pont EHP (moteurs factices et vrai moteur sabordés : conforme vert, chaque défaut rouge) | $WITNESS |"
             echo
             echo "Avertissements de cargo-deny : $(awk '/^warning/ { n++ } END { print n + 0 }' "$RUNNER_TEMP/cargo-deny.txt" 2>/dev/null || echo '?') (détail dans le journal de la porte)."
           } >> "$GITHUB_STEP_SUMMARY"
-          for v in "$EMOJI" "$DENY" "$E7" "$E6" "$ABOUT" "$BUNDLE" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
+          for v in "$EMOJI" "$DENY" "$E7" "$E6" "$ABOUT" "$BUNDLE" "$TERM" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
             if [ "$v" != "success" ]; then echo "::error::au moins une porte est rouge : voir le résumé du job"; exit 1; fi
           done
           echo "Toutes les portes sont vertes."

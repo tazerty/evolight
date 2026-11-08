@@ -22,7 +22,7 @@
 //!   ([`Frame::App`]): without this, winit draws an imitation frame that matches no desktop.
 //!
 //! An environment variable overrides the choice, for users whose compositor the probe can't read
-//! or who simply prefer the other frame. With the default prefix `CRAFT`, `EVO_TITLEBAR=app`
+//! or who simply prefer the other frame. With the default prefix `EVO`, `EVO_TITLEBAR=app`
 //! forces [`Frame::App`] and `=system` (or `=desktop`) forces [`Frame::Desktop`]; apps may pass
 //! their own prefix (`EVOPDF`, `EVOFIG`, …) so each keeps its own variable name.
 //!
@@ -144,7 +144,7 @@ pub use viewports::{Viewports, WindowEvent, child_viewport_id};
 
 /// The environment-variable prefix an app overrides the frame with: `<PREFIX>_TITLEBAR`.
 ///
-/// `Prefix::default()` is `CRAFT`, so `EVO_TITLEBAR`. An app that wants its own name passes
+/// `Prefix::default()` is `EVO`, so `EVO_TITLEBAR`. An app that wants its own name passes
 /// [`Prefix::new`] (`Prefix::new("EVOPDF")` reads `EVOPDF_TITLEBAR`). The name is used as
 /// given; it should be ASCII letters, digits and underscores, as environment names are.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -152,7 +152,7 @@ pub struct Prefix(&'static str);
 
 impl Default for Prefix {
     fn default() -> Self {
-        Self("CRAFT")
+        Self("EVO")
     }
 }
 

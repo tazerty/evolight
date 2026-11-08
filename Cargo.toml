@@ -12,7 +12,7 @@ repository = "https://github.com/tazerty/evolight"
 
 [workspace.dependencies]
 evo-ui = { path = "vendor/evo-libs/evo-ui", features = ["serde"] }
-evo-docpath = { version = "0.1.0", path = "vendor/evo-libs/evo-docpath" }
+evo-docpath = { path = "vendor/evo-libs/evo-docpath" }
 # Canon CRW decoder shared with the other Evo apps
 evo-crw = { path = "vendor/evo-libs/evo-crw" }
 # evo-update: app-specific pretend versions apply to startup and manual checks.

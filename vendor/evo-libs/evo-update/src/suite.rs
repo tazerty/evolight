@@ -20,7 +20,7 @@ pub const EVOFIG: App = App::new("evofig", "EvoFig", "Interface design and proto
 pub const EVOWORD: App = App::new("evoword", "EvoWord", "Writing and document design", "tazerty/evoword");
 pub const EVOSOUND: App = App::new("evosound", "EvoSound", "Recording, editing and mixing audio", "tazerty/evosound");
 pub const EVODECK: App = App::new("evodeck", "EvoDeck", "Presentations and slide shows", "tazerty/evodeck");
-pub const CADCRAFT: App = App::new("evocad", "EvoCAD", "Computer-aided design and drafting", "storytold/evocad");
+pub const EVOCAD: App = App::new("evocad", "EvoCAD", "Computer-aided design and drafting", "storytold/evocad");
 pub const EVOGRID: App = App::new("evogrid", "EvoGrid", "Spreadsheets and data", "tazerty/evogrid");
 
 /// Upstream Launcher, described like a Evo App so it updates itself with the same machinery
@@ -41,7 +41,7 @@ pub const SUITE: [App; 13] = [
     EVOWORD,
     EVOSOUND,
     EVODECK,
-    CADCRAFT,
+    EVOCAD,
     EVOGRID,
 ];
 

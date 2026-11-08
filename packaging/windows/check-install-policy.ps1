@@ -204,7 +204,7 @@ try {
       throw 'Silent updates must restore the folder before directory costing.'
     }
   }
-  foreach ($resolver in @('CraftUFromLegacyExe','CraftMFromLegacyExe')) {
+  foreach ($resolver in @('EvoUFromLegacyExe','EvoMFromLegacyExe')) {
     if (-not ($execute['AppSearch'] -lt $execute[$resolver] -and $execute[$resolver] -lt $execute['LaunchConditions'])) {
       throw 'Both legacy folder resolvers must run after AppSearch and before the launch checks.'
     }

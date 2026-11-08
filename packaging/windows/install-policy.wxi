@@ -7,26 +7,26 @@
   <Property Id="INSTALLFOLDER" Secure="yes" />
   <Property Id="EVO_SCOPE" Value="user" Secure="yes" />
   <Property Id="EVO_U_DIR" Secure="yes"><RegistrySearch Id="EVO_U_DIRSearch" Root="HKCU" Key="Software\EvoLight" Name="InstallDir" Type="raw" /></Property>
-  <SetProperty Id="EVO_USER_DIR" Action="CraftUFromDIR" Value="[EVO_U_DIR]" After="AppSearch" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_DIR" />
+  <SetProperty Id="EVO_USER_DIR" Action="EvoUFromDIR" Value="[EVO_U_DIR]" After="AppSearch" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_DIR" />
   <Property Id="EVO_U_FOLDER" Secure="yes"><RegistrySearch Id="EVO_U_FOLDERSearch" Root="HKCU" Key="Software\EvoLight" Name="InstallFolder" Type="raw" /></Property>
-  <SetProperty Id="EVO_USER_DIR" Action="CraftUFromFOLDER" Value="[EVO_U_FOLDER]" After="CraftUFromDIR" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_FOLDER" />
+  <SetProperty Id="EVO_USER_DIR" Action="EvoUFromFOLDER" Value="[EVO_U_FOLDER]" After="EvoUFromDIR" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_FOLDER" />
   <Property Id="EVO_U_PATH" Secure="yes"><RegistrySearch Id="EVO_U_PATHSearch" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Name="Path" Type="raw" /></Property>
-  <SetProperty Id="EVO_USER_DIR" Action="CraftUFromPATH" Value="[EVO_U_PATH]" After="CraftUFromFOLDER" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_PATH" />
+  <SetProperty Id="EVO_USER_DIR" Action="EvoUFromPATH" Value="[EVO_U_PATH]" After="EvoUFromFOLDER" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_PATH" />
   <Property Id="EVO_U_EXEFOLDER" Secure="yes"><RegistrySearch Id="EVO_ULegacyFolder" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Type="file" /></Property>
   <Property Id="EVO_U_EXE" Secure="yes"><RegistrySearch Id="EVO_ULegacyExe" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Type="file"><FileSearch Id="EVO_ULegacyFile" Name="evolight.exe" /></RegistrySearch></Property>
-  <SetProperty Id="EVO_USER_DIR" Action="CraftUFromLegacyExe" Value="[EVO_U_EXEFOLDER]" After="CraftUFromPATH" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_EXEFOLDER AND EVO_U_EXE" />
+  <SetProperty Id="EVO_USER_DIR" Action="EvoUFromLegacyExe" Value="[EVO_U_EXEFOLDER]" After="EvoUFromPATH" Sequence="both" Condition="NOT EVO_USER_DIR AND EVO_U_EXEFOLDER AND EVO_U_EXE" />
   <Property Id="EVO_USER_DIR" Secure="yes" />
   <Property Id="EVO_M_DIR" Secure="yes"><RegistrySearch Id="EVO_M_DIRSearch" Root="HKLM" Key="Software\EvoLight" Name="InstallDir" Type="raw" /></Property>
-  <SetProperty Id="EVO_MACHINE_DIR" Action="CraftMFromDIR" Value="[EVO_M_DIR]" After="CraftUFromLegacyExe" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_DIR" />
+  <SetProperty Id="EVO_MACHINE_DIR" Action="EvoMFromDIR" Value="[EVO_M_DIR]" After="EvoUFromLegacyExe" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_DIR" />
   <Property Id="EVO_M_FOLDER" Secure="yes"><RegistrySearch Id="EVO_M_FOLDERSearch" Root="HKLM" Key="Software\EvoLight" Name="InstallFolder" Type="raw" /></Property>
-  <SetProperty Id="EVO_MACHINE_DIR" Action="CraftMFromFOLDER" Value="[EVO_M_FOLDER]" After="CraftMFromDIR" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_FOLDER" />
+  <SetProperty Id="EVO_MACHINE_DIR" Action="EvoMFromFOLDER" Value="[EVO_M_FOLDER]" After="EvoMFromDIR" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_FOLDER" />
   <Property Id="EVO_M_PATH" Secure="yes"><RegistrySearch Id="EVO_M_PATHSearch" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Name="Path" Type="raw" /></Property>
-  <SetProperty Id="EVO_MACHINE_DIR" Action="CraftMFromPATH" Value="[EVO_M_PATH]" After="CraftMFromFOLDER" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_PATH" />
+  <SetProperty Id="EVO_MACHINE_DIR" Action="EvoMFromPATH" Value="[EVO_M_PATH]" After="EvoMFromFOLDER" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_PATH" />
   <Property Id="EVO_M_EXEFOLDER" Secure="yes"><RegistrySearch Id="EVO_MLegacyFolder" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Type="file" /></Property>
   <Property Id="EVO_M_EXE" Secure="yes"><RegistrySearch Id="EVO_MLegacyExe" Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\evolight.exe" Type="file"><FileSearch Id="EVO_MLegacyFile" Name="evolight.exe" /></RegistrySearch></Property>
-  <SetProperty Id="EVO_MACHINE_DIR" Action="CraftMFromLegacyExe" Value="[EVO_M_EXEFOLDER]" After="CraftMFromPATH" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_EXEFOLDER AND EVO_M_EXE" />
+  <SetProperty Id="EVO_MACHINE_DIR" Action="EvoMFromLegacyExe" Value="[EVO_M_EXEFOLDER]" After="EvoMFromPATH" Sequence="both" Condition="NOT EVO_MACHINE_DIR AND EVO_M_EXEFOLDER AND EVO_M_EXE" />
   <Property Id="EVO_MACHINE_DIR" Secure="yes" />
-  <SetProperty Id="EVO_SCOPE" Action="EvoPreferMachineScope" Value="machine" After="CraftMFromLegacyExe" Sequence="ui" Condition="ALLUSERS = 1 OR (EVO_MACHINE_DIR AND NOT EVO_USER_DIR)" />
+  <SetProperty Id="EVO_SCOPE" Action="EvoPreferMachineScope" Value="machine" After="EvoMFromLegacyExe" Sequence="ui" Condition="ALLUSERS = 1 OR (EVO_MACHINE_DIR AND NOT EVO_USER_DIR)" />
   <SetProperty Id="INSTALLFOLDER" Action="EvoRestoreUserFolder" Value="[EVO_USER_DIR]" Before="CostInitialize" Sequence="both" Condition="NOT INSTALLFOLDER AND ALLUSERS &lt;&gt; 1 AND EVO_USER_DIR" />
   <!-- The wizard can change the context after Windows Installer has already resolved Program Files for the first one.
        Give the new-install folder explicitly so Everyone never lands in the profile and Only for me never lands in Program Files. -->

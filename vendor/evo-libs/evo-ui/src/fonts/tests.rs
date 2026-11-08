@@ -17,7 +17,7 @@ const fn face(family: &'static str, style: &'static str, scripts: &'static [&'st
 }
 
 /// evo-fonts' manifest today, plus the regional CJK faces and Georgian it is planned to have.
-const CRAFT: &[EvoFace] = &[
+const EVO: &[EvoFace] = &[
     face("Shippori Mincho", "Regular", &["Jpan", "Latn"]),
     face("BIZ UDPGothic", "Regular", &["Jpan", "Latn"]),
     face("BIZ UDPGothic", "Bold", &["Jpan", "Latn"]),
@@ -34,7 +34,7 @@ fn fonts(ui_language: &str) -> UiFonts<'static> {
     UiFonts::new(&I18nScripts)
         .app_face("ui", FontData::from_static(&[]), &[FontFamily::Proportional])
         .app_face("mono", FontData::from_static(&[]), &[FontFamily::Monospace])
-        .evo_faces(CRAFT)
+        .evo_faces(EVO)
         .languages(OFFERED)
         .ui_language(ui_language)
         .system_fonts(SystemFonts::Off)
@@ -97,13 +97,13 @@ fn families_without_app_faces_start_with_egui_defaults() {
 }
 
 fn fonts_without_faces(ui_language: &str) -> UiFonts<'static> {
-    UiFonts::new(&I18nScripts).evo_faces(CRAFT).languages(OFFERED).ui_language(ui_language).system_fonts(SystemFonts::Off)
+    UiFonts::new(&I18nScripts).evo_faces(EVO).languages(OFFERED).ui_language(ui_language).system_fonts(SystemFonts::Off)
 }
 
 #[test]
 fn evo_preference_orders_the_best_region_only() {
     // With only Japanese faces, they are the best Han region a Taiwanese UI has.
-    let stack = UiFonts::new(&I18nScripts).evo_faces(&CRAFT[..3]).ui_language("zh-TW").system_fonts(SystemFonts::Off).stack();
+    let stack = UiFonts::new(&I18nScripts).evo_faces(&EVO[..3]).ui_language("zh-TW").system_fonts(SystemFonts::Off).stack();
     let chain = stack.chain(&FontFamily::Proportional);
     let at = |name: &str| chain.iter().position(|n| n == name);
     assert!(at("BIZ UDPGothic Regular") < at("Shippori Mincho Regular"), "{chain:?}");
@@ -114,7 +114,7 @@ fn every_shipped_face_is_in_every_stack() {
     for language in OFFERED {
         let stack = fonts(language).stack();
         let chain = stack.chain(&FontFamily::Proportional);
-        for face in CRAFT.iter().filter(|f| f.style == "Regular") {
+        for face in EVO.iter().filter(|f| f.style == "Regular") {
             assert!(chain.contains(&face.name()), "{language}: {} missing", face.name());
         }
         assert!(!chain.contains(&"BIZ UDPGothic Bold".to_owned()), "{language}: bold face in the regular chain");
