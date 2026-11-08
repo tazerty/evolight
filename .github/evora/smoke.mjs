@@ -456,16 +456,24 @@ function judgeRender(audit, codeSymbols, termsBlocking) {
   lines.push(`faces chargées : ${(audit.faces || []).join(', ')}`);
   lines.push(`messages affichés par langue : ${Object.entries(audit.messages || {}).map(([k, v]) => `${k} ${v}`).join(', ')}`);
   if (emojiFaces.length) problems.push(`face d'émoji encore dans les familles de l'interface : ${emojiFaces.join(', ')}`);
+  // EVORA-REV-65 : egui 0.37 installe sur le web un rastériseur de glyphes du navigateur, qui peint tout
+  // glyphe absent des faces, émojis en couleur compris, et que les tables de caractères ignorent. Le
+  // module le retire au démarrage (quel que soit le mode) ; un état autre que 0 rend l'audit aveugle.
+  lines.push(`rastériseurs de glyphes laissés par le module : ${audit.glyphRasterizers ?? 'inconnu'}`);
+  if (audit.glyphRasterizers !== 0) problems.push(`rastériseur de glyphes encore installé ou état inconnu (${JSON.stringify(audit.glyphRasterizers ?? null)}) : un glyphe absent des faces serait peint par le navigateur`);
+  const inColor = (r) => (r.color ? ', EN COULEUR' : '');
   for (const r of audit.symbols || []) {
     const tag = isEmoji(r.c) ? 'ÉMOJI' : 'symbole';
-    lines.push(`affiché ${r.cp} ${r.c} ×${r.n} (${tag}) : ${r.paint ? 'peint' : 'NON PEINT'} par ${r.faces.join(', ') || 'aucune face'}`);
+    lines.push(`affiché ${r.cp} ${r.c} ×${r.n} (${tag}) : ${r.paint ? 'peint' : 'NON PEINT'} par ${r.faces.join(', ') || 'aucune face'}${inColor(r)}`);
     if (isEmoji(r.c)) problems.push(`émoji affiché ${r.cp} ${r.c} (×${r.n})`);
     if (!r.paint) problems.push(`symbole affiché sans glyphe ${r.cp} ${r.c}`);
+    if (r.color) problems.push(`glyphe peint en couleur (rastériseur) ${r.cp} ${r.c}`);
   }
   for (const r of audit.probe || []) {
     const fromCode = codeSymbols.has(r.c);
-    lines.push(`sonde ${r.cp} ${r.c} (${fromCode ? 'littéral du code' : 'émoji témoin'}) : ${r.paint ? 'peint' : 'non peint'} par ${r.faces.join(', ') || 'aucune face'}`);
+    lines.push(`sonde ${r.cp} ${r.c} (${fromCode ? 'littéral du code' : 'émoji témoin'}) : ${r.paint ? 'peint' : 'non peint'} par ${r.faces.join(', ') || 'aucune face'}${inColor(r)}`);
     if (fromCode && !r.paint) problems.push(`symbole du code sans glyphe ${r.cp} ${r.c}`);
+    if (r.color) problems.push(`glyphe de la sonde peint en couleur (rastériseur) ${r.cp} ${r.c}`);
   }
   const sensitive = (audit.sensitive || []).filter((x) => SENSITIVE_TERMS.includes(x.term));
   const info = (audit.sensitive || []).filter((x) => !SENSITIVE_TERMS.includes(x.term));

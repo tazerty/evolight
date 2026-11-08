@@ -603,6 +603,13 @@ impl WebApp {
     /// load the stored UI state, start render workers and the optional benchmark.
     fn new(cc: &eframe::CreationContext<'_>, boot: Boot, chinese_font: Vec<u8>) -> Self {
         let Boot { opts, backend, files, index, lib_dir, bridge, load_error } = boot;
+        // Evora (EVORA-REV-65, E10, "zero emoji" directive): on the web, eframe 0.37 installs the
+        // browser's glyph rasterizer, which paints any glyph the UI faces lack, colour emoji
+        // included. Without it, as in v0.14.0, such a glyph stays egui's missing-glyph box, and the
+        // faces' character maps (`web.renderAudit`) tell again what is painted. Default kept until
+        // Gabriel decides (the other way: a rasterizer that refuses emoji presentation).
+        cc.egui_ctx.set_glyph_rasterizers(Vec::new());
+        GLYPH_RASTERIZERS.with(|n| n.set(Some(0)));
         let originals = Originals::default();
         let t = perf_now();
         let mut session = Session::new();
@@ -917,6 +924,9 @@ thread_local! {
     /// Commands from JavaScript ([`command`]), run on the next frame.
     static INBOX: std::cell::RefCell<Vec<(String, String, Reply)>> = const { std::cell::RefCell::new(Vec::new()) };
     static CTX: std::cell::RefCell<Option<egui::Context>> = const { std::cell::RefCell::new(None) };
+    /// Evora (EVORA-REV-65, E10): the glyph rasterizers this module left installed when it
+    /// started (`None` before it replaced eframe's), read back by `web.renderAudit`.
+    static GLYPH_RASTERIZERS: Cell<Option<usize>> = const { Cell::new(None) };
 }
 
 /// Run a command by id from JavaScript (automation, tests): `await command("library.info", "{}")`
@@ -1110,8 +1120,10 @@ fn audited_char(c: char) -> bool {
 /// terms (`params.terms`) still visible after the display overrides. `params.probe` lists more
 /// characters to check (the code's own symbols, sample emoji).
 fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::Value {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
     use evolight_ui_egui::i18n::{Locale, displayed_messages};
+    // size the audited characters are laid out at (any: only the kind of glyph is read)
+    const AUDIT_FONT_SIZE: f32 = 14.0;
     let terms: Vec<&str> = params["terms"].as_array().map(|a| a.iter().filter_map(serde_json::Value::as_str).collect()).unwrap_or_default();
     let probe: Vec<char> = params["probe"].as_str().unwrap_or_default().chars().filter(|c| !c.is_whitespace()).collect();
     let mut symbols: BTreeMap<char, usize> = BTreeMap::new();
@@ -1136,7 +1148,7 @@ fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::
     chars.dedup();
     // `has_glyph` reports a character owned by the family's replacement face (Inter, first in the
     // family) as missing; the faces' character maps tell exactly which faces cover it.
-    let (proportional, faces, coverage): (Vec<String>, Vec<String>, BTreeMap<char, Vec<String>>) = ctx.fonts_mut(|fonts| {
+    let (proportional, faces, coverage, color): (Vec<String>, Vec<String>, BTreeMap<char, Vec<String>>, BTreeSet<char>) = ctx.fonts_mut(|fonts| {
         let definitions = fonts.definitions();
         let proportional = definitions.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
         let faces: Vec<String> = definitions.font_data.keys().cloned().collect();
@@ -1144,7 +1156,17 @@ fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::
         // `fonts` field and `FontsImpl::font` of 0.36 are gone)
         let covered = fonts.characters(&egui::FontFamily::Proportional);
         let coverage: BTreeMap<char, Vec<String>> = chars.iter().map(|c| (*c, covered.get(c).cloned().unwrap_or_default())).collect();
-        (proportional, faces, coverage)
+        // Evora (EVORA-REV-65): the character maps do not consult glyph rasterizers, and the UI
+        // faces are monochrome, so a glyph laid out in colour can only come from a rasterizer
+        // (the browser's): each audited character is laid out once and its kind of glyph read
+        let mut color = BTreeSet::new();
+        for c in &chars {
+            let galley = fonts.layout_no_wrap(c.to_string(), egui::FontId::proportional(AUDIT_FONT_SIZE), egui::Color32::WHITE);
+            if galley.rows.iter().any(|placed| placed.row.glyphs.iter().any(|glyph| glyph.is_color)) {
+                color.insert(*c);
+            }
+        }
+        (proportional, faces, coverage, color)
     });
     let row = |c: char| {
         let by = coverage.get(&c).cloned().unwrap_or_default();
@@ -1154,6 +1176,7 @@ fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::
             "n": symbols.get(&c).copied().unwrap_or(0),
             "paint": !by.is_empty(),
             "faces": by,
+            "color": color.contains(&c),
         })
     };
     json!({
@@ -1163,6 +1186,8 @@ fn render_audit(ctx: &egui::Context, params: &serde_json::Value) -> serde_json::
         "symbols": symbols.keys().map(|c| row(*c)).collect::<Vec<_>>(),
         "probe": probe.iter().map(|c| row(*c)).collect::<Vec<_>>(),
         "sensitive": sensitive,
+        // EVORA-REV-65: what `WebApp::new` left installed (`null`: eframe's rasterizer never replaced)
+        "glyphRasterizers": GLYPH_RASTERIZERS.with(Cell::get),
     })
 }
 
