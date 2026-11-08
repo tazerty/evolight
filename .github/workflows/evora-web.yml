@@ -182,12 +182,20 @@ jobs:
           "$TOOLS/bin/wasm-bindgen" --version
 
       - name: Installation de cargo-deny et cargo-about (binaires épinglés, empreintes vérifiées)
+        env:
+          # EVORA-REV-54 : repli par l'API des releases (gh) quand le lien de téléchargement rend 504 depuis les runners
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           BIN="$RUNNER_TEMP/evora-bin"; mkdir -p "$BIN"
           fetch() { # $1 dépôt, $2 nom, $3 version, $4 sha256 de l'archive
             local tgz="$2-$3-x86_64-unknown-linux-musl.tar.gz" dir="$RUNNER_TEMP/evora-tools-$2"
-            curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tgz" "https://github.com/$1/releases/download/$3/$tgz"
+            # lien direct (reprises espacées), sinon la même archive par l'API des releases ; l'empreinte fait foi dans les deux cas
+            if ! curl -fsSL --retry 5 --retry-delay 15 -o "$RUNNER_TEMP/$tgz" "https://github.com/$1/releases/download/$3/$tgz"; then
+              echo "::warning::$tgz : lien direct en échec, repli par l'API des releases"
+              rm -f "$RUNNER_TEMP/$tgz"
+              gh release download "$3" --repo "$1" --pattern "$tgz" --dir "$RUNNER_TEMP"
+            fi
             echo "$4  $RUNNER_TEMP/$tgz" | sha256sum -c -
             mkdir -p "$dir"
             tar -xzf "$RUNNER_TEMP/$tgz" -C "$dir"
