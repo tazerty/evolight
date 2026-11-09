@@ -29,6 +29,27 @@ pub fn label_background(base: Color32, label: Option<evolight_catalog::ColorLabe
     label.map_or(base, |l| base.lerp_to_gamma(label_color(l), if selected { 0.32 } else { 0.22 }))
 }
 
+/// Evora (E2, EVORA-REV-104) : le contraste minimal d'un texte de corps (WCAG 2, niveau AA).
+pub const MIN_TEXT_CONTRAST: f32 = 4.5;
+
+/// Evora (E2, EVORA-REV-104) : la part de `cell_selected` dans une cellule survolée de la bande de
+/// miniatures, posée en transparence sur le `canvas` de la bande.
+pub const CELL_HOVER_FILL: f32 = 0.6;
+
+/// Evora (E2, EVORA-REV-104) : la couleur d'un texte secondaire posé sur `background`, comme le nom
+/// et le format sous une vignette, sur une cellule choisie ou teintée par une étiquette. Sous
+/// l'identité d'Evora, le premier des gris `text_dim` puis `text_label` qui atteint
+/// [`MIN_TEXT_CONTRAST`] sur ce fond, `text` sinon. Hors d'Evora, `text_dim`, comme dans l'amont.
+/// Le repli sur `text` ne vaut que pour un fond de la même polarité que le thème (les cellules de
+/// la bande et de la grille, testées) : sur une pastille toujours sombre d'un thème clair, il
+/// faut une encre fixe.
+pub fn secondary_text_on(t: &Tokens, background: Color32) -> Color32 {
+    if !evora_palette() {
+        return t.text_dim;
+    }
+    [t.text_dim, t.text_label].into_iter().find(|ink| crate::button::contrast(*ink, background) >= MIN_TEXT_CONTRAST).unwrap_or(t.text)
+}
+
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
 pub fn label_toast_colors(label: evolight_catalog::ColorLabel) -> (Color32, Color32) {
     (Color32::WHITE.lerp_to_gamma(label_color(label), 0.3), Color32::from_rgb(36, 24, 24))
@@ -214,8 +235,9 @@ pub fn evora_palette() -> bool {
 ///
 /// - Sombre : le graphite d'Evora, des gris strictement neutres (R = G = B, aucune dominante).
 ///   Entourage de l'image `#161616`, chrome des panneaux et des barres `#1C1C1C`, champs en creux
-///   `#141414` bordés de `#6B6B6B` (3,46:1 sur le champ, 3,20:1 sur le chrome), filets de
-///   structure `#0E0E0E`, sélection persistante `#383838`. Textes `#EBEBEB` (14,30:1 sur le
+///   `#141414` bordés de `#6B6B6B` (3,46:1 sur le champ, 3,20:1 sur le chrome), ceux d'egui compris
+///   ([`apply_kind`] en fait le bord au repos de ses contrôles natifs), filets de structure
+///   `#0E0E0E`, sélection persistante `#383838`. Textes `#EBEBEB` (14,30:1 sur le
 ///   chrome), `#BDBDBD` (9,07:1) et `#949494` (5,62:1 ; 4,73:1 sur le survol).
 /// - Clair : les mêmes rôles en gris neutres clairs. Ses anneaux étaient ceux du thème sombre de
 ///   l'amont, hérités de [`Tokens::default`] : un anneau blanc sur une grille presque blanche. Ils
@@ -625,7 +647,17 @@ pub fn apply_kind(ctx: &egui::Context, kind: ThemeKind) {
         Stroke::new(1.0, t.text_label),
     );
     w.noninteractive.bg_stroke = Stroke::new(1.0, t.divider);
-    w.inactive.bg_stroke = Stroke::new(1.0, t.button_border);
+    // Evora (EVORA-REV-104, E2) : sous l'identité d'Evora, le bord au repos des contrôles natifs
+    // d'egui (cases à cocher, boutons radio, champs de texte, listes déroulantes, boutons natifs)
+    // est celui des champs, 3:1 ou plus sur le chrome et sur le champ. `button_border` (#333333 en
+    // sombre) n'y tenait que 1,35:1 et laissait une case non cochée presque invisible. Une liste
+    // déroulante ouverte garde ce bord (sinon celui par défaut, 1,54:1). Hors d'Evora, le bord de
+    // l'application, et l'état ouvert inchangé.
+    let resting_border = if evora_palette() { t.field_border } else { t.button_border };
+    w.inactive.bg_stroke = Stroke::new(1.0, resting_border);
+    if evora_palette() {
+        w.open.bg_stroke = Stroke::new(1.0, t.field_border);
+    }
     ctx.set_visuals_of(egui::Theme::Dark, v.clone());
     ctx.set_visuals_of(egui::Theme::Light, v);
     ctx.set_theme(if dark { egui::Theme::Dark } else { egui::Theme::Light });
@@ -748,6 +780,18 @@ mod tests {
                 let c = contrast(t.field_border, surface);
                 assert!(c >= 3.0, "{kind:?} : bord de champ sur {what} : {c:.2}");
             }
+            // le nom et le format sous une vignette (EVORA-REV-104) : 4,5:1 ou plus sur toute
+            // cellule de la bande et de la grille, choisie ou non, survolée, teintée ou non, telle
+            // qu'elle est composée sur le canvas de la bande (la survolée est un voile translucide)
+            let hovered = t.cell_selected.gamma_multiply(CELL_HOVER_FILL);
+            for (base, selected) in [(t.canvas, false), (hovered, false), (t.cell, false), (t.cell_selected, true)] {
+                for label in std::iter::once(None).chain(evolight_catalog::ColorLabel::ALL.iter().copied().map(Some)) {
+                    let surface = t.canvas.blend(label_background(base, label, selected));
+                    let c = contrast(secondary_text_on(&t, surface), surface);
+                    assert!(c >= MIN_TEXT_CONTRAST, "{kind:?} : nom sous une vignette sur {surface:?} : {c:.2}");
+                }
+            }
+            assert_eq!(secondary_text_on(&t, t.chrome), t.text_dim, "{kind:?} : le gris secondaire là où il se lit");
         }
         let sizes = |ctx: &egui::Context| {
             let style = ctx.global_style();
@@ -756,11 +800,27 @@ mod tests {
         let ctx = egui::Context::default();
         apply_kind(&ctx, ThemeKind::Charcoal);
         assert_eq!(sizes(&ctx), [Some(12.5), Some(11.0), Some(14.0)], "tailles d'Evora");
+        // le bord au repos des contrôles natifs (cases à cocher, champs, listes) : 3:1 ou plus sur
+        // le chrome et sur le champ, en sombre comme en clair
+        for kind in ThemeKind::ALL {
+            let ctx = egui::Context::default();
+            apply_kind(&ctx, kind);
+            let t = Tokens::for_kind(kind);
+            let widgets = ctx.global_style().visuals.widgets.clone();
+            for (state, border) in [("au repos", widgets.inactive.bg_stroke.color), ("ouvert", widgets.open.bg_stroke.color)] {
+                for (what, surface) in [("chrome", t.chrome), ("field", t.field)] {
+                    let c = contrast(border, surface);
+                    assert!(c >= 3.0, "{kind:?} : bord {state} des contrôles natifs sur {what} : {c:.2}");
+                }
+            }
+        }
         set_evora_palette(false);
         set_evora_accent(EVORA_ACCENT);
         let ctx = egui::Context::default();
         apply_kind(&ctx, ThemeKind::Charcoal);
         assert_eq!(sizes(&ctx), [Some(13.0), Some(11.0), Some(16.0)], "hors d'Evora, les tailles de l'application");
+        let t = Tokens::for_kind(ThemeKind::Charcoal);
+        assert_eq!(secondary_text_on(&t, t.cell_selected), t.text_dim, "hors d'Evora, le gris secondaire de l'application");
     }
 
     /// The `SetTheme(Light)` commands one frame of `ctx` sends the window, with or without

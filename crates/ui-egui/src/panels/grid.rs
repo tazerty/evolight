@@ -799,16 +799,16 @@ fn cell(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square: 
     let spoken = cell_description(app, &photo);
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, true, selected, &spoken));
     let p = ui.painter();
+    let fill = crate::theme::label_background(if selected { t.cell_selected } else { t.cell }, photo.label, selected);
     let img_rect = if square {
-        let base = if selected { t.cell_selected } else { t.cell };
-        p.rect_filled(r, 0.0, crate::theme::label_background(base, photo.label, selected));
+        p.rect_filled(r, 0.0, fill);
         Rect::from_min_max(r.min + vec2(10.0, 24.0), r.max - vec2(10.0, 10.0))
     } else {
         r
     };
     let photo_rect = paint_cell_thumbnail(app, p, &t, id, img_rect, ThumbFlags { square, state, onscreen, ppp });
     // labels and badges
-    paint_cell_caption(app, p, &t, &photo, r, square);
+    paint_cell_caption(app, p, &t, &photo, r, square, fill);
     paint_cell_badges(app, p, &t, &photo, photo_rect, BadgeFlags { square, selected, hovered: resp.hovered() });
     if let Some(name) = &photo.copy_name {
         paint_copy_tag(p, &t, name, img_rect, square);
@@ -862,7 +862,9 @@ fn paint_cell_thumbnail(app: &mut EvoLightApp, p: &egui::Painter, t: &Tokens, id
     }
 }
 
-fn paint_cell_caption(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &evolight_catalog::Photo, r: Rect, square: bool) {
+/// Evora (EVORA-REV-104, L5) : `fill` est le fond de la cellule tel qu'il est peint (choix et
+/// étiquette de couleur compris) ; la légende se mesure contre lui.
+fn paint_cell_caption(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &evolight_catalog::Photo, r: Rect, square: bool, fill: Color32) {
     if square && app.ui.show_filenames {
         let m = &photo.meta;
         let name = match app.ui.grid_info.as_str() {
@@ -883,7 +885,8 @@ fn paint_cell_caption(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &
             "date" => photo.captured.as_deref().map(crate::i18n::display_time).unwrap_or_else(|| crate::i18n::tr("No date").into()),
             _ => photo.file_name.rsplit_once('.').map(|(n, _)| n.to_string()).unwrap_or(photo.file_name.clone()),
         };
-        p.text(pos2(r.left() + 8.0, r.top() + 12.0), Align2::LEFT_CENTER, name, t.font(10.5), t.text_dim);
+        // Evora (EVORA-REV-104, L5) : 4,5:1 ou plus sur une cellule choisie ou teintée
+        p.text(pos2(r.left() + 8.0, r.top() + 12.0), Align2::LEFT_CENTER, name, t.font(10.5), crate::theme::secondary_text_on(t, fill));
         let fmt = photo.format.clone();
         let g = p.layout_no_wrap(fmt, t.semibold(9.0), t.text_label);
         let br = Rect::from_min_size(pos2(r.right() - g.size().x - 14.0, r.top() + 5.0), g.size() + vec2(8.0, 3.0));

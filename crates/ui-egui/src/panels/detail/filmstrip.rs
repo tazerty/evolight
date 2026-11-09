@@ -189,20 +189,25 @@ pub(crate) fn filmstrip(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect) {
             let base = if selected {
                 t.cell_selected
             } else if resp.hovered() {
-                t.cell_selected.gamma_multiply(0.6)
+                t.cell_selected.gamma_multiply(crate::theme::CELL_HOVER_FILL)
             } else {
                 t.canvas
             };
-            p.rect_filled(cr, 0.0, crate::theme::label_background(base, label, selected));
+            let fill = crate::theme::label_background(base, label, selected);
+            p.rect_filled(cr, 0.0, fill);
             let names = app.ui.settings.film_names;
             if let Some(ph) = app.session.catalog.photo(*id).filter(|_| names) {
+                // Evora (EVORA-REV-104, L5) : le nom et le format restent lisibles (4,5:1) sur une
+                // cellule choisie ou teintée, mesurés contre la cellule telle qu'elle est composée
+                // sur le canvas de la bande (une cellule survolée y est un voile translucide).
+                let ink = crate::theme::secondary_text_on(&t, t.canvas.blend(fill));
                 let name = ph.file_name.rsplit_once('.').map(|(n, _)| n).unwrap_or(&ph.file_name);
                 // the name gives way to the format when a narrow strip leaves them less room
-                let format = p.layout_no_wrap(ph.format.to_string(), t.semibold(8.5), t.text_dim);
+                let format = p.layout_no_wrap(ph.format.to_string(), t.semibold(8.5), ink);
                 let room = cr.width() - 16.0 - format.size().x - 6.0;
-                let label = crate::widgets::one_line(p, &film_label(name), t.font(10.0), t.text_dim, room);
-                p.galley(pos2(cr.left() + 8.0, cr.top() + 10.0 - label.size().y / 2.0), label, t.text_dim);
-                p.galley(pos2(cr.right() - 8.0 - format.size().x, cr.top() + 10.0 - format.size().y / 2.0), format, t.text_dim);
+                let name_galley = crate::widgets::one_line(p, &film_label(name), t.font(10.0), ink, room);
+                p.galley(pos2(cr.left() + 8.0, cr.top() + 10.0 - name_galley.size().y / 2.0), name_galley, ink);
+                p.galley(pos2(cr.right() - 8.0 - format.size().x, cr.top() + 10.0 - format.size().y / 2.0), format, ink);
             }
             let img_area = Rect::from_min_max(cr.min + vec2(10.0, 22.0), cr.max - vec2(10.0, 8.0));
             crate::panels::grid::request_thumb(app, *id, (256.0 * ppp.min(2.0) / 2.0) as usize * 2, 8);
