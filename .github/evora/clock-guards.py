@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Porte « horloge » du build web Evora (exception L4-REV-H, EVORA-REV-72).
+"""Porte « horloge » du build web Evora (exception L4-REV-H, EVORA-REV-72 ; gardes liées, EVORA-REV-74).
 
 Sous wasm32-unknown-unknown, std::time::Instant::now() et std::time::SystemTime::now() paniquent
 (« time not implemented on this platform ») : le module s'arrête (RuntimeError: unreachable). C'est
@@ -8,8 +8,15 @@ ainsi que la v0.19.0 n'ouvrait plus aucun RAW (EVORA-REV-71). La porte relève, 
 LOCALES compilées par le build web (cargo build -p evolight-web --lib --target wasm32-unknown-unknown,
 sans --features), chaque lecture d'horloge de std compilée pour cette cible, et refuse toute lecture
 absente de la liste blanche ALLOW, où chaque site gardé est justifié (profiling(), garde d'exécution,
-appelant natif seulement). Une entrée de la liste qui ne correspond plus au code est rouge aussi :
-la liste ne peut pas pourrir sans qu'on la relise.
+appelant natif seulement). Chaque entrée est liée au code qui la garde :
+  - « before » : jeton de garde exigé dans la fonction englobante du site, avant lui ;
+  - « elsewhere » : jeton exigé dans une fonction nommée du même fichier (garde portée ailleurs) ;
+  - « prints » : empreinte du corps de la fonction englobante de chaque site.
+Jetons et empreintes se lisent sur le code, commentaires neutralisés et espaces ignorés. Est rouge
+une entrée qui ne couvre plus exactement ses sites, dont un jeton a disparu ou dont une fonction
+englobante a changé : toute retouche d'une fonction admise force sa relecture. Ce lien ne va pas
+plus loin que le fichier : une garde portée par un appelant d'un autre fichier (appelant natif,
+système de fichiers ou modèles absents du navigateur) n'est vue que si la fonction du site change.
 
 Méthode, sans cargo ni dépendance (Python 3.11 ou plus, pour tomllib) :
   1. graphe des crates locales depuis les Cargo.toml : features unifiées à point fixe, dépendances
@@ -22,18 +29,31 @@ Méthode, sans cargo ni dépendance (Python 3.11 ou plus, pour tomllib) :
      commentaires et chaînes neutralisés ;
   3. chemin de chaque appel résolu par les `use` du fichier : un `Instant::now` nu qui n'est pas
      importé de web_time compte comme une horloge de std (le doute rend std).
-Limites : crates tierces non lues (leurs sources ne sont pas dans le dépôt) ; include!() et modules
-nés d'une macro non suivis ; `.elapsed()` non relevé (un Instant de std naît d'un now() relevé).
+Limites (ce que la porte ne voit pas ; à relire à chaque montée, UPSTREAM.md d'Evora, L4-REV-H) :
+  - crates tierces non lues (leurs sources ne sont pas dans le dépôt) ; include!() et modules nés
+    d'une macro non suivis ;
+  - formes d'appel non relevées : `<std::time::Instant>::now()`, alias de type
+    (`type Clock = std::time::Instant;` puis `Clock::now()`) ;
+  - lectures d'horloge faites à l'intérieur de std, et autres API de std non prises en charge sous
+    wasm32 : Receiver::recv_timeout, Condvar::wait_timeout, thread::park_timeout, thread::sleep,
+    Condvar::wait, SystemTime::elapsed() d'une date qui ne vient pas de now() (UNIX_EPOCH + d),
+    env::temp_dir, process::id. Deux recv_timeout sont compilés aujourd'hui pour le web, non atteints :
+    preview/src/pool.rs (son seul appelant compilé pour le web, wait_for_worker d'ui-egui/src/render.rs,
+    sort sous cfg!(target_arch = "wasm32")) et engine/src/import/files.rs (arguments de lancement de
+    l'application de bureau). Pour ces API, la seule preuve en CI est le témoin RAW de la fumée, qui
+    ne parcourt qu'un chemin : un DNG synthétique non compressé, sans aperçu intégré.
 
 Usage :
   clock-guards.py check <dépôt> [--tree <sortie de cargo tree>]   rouge si une lecture n'est pas admise
   clock-guards.py list <dépôt>                                     inventaire, compilés et exclus
   clock-guards.py selftest                                         prouve que la porte sait rougir
 """
+import hashlib
 import os
 import re
 import sys
 import tempfile
+from collections import namedtuple
 
 try:
     import tomllib
@@ -43,38 +63,62 @@ except ModuleNotFoundError:  # Python < 3.11
 WEB_CRATE = "evolight-web"
 WEB_TRIPLE = "wasm32-unknown-unknown"
 
-# Liste blanche : (fichier, extrait de la ligne, nombre de sites, garde, justification).
-# Chaque lecture d'horloge de std compilée pour le web doit tomber sous UNE entrée de son fichier,
-# et chaque entrée doit couvrir exactement le nombre de sites annoncé.
+# Liste blanche. Chaque lecture d'horloge de std compilée pour le web doit tomber sous UNE entrée de
+# son fichier (`file`, et `text` contenu dans la ligne) ; chaque entrée couvre exactement ses sites, un
+# par empreinte de `prints`. Ses gardes sont liées au code (voir l'en-tête) :
+#   guard      nature de la garde (profiling(), garde d'exécution, appelant natif) ;
+#   before     jeton exigé dans la fonction englobante, avant le site (None : garde portée ailleurs) ;
+#   elsewhere  (fonction, jeton) : jeton exigé dans le corps de cette fonction du même fichier ;
+#   prints     « fonction:empreinte » du corps de la fonction englobante, une par site (`check` et
+#              `list` les affichent). Une empreinte changée se reporte ici seulement après relecture
+#              de la garde.
+Allow = namedtuple("Allow", "file text guard before elsewhere prints why")
+# availability.rs : `background` ne devient Some que par run_in_background(), qui sort sous wasm32 ;
+# frame.rs d'ui-egui l'appelle aussi dans le build web.
+WASM_BACKGROUND = ("run_in_background", 'if cfg!(target_arch = "wasm32") { return; } self.background = Some(wake);')
 ALLOW = [
-    ("crates/pipeline/src/lib.rs", "profiling().then(std::time::Instant::now)", 2, "profiling()",
-     "rendu : modèle de bruit couleur et render_impl ; profiling() lit EVOLIGHT_PROFILE, absent du navigateur : None, l'horloge n'est pas lue"),
-    ("crates/pipeline/src/lib.rs", "*t = std::time::Instant::now();", 1, "profiling()",
-     "render_impl, fermeture lap : seulement dans `if let Some(t)`, None hors profilage"),
-    ("crates/pipeline/src/lib.rs", "let t = std::time::Instant::now();", 1, "profiling()",
-     "timed() : `if !profiling() { return f(); }` avant l'horloge"),
-    ("crates/pipeline/src/local.rs", "crate::profiling().then(std::time::Instant::now)", 2, "profiling()",
-     "apply_nr, réduction du bruit de luminance puis de couleur"),
-    ("crates/pipeline/src/nrc_joint.rs", "crate::profiling().then(std::time::Instant::now)", 1, "profiling()",
-     "denoise_with, réduction conjointe du bruit couleur"),
-    ("crates/pipeline/src/nrc_joint.rs", "*t = Some(std::time::Instant::now());", 1, "profiling()",
-     "denoise_with, fermeture lap : seulement dans `if let Some(t0)`, None hors profilage"),
-    ("crates/engine/src/availability.rs", "let now = std::time::Instant::now();", 1, "garde d'exécution",
-     "exists() rend avant l'horloge tant que background est None ; run_in_background() sort sous cfg!(target_arch = \"wasm32\")"),
-    ("crates/engine/src/availability.rs", "st.known.insert(path, (ok, std::time::Instant::now()));", 1, "garde d'exécution",
-     "fermeture du fil lc-availability, lancé seulement en mode de fond (jamais dans le navigateur)"),
-    ("crates/engine/src/cmd/face_detect.rs", "let started = Instant::now();", 1, "garde d'exécution",
-     "faces.detect : `detector(s)?` échoue avant (face_models_dir absent du build web, « the desktop app does »)"),
-    ("crates/engine/src/guard.rs", "std::time::SystemTime::now()", 1, "appelant natif",
-     "install_hook(), appelée par l'application de bureau seulement ; le web pose son propre crochet (safety.rs)"),
-    ("crates/engine/src/import/files.rs", "let now = std::time::Instant::now();", 1, "appelant natif",
-     "launch_deadline(), arguments de lancement de l'application de bureau seulement"),
-    ("crates/engine/src/import/files.rs", "deadline.saturating_duration_since(std::time::Instant::now())", 1, "appelant natif",
-     "launch_path_until(), arguments de lancement de l'application de bureau seulement"),
-    ("crates/preview/src/disk.rs", "let now = std::time::SystemTime::now();", 1, "garde d'exécution",
-     "DiskCache::get : seulement après une lecture réussie du cache disque, impossible sans système de fichiers"),
-    ("crates/ui-egui/src/headless.rs", "Instant::now()", 4, "appelant natif",
-     "Headless (hôte sans fenêtre de la CLI et des tests) : le build web ne l'emploie que dans ses tests"),
+    Allow("crates/pipeline/src/lib.rs", "profiling().then(std::time::Instant::now)", "profiling()",
+          "profiling().then(", None, ("colour_noise:33cde977dea9", "render_impl:4e7c187d119f"),
+          "rendu : modèle de bruit couleur et render_impl ; profiling() lit EVOLIGHT_PROFILE, absent du navigateur : None, l'horloge n'est pas lue"),
+    Allow("crates/pipeline/src/lib.rs", "*t = std::time::Instant::now();", "profiling()",
+          "if let Some(t) = t {", None, ("render_impl:4e7c187d119f",),
+          "render_impl, fermeture lap : seulement dans `if let Some(t)`, None hors profilage"),
+    Allow("crates/pipeline/src/lib.rs", "let t = std::time::Instant::now();", "profiling()",
+          "if !profiling() { return f(); }", None, ("timed:29b7541a465c",),
+          "timed() : `if !profiling() { return f(); }` avant l'horloge"),
+    Allow("crates/pipeline/src/local.rs", "crate::profiling().then(std::time::Instant::now)", "profiling()",
+          "crate::profiling().then(", None, ("apply_nr:fad6355460f8", "apply_nr:fad6355460f8"),
+          "apply_nr, réduction du bruit de luminance puis de couleur"),
+    Allow("crates/pipeline/src/nrc_joint.rs", "crate::profiling().then(std::time::Instant::now)", "profiling()",
+          "crate::profiling().then(", None, ("denoise_with:977178e82dee",),
+          "denoise_with, réduction conjointe du bruit couleur"),
+    Allow("crates/pipeline/src/nrc_joint.rs", "*t = Some(std::time::Instant::now());", "profiling()",
+          "if let Some(t0) = t {", None, ("denoise_with:977178e82dee",),
+          "denoise_with, fermeture lap : seulement dans `if let Some(t0)`, None hors profilage"),
+    Allow("crates/engine/src/availability.rs", "let now = std::time::Instant::now();", "garde d'exécution",
+          "let Some(wake) = &self.background else { return Some((self.probe)(path)); };", WASM_BACKGROUND, ("exists:ab4a500260c0",),
+          "exists() rend avant l'horloge tant que background est None ; run_in_background() sort sous cfg!(target_arch = \"wasm32\")"),
+    Allow("crates/engine/src/availability.rs", "st.known.insert(path, (ok, std::time::Instant::now()));", "garde d'exécution",
+          None, WASM_BACKGROUND, ("spawn_worker:f8adb43095bc",),
+          "fil lc-availability de spawn_worker(), lancé par start() après `let Some(wake) = &self.background else` (exists(), sweep_checked()) : jamais sans run_in_background()"),
+    Allow("crates/engine/src/cmd/face_detect.rs", "let started = Instant::now();", "garde d'exécution",
+          "let detector = detector(s).map_err(|e| e.into_error(C))?;", None, ("detect:8419b6ffe174",),
+          "faces.detect : `detector(s)?` échoue avant (face_models_dir absent du build web, « the desktop app does »)"),
+    Allow("crates/engine/src/guard.rs", "std::time::SystemTime::now()", "appelant natif",
+          None, None, ("install_hook:f1226b8af7aa",),
+          "install_hook(), appelée par l'application de bureau seulement ; le web pose son propre crochet (safety.rs)"),
+    Allow("crates/engine/src/import/files.rs", "let now = std::time::Instant::now();", "appelant natif",
+          None, None, ("launch_deadline:b5c4c330128f",),
+          "launch_deadline(), arguments de lancement de l'application de bureau seulement"),
+    Allow("crates/engine/src/import/files.rs", "deadline.saturating_duration_since(std::time::Instant::now())", "appelant natif",
+          None, None, ("launch_path_until:e18212d2e059",),
+          "launch_path_until(), arguments de lancement de l'application de bureau seulement"),
+    Allow("crates/preview/src/disk.rs", "let now = std::time::SystemTime::now();", "garde d'exécution",
+          "let Some((p, bytes)) = self.read(key) else {", None, ("get:2b9bc48c884b",),
+          "DiskCache::get : seulement après une lecture réussie du cache disque, impossible sans système de fichiers"),
+    Allow("crates/ui-egui/src/headless.rs", "Instant::now()", "appelant natif",
+          None, None, ("settle:4ce8413887fa", "step_until:672e52488756", "request:03c7e0c8fdb6", "request:03c7e0c8fdb6"),
+          "Headless (hôte sans fenêtre de la CLI et des tests) : le build web ne l'emploie que dans ses tests"),
 ]
 
 # --- cfg ----------------------------------------------------------------------------------------
@@ -286,9 +330,15 @@ CHAR = re.compile(r"'(\\.|\\u\{[0-9a-fA-F]+\}|\\x[0-9a-fA-F]{2}|[^\\'\n])'")
 IDENT = re.compile(r"[A-Za-z0-9_]")
 
 
-def lex(src):
-    """Le source, commentaires et contenus de chaînes remplacés par des espaces (offsets gardés)."""
+def lex(src, keep_strings=False):
+    """Le source, commentaires (et, sauf keep_strings, contenus de chaînes et de caractères) remplacés
+    par des espaces (offsets gardés)."""
     out = list(src)
+
+    def hide(a, b):
+        if not keep_strings:
+            blank(out, a, b)
+
     i, n = 0, len(src)
     while True:
         m = LEX.search(src, i)
@@ -318,22 +368,33 @@ def lex(src):
             close = '"' + tok[tok.index("r") + 1:-1]
             end = src.find(close, m.end())
             end = n if end < 0 else end
-            blank(out, m.end(), end)
+            hide(m.end(), end)
             i = end + len(close)
         elif tok == '"':
             j = i + 1
             while j < n and src[j] != '"':
                 j += 2 if src[j] == "\\" else 1
-            blank(out, i + 1, j)
+            hide(i + 1, j)
             i = j + 1
         else:
             c = CHAR.match(src, i)
             if c:
-                blank(out, i + 1, c.end() - 1)
+                hide(i + 1, c.end() - 1)
                 i = c.end()
             else:
                 i += 1  # durée de vie (« 'a »)
     return "".join(out)
+
+
+def squash(text):
+    """Le texte sans aucun blanc : jetons et empreintes ne dépendent ni de la mise en forme, ni des
+    commentaires (déjà neutralisés par lex)."""
+    return re.sub(r"\s+", "", text)
+
+
+def fingerprint(name, body):
+    """Empreinte (12 chiffres hexadécimaux) d'une fonction : son nom et son corps, sans blancs."""
+    return hashlib.sha256((name + "\n" + squash(body)).encode("utf-8")).hexdigest()[:12]
 
 
 ATTR = re.compile(r"#(!?)\s*\[\s*cfg\s*\(")
@@ -445,6 +506,7 @@ STRUCT = re.compile(r"[(){}\[\];,]")
 MOD_DECL = re.compile(r"\bmod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;\s*$")
 MOD_HEAD = re.compile(r"\bmod\s+([A-Za-z_][A-Za-z0-9_]*)\s*$")
 BLOCK_WORDS = re.compile(r"\b(fn|impl|trait|mod|if|else|while|for|loop|unsafe|async|move|extern|macro_rules|const|static|where)\b")
+FN_HEAD = re.compile(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def comma_body(header):
@@ -458,7 +520,8 @@ def comma_body(header):
 
 
 def scan_file(path, feats, inherited):
-    """Rend (sites, modules déclarés) ; chaque site porte ses cfg complets."""
+    """Rend (sites, modules déclarés, cfg du fichier, fonctions) ; chaque site porte ses cfg complets,
+    son offset, sa fonction englobante (nom, offset de son « { ») et l'empreinte de son corps."""
     with open(path, encoding="utf-8") as f:
         src = f.read()
     clean = lex(src)
@@ -467,7 +530,8 @@ def scan_file(path, feats, inherited):
     events += [(m.start(), 1, m.group(0)) for m in STRUCT.finditer(clean)]
     events.sort(key=lambda e: (e[0], e[1]))
     sites, mods = [], []
-    frames = []  # (cfgs du bloc, nom du module en ligne ou None, bloc à virgules)
+    frames = []  # (cfgs du bloc, nom du module en ligne ou None, bloc à virgules, fonction ou None)
+    fns = []  # fonctions du fichier : {"name", "open", "close"} (offsets de leur « { » et de leur « } »)
     file_cfgs = list(inherited)
     depth, depths, last = 0, [], 0
     lines = src.splitlines()
@@ -477,8 +541,9 @@ def scan_file(path, feats, inherited):
             outer, inner = cfgs_at_depth0(clean, src, last, i)
             chain = file_cfgs + [x for fr in frames for x in fr[0]] + inner + outer
             line = src.count("\n", 0, i) + 1
+            fn = next((fr[3] for fr in reversed(frames) if fr[3]), None)
             sites.append({"line": line, "text": lines[line - 1].strip(), "kind": origin(val[0], val[1], uses),
-                          "cfgs": chain, "compiled": not excluded(chain, feats)})
+                          "cfgs": chain, "compiled": not excluded(chain, feats), "offset": i, "_fn": fn})
         elif val in "([":
             depth += 1
         elif val in ")]":
@@ -487,12 +552,18 @@ def scan_file(path, feats, inherited):
             outer, inner = cfgs_at_depth0(clean, src, last, i)
             scope().extend(inner)
             mm = MOD_HEAD.search(clean, last, i)
-            frames.append((outer, mm.group(1) if mm else None, comma_body(clean[last:i])))
+            fm = FN_HEAD.search(clean, last, i)
+            fn = {"name": fm.group(1), "open": i, "close": len(src)} if fm else None
+            if fn:
+                fns.append(fn)
+            frames.append((outer, mm.group(1) if mm else None, comma_body(clean[last:i]), fn))
             depths.append(depth)
             depth, last = 0, i + 1
         elif val == "}":
             if frames:
-                frames.pop()
+                fn = frames.pop()[3]
+                if fn:
+                    fn["close"] = i
                 depth = depths.pop()
             last = i + 1
         elif depth == 0 and (val == ";" or frames and frames[-1][2]):  # « ; », ou « , » d'un bloc à virgules
@@ -505,7 +576,12 @@ def scan_file(path, feats, inherited):
                 inline = [fr[1] for fr in frames if fr[1]]
                 mods.append((mm.group(1), pm.group(1) if pm else None, inline, chain))
             last = i + 1
-    return sites, mods, file_cfgs
+    code = lex(src, keep_strings=True) if sites else ""
+    for s in sites:
+        fn = s.pop("_fn")
+        s["fn"], s["fn_open"] = (fn["name"], fn["open"]) if fn else (None, None)
+        s["print"] = fingerprint(fn["name"], code[fn["open"] + 1:fn["close"]]) if fn else None
+    return sites, mods, file_cfgs, fns
 
 
 def mod_candidates(parent, name, pval, inline):
@@ -519,9 +595,10 @@ def mod_candidates(parent, name, pval, inline):
 
 
 def scan(root):
-    """Tous les sites d'horloge des crates locales du build web."""
+    """Tous les sites d'horloge des crates locales du build web, et les fonctions de chaque fichier lu."""
     graph, lost = web_graph(root)
     sites, missing, files = [], [f"dépendance locale hors de crates/, apps/ et vendor/evo-libs/ : {x}" for x in lost], 0
+    spans = {}
     for crate, (cdir, feats) in graph.items():
         lib = os.path.join(root, cdir, "src", "lib.rs")
         if not os.path.isfile(lib):
@@ -533,7 +610,7 @@ def scan(root):
                 continue
             seen.add(f)
             files += 1
-            found, mods, fcfgs = scan_file(f, feats, chain)
+            found, mods, fcfgs, spans[os.path.relpath(f, root)] = scan_file(f, feats, chain)
             for s in found:
                 s.update({"crate": crate, "file": os.path.relpath(f, root)})
                 sites.append(s)
@@ -545,12 +622,27 @@ def scan(root):
                         missing.append(f"module compilé introuvable : {os.path.relpath(f, root)} : mod {name}")
                     continue
                 queue.append((target, mchain))
-    return graph, sites, missing, files
+    return graph, sites, missing, files, spans
+
+
+def guard_problems(a, s, where, code, fns):
+    """Problèmes de garde d'un site admis par l'entrée a : jetons « before » et « elsewhere » absents."""
+    out = []
+    if a.before is not None:
+        seen = code[s["fn_open"] + 1:s["offset"]] if s["fn_open"] is not None else ""
+        if squash(a.before) not in squash(seen):
+            out.append(f"garde absente : {where} : « {a.before} » introuvable avant le site dans fn {s['fn'] or '(aucune)'}")
+    if a.elsewhere is not None:
+        name, token = a.elsewhere
+        bodies = [code[f["open"] + 1:f["close"]] for f in fns if f["name"] == name]
+        if not any(squash(token) in squash(b) for b in bodies):
+            out.append(f"garde absente : {where} : « {token} » introuvable dans fn {name} de {a.file}")
+    return out
 
 
 def judge(root, allow, tree_text=None):
     """Rend (problèmes, lignes du rapport, sites)."""
-    graph, sites, missing, files = scan(root)
+    graph, sites, missing, files, spans = scan(root)
     problems, report = [], []
     report.append(f"crates locales du build web : {len(graph)} ({', '.join(graph)})")
     report.append(f"fichiers lus : {files} ; sites d'horloge relevés : {len(sites)}")
@@ -571,21 +663,30 @@ def judge(root, allow, tree_text=None):
     std = [s for s in sites if s["compiled"] and s["kind"] != "web_time"]
     out = [s for s in sites if not s["compiled"]]
     report.append(f"compilés pour wasm32 : {len(std)} lectures de std (ou d'origine douteuse), {len(web_time)} de web_time ; exclus par cfg : {len(out)}")
-    used = [0] * len(allow)
+    used = [[] for _ in allow]  # « fonction:empreinte » relevées, entrée par entrée
+    codes = {}  # code des fichiers admis (commentaires neutralisés, chaînes gardées), lu une fois
     for s in std:
-        fits = [k for k, a in enumerate(allow) if a[0] == s["file"] and a[1] in s["text"]]
+        fits = [k for k, a in enumerate(allow) if a.file == s["file"] and a.text in s["text"]]
         where = f"{s['file']}:{s['line']} ({s['crate']}, {s['kind']})"
         if not fits:
             problems.append(f"lecture d'horloge de std sans garde admise : {where} : {s['text']}")
             continue
         if len(fits) > 1:
             problems.append(f"site couvert par plusieurs entrées de la liste blanche : {where}")
-        used[fits[0]] += 1
         a = allow[fits[0]]
-        report.append(f"admis {where} [{a[3]}] {s['text']}")
+        used[fits[0]].append(f"{s['fn'] or '-'}:{s['print'] or '-'}")
+        if s["file"] not in codes:
+            with open(os.path.join(root, s["file"]), encoding="utf-8") as f:
+                codes[s["file"]] = lex(f.read(), keep_strings=True)
+        problems += guard_problems(a, s, where, codes[s["file"]], spans.get(s["file"], []))
+        report.append(f"admis {where} [{a.guard}] fn {s['fn'] or '-'} {s['print'] or '-'} : {s['text']}")
     for k, a in enumerate(allow):
-        if used[k] != a[2]:
-            problems.append(f"liste blanche à relire : {a[0]} « {a[1]} » couvre {used[k]} site(s), {a[2]} annoncé(s)")
+        if len(used[k]) != len(a.prints):
+            problems.append(f"liste blanche à relire : {a.file} « {a.text} » couvre {len(used[k])} site(s), {len(a.prints)} annoncé(s)")
+        elif sorted(used[k]) != sorted(a.prints):
+            problems.append(f"liste blanche à relire : {a.file} « {a.text} » : corps de fonction englobante changé "
+                            f"(empreintes relevées {', '.join(sorted(used[k]))} ; annoncées {', '.join(sorted(a.prints))}) : "
+                            "relire la garde, puis reporter l'empreinte")
     return problems, report, sites
 
 
@@ -598,7 +699,15 @@ def write(base, rel, text):
         f.write(text)
 
 
-SELF_ALLOW = [("crates/a/src/lib.rs", "profiling().then(std::time::Instant::now)", 1, "profiling()", "auto-test")]
+SELF_ALLOW = [
+    Allow("crates/a/src/lib.rs", "profiling().then(std::time::Instant::now)", "profiling()",
+          "profiling().then(", None, ("guarded:11c571407a22",), "auto-test : garde dans la ligne"),
+    Allow("crates/a/src/lib.rs", "let t = std::time::Instant::now();", "profiling()",
+          "if !profiling() { return f(); }", None, ("timed:9e9c634d2097",), "auto-test : garde avant le site, dans la fonction"),
+    Allow("crates/a/src/lib.rs", "Some(std::time::Instant::now())", "garde d'exécution",
+          "if !background(on) { return None; }", ("background", 'if cfg!(target_arch = "wasm32") { return false; }'),
+          ("probe:4d4bcb7e681c",), "auto-test : garde portée par une autre fonction du fichier"),
+]
 
 LIB_A = """#![allow(dead_code)]
 mod clock;
@@ -622,6 +731,27 @@ pub fn arms(x: u8) {
 }
 // std::time::Instant::now() dans un commentaire
 const S: &str = "std::time::Instant::now()";
+pub fn timed<R>(f: impl FnOnce() -> R) -> R {
+    if !profiling() {
+        return f();
+    }
+    let t = std::time::Instant::now();
+    let r = f();
+    let _ = t;
+    r
+}
+pub fn background(on: bool) -> bool {
+    if cfg!(target_arch = "wasm32") {
+        return false;
+    }
+    on
+}
+pub fn probe(on: bool) -> Option<std::time::Instant> {
+    if !background(on) {
+        return None;
+    }
+    Some(std::time::Instant::now())
+}
 """
 CLOCK_OK = "use web_time::{Duration, Instant as Clock};\npub fn now() -> Clock { Clock::now() }\n"
 TRAPS = {
@@ -642,6 +772,23 @@ TRAPS = {
     "interne": ("crates/a/src/clock.rs", CLOCK_OK + "mod inner {\n #![cfg(test)]\n fn i() {}\n}\npub fn o() { let _ = std::time::Instant::now(); }\n", 7),
     # feature activée par le paquet web : la crate optionnelle entre dans le graphe
     "feature": ("apps/evolight-web/Cargo.toml", None, None),
+}
+# Pièges de garde, dans lib.rs : (remplacement, fragments attendus dans les problèmes, nombre de problèmes).
+GUARD_TRAPS = {
+    # garde retirée de la fonction (le cas de timed() du pipeline) : jeton absent et corps changé
+    "garde retirée": (("    if !profiling() {\n        return f();\n    }\n", ""),
+                      ["garde absente : crates/a/src/lib.rs:24 ", "dans fn timed", "corps de fonction englobante changé (empreintes relevées timed:"], 2),
+    # garde portée par une autre fonction du fichier, retirée : seul le jeton « elsewhere » la voit
+    "garde ailleurs retirée": (('    if cfg!(target_arch = "wasm32") {\n        return false;\n    }\n', ""),
+                               ["garde absente : crates/a/src/lib.rs:39 ", "introuvable dans fn background"], 1),
+    # garde déplacée après le site : le jeton n'est plus avant lui
+    "garde déplacée": (("    if !background(on) {\n        return None;\n    }\n    Some(std::time::Instant::now())\n",
+                        "    let t = Some(std::time::Instant::now());\n    if !background(on) {\n        return None;\n    }\n    t\n"),
+                       ["garde absente : crates/a/src/lib.rs:39 ", "dans fn probe", "corps de fonction englobante changé (empreintes relevées probe:"], 2),
+    # corps changé, garde intacte : l'empreinte force la relecture
+    "corps changé": (("    let _ = t;\n", "    let _ = t;\n    let _ = 0;\n"), ["corps de fonction englobante changé (empreintes relevées timed:"], 1),
+    # témoin : commentaire et blancs ajoutés dans la fonction, le code ne change pas
+    "commentaire (témoin vert)": (("    let r = f();\n", "    // rien ne change\n\n    let r =   f();\n"), [], 0),
 }
 
 
@@ -679,14 +826,14 @@ def selftest():
         problems, _, sites = judge(base, SELF_ALLOW)
         compiled = [s for s in sites if s["compiled"] and s["kind"] != "web_time"]
         files = {s["file"] for s in sites}
-        checks.append(("témoin : arbre propre accepté (profiling admis, cfg exclus, web_time, commentaire et chaîne ignorés)",
-                       not problems and len(compiled) == 1 and not files & {"crates/opt/src/lib.rs", "crates/native/src/lib.rs", "crates/dev/src/lib.rs"}))
+        checks.append(("témoin : arbre propre accepté (gardes liées admises, cfg exclus, web_time, commentaire et chaîne ignorés)",
+                       not problems and len(compiled) == 3 and not files & {"crates/opt/src/lib.rs", "crates/native/src/lib.rs", "crates/dev/src/lib.rs"}))
         excl = sorted((s["file"], s["line"]) for s in sites if not s["compiled"])
         checks.append(("témoin : tests, module natif, feature éteinte, item et bras sous cfg exclus",
                        excl == sorted([("crates/a/src/extra.rs", 1), ("crates/a/src/lib.rs", 13), ("crates/a/src/lib.rs", 17),
                                        ("crates/a/src/native_only.rs", 1), ("crates/a/src/tests.rs", 1)])))
         checks.append(("liste pourrie : une entrée qui ne couvre plus rien est rouge",
-                       any("liste blanche à relire" in p for p in judge(base, SELF_ALLOW + [("crates/a/src/lib.rs", "disparu", 1, "x", "x")])[0])))
+                       any("liste blanche à relire" in p for p in judge(base, SELF_ALLOW + [Allow("crates/a/src/lib.rs", "disparu", "x", None, None, ("x:x",), "x")])[0])))
         checks.append(("contre-épreuve : une crate locale du vrai graphe non lue est rouge",
                        any("non lues par la porte" in p for p in judge(base, SELF_ALLOW, "evolight-web v0.0.0 (/x/apps/evolight-web)\n"
                                                                                        "native v0.0.0 (/x/crates/native)\n")[0])))
@@ -706,6 +853,14 @@ def selftest():
             want = f"crates/a/src/clock.rs:{line} " if line else "crates/a/src/extra.rs:1 "
             hit = [p for p in problems if "sans garde admise" in p]
             checks.append((f"piège « {trap} » : rouge, sur le seul site attendu", len(hit) == 1 and want in hit[0] and len(problems) == 1))
+        for n, (trap, ((old, new), wants, count)) in enumerate(GUARD_TRAPS.items()):
+            tdir = os.path.join(tmp, f"garde-{n}")
+            fixture(tdir)
+            assert LIB_A.count(old) == 1, trap
+            write(tdir, "crates/a/src/lib.rs", LIB_A.replace(old, new))
+            problems = judge(tdir, SELF_ALLOW)[0]
+            fits = len(problems) == count and all(any(w in p for p in problems) for w in wants)
+            checks.append((f"piège « {trap} » : {count} problème(s) attendu(s)", fits))
     ok = True
     for name, passed in checks:
         print(f"{'OK   ' if passed else 'ÉCHEC'} {name}")
@@ -738,7 +893,7 @@ def main(argv):
     if argv[0] == "list":
         for s in sorted(sites, key=lambda s: (s["file"], s["line"])):
             state = "compilé" if s["compiled"] else "exclu"
-            print(f"{state}\t{s['kind']}\t{s['crate']}\t{s['file']}:{s['line']}\t{s['text']}\t{' '.join(s['cfgs'])}")
+            print(f"{state}\t{s['kind']}\t{s['crate']}\t{s['file']}:{s['line']}\tfn {s['fn'] or '-'}\t{s['print'] or '-'}\t{s['text']}\t{' '.join(s['cfgs'])}")
     for p in problems:
         print(f"::error::{p}")
     print("Résultat : ÉCHEC" if problems else "Résultat : OK")

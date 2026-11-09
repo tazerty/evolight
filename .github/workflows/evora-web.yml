@@ -48,7 +48,9 @@
 # liste blanche justifiée de .github/evora/clock-guards.py (sites gardés par profiling(), par une garde
 # d'exécution ou réservés à l'application de bureau) ; le graphe qu'elle lit est contre-éprouvé par
 # la sortie de cargo tree de la porte E7. C'est une telle lecture qui empêchait la v0.19.0 d'ouvrir
-# un RAW (EVORA-REV-71).
+# un RAW (EVORA-REV-71). Depuis EVORA-REV-74, chaque entrée de la liste est liée à sa garde (jeton
+# exigé avant le site ou dans la fonction qui la porte, empreinte du corps de la fonction englobante) :
+# une garde retirée ou une fonction admise retouchée rougit la porte et force sa relecture.
 #
 # Témoin RAW (EVORA-REV-73) : le test de fumée joue « raw-dng » : la coquille ouvre par evora:open le DNG
 # SYNTHÉTIQUE versionné (.github/evora/fixtures/temoin-rggb.dng : mosaïque RGGB calculée en entiers par
