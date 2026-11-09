@@ -43,17 +43,28 @@
 // EVORA-REV-38 : avec --command-params-out, les schémas des paramètres déclarés (web.commandParams, jugés
 // par le banc), sous la forme des commandes d'engines.json ({id: {params}}) : le command-params.json de
 // l'artefact, que le provisionnement recopie dans les commandes de Revela (le catalogue n'en porte aucun).
+// EVORA-REV-73 : scénario « raw-dng », témoin RAW : la coquille ouvre le DNG synthétique versionné
+// (fixtures/temoin-rggb.dng) par evora:open, attend son premier rendu, l'exporte (evora:export) et juge le
+// fichier reçu (ehp-bench.mjs, runRaw) ; toute panique relevée dans une cible (« panicked at »,
+// « RuntimeError: unreachable », worker de rendu arrêté, cible plantée) le rend rouge : [raw-panic].
+// --only <noms> ne joue que les scénarios nommés (séparés par des virgules), par exemple --only raw-dng ;
+// --sabotage-raw uniforme|vide|panique sabote ce scénario (il DOIT rougir avec [raw-export-uniform],
+// [raw-export] ou [raw-panic]) ; --ehp-witness joue ces trois sabordages après ceux du banc EHP.
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 import { readFile, mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, extname, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { auditRust, isEmoji, isSymbol, loadOverrides, SENSITIVE_TERMS, INFO_TERMS } from './catalog-audit.mjs';
 import {
-  FOREIGN_HTML, FOREIGN_JS, HARNESS_JS, OBSERVER_HTML, OBSERVER_JS, OTHER_NS, REAL_WITNESS, SABOTAGE_JS, SENTINEL_JS, WITNESS_FLAWS, WITNESS_HTML, WITNESS_JS,
-  parentPage, runEhp, runMute,
+  FOREIGN_HTML, FOREIGN_JS, HARNESS_JS, OBSERVER_HTML, OBSERVER_JS, OTHER_NS, RAW_PANIC, RAW_URL, RAW_WITNESSES, REAL_WITNESS, SABOTAGE_JS, SENTINEL_JS, WITNESS_FLAWS,
+  WITNESS_HTML, WITNESS_JS, parentPage, runEhp, runMute, runRaw,
 } from './ehp-bench.mjs';
+
+// EVORA-REV-73 : le DNG synthétique du témoin RAW (fabriqué par fixtures/temoin-dng.py)
+const RAW_FIXTURE = fileURLToPath(new URL('./fixtures/temoin-rggb.dng', import.meta.url));
 
 // Émojis témoins : la police de l'interface ne doit pas pouvoir les peindre en émoji.
 const EMOJI_SAMPLES = '\u{1F600}\u2705\u274C\u2B50\u26A1\u{1F50D}\u{1F4C1}\u{1F5D1}\u26A0\u2714\u2716';
@@ -68,7 +79,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const k = argv[i];
     const v = argv[i + 1];
-    if (k === '--site') { o.site = v; i += 1; } else if (k === '--out') { o.out = v; i += 1; } else if (k === '--chrome') { o.chrome = v; i += 1; } else if (k === '--timeout') { o.timeout = Number(v); i += 1; } else if (k === '--sabotage-csp') { o.sabotageCsp = true; } else if (k === '--render-audit') { o.renderAudit = true; } else if (k === '--terms-blocking') { o.termsBlocking = true; } else if (k === '--ehp-witness') { o.ehpWitness = true; } else if (k === '--witness-only') { o.witnessOnly = v; i += 1; } else if (k === '--repo') { o.repo = v; i += 1; } else if (k === '--commands-out') { o.commandsOut = v; i += 1; } else if (k === '--command-params-out') { o.commandParamsOut = v; i += 1; } else if (k === '--scenario') { const [n, q, l] = v.split('|'); o.scenarios.push({ name: n, query: q || '', lang: l || undefined }); i += 1; }
+    if (k === '--site') { o.site = v; i += 1; } else if (k === '--out') { o.out = v; i += 1; } else if (k === '--chrome') { o.chrome = v; i += 1; } else if (k === '--timeout') { o.timeout = Number(v); i += 1; } else if (k === '--sabotage-csp') { o.sabotageCsp = true; } else if (k === '--render-audit') { o.renderAudit = true; } else if (k === '--terms-blocking') { o.termsBlocking = true; } else if (k === '--ehp-witness') { o.ehpWitness = true; } else if (k === '--witness-only') { o.witnessOnly = v; i += 1; } else if (k === '--repo') { o.repo = v; i += 1; } else if (k === '--commands-out') { o.commandsOut = v; i += 1; } else if (k === '--command-params-out') { o.commandParamsOut = v; i += 1; } else if (k === '--scenario') { const [n, q, l] = v.split('|'); o.scenarios.push({ name: n, query: q || '', lang: l || undefined }); i += 1; } else if (k === '--only') { o.only = v.split(','); i += 1; } else if (k === '--sabotage-raw') { o.sabotageRaw = v; i += 1; }
   }
   // E3 : langue imposée par ?lang= (codes d'Evora), vérifiée par web.stats.language ; pt sans variante (D-23) reste en anglais.
   if (o.scenarios.length === 0) {
@@ -86,9 +97,13 @@ function parseArgs(argv) {
       { name: 'pont-ehp', query: `?host=evora&store=opfs&storageNs=${OTHER_NS}&lang=en&theme=dark`, lang: 'en', ehp: 'admit', theme: { evora: true, dark: true, accent: '#4f46e5' } },
       // E4 : evora-host.json de l'artefact (vide) : le pont reste muet
       { name: 'pont-muet', query: '?host=evora&lang=en', lang: 'en', ehp: 'mute' },
+      // EVORA-REV-73 : témoin RAW (pont EHP admis) : le DNG synthétique ouvert, rendu et exporté, sans panique
+      { name: 'raw-dng', query: '?host=evora&lang=en', lang: 'en', ehp: 'admit', raw: true },
       { name: 'francais', query: '?store=memory&lang=fr&theme=light', lang: 'fr', theme: { evora: true, dark: false, accent: '#4f46e5' } },
     ];
   }
+  if (o.only) o.scenarios = o.scenarios.filter((sc) => o.only.includes(sc.name));
+  if (o.sabotageRaw) for (const sc of o.scenarios) if (sc.raw) sc.rawSabotage = o.sabotageRaw;
   return o;
 }
 
@@ -247,9 +262,11 @@ async function scenario(opts, chrome, sc, cspHashes) {
     if (sc.ehp) {
       const path = new URL(req.url, 'http://x').pathname;
       const assets = { '/': [HTML, parentPage({ engineUrl, engineOrigin, foreignOrigin })], '/__evora/harness.js': [JS, HARNESS_JS], ...foreignAssets };
+      // EVORA-REV-73 : la coquille du témoin RAW lit le DNG sur sa propre origine (connect-src 'self')
+      if (sc.raw) assets[RAW_URL] = ['application/octet-stream', readFileSync(RAW_FIXTURE)];
       const hit = assets[path];
       res.writeHead(hit ? 200 : 404, { 'Content-Type': hit ? hit[0] : 'text/plain', 'Cache-Control': 'no-store',
-        'Content-Security-Policy': `default-src 'none'; script-src 'self'; frame-src ${engineOrigin} ${foreignOrigin} 'self'; style-src 'unsafe-inline'; img-src data:` });
+        'Content-Security-Policy': `default-src 'none'; script-src 'self'; frame-src ${engineOrigin} ${foreignOrigin} 'self'; style-src 'unsafe-inline'; img-src data:${sc.raw ? "; connect-src 'self'" : ''}` });
       res.end(hit ? hit[1] : '404');
       return;
     }
@@ -402,7 +419,16 @@ allow="fullscreen; clipboard-read; clipboard-write" title="moteur"></iframe></bo
           engineEval: (e, ms) => evalIn(frameSession, e, ms),
           downloads: async () => ({ anchors: JSON.parse(await evalIn(frameSession, 'JSON.stringify(globalThis.__evoraDownloads || [])', 20000)), events: downloadEvents.length }) };
         try {
-          if (sc.ehp === 'admit') await runEhp(ctx);
+          if (sc.raw) {
+            await runRaw({ ...ctx, sabotage: sc.rawSabotage, shot: async (what) => {
+              const shot = await cdp.send('Page.captureScreenshot', { format: 'png' }, page);
+              await writeFile(join(opts.out, `smoke-${sc.name}-${what}.png`), Buffer.from(shot.data, 'base64'));
+            } });
+            if (sc.rawSabotage === 'panique') {
+              await evalIn(frameSession, "console.error('panicked at sabotage du témoin RAW (EVORA-REV-73)')", 20000).catch(() => {});
+              await sleep(500);
+            }
+          } else if (sc.ehp === 'admit') await runEhp(ctx);
           else await runMute({ ...ctx, site: opts.site, readFileSync, join });
         } catch (err) {
           errors.push(`[ehp-bench] banc interrompu : ${err.message}`);
@@ -426,6 +452,16 @@ allow="fullscreen; clipboard-read; clipboard-write" title="moteur"></iframe></bo
     engine.close();
     parent.close();
     if (foreign) foreign.close();
+  }
+  // EVORA-REV-73 : témoin RAW : toute panique du module, dans n'importe quelle cible et à n'importe quel
+  // niveau de console (le worker de rendu arrêté n'est qu'un avertissement), est rouge
+  if (sc.raw) {
+    const panics = [...new Set([...errors, ...warnings, ...appLog].filter((l) => RAW_PANIC.some((re) => re.test(l))).map((l) => l.split('\n')[0].slice(0, 300)))];
+    for (const l of panics.slice(0, 6)) errors.push(`[raw-panic] ${l}`);
+    if (result.raw?.exportB64) {
+      await writeFile(join(opts.out, `smoke-${sc.name}-export.jpg`), Buffer.from(result.raw.exportB64, 'base64'));
+      delete result.raw.exportB64;
+    }
   }
   const firstFrame = appLog.map((l) => /first UI frame at (\d+) ms/.exec(l)).find(Boolean);
   result.appFirstFrameMs = firstFrame ? Number(firstFrame[1]) : null;
@@ -514,6 +550,16 @@ async function witness(opts, chrome, cspHashes) {
     console.log(`témoin ${REAL_WITNESS.name} (vrai moteur sabordé) : attendu ${REAL_WITNESS.expected.join(' ')} ; obtenu ${r.ok ? 'vert' : `rouge ${tags.join(' ')}`} -> ${ok ? 'OK' : 'ÉCHEC'} (${r.wallMs} ms jusqu'au moteur prêt)`);
     if (!ok) for (const e of r.errors.slice(0, 10)) console.log(`  ${e}`);
   }
+  // EVORA-REV-73 : le témoin RAW, sur le vrai moteur, sabordé de trois façons : rouge avec chaque étiquette
+  for (const [mode, tag] of RAW_WITNESSES.filter(([m]) => !opts.witnessOnly || opts.witnessOnly === `raw-${m}`)) {
+    const sc = { name: `temoin-raw-${mode}`, query: '?host=evora&lang=en', lang: 'en', ehp: 'admit', raw: true, rawSabotage: mode };
+    const r = await scenario({ ...opts, timeout: 150 }, chrome, sc, cspHashes);
+    const tags = [...new Set(r.errors.map((e) => (/^\[[a-z0-9-]+\]/.exec(e) || ['?'])[0]))];
+    const ok = !r.ok && tags.includes(tag);
+    runs.push({ flaw: `raw-${mode}`, mode: 'admit', expected: tag, ok, green: r.ok, tags, errors: r.errors.slice(0, 8) });
+    console.log(`témoin raw-${mode} (vrai moteur, témoin RAW sabordé) : attendu ${tag} ; obtenu ${r.ok ? 'vert' : `rouge ${tags.join(' ')}`} -> ${ok ? 'OK' : 'ÉCHEC'} (${r.wallMs} ms jusqu'au moteur prêt)`);
+    if (!ok) for (const e of r.errors.slice(0, 10)) console.log(`  ${e}`);
+  }
   await writeFile(join(opts.out, 'ehp-witness.json'), JSON.stringify(runs, null, 2));
   const ok = runs.every((x) => x.ok);
   console.log(`\nTémoins du banc EHP : ${ok ? 'OK' : 'ÉCHEC'} (${runs.filter((x) => x.ok).length}/${runs.length})`);
@@ -560,6 +606,7 @@ async function main() {
     if (r.ehpSteps) for (const [k, v] of Object.entries(r.ehpSteps)) console.log(`E4 étape ${k} : ${JSON.stringify(v).slice(0, 600)}`);
     if (r.ehpStats) console.log(`E4 état du moteur : ${JSON.stringify(r.ehpStats).slice(0, 600)}`);
     if (r.shippedHostConfig) console.log(`E4 evora-host.json de l'artefact : ${JSON.stringify(r.shippedHostConfig)}`);
+    if (r.raw) for (const [k, v] of Object.entries(r.raw)) console.log(`témoin RAW, ${k} : ${JSON.stringify(v).slice(0, 600)}`);
     for (const e of r.errors) console.log(`ERREUR ${e}`);
     for (const w of r.warnings.slice(0, 20)) console.log(`avertissement ${w}`);
     for (const l of r.appLog.slice(0, 15)) console.log(`journal ${l}`);

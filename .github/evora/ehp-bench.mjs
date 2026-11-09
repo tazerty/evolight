@@ -42,6 +42,13 @@
 // commandes d'engines.json et dans le sous-ensemble que la coquille sait lire, la coquille admettant ce
 // que le moteur exécute et refusant ce qu'il refuse ([ehp-command-params-shell] ; command-params.json de
 // l'artefact) ; chaque destructive est refusée sans confirmed ; quatre moteurs factices de plus.
+//
+// EVORA-REV-73 : scénario « raw-dng », témoin RAW (runRaw). La coquille ouvre par evora:open le DNG
+// SYNTHÉTIQUE versionné (fixtures/temoin-rggb.dng, fabriqué par fixtures/temoin-dng.py : mosaïque RGGB
+// calculée, aucune photo), attend son premier rendu, l'exporte par app.export, reçoit evora:export,
+// décode le fichier reçu et le mesure ; smoke.mjs rougit aussi sur toute panique du module (« panicked
+// at », « RuntimeError: unreachable », worker de rendu arrêté, cible plantée). C'est le chemin qu'une
+// lecture d'horloge de std avait cassé en v0.19.0 (EVORA-REV-71) sans qu'aucun JPEG ne le voie.
 
 import { canon, catalogHash, plain, removalMarked, shellAdmits, shellCatalogProblems, shellSchemaShapeOk } from './shell-contract.mjs';
 
@@ -51,6 +58,22 @@ export const PHOTO = 'evora-smoke.jpg';
 // EVORA-REV-29 : deuxième photo (ouverte par la coquille), troisième (par le sélecteur d'Evora).
 export const PHOTO2 = 'seconde-photo.jpg';
 export const PHOTO3 = 'troisieme-photo.jpg';
+// EVORA-REV-73 : témoin RAW (scénario « raw-dng ») : le DNG synthétique versionné, servi par la coquille,
+// ses dimensions, et ce qu'un export doit au moins porter pour ne pas être « uniforme »
+export const RAW_PHOTO = 'temoin-rggb.dng';
+export const RAW_URL = '/__evora/temoin-rggb.dng';
+export const RAW_SIZE = [384, 256];
+export const RAW_MIN_LUMA_STD = 12;
+export const RAW_MIN_COLOURS = 24;
+export const RAW_RENDER_MS = 90000;
+export const RAW_EXPORT_MS = 120000;
+// ce qui, dans la console d'une cible, dit que le module s'est arrêté
+export const RAW_PANIC = [/panicked at/i, /RuntimeError: unreachable/, /render worker \d+ failed/i, /plantage de la cible/];
+// Sabordages du témoin RAW (--ehp-witness, ou --sabotage-raw <mode>) contre le vrai moteur : chacun doit
+// rougir avec son étiquette. « uniforme » et « vide » remplacent, dans la coquille, le fichier reçu par
+// evora:export (un JPEG gris uni, zéro octet) ; « panique » écrit une ligne de panique dans la console du
+// cadre du moteur une fois l'export jugé.
+export const RAW_WITNESSES = [['uniforme', '[raw-export-uniform]'], ['vide', '[raw-export]'], ['panique', '[raw-panic]']];
 // EVORA-REV-57 : légende locale (métadonnées) qui ne doit survivre ni au rechargement ni passer à un second document
 export const LOCAL_CAPTION = 'evora-legende-locale-qa';
 // Ce que le scénario exerce : le moteur doit déclarer exactement cela, ni plus ni moins.
@@ -312,6 +335,7 @@ export const HARNESS_JS = `'use strict';
   const log = [];
   const ids = { foreign: [] };
   const waiters = [];
+  const exported = new Map();
   const plainOf = (v) => v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
   const clone = (v) => JSON.parse(JSON.stringify(v === undefined ? null : v, (k, x) => (x instanceof ArrayBuffer ? { byteLength: x.byteLength } : x)));
   addEventListener('message', (e) => {
@@ -329,7 +353,11 @@ export const HARNESS_JS = `'use strict';
       if (entry.binary && d.type === 'evora:save') {
         try { entry.envelope = JSON.parse(new TextDecoder().decode(bytes)); } catch (err) { entry.envelope = { error: String(err) }; }
       }
-      if (entry.binary && d.type === 'evora:export') entry.magic = Array.from(new Uint8Array(bytes.slice(0, 3)), (b) => b.toString(16).padStart(2, '0')).join('');
+      if (entry.binary && d.type === 'evora:export') {
+        entry.magic = Array.from(new Uint8Array(bytes.slice(0, 3)), (b) => b.toString(16).padStart(2, '0')).join('');
+        // EVORA-REV-73 : octets gardés pour le témoin RAW (décodage et mesure par api.inspect)
+        if (entry.fromEngine && typeof d.id === 'string') exported.set(d.id, bytes);
+      }
     }
     log.push(entry);
     for (const w of waiters.slice()) if (w.pred(entry)) { waiters.splice(waiters.indexOf(w), 1); w.ok(entry); }
@@ -512,11 +540,89 @@ export const HARNESS_JS = `'use strict';
       toEngine({ v: 1, type: 'evora:ack', id: ulid(), re: pickId, payload: { ok: true } });
       return opened;
     },
+    // EVORA-REV-73 (témoin RAW) : evora:init seul, sans pages étrangères ni stockage amorcé
+    initOnly: async (lang) => {
+      const r = ready();
+      if (!r) return { error: 'aucun evora:ready' };
+      const id = ulid();
+      toEngine({ v: 1, type: 'evora:init', id, re: r.id, payload: initPayload(cfg.ns, lang, 'dark') });
+      const ack = await ackOf(id, 30000);
+      return { id, ack: ack && ack.payload };
+    },
+    // EVORA-REV-73 : ouvre un fichier servi par la coquille (le DNG du témoin), octets transférés
+    openUrl: async (url, name) => {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return { error: url + ' : HTTP ' + res.status };
+      const bytes = await res.arrayBuffer();
+      const n = bytes.byteLength;
+      const id = ulid();
+      const docRef = ulid();
+      const at = log.length;
+      toEngine({ v: 1, type: 'evora:open', id, payload: { docRef, name, bytes } }, [bytes]);
+      const ack = await ackOf(id, 60000);
+      return { id, docRef, at, bytes: n, ack: ack && ack.payload, transferred: bytes.byteLength === 0 };
+    },
+    // EVORA-REV-73 : décode un fichier reçu par evora:export et le mesure (luminance, couleurs, bandes)
+    inspect: async (id, sabotage) => {
+      let bytes = exported.get(id);
+      if (!bytes) return { error: 'aucun octet gardé pour ' + id };
+      if (sabotage === 'uniforme') {
+        const c = new OffscreenCanvas(384, 256);
+        const g = c.getContext('2d');
+        g.fillStyle = '#808080';
+        g.fillRect(0, 0, 384, 256);
+        bytes = await (await c.convertToBlob({ type: 'image/jpeg', quality: 0.9 })).arrayBuffer();
+      } else if (sabotage === 'vide') {
+        bytes = new ArrayBuffer(0);
+      }
+      const u8 = new Uint8Array(bytes);
+      const out = { byteLength: bytes.byteLength, magic: Array.from(u8.slice(0, 3), (b) => b.toString(16).padStart(2, '0')).join('') };
+      if (bytes.byteLength <= 2000000) {
+        let bin = '';
+        for (let i = 0; i < u8.length; i += 32768) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+        out.b64 = btoa(bin);
+      }
+      try {
+        const bmp = await createImageBitmap(new Blob([bytes]));
+        const w = bmp.width;
+        const h = bmp.height;
+        out.width = w;
+        out.height = h;
+        const c = new OffscreenCanvas(w, h);
+        const g = c.getContext('2d');
+        g.drawImage(bmp, 0, 0);
+        const px = g.getImageData(0, 0, w, h).data;
+        const colours = new Set();
+        const bands = [0, 1, 2, 3].map(() => ({ n: 0, r: 0, g: 0, b: 0 }));
+        let n = 0;
+        let sum = 0;
+        let sum2 = 0;
+        for (let i = 0; i < px.length; i += 4) {
+          const y = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+          sum += y;
+          sum2 += y * y;
+          n += 1;
+          colours.add(((px[i] >> 4) << 8) | ((px[i + 1] >> 4) << 4) | (px[i + 2] >> 4));
+          const band = bands[Math.min(3, Math.floor(((i / 4 / w) | 0) * 4 / h))];
+          band.n += 1;
+          band.r += px[i];
+          band.g += px[i + 1];
+          band.b += px[i + 2];
+        }
+        out.lumaMean = Math.round((sum / n) * 10) / 10;
+        out.lumaStd = Math.round(Math.sqrt(Math.max(0, sum2 / n - (sum / n) * (sum / n))) * 10) / 10;
+        out.colours = colours.size;
+        out.bands = bands.map((b) => [b.r, b.g, b.b].map((v) => Math.round(v / Math.max(1, b.n))));
+      } catch (err) {
+        out.decodeError = String(err);
+      }
+      return out;
+    },
   };
   const wrap = (f) => async (...a) => JSON.stringify(await f(...a));
   window.__ehp = { log, ids, run: async (step) => JSON.stringify(await steps[step]()),
     req: wrap(api.req), answer: wrap(api.answer), open: wrap(api.open), reopen: wrap(api.reopen), twin: wrap(api.twin), wait: wrap(api.wait), since: wrap(api.since),
-    mark: wrap(api.mark), servePick: wrap(api.servePick), ulid };
+    mark: wrap(api.mark), servePick: wrap(api.servePick), initOnly: wrap(api.initOnly), openUrl: wrap(api.openUrl), inspect: wrap(api.inspect), ulid };
 })();
 `;
 
@@ -1645,6 +1751,97 @@ export async function runDocs({ evalPage, engineStats, engineEval, downloads, er
   const dl2 = await downloads();
   result.downloads = dl2;
   if (dl2.anchors.length || dl2.events) errors.push(`[ehp-download] téléchargement pendant la séance (jamais sous le pont) : ${show(dl2)}`);
+}
+
+// EVORA-REV-73 : scénario « raw-dng ». Ouvre le DNG synthétique, attend son premier rendu, l'exporte et
+// juge le fichier reçu (smoke.mjs ajoute [raw-panic] pour toute panique relevée dans la console).
+export async function runRaw({ evalPage, engineStats, engineEval, errors, result, shot, sabotage }) {
+  const call = async (fn, ...args) => JSON.parse(await evalPage(`window.__ehp.${fn}(...${JSON.stringify(args)})`) || 'null');
+  const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  const trace = (result.raw = {});
+  const end0 = Date.now() + 30000;
+  while (Date.now() < end0) {
+    const n = Number(await evalPage(`String((window.__ehp && window.__ehp.log.filter((m) => m.fromEngine && m.type === 'evora:ready').length) || 0)`));
+    if (n > 0) break;
+    await pause(200);
+  }
+  const init = await call('initOnly', 'en');
+  trace.init = init;
+  if (!init || !init.ack || init.ack.ok !== true) {
+    errors.push(`[raw-init] evora:init sans accusé positif : ${show(init)}`);
+    return;
+  }
+  // 1. Ouverture du DNG (octets transférés)
+  const open = await call('openUrl', RAW_URL, RAW_PHOTO);
+  trace.open = open && { bytes: open.bytes, ack: open.ack, transferred: open.transferred, error: open.error };
+  if (!open || open.error || !open.ack || open.ack.ok !== true || open.transferred !== true) {
+    errors.push(`[raw-open] ouverture du DNG par evora:open : ${show(trace.open)}`);
+    return;
+  }
+  // 2. Premier rendu : vignette rendue, file de rendu vide, sans échec (ou la panique)
+  const t0 = Date.now();
+  let s = null;
+  while (Date.now() - t0 < RAW_RENDER_MS) {
+    try {
+      s = await engineStats();
+    } catch (err) {
+      s = { error: String(err.message || err) };
+      break;
+    }
+    if (s.activeFailure || (s.active === RAW_PHOTO && s.activeThumb === true && s.renderQueue === 0 && s.rendersInFlight === 0)) break;
+    await pause(300);
+  }
+  trace.render = s && { ms: Date.now() - t0, active: s.active, activeThumb: s.activeThumb, activeFailure: s.activeFailure, renderQueue: s.renderQueue,
+    rendersInFlight: s.rendersInFlight, workers: s.workers, error: s.error };
+  if (shot) await shot('rendu').catch(() => {});
+  if (!s || s.error || s.active !== RAW_PHOTO || s.activeThumb !== true || s.activeFailure) {
+    errors.push(`[raw-render] premier rendu du DNG absent ou en échec : ${show(trace.render)}`);
+    return;
+  }
+  // 3. Export (app.export, comme Fichier › Exporter vers Drive) : un evora:export du docRef du DNG
+  const doc = (((s.host || {}).docs) || []).find((d) => d.docRef === open.docRef);
+  if (!doc) {
+    errors.push(`[raw-export] le DNG ouvert n'est pas un document de la coquille : ${show(((s.host || {}).docs) || null)}`);
+    return;
+  }
+  const at = await call('mark');
+  let ex;
+  try {
+    ex = { ok: true, value: JSON.parse(await engineEval(`globalThis.evolight.command('app.export', ${JSON.stringify(JSON.stringify({ ids: [doc.photo], dir: 'evora' }))})`, RAW_EXPORT_MS)) };
+  } catch (err) {
+    ex = { ok: false, error: String(err.message || err) };
+  }
+  let got = null;
+  const t1 = Date.now();
+  while (!got && Date.now() - t1 < RAW_EXPORT_MS) {
+    got = ((await call('since', at)) || []).find((m) => m.type === 'evora:export') || null;
+    if (!got) await pause(500);
+  }
+  trace.export = { command: ex, ms: Date.now() - t1, payload: got && { docRef: got.payload.docRef, name: got.payload.name, mime: got.payload.mime }, magic: got && got.magic };
+  if (!got) {
+    errors.push(`[raw-export] aucun evora:export après app.export du DNG : ${show(trace.export)}`);
+    return;
+  }
+  await call('answer', 'evora:ack', got.id, { ok: true });
+  if (got.payload.docRef !== open.docRef || got.payload.mime !== 'image/jpeg' || got.magic !== 'ffd8ff' || got.binary !== true) {
+    errors.push(`[raw-export] export du DNG inattendu (docRef du DNG, JPEG attendus) : ${show(trace.export)}`);
+  }
+  // 4. Le fichier reçu : décodable, aux proportions du DNG, et pas uniforme
+  const look = await call('inspect', got.id, sabotage || null);
+  if (look && look.b64) {
+    trace.exportB64 = look.b64;
+    delete look.b64;
+  }
+  trace.look = look;
+  if (!look || look.error || look.decodeError || !(look.byteLength > 0) || !(look.width > 0) || !(look.height > 0)) {
+    errors.push(`[raw-export] fichier exporté vide ou indécodable : ${show(look)}`);
+    return;
+  }
+  const ratio = look.width / look.height;
+  if (Math.abs(ratio - RAW_SIZE[0] / RAW_SIZE[1]) > 0.02) errors.push(`[raw-export] proportions de l'export ${look.width}x${look.height}, celles du DNG ${RAW_SIZE.join('x')} attendues`);
+  if (look.lumaStd < RAW_MIN_LUMA_STD || look.colours < RAW_MIN_COLOURS) {
+    errors.push(`[raw-export-uniform] export uniforme (écart type de luminance ${look.lumaStd}, au moins ${RAW_MIN_LUMA_STD} ; ${look.colours} couleurs, au moins ${RAW_MIN_COLOURS})`);
+  }
 }
 
 // Scénario « pont-muet » : evora-host.json de l'artefact (vide) ; aucun message, jamais.

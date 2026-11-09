@@ -49,6 +49,14 @@
 # d'exécution ou réservés à l'application de bureau) ; le graphe qu'elle lit est contre-éprouvé par
 # la sortie de cargo tree de la porte E7. C'est une telle lecture qui empêchait la v0.19.0 d'ouvrir
 # un RAW (EVORA-REV-71).
+#
+# Témoin RAW (EVORA-REV-73) : le test de fumée joue « raw-dng » : la coquille ouvre par evora:open le DNG
+# SYNTHÉTIQUE versionné (.github/evora/fixtures/temoin-rggb.dng : mosaïque RGGB calculée en entiers par
+# fixtures/temoin-dng.py, aucune photo), attend son premier rendu, l'exporte (evora:export), décode le
+# fichier reçu et rougit sur un export vide, indécodable ou uniforme, et sur toute panique du module
+# (« panicked at », « RuntimeError: unreachable », worker de rendu arrêté, cible plantée). L'auto-test
+# vérifie que le DNG versionné est exactement celui du script ; les témoins sabordent trois fois le vrai
+# moteur (export uniforme, export vide, panique) : chaque sabordage doit rougir avec son étiquette.
 name: Evora web
 
 on:
@@ -231,6 +239,7 @@ jobs:
           node .github/evora/advisory-guards.mjs --selftest
           node .github/evora/feature-guards.mjs --selftest
           python3 .github/evora/clock-guards.py selftest
+          python3 .github/evora/fixtures/temoin-dng.py check .github/evora/fixtures/temoin-rggb.dng
 
       - name: Portes E10 et E9 — émojis et termes sensibles des catalogues affichés
         id: g_emoji
@@ -469,7 +478,7 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "::error::le test de fumée n'a pas rougi sous sabotage CSP : instrument aveugle"; exit 1; fi
           echo "Sabotage CSP : le test de fumée a bien échoué (code $code)."
 
-      - name: Porte test de fumée — Chrome sans interface, iframe d'une autre origine, audit de rendu E10 et E9, pont EHP
+      - name: Porte test de fumée — Chrome sans interface, iframe d'une autre origine, audit de rendu E10 et E9, pont EHP, témoin RAW
         id: g_smoke
         continue-on-error: true
         run: |
@@ -490,7 +499,7 @@ jobs:
           (cd "$OUT" && sha256sum command-params.json >> SHA256SUMS)
           cp "$OUT/command-params.json" "$RUNNER_TEMP/evora-diag/command-params.json"
 
-      - name: Témoins du pont EHP — moteurs factices et vrai moteur sabordés (chaque défaut doit rougir, le conforme rester vert)
+      - name: Témoins du pont EHP et du témoin RAW — moteurs factices et vrai moteur sabordés (chaque défaut doit rougir, le conforme rester vert)
         id: g_ehp_witness
         if: ${{ !cancelled() && steps.unpacked.outcome == 'success' }}
         run: |
@@ -528,8 +537,8 @@ jobs:
             echo "| Bundle (marques, hébergement, .gz/.br, CSP, taille) | $BUNDLE |"
             echo "| Zéro terme (nom amont retiré absent du site, hors LICENSES/) | $TERM |"
             echo "| Sabotage CSP du test de fumée (doit rougir) | $SABOTAGE |"
-            echo "| Test de fumée (autre origine, démarrage à froid, audit de rendu E10 et E9, pont EHP E4/E5) | $SMOKE |"
-            echo "| Témoins du pont EHP (moteurs factices et vrai moteur sabordés : conforme vert, chaque défaut rouge) | $WITNESS |"
+            echo "| Test de fumée (autre origine, démarrage à froid, audit de rendu E10 et E9, pont EHP E4/E5, témoin RAW) | $SMOKE |"
+            echo "| Témoins du pont EHP et du témoin RAW (moteurs factices et vrai moteur sabordés : conforme vert, chaque défaut rouge) | $WITNESS |"
             echo
             echo "Avertissements de cargo-deny : $(awk '/^warning/ { n++ } END { print n + 0 }' "$RUNNER_TEMP/cargo-deny.txt" 2>/dev/null || echo '?') (détail dans le journal de la porte)."
           } >> "$GITHUB_STEP_SUMMARY"
