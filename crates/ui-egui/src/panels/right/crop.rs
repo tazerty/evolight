@@ -76,8 +76,12 @@ pub(super) fn crop(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
             let (w, h) = (p.width.max(1) as f64, p.height.max(1) as f64);
             if d.orientation.swaps_axes() { h / w } else { w / h }
         });
-        ui.horizontal(|ui| {
-            ui.label(crate::i18n::tr("Aspect Ratio"));
+        // wraps: when the label, the menu and Lock don't fit side by side (French "Ratio de format"
+        // and "Verrouillée", a narrow panel), what doesn't fit goes under them, never past the edge
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.y = 6.0;
+            // (not wrapped itself: on one line, as in a plain row)
+            ui.add(egui::Label::new(crate::i18n::tr("Aspect Ratio")).extend());
             let cur = aspect_label(app.crop_tool_aspect(), original);
             let t = Tokens::get(ui.ctx());
             let r = crate::widgets::dropdown(ui, "cropAspect", crate::i18n::tr(&cur), t.font(12.5), t.text);
@@ -170,7 +174,9 @@ pub(super) fn crop(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         });
     }
     padded(ui, |ui| {
-        ui.horizontal(|ui| {
+        // wraps: German "Gerade-ausrichten-Werkzeug" leaves no room for Auto beside it
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.y = 6.0;
             let on = app.ui.tool == "straighten";
             if text_button(ui, "straightenTool", crate::i18n::tr("Straighten Tool"), on)
                 .on_hover_text(crate::i18n::tr("Drag along the horizon; double-click for Auto"))
@@ -353,7 +359,9 @@ pub(super) fn remove(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     }
     if sel.is_some() {
         padded(ui, |ui| {
-            ui.horizontal(|ui| {
+            // wraps: French "Actualiser la source (/)" and "Supprimer" are wider than the panel together
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.y = 6.0;
                 if text_button(ui, "spotRefresh", crate::i18n::tr("Refresh Source (/)"), false).clicked() {
                     let _ = app.run("spot.refreshSource", json!({}));
                 }
@@ -401,10 +409,17 @@ pub(super) fn remove(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
 pub(crate) fn tool_overlay_options(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     use crate::state::ToolOverlay;
     let t = Tokens::get(ui.ctx());
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(crate::i18n::tr("Tool Overlay")).color(t.text_dim));
+    // wraps: a mode name too long for the room beside the label (German "Ausgewählt" after
+    // "Werkzeugüberlagerung", Italian at the panel's narrowest) goes under it, in full
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.y = 6.0;
+        // (not wrapped itself: on one line, as in a plain row)
+        ui.add(egui::Label::new(egui::RichText::new(crate::i18n::tr("Tool Overlay")).color(t.text_dim)).extend());
         let current = app.ui.tool_overlay;
-        let r = crate::widgets::dropdown(ui, "toolOverlay", crate::i18n::tr(current.label()), t.font(12.5), t.text_label)
+        // in a wrapping row this is the whole row's width, not what is left beside the label: only a
+        // name wider than the panel is cut short with …, in full on hover above the hint
+        let max = ui.available_width();
+        let r = crate::widgets::dropdown_within(ui, "toolOverlay", crate::i18n::tr(current.label()), t.font(12.5), t.text_label, max)
             .on_hover_text(crate::i18n::tr("When pins show on the photo (Shift+H cycles)"));
         egui::Popup::menu(&r).show(|ui| {
             for m in ToolOverlay::ALL {
@@ -480,4 +495,92 @@ pub(super) fn red_eye(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
             }
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{Rect, vec2};
+    use evolight_catalog::PhotoId;
+    use serde_json::json;
+
+    use crate::i18n::Locale;
+    use crate::{EvoLightApp, Services, headless::HeadlessView};
+
+    /// A panel of the right side ([`super::crop`], [`super::remove`]).
+    type Draw = fn(&mut EvoLightApp, &mut egui::Ui, PhotoId);
+
+    /// What `draw` registers in a panel `width` wide in `locale`, after three passes.
+    fn registered(app: &mut EvoLightApp, width: f32, locale: Locale, draw: Draw) -> Vec<(String, Rect)> {
+        let photo = app.session.active().unwrap();
+        let ctx = egui::Context::default();
+        crate::i18n::set_language(locale);
+        crate::theme::install_fonts(&ctx);
+        crate::theme::apply(&ctx);
+        let mut widgets = Vec::new();
+        for frame in 0..3 {
+            let raw = HeadlessView::raw_input(vec2(width, 4000.0), 1.0, frame as f64 / 60.0, vec![]);
+            let _ = ctx.run_ui(raw, |ui| {
+                egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| draw(&mut *app, ui, photo));
+            });
+            widgets = crate::widgets::take_registry(&ctx);
+        }
+        crate::i18n::set_language(Locale::En);
+        widgets
+    }
+
+    fn rect(widgets: &[(String, Rect)], id: &str) -> Rect {
+        widgets.iter().find(|(w, _)| w == id).map(|(_, r)| *r).unwrap_or_else(|| panic!("{id} not drawn"))
+    }
+
+    const CASES: [(Locale, f32); 5] = [(Locale::En, 270.0), (Locale::Fr, 250.0), (Locale::Fr, 270.0), (Locale::De, 250.0), (Locale::De, 270.0)];
+
+    /// The Aspect Ratio and Straighten Tool rows keep to the panel in French and German at its
+    /// narrowest and default widths, what doesn't fit going to the next line; English at the
+    /// default width keeps each on one line.
+    #[test]
+    fn crop_rows_wrap_inside_the_panel() {
+        for (locale, width) in CASES {
+            let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
+            let widgets = registered(&mut app, width, locale, super::crop);
+            let at = |id: &str| rect(&widgets, id);
+            // the aspect row comes first: nothing above it can widen the panel's content
+            let edge = width - 22.0 + 0.5;
+            for id in ["dropdown:cropAspect", "button:cropLock"] {
+                assert!(at(id).right() <= edge, "{locale:?} {width}: {id} {:?} runs past the panel's edge", at(id));
+            }
+            // the Straighten slider's track ends where the rows under it end
+            let track = at("slider:crop.angle");
+            for id in ["button:straightenTool", "button:straightenAuto"] {
+                assert!(at(id).right() <= track.right() + 0.5, "{locale:?} {width}: {id} {:?} runs past {track:?}", at(id));
+            }
+            if locale == Locale::En {
+                assert!(at("button:cropLock").top() < at("dropdown:cropAspect").bottom(), "English keeps Lock beside the menu");
+                assert!((at("button:straightenAuto").top() - at("button:straightenTool").top()).abs() < 0.5, "English keeps Auto beside the tool");
+            }
+        }
+    }
+
+    /// With a spot selected, its Refresh Source / Delete row and the Tool Overlay row keep to the
+    /// Remove panel in French and German; English at the default width keeps both buttons on one line.
+    #[test]
+    fn remove_rows_stay_inside_the_panel() {
+        for (locale, width) in CASES {
+            let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
+            app.run("spot.add", json!({"mode": "fill", "points": [[0.4, 0.5]], "size": 0.03})).unwrap();
+            app.ui.tool_overlay = crate::state::ToolOverlay::Selected;
+            let widgets = registered(&mut app, width, locale, super::remove);
+            let at = |id: &str| rect(&widgets, id);
+            // each row sits under a slider whose track ends where the row's room does
+            let opacity = at("slider:ui.removeOpacity");
+            for id in ["button:spotRefresh", "button:spotDelete"] {
+                assert!(at(id).right() <= opacity.right() + 0.5, "{locale:?} {width}: {id} {:?} runs past {opacity:?}", at(id));
+            }
+            let threshold = at("slider:ui.spotsThreshold");
+            let menu = at("dropdown:toolOverlay");
+            assert!(menu.right() <= threshold.right() + 0.5, "{locale:?} {width}: Tool Overlay {menu:?} runs past {threshold:?}");
+            if locale == Locale::En {
+                assert!((at("button:spotDelete").top() - at("button:spotRefresh").top()).abs() < 0.5, "English keeps Delete beside Refresh Source");
+            }
+        }
+    }
 }

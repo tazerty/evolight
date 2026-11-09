@@ -26,24 +26,30 @@ pub(super) fn mixer(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSetting
             }
         });
     });
-    // targeted adjustment: pick the attribute, then drag on the photo
+    // targeted adjustment: pick the attribute, then drag on the photo (the buttons wrap onto another
+    // row when their labels are wider than the panel)
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 2, bottom: 2 }).show(ui, |ui| {
-        ui.horizontal(|ui| {
+        // the target icon heads the row; the buttons wrap beside it, a wrapped one under the first button
+        ui.horizontal_top(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
-            let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::hover());
-            paint(ui.painter(), r, Icon::Target, t.icon);
-            let items: &[(&str, &str)] =
-                if crate::is_bw(d) { &[("lum", "B&W Mix")] } else { &[("hue", "Hue"), ("sat", "Saturation"), ("lum", "Luminance")] };
-            for (k, label) in items {
-                let tool = format!("tat:{k}");
-                let active = app.ui.tool == tool;
-                if text_button(ui, &format!("tatMixer-{k}"), crate::i18n::tr(label), active)
-                    .on_hover_text(crate::i18n::tr("Targeted adjustment: drag up/down on the photo to adjust the colours there"))
-                    .clicked()
-                {
-                    set_tat(app, ui.ctx(), &tool, active);
+            // (as high as a button, the icon centred in it: level with the first row of buttons)
+            let (r, _) = ui.allocate_exact_size(vec2(20.0, 24.0), Sense::hover());
+            paint(ui.painter(), egui::Rect::from_center_size(r.center(), vec2(20.0, 20.0)), Icon::Target, t.icon);
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = vec2(6.0, 4.0);
+                let items: &[(&str, &str)] =
+                    if crate::is_bw(d) { &[("lum", "B&W Mix")] } else { &[("hue", "Hue"), ("sat", "Saturation"), ("lum", "Luminance")] };
+                for (k, label) in items {
+                    let tool = format!("tat:{k}");
+                    let active = app.ui.tool == tool;
+                    if text_button(ui, &format!("tatMixer-{k}"), crate::i18n::tr(label), active)
+                        .on_hover_text(crate::i18n::tr("Targeted adjustment: drag up/down on the photo to adjust the colours there"))
+                        .clicked()
+                    {
+                        set_tat(app, ui.ctx(), &tool, active);
+                    }
                 }
-            }
+            });
         });
     });
     let b = bands[sel];
@@ -130,17 +136,34 @@ pub(super) fn point_color(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopS
     for k in ["range", "hueRange", "satRange", "lumRange"] {
         control(app, ui, d, &format!("pointColor.{sel}.{k}"), true);
     }
+    let mut delete = false;
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 4, bottom: 8 }).show(ui, |ui| {
-        ui.horizontal(|ui| {
+        let delete_w = crate::widgets::text_button_size(ui, "Delete");
+        // Delete stays at the end of the row while it fits after the checkbox; a longer translation of
+        // the checkbox's label puts it on a row of its own, still on the right
+        let row = ui.horizontal(|ui| {
             let mut v = app.ui.point_color_visualize;
             if ui.checkbox(&mut v, crate::i18n::tr("Visualize range")).changed() {
                 app.ui.point_color_visualize = v;
             }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if text_button(ui, "pointColorDelete", crate::i18n::tr("Delete"), false).clicked() {
-                    let _ = app.run("pointColor.delete", json!({"index": sel}));
-                }
-            });
+            let fits = ui.available_width() >= delete_w;
+            if fits {
+                delete = point_color_delete_button(ui);
+            }
+            fits
         });
+        if !row.inner {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| delete = point_color_delete_button(ui));
+        }
     });
+    if delete {
+        let _ = app.run("pointColor.delete", json!({"index": sel}));
+    }
+}
+
+/// Point Color's Delete, pinned to the right of its row: whether it was clicked.
+fn point_color_delete_button(ui: &mut egui::Ui) -> bool {
+    let layout = egui::Layout::right_to_left(egui::Align::Center);
+    ui.with_layout(layout, |ui| text_button(ui, "pointColorDelete", crate::i18n::tr("Delete"), false).clicked()).inner
 }

@@ -158,8 +158,11 @@ pub(super) fn info(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         // (one photo's place: not shown while the selected photos' places differ)
         if let Some((la, lo)) = m.gps.filter(|_| !gps_mixed) {
             let pretty = format!("{:.5}° {}, {:.5}° {}", la.abs(), if la >= 0.0 { "N" } else { "S" }, lo.abs(), if lo >= 0.0 { "E" } else { "W" });
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(pretty).size(11.0).color(t.text_dim));
+            // wraps: the coordinates and Show on Map are wider than the panel (French, German, and
+            // English too at the default width); the button then goes under the coordinates
+            ui.horizontal_wrapped(|ui| {
+                // (not wrapped itself: the coordinates stay on one line, as in a plain row)
+                ui.add(egui::Label::new(egui::RichText::new(pretty).size(11.0).color(t.text_dim)).extend());
                 if text_button(ui, "showOnMap", crate::i18n::tr("Show on Map"), false)
                     .on_hover_text(crate::i18n::tr("Open the place in OpenStreetMap"))
                     .clicked()
@@ -464,4 +467,47 @@ fn meta_field(app: &mut EvoLightApp, ui: &mut egui::Ui, label: &str, key: &str, 
         let _ = app.run("photo.setMeta", json!({"ids": edit.ids, key: edit.text}));
     }
     ui.add_space(6.0);
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{Rect, vec2};
+    use serde_json::json;
+
+    use crate::i18n::Locale;
+    use crate::{EvoLightApp, Services, headless::HeadlessView};
+
+    /// Show on Map keeps to the panel, under the coordinates when they leave it no room (French
+    /// and German, a three-digit longitude), and beside them in a panel wide enough for both.
+    #[test]
+    fn show_on_map_stays_inside_the_panel() {
+        for (locale, width) in [(Locale::En, 270.0), (Locale::En, 360.0), (Locale::Fr, 250.0), (Locale::Fr, 270.0), (Locale::De, 270.0)] {
+            let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), Services::default());
+            app.run("photo.setMeta", json!({"gps": [33.86882, 151.20929]})).unwrap();
+            let photo = app.session.active().unwrap();
+            let ctx = egui::Context::default();
+            crate::i18n::set_language(locale);
+            crate::theme::install_fonts(&ctx);
+            crate::theme::apply(&ctx);
+            let mut widgets: Vec<(String, Rect)> = Vec::new();
+            for frame in 0..3 {
+                let raw = HeadlessView::raw_input(vec2(width, 4000.0), 1.0, frame as f64 / 60.0, vec![]);
+                let _ = ctx.run_ui(raw, |ui| {
+                    egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| super::info(&mut app, ui, photo));
+                });
+                widgets = crate::widgets::take_registry(&ctx);
+            }
+            crate::i18n::set_language(Locale::En);
+            let at = |id: &str| {
+                widgets.iter().find(|(w, _)| w == id).map(|(_, r)| *r).unwrap_or_else(|| panic!("{locale:?} {width}: {id} not drawn"))
+            };
+            // the GPS field right above spans the row's room
+            let field = at("field:gps");
+            let button = at("button:showOnMap");
+            assert!(button.right() <= field.right() + 0.5, "{locale:?} {width}: Show on Map {button:?} runs past the field {field:?}");
+            if width > 300.0 {
+                assert!(button.top() < field.bottom() + 15.0, "{locale:?} {width}: Show on Map {button:?} should stay beside the coordinates");
+            }
+        }
+    }
 }

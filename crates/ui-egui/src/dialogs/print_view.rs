@@ -73,12 +73,15 @@ fn heading(ui: &mut Ui, t: &Tokens, text: &str) {
     ui.add_space(2.0);
 }
 
+/// A settings row: `label` in the label column, then what `add` draws, on as many lines of the
+/// column after it as that needs (a translation too long for one line goes on the next instead
+/// of running past the settings column's edge).
 fn row<R>(ui: &mut Ui, t: &Tokens, label: &str, add: impl FnOnce(&mut Ui) -> R) -> R {
     ui.horizontal(|ui| {
         ui.allocate_ui_with_layout(vec2(86.0, 22.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
             ui.label(egui::RichText::new(crate::i18n::tr(label)).color(t.text_label));
         });
-        add(ui)
+        ui.horizontal_wrapped(add).inner
     })
     .inner
 }
@@ -200,7 +203,8 @@ pub fn body(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens) {
 fn templates_section(app: &mut EvoLightApp, ui: &mut Ui, t: &Tokens, pu: &mut PrintUi) {
     let ctx = ui.ctx().clone();
     heading(ui, t, "Templates");
-    ui.horizontal(|ui| {
+    // (wrapped: the translated Save and Import… do not always fit beside the name field)
+    ui.horizontal_wrapped(|ui| {
         crate::text_field::TextField::singleline("field:printTemplateName", &mut pu.template_name)
             .hint(crate::i18n::tr("Template name"))
             .width(140.0)
@@ -1032,5 +1036,36 @@ mod tests {
         assert_eq!(current_paper("Custom"), "custom");
         assert_eq!(paper_label(current_paper("はがき")), "はがき (100 × 148 mm)");
         assert_eq!(paper_label(current_paper("a4")), "A4");
+    }
+
+    /// A settings row goes on as many lines as its labels need: in French and German, as in
+    /// English, neither the templates row nor the Sharpening buttons run past the column's edge.
+    #[test]
+    fn translated_rows_wrap_inside_the_settings_column() {
+        use crate::headless::Headless;
+        use crate::i18n::{Locale, set_language};
+        let t = std::time::Duration::from_secs(30);
+        let mut h = Headless::new(EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default()), [1400.0, 900.0], 1.0);
+        h.settle(t);
+        let r = h.request("engine.execute", json!({"command": "dialog.print", "params": {}}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        h.settle(t);
+        for locale in [Locale::En, Locale::Fr, Locale::De] {
+            h.app.ui.language = locale;
+            set_language(locale);
+            h.step();
+            h.step();
+            let rect = |id: &str| h.app.widgets.iter().find(|(w, _)| w == id).map(|(_, r)| *r).unwrap_or_else(|| panic!("no widget {id}"));
+            // the template name field starts the column's rows; the column is the width set in `body`
+            let edge = rect("field:printTemplateName").left() + SETTINGS_W - 14.0;
+            let ids =
+                ["button:printSaveTemplate", "button:printSharpen-0", "button:printSharpen-1", "button:printSharpen-2", "button:printSharpen-3"];
+            for id in ids {
+                let r = rect(id);
+                assert!(r.right() <= edge + 0.5, "{locale:?}: {id} ends at {} past the column's edge at {edge}", r.right());
+            }
+        }
+        set_language(Locale::En);
+        h.settle(t);
     }
 }

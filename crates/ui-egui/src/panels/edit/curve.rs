@@ -396,13 +396,19 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
 fn curve_footer(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
     use evolight_engine::cmd::curves::{all_presets, matching_preset};
     let t = Tokens::get(ui.ctx());
+    let mut reset = false;
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 2, bottom: 4 }).show(ui, |ui| {
-        ui.horizontal(|ui| {
+        let reset_w = crate::widgets::text_button_size(ui, "Reset");
+        // Reset stays at the end of the row while it fits after the label and the preset; a longer
+        // translation (or preset name) puts it on a row of its own, still on the right
+        let row = ui.horizontal(|ui| {
             ui.label(RichText::new(crate::i18n::tr("Point Curve")).font(t.font(12.0)).color(t.text_label));
             let current = matching_preset(&app.session, &d.curve);
             let builtin = current.as_ref().is_none_or(|name| all_presets(&app.session).iter().any(|p| p.builtin && &p.name == name));
             let label = crate::i18n::builtin_label(current.as_deref().unwrap_or("Custom"), builtin);
-            let r = crate::widgets::dropdown(ui, "curvePreset", label, t.font(12.0), t.text);
+            // (a name wider than the whole row is cut short with …, in full on hover)
+            let max = ui.available_width();
+            let r = crate::widgets::dropdown_within(ui, "curvePreset", label, t.font(12.0), t.text, max);
             egui::Popup::menu(&r).show(|ui| {
                 ui.set_min_width(180.0);
                 let presets = all_presets(&app.session);
@@ -448,16 +454,32 @@ fn curve_footer(app: &mut EvoLightApp, ui: &mut egui::Ui, d: &DevelopSettings) {
                     ui.label(RichText::new(crate::i18n::tr("Right-click a preset to delete it")).font(t.font(11.0)).color(t.text_dim));
                 }
             });
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let r = text_button(ui, "curveReset", crate::i18n::tr("Reset"), false).on_hover_text(crate::i18n::tr(
-                    "Reset all curves: point curves (all channels) and parametric (double-click a channel to reset only that one)",
-                ));
-                if r.clicked() {
-                    let _ = app.run("curve.reset", json!({"channel": "all"}));
-                }
-            });
+            let fits = ui.available_width() >= reset_w;
+            if fits {
+                reset = curve_reset_button(ui);
+            }
+            fits
         });
+        if !row.inner {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| reset = curve_reset_button(ui));
+        }
     });
+    if reset {
+        let _ = app.run("curve.reset", json!({"channel": "all"}));
+    }
+}
+
+/// The footer's Reset (every curve), pinned to the right of its row: whether it was clicked.
+fn curve_reset_button(ui: &mut egui::Ui) -> bool {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        text_button(ui, "curveReset", crate::i18n::tr("Reset"), false)
+            .on_hover_text(crate::i18n::tr(
+                "Reset all curves: point curves (all channels) and parametric (double-click a channel to reset only that one)",
+            ))
+            .clicked()
+    })
+    .inner
 }
 
 /// Right-click menu of the curve graph.

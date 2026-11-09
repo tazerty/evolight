@@ -27,14 +27,22 @@ mod sliders;
 use curve::curve_editor;
 use grading::grading;
 pub(crate) use grading::wheel_pointer_frame_end;
-#[cfg(test)]
-pub(crate) use grading::{WheelGrab, WheelLock, WheelMods, wheel_pick};
 pub(crate) use histogram::histogram;
 use histogram::soft_proofing;
 use mixer::{mixer, point_color};
 use sliders::{REL_TEMP, REL_TINT, hdr_row, header_buttons, k_to_rel, profile_menu, quick_develop, rel_to_k, reset_tip, section};
 pub use sliders::{apply_slider_out, sub_title};
 pub(crate) use sliders::{control, reload_preview_only};
+
+/// The white balance picker's button, pinned to the right of the White Balance row.
+const WB_PICKER: f32 = 28.0;
+/// What [`crate::widgets::dropdown_within`] adds to the width of its text: the chevron after it.
+const DROPDOWN_CHEVRON: f32 = 20.0;
+
+/// How wide `text` is in `font` on one line, to plan a row before drawing it.
+fn text_width(ui: &egui::Ui, text: &str, font: egui::FontId) -> f32 {
+    ui.painter().layout_no_wrap(text.to_string(), font, Color32::WHITE).size().x
+}
 
 pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     let t = Tokens::get(ui.ctx());
@@ -96,7 +104,14 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
     if app.session.auto_sync && n > 1 {
         egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 0, bottom: 10 }).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(crate::i18n::tr_format!("Auto Sync: edits apply to {n} photos", n = n)).color(t.accent).size(12.0));
+                // the message wraps beside Turn Off rather than run under it (or past the panel's edge,
+                // which would widen every row below)
+                let room = (ui.available_width() - crate::widgets::text_button_size(ui, "Turn Off") - ui.spacing().item_spacing.x).max(0.0);
+                ui.scope(|ui| {
+                    ui.set_max_width(room);
+                    let text = egui::RichText::new(crate::i18n::tr_format!("Auto Sync: edits apply to {n} photos", n = n)).color(t.accent).size(12.0);
+                    ui.add(egui::Label::new(text).wrap());
+                });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if text_button(ui, "autoSyncOff", crate::i18n::tr("Turn Off"), false).clicked() {
                         let _ = app.run("develop.autoSync", json!({"on": false}));
@@ -180,11 +195,26 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         ui.add_space(8.0);
     });
     section(app, ui, &d, "color", "Color", |app, ui, d| {
-        // White balance row
+        // White balance row: the label, the mode menu, the picker pinned right. When the label and the
+        // widest mode cannot share one row with the picker (a long translation), the label goes above
+        // the menu and the picker: the same layout whichever mode is shown, so choosing one (or a
+        // slider turning it Custom) never moves the rows below
         egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 2, bottom: 2 }).show(ui, |ui| {
+            let title = crate::i18n::tr("White Balance");
+            let widest = WbMode::ALL.into_iter().map(|m| text_width(ui, crate::i18n::tr(m.label()), t.font(14.0))).fold(0.0_f32, f32::max);
+            let gap = ui.spacing().item_spacing.x;
+            let one_row = text_width(ui, title, t.font(13.0)) + gap + widest + DROPDOWN_CHEVRON + WB_PICKER <= ui.available_width();
+            let label = egui::RichText::new(title).font(t.font(13.0)).color(t.text_dim);
+            if !one_row {
+                ui.label(label.clone());
+            }
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(crate::i18n::tr("White Balance")).font(t.font(13.0)).color(t.text_dim));
-                let r = crate::widgets::dropdown(ui, "wbMode", crate::i18n::tr(d.wb.mode.label()), t.font(14.0), t.text_label);
+                if one_row {
+                    ui.label(label);
+                }
+                // (a mode still wider than its room is cut short with …, in full on hover)
+                let max = ui.available_width() - WB_PICKER;
+                let r = crate::widgets::dropdown_within(ui, "wbMode", crate::i18n::tr(d.wb.mode.label()), t.font(14.0), t.text_label, max);
                 egui::Popup::menu(&r).show(|ui| {
                     for m in WbMode::ALL {
                         if m == WbMode::Custom {
@@ -202,7 +232,7 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
                         ui,
                         "wbPicker",
                         Icon::Picker,
-                        vec2(28.0, 28.0),
+                        vec2(WB_PICKER, WB_PICKER),
                         active,
                         true,
                         crate::i18n::tr("White Balance Selector (W)"),
@@ -391,3 +421,7 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         let _ = app.run("develop.reset", json!({}));
     }
 }
+
+// (last in the file: the catalog audit reads a file's code only up to its first test-only item)
+#[cfg(test)]
+pub(crate) use grading::{WheelGrab, WheelLock, WheelMods, wheel_pick};

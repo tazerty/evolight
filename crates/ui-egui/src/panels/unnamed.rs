@@ -182,6 +182,21 @@ pub fn naming_bar(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     }
 }
 
+/// The narrowest the heading's Open Settings button is (the room it had before it was measured).
+const SETTINGS_BUTTON_W: f32 = 120.0;
+/// The narrowest the heading's Select all / Select none button is.
+const SELECT_BUTTON_W: f32 = 130.0;
+
+/// The width of a heading button that shows one of `labels` (translated): the widest one's text
+/// and the button's padding either side, and never narrower than `min`, so a longer translation
+/// widens the button instead of wrapping or running past it, and the button keeps its width when
+/// its label changes.
+fn heading_button_width(ui: &egui::Ui, labels: &[&str], min: f32) -> f32 {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    let widest = labels.iter().map(|label| ui.painter().layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE).size().x).fold(0.0, f32::max);
+    (widest + 2.0 * ui.spacing().button_padding.x).max(min)
+}
+
 /// The heading of the section, at `at`, and what it says about where the faces come from.
 pub fn section_header(app: &mut EvoLightApp, ui: &mut egui::Ui, list: &Unnamed, at: egui::Pos2, right: f32) {
     let t = Tokens::get(ui.ctx());
@@ -202,16 +217,20 @@ pub fn section_header(app: &mut EvoLightApp, ui: &mut egui::Ui, list: &Unnamed, 
     };
     p.text(pos2(at.x, at.y + 24.0), Align2::LEFT_CENTER, sub, t.font(12.0), t.text_dim);
     if !list.ready && list.faces.is_empty() {
-        let r = Rect::from_min_size(pos2(at.x, at.y + 38.0), vec2(120.0, 22.0));
-        let b = ui.put(r, egui::Button::new(crate::i18n::tr("Open Settings")));
+        let label = crate::i18n::tr("Open Settings");
+        let r = Rect::from_min_size(pos2(at.x, at.y + 38.0), vec2(heading_button_width(ui, &[label], SETTINGS_BUTTON_W), 22.0));
+        let b = ui.put(r, egui::Button::new(label));
         register(ui, "unnamed:openSettings", b.rect);
         if b.clicked() {
             let _ = app.run("app.settings", json!({"tab": "faces"}));
         }
     } else if !list.faces.is_empty() {
-        let r = Rect::from_min_size(pos2(right - 130.0, at.y + 12.0), vec2(130.0, 22.0));
         let all = app.ui.unnamed_selected.len() == list.faces.len();
-        let b = ui.put(r, egui::Button::new(crate::i18n::tr(if all { "Select none" } else { "Select all" })));
+        let (none, every) = (crate::i18n::tr("Select none"), crate::i18n::tr("Select all"));
+        let label = if all { none } else { every };
+        let w = heading_button_width(ui, &[none, every], SELECT_BUTTON_W);
+        let r = Rect::from_min_size(pos2(right - w, at.y + 12.0), vec2(w, 22.0));
+        let b = ui.put(r, egui::Button::new(label));
         register(ui, "unnamed:selectAll", b.rect);
         if b.clicked() {
             app.ui.unnamed_selected.clear();

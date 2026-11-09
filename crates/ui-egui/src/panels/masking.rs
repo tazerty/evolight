@@ -459,7 +459,10 @@ fn overlay_options(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let view = MaskView::parse(&app.ui.mask_overlay_mode).unwrap_or_default();
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(crate::i18n::tr("Overlay")).color(t.text_dim));
-        let r = crate::widgets::dropdown(ui, "maskOverlayMode", menu_label(view.label()), t.font(12.5), t.text_label);
+        // a long mode name (French "Incrustation de couleur sur N&B") is cut short at the list's
+        // edge, in full on hover: a wider row would widen the whole list and run past the panel
+        let max = ui.available_width();
+        let r = crate::widgets::dropdown_within(ui, "maskOverlayMode", menu_label(view.label()), t.font(12.5), t.text_label, max);
         egui::Popup::menu(&r).show(|ui| {
             for v in MaskView::ALL {
                 if ui.selectable_label(v == view, menu_label(v.label())).clicked() {
@@ -967,5 +970,63 @@ mod tests {
         assert_eq!(n, 2);
         assert!(w >= 24.0);
         assert_eq!(tile_layout(f32::NAN, long).0, 2);
+    }
+
+    fn text_shapes(shape: &egui::Shape, out: &mut Vec<egui::epaint::TextShape>) {
+        match shape {
+            egui::Shape::Text(text) => out.push(text.clone()),
+            egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| text_shapes(s, out)),
+            _ => {}
+        }
+    }
+
+    /// Under the mask list, the overlay mode and Tool Overlay menus keep to the list's width in
+    /// French and German at the panel's narrowest and default widths: a long mode name is cut
+    /// short ("Incrustation de couleur sur N&B"), where English shows it whole.
+    #[test]
+    fn overlay_menus_stay_inside_the_mask_list() {
+        use crate::i18n::Locale;
+        use serde_json::json;
+        for (locale, width) in [(Locale::En, 270.0), (Locale::Fr, 250.0), (Locale::Fr, 270.0), (Locale::De, 250.0), (Locale::De, 270.0)] {
+            let mut app = EvoLightApp::new(evolight_engine::Session::with_demo(), crate::Services::default());
+            app.run("mask.add", json!({"kind": "subject", "name": "Sky"})).unwrap();
+            app.ui.mask_overlay_mode = "colorOnBw".into();
+            app.ui.mask_pins = true;
+            app.ui.tool_overlay = crate::state::ToolOverlay::Selected;
+            let photo = app.session.active().unwrap();
+            let ctx = egui::Context::default();
+            crate::i18n::set_language(locale);
+            crate::theme::install_fonts(&ctx);
+            crate::theme::apply(&ctx);
+            let mode = crate::i18n::tr("Color Overlay on B&W").to_string();
+            let mut texts = Vec::new();
+            let mut widgets = Vec::new();
+            for frame in 0..3 {
+                let raw = crate::headless::HeadlessView::raw_input(vec2(width, 1600.0), 1.0, frame as f64 / 60.0, vec![]);
+                let out = ctx.run_ui(raw, |ui| {
+                    egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| super::show(&mut app, ui, photo));
+                });
+                texts.clear();
+                for shape in &out.shapes {
+                    text_shapes(&shape.shape, &mut texts);
+                }
+                widgets = crate::widgets::take_registry(&ctx);
+            }
+            crate::i18n::set_language(Locale::En);
+            let at = |id: &str| {
+                widgets.iter().find(|(w, _)| w == id).map(|(_, r)| *r).unwrap_or_else(|| panic!("{locale:?} {width}: {id} not drawn"))
+            };
+            // the mask's row spans the list: the rows under it have that room and no more
+            let list = at("mask:1");
+            for id in ["dropdown:maskOverlayMode", "dropdown:toolOverlay"] {
+                assert!(at(id).right() <= list.right() + 0.5, "{locale:?} {width}: {id} {:?} runs past the mask list {list:?}", at(id));
+            }
+            let shown = texts.iter().find(|t| t.galley.job.text == mode).unwrap_or_else(|| panic!("{locale:?} {width}: {mode} not drawn"));
+            match locale {
+                Locale::En => assert!(!shown.galley.elided, "{width}: English shows the mode's name whole"),
+                Locale::Fr => assert!(shown.galley.elided, "{width}: the French mode's name is cut short"),
+                _ => {}
+            }
+        }
     }
 }
