@@ -42,6 +42,13 @@
 # EVORA-REV-38 (correction 1 du lot) : le catalogue est jugé contre le schéma fermé de la coquille
 # d'Evora et son empreinte recalculée ; les schémas des paramètres déclarés sont déposés à part
 # (command-params.json, empreinte dans SHA256SUMS), sous la forme des commandes d'engines.json.
+#
+# Porte « horloge » (EVORA-REV-72, exception L4-REV-H) : aucune lecture d'horloge de std
+# (Instant::now, SystemTime::now) compilée pour wasm32 dans les crates locales du build web hors de la
+# liste blanche justifiée de .github/evora/clock-guards.py (sites gardés par profiling(), par une garde
+# d'exécution ou réservés à l'application de bureau) ; le graphe qu'elle lit est contre-éprouvé par
+# la sortie de cargo tree de la porte E7. C'est une telle lecture qui empêchait la v0.19.0 d'ouvrir
+# un RAW (EVORA-REV-71).
 name: Evora web
 
 on:
@@ -223,6 +230,7 @@ jobs:
           node .github/evora/catalog-audit.mjs --selftest
           node .github/evora/advisory-guards.mjs --selftest
           node .github/evora/feature-guards.mjs --selftest
+          python3 .github/evora/clock-guards.py selftest
 
       - name: Portes E10 et E9 — émojis et termes sensibles des catalogues affichés
         id: g_emoji
@@ -247,6 +255,14 @@ jobs:
           # Résolution des features du seul paquet web pour la cible du navigateur, comme le build.
           cargo tree -p evolight-web --target wasm32-unknown-unknown -e normal,features --prefix none --locked > "$RUNNER_TEMP/web-tree.txt"
           node .github/evora/feature-guards.mjs "$RUNNER_TEMP/web-tree.txt"
+
+      - name: Porte horloge — aucune lecture d'horloge de std sans garde dans le build web (L4-REV-H)
+        id: g_clock
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Graphe lu depuis les Cargo.toml, contre-éprouvé par la sortie de cargo tree de la porte E7.
+          python3 .github/evora/clock-guards.py check . --tree "$RUNNER_TEMP/web-tree.txt"
 
       - name: Porte cargo-about — LICENSES/ des crates tierces
         id: g_about
@@ -488,6 +504,7 @@ jobs:
           EMOJI: ${{ steps.g_emoji.outcome }}
           DENY: ${{ steps.g_deny.outcome }}
           E7: ${{ steps.g_e7.outcome }}
+          CLOCK: ${{ steps.g_clock.outcome }}
           E6: ${{ steps.g_e6.outcome }}
           ABOUT: ${{ steps.g_about.outcome }}
           BUNDLE: ${{ steps.g_bundle.outcome }}
@@ -505,6 +522,7 @@ jobs:
             echo "| E10 émojis et E9 termes sensibles (catalogues affichés, code d'interface) | $EMOJI |"
             echo "| cargo-deny (licences, avis, sources) | $DENY |"
             echo "| E7 neutralisations du graphe web | $E7 |"
+            echo "| Horloge (aucune lecture d'horloge de std sans garde dans le build web, L4-REV-H) | $CLOCK |"
             echo "| E6 polices (evo-fonts épinglé, police chinoise à part) | $E6 |"
             echo "| cargo-about (LICENSES/ des crates) | $ABOUT |"
             echo "| Bundle (marques, hébergement, .gz/.br, CSP, taille) | $BUNDLE |"
@@ -515,7 +533,7 @@ jobs:
             echo
             echo "Avertissements de cargo-deny : $(awk '/^warning/ { n++ } END { print n + 0 }' "$RUNNER_TEMP/cargo-deny.txt" 2>/dev/null || echo '?') (détail dans le journal de la porte)."
           } >> "$GITHUB_STEP_SUMMARY"
-          for v in "$EMOJI" "$DENY" "$E7" "$E6" "$ABOUT" "$BUNDLE" "$TERM" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
+          for v in "$EMOJI" "$DENY" "$E7" "$CLOCK" "$E6" "$ABOUT" "$BUNDLE" "$TERM" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
             if [ "$v" != "success" ]; then echo "::error::au moins une porte est rouge : voir le résumé du job"; exit 1; fi
           done
           echo "Toutes les portes sont vertes."
