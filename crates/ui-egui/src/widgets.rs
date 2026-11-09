@@ -953,23 +953,33 @@ pub fn text_button_size(ui: &Ui, label: &str) -> f32 {
     text_button_width(galley.size().x)
 }
 
-/// A segmented control: `labels` share the available width equally, `per_row` per row. Each segment is
-/// addressable as `button:{id}-{key}` (keys parallel to labels). Returns the clicked index.
+/// Room a segment keeps at least around its label (both sides together).
+const SEGMENT_PAD: f32 = 12.0;
+
+/// A segmented control: `items` (label, key) at most `per_row` to a row, each segment addressable as
+/// `button:{id}-{key}`. The segments share each row equally while every label fits its share;
+/// otherwise, when all the labels hold on one row, each takes its label's width plus an equal part
+/// of what is left; otherwise fewer go on each row, in equal shares (see [`segment_layout`]). A
+/// label wider than a whole row is cut short with …, its tooltip giving it in full. Returns the
+/// clicked index.
 pub fn segmented(ui: &mut Ui, id: &str, items: &[(&str, &str)], active: Option<usize>, per_row: usize) -> Option<usize> {
     let t = Tokens::get(ui.ctx());
-    let per_row = per_row.max(1);
     let gap = 4.0;
+    let font = t.semibold(11.5);
     let w = ui.available_width();
-    let seg_w = ((w - gap * (per_row as f32 - 1.0)) / per_row as f32).max(24.0);
+    let labels: Vec<String> = items.iter().map(|(label, _)| crate::i18n::tr(label).to_string()).collect();
+    let needs: Vec<f32> = labels.iter().map(|l| ui.painter().layout_no_wrap(l.clone(), font.clone(), t.text).size().x + SEGMENT_PAD).collect();
+    let (per_row, natural) = segment_layout(&needs, per_row, w, gap);
     let mut clicked = None;
-    for (row_i, row) in items.chunks(per_row).enumerate() {
+    for (row_i, row) in needs.chunks(per_row).enumerate() {
+        let widths = segment_widths(row, per_row, natural, w, gap);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
-            for (j, (label, key)) in row.iter().enumerate() {
-                let label = crate::i18n::tr(label);
+            for (j, seg_w) in widths.iter().enumerate() {
                 let i = row_i * per_row + j;
-                let (r, resp) = ui.allocate_exact_size(vec2(seg_w, 24.0), Sense::click());
-                crate::widgets::announce_selected(&resp, label.to_string(), active == Some(i));
+                let (label, key) = (&labels[i], items[i].1);
+                let (r, resp) = ui.allocate_exact_size(vec2(*seg_w, 24.0), Sense::click());
+                crate::widgets::announce_selected(&resp, label.clone(), active == Some(i));
                 register(ui, format!("button:{id}-{key}"), r);
                 let fill = if active == Some(i) {
                     t.pressed
@@ -980,7 +990,10 @@ pub fn segmented(ui: &mut Ui, id: &str, items: &[(&str, &str)], active: Option<u
                 };
                 let p = ui.painter();
                 p.rect(r, CornerRadius::same(4), fill, Stroke::new(1.0, t.button_border), StrokeKind::Inside);
-                p.text(r.center(), Align2::CENTER_CENTER, label, t.semibold(11.5), t.text);
+                let galley = one_line(p, label, font.clone(), t.text, r.width() - 8.0);
+                let elided = galley.elided;
+                p.galley(r.center() - galley.size() / 2.0, galley, t.text);
+                let resp = if elided { resp.on_hover_text(label.as_str()) } else { resp };
                 if resp.clicked() {
                     clicked = Some(i);
                 }
@@ -988,6 +1001,42 @@ pub fn segmented(ui: &mut Ui, id: &str, items: &[(&str, &str)], active: Option<u
         });
     }
     clicked
+}
+
+/// How a [`segmented`] control `w` wide lays out labels needing `needs`, at most `per_row` to a row:
+/// how many go on each row, and whether each segment takes its label's need (plus an equal part of
+/// what is left) rather than an equal share of a full row. Equal shares while every label fits one;
+/// otherwise the labels' needs when all the labels hold on one row side by side; otherwise one fewer
+/// on each row, down to one (equal shares, a label wider than the row then cut short). One way for
+/// all rows.
+fn segment_layout(needs: &[f32], per_row: usize, w: f32, gap: f32) -> (usize, bool) {
+    for n in (1..=per_row.max(1)).rev() {
+        if needs.iter().all(|need| *need <= segment_share(n, w, gap)) {
+            return (n, false);
+        }
+        // natural widths on one row only: rows of their own widths would not line up
+        if needs.len() <= n && needs.iter().sum::<f32>() + gap * (needs.len() as f32 - 1.0) <= w {
+            return (n, true);
+        }
+    }
+    (1, false)
+}
+
+/// The equal share of a [`segmented`] row of `per_row` segments `w` wide.
+fn segment_share(per_row: usize, w: f32, gap: f32) -> f32 {
+    let n = per_row.max(1) as f32;
+    ((w - gap * (n - 1.0)) / n).max(24.0)
+}
+
+/// The widths of one row of a [`segmented`] control `w` wide whose labels need `needs`: the equal
+/// share of a row of `per_row`, or (`natural`) each need plus an equal part of what the row has left.
+fn segment_widths(needs: &[f32], per_row: usize, natural: bool, w: f32, gap: f32) -> Vec<f32> {
+    if !natural {
+        return vec![segment_share(per_row, w, gap); needs.len()];
+    }
+    let room = w - gap * (needs.len() as f32 - 1.0);
+    let extra = ((room - needs.iter().sum::<f32>()) / needs.len().max(1) as f32).max(0.0);
+    needs.iter().map(|need| need + extra).collect()
 }
 
 /// Splits a tooltip that ends in its key hint ("Edit (E)", "Import Photos… (⌘⇧I)") into the label
@@ -1067,6 +1116,26 @@ pub fn dropdown_within(ui: &mut Ui, id: &str, text: &str, font: egui::FontId, co
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Labels that fit equal shares get them; a long one (the vignette's French "highlight
+    /// priority") widens its segment and the row still fills the control; labels a row cannot hold
+    /// side by side go fewer to a row, every row laid out the same way.
+    #[test]
+    fn segments_fit_their_labels() {
+        assert_eq!(segment_layout(&[50.0, 50.0, 50.0], 3, 300.0, 4.0), (3, false));
+        assert_eq!(segment_widths(&[50.0, 50.0, 50.0], 3, false, 300.0, 4.0), vec![(300.0 - 8.0) / 3.0; 3]);
+        assert_eq!(segment_layout(&[110.0, 60.0, 60.0], 3, 250.0, 4.0), (3, true));
+        let widths = segment_widths(&[110.0, 60.0, 60.0], 3, true, 250.0, 4.0);
+        assert!(widths[0] >= 110.0 && widths[1] >= 60.0 && widths[2] >= 60.0, "{widths:?}");
+        assert!((widths.iter().sum::<f32>() + 8.0 - 250.0).abs() < 0.01, "{widths:?}");
+        // too wide for one row: two to a row, with equal shares on both rows
+        assert_eq!(segment_layout(&[102.0, 58.0, 58.0], 3, 215.0, 4.0), (2, false));
+        // two to a row would need their own widths, rows that would not line up: one to a row
+        assert_eq!(segment_layout(&[150.0, 90.0, 90.0], 3, 250.0, 4.0), (1, false));
+        // a label wider than the row: one to a row, the full width (the label is cut short when drawn)
+        assert_eq!(segment_layout(&[300.0, 90.0], 2, 250.0, 4.0), (1, false));
+        assert_eq!(segment_widths(&[300.0], 1, false, 250.0, 4.0), vec![250.0]);
+    }
 
     #[test]
     fn high_efficiency_nef_explains_the_codec_limit_and_workarounds() {
