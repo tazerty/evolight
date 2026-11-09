@@ -13,9 +13,9 @@ pub use settings::{
     STANDARD_PREVIEW_EDGE, StartupView, WINDOW_FRAME_CEILING,
 };
 pub use view::{
-    BRIEF_INFO_SECS, BeforeAfter, BriefInfo, CLICK_ZOOMS, CropOverlay, FOCUS_KEYWORDS_PASSES, InfoOverlay, KeywordingView, LEFT_WIDTH, LayoutImage,
-    LightsOut, LoupeInfo, LoupeInfoField, MIN_PHOTO_WIDTH, PanelWidth, RIGHT_WIDTH, RightPanel, THUMB_SIZE_MAX, THUMB_SIZE_MIN, THUMB_SIZE_STEP,
-    ToolOverlay, ViewMode, Zoom,
+    BRIEF_INFO_SECS, BeforeAfter, BriefInfo, CLICK_ZOOMS, CropOverlay, FILM_HEIGHT, FOCUS_KEYWORDS_PASSES, InfoOverlay, KeywordingView, LEFT_WIDTH,
+    LayoutImage, LightsOut, LoupeInfo, LoupeInfoField, MIN_FILM_CANVAS, MIN_PHOTO_WIDTH, PanelWidth, RIGHT_WIDTH, RightPanel, THUMB_SIZE_MAX,
+    THUMB_SIZE_MIN, THUMB_SIZE_STEP, ToolOverlay, ViewMode, Zoom,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -59,6 +59,8 @@ pub struct UiState {
     /// Presets column: show a live thumbnail of the photo with each preset.
     pub preset_thumbs: bool,
     pub filmstrip: bool,
+    /// Height of the filmstrip in points (dragging its top edge resizes it; within [`FILM_HEIGHT`]).
+    pub film_height: f32,
     pub zoom: Zoom,
     /// Pan offset of the loupe when zoomed (image-normalized centre).
     pub pan: (f32, f32),
@@ -404,6 +406,7 @@ impl Default for UiState {
             presets: false,
             preset_thumbs: false,
             filmstrip: true,
+            film_height: FILM_HEIGHT.default,
             zoom: Zoom::Fit,
             pan: (0.5, 0.5),
             click_zoom: 100,
@@ -610,6 +613,7 @@ impl UiState {
         self.import_thumb_size = crate::import::thumb_size(self.import_thumb_size);
         self.left_width = LEFT_WIDTH.clamp(self.left_width);
         self.right_width = RIGHT_WIDTH.clamp(self.right_width);
+        self.film_height = FILM_HEIGHT.clamp(self.film_height);
         self.brush_size = self.brush_size.clamp(0.002, 0.5);
         self.sidebar.adopt_collapsed(&std::mem::take(&mut self.collapsed_sidebar));
         self.dialog = None;

@@ -364,6 +364,13 @@ pub const LEFT_WIDTH: PanelWidth = PanelWidth { min: 200.0, default: 268.0, max:
 /// The right panel (Edit, Masking, Info, …).
 pub const RIGHT_WIDTH: PanelWidth = PanelWidth { min: 250.0, default: 270.0, max: 520.0 };
 
+/// The filmstrip's height in points (dragging its top edge resizes it). The default is the
+/// theme's `film_h`, the height the strip had before it could be resized.
+pub const FILM_HEIGHT: PanelWidth = PanelWidth { min: 100.0, default: 142.0, max: 300.0 };
+
+/// The photo area the filmstrip always leaves above it (as far as its minimum height allows).
+pub const MIN_FILM_CANVAS: f32 = 200.0;
+
 /// The photo area the side panels always leave free (as far as their minimum widths allow).
 pub const MIN_PHOTO_WIDTH: f32 = 360.0;
 

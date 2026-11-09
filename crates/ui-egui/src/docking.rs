@@ -471,6 +471,7 @@ pub fn show(app: &mut crate::EvoLightApp, ui: &mut egui::Ui) {
 pub(crate) fn set_widths(state: &mut crate::UiState, params: &Value) -> Result<(), String> {
     state.left_width = crate::state::LEFT_WIDTH.clamp(state.left_width);
     state.right_width = crate::state::RIGHT_WIDTH.clamp(state.right_width);
+    state.film_height = crate::state::FILM_HEIGHT.clamp(state.film_height);
     let Some(workspace) = state.docking.as_mut() else {
         return Ok(());
     };

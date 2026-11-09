@@ -44,6 +44,64 @@ pub(super) fn navigator(app: &mut EvoLightApp, ui: &mut egui::Ui, canvas: Rect, 
 
 // ------------------------------------------------------------------------ filmstrip
 
+/// Width of a filmstrip cell when the strip has the theme's default height (`Tokens::film_h`);
+/// cells keep this proportion as the strip is resized.
+const FILM_CELL_W: f32 = 120.0;
+
+/// Height of the grip along the filmstrip's top edge.
+const FILM_GRIP_H: f32 = 6.0;
+
+/// The filmstrip's height under a loupe or Compare area `full`: the member's height (within
+/// [`crate::state::FILM_HEIGHT`]), lowered while the photo above it would keep less than
+/// [`crate::state::MIN_FILM_CANVAS`].
+pub(crate) fn film_height(app: &EvoLightApp, full: Rect) -> f32 {
+    let limits = crate::state::FILM_HEIGHT;
+    let room = (full.height() - crate::state::MIN_FILM_CANVAS).max(limits.min);
+    limits.clamp(app.ui.film_height).min(room)
+}
+
+/// The grip along the top edge of the filmstrip `r`: dragging it resizes the strip, a double click
+/// gives it back its default height. A short bar in its middle shows it can be taken.
+fn film_grip(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect) {
+    let t = Tokens::get(ui.ctx());
+    let band = Rect::from_min_size(r.min, vec2(r.width(), FILM_GRIP_H));
+    // not focusable: `Sense::click_and_drag` would make it a Tab stop, an accessibility node with no
+    // name that no key works; CLICK is for the double click
+    let resp = ui.interact(band, egui::Id::unique("film-grip"), Sense::CLICK | Sense::DRAG);
+    register(ui, "filmstrip:grip", band);
+    let held = resp.hovered() || resp.dragged();
+    if held {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+    }
+    let grab_key = egui::Id::unique("film-grip-grab");
+    if resp.drag_started()
+        && let Some(origin) = ui.input(|i| i.pointer.press_origin())
+    {
+        // where the edge was taken, so it stays under the pointer (past a limit too)
+        ui.data_mut(|d| d.insert_temp(grab_key, origin.y - r.top()));
+    }
+    if resp.double_clicked() {
+        app.ui.film_height = crate::state::FILM_HEIGHT.default;
+    } else if resp.dragged()
+        && let Some(p) = resp.interact_pointer_pos()
+    {
+        let grab = ui.data(|d| d.get_temp::<f32>(grab_key)).unwrap_or(0.0);
+        let want = crate::state::FILM_HEIGHT.clamp(r.bottom() - p.y + grab);
+        // a strip the window holds below the member's height grows no further: only a drag down
+        // changes the member's height then
+        let capped = r.height() + 0.5 < crate::state::FILM_HEIGHT.clamp(app.ui.film_height);
+        if want != r.height() && !(capped && want > r.height()) {
+            app.ui.film_height = want;
+            ui.ctx().request_repaint();
+        }
+    }
+    let p = ui.painter();
+    p.rect_filled(band, 0.0, t.chrome);
+    p.hline(band.x_range(), band.top() + 0.5, Stroke::new(1.0, t.divider));
+    let bar = Rect::from_center_size(band.center(), vec2(28.0, 2.0));
+    p.rect_filled(bar, 1.0, if held { t.text_dim } else { t.text_disabled });
+}
+
 /// A filmstrip cell's file-name label: names longer than 14 characters are cut to 13 and an
 /// ellipsis. Counts characters, not bytes, so a CJK name is never cut inside a character (#266).
 pub(super) fn film_label(name: &str) -> String {
@@ -58,33 +116,57 @@ pub(super) fn film_label(name: &str) -> String {
 pub(crate) fn filmstrip(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect) {
     let t = Tokens::get(ui.ctx());
     ui.painter().rect_filled(r, 0.0, t.canvas);
-    ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(r.width(), 4.0)), 0.0, Color32::from_gray(0x20));
+    film_grip(app, ui, r);
     let ids = app.session.visible_cloned();
     let active = app.session.selection.active;
-    let cell_w = 120.0;
+    let cell_w = (FILM_CELL_W * r.height() / t.film_h.max(1.0)).round();
     let ppp = ui.ctx().pixels_per_point();
     if ids.is_empty() {
         let why = if app.session.filter != Default::default() { "No photos match the filters (View → Clear Filters)" } else { "No photos" };
         // a label, not painted text, so a screen reader reads the reason; the region keeps the strip navigable
-        let mut empty = ui.new_child(egui::UiBuilder::new().max_rect(r).layout(egui::Layout::centered_and_justified(egui::Direction::TopDown)));
+        let below_grip = Rect::from_min_max(r.min + vec2(0.0, FILM_GRIP_H), r.max);
+        let centred = egui::Layout::centered_and_justified(egui::Direction::TopDown);
+        let mut empty = ui.new_child(egui::UiBuilder::new().max_rect(below_grip).layout(centred));
         crate::widgets::announce_region(&empty, egui::accesskit::Role::Region, crate::i18n::tr("Filmstrip"));
         empty.add(egui::Label::new(egui::RichText::new(why).font(t.font(12.5)).color(t.text_dim)).selectable(false));
         return;
     }
-    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(r.shrink2(vec2(0.0, 4.0))));
+    let strip = Rect::from_min_max(r.min + vec2(0.0, FILM_GRIP_H), r.max - vec2(0.0, 4.0));
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(strip));
     crate::widgets::announce_region(&child, egui::accesskit::Role::Region, crate::i18n::tr("Filmstrip"));
     // a vertical mouse wheel scrolls the strip sideways (horizontal trackpad scrolls still work)
     child.style_mut().always_scroll_the_only_direction = true;
+    // the strip's offset is in points: when its cells change width, the active photo (when in view)
+    // or else the view's middle stays where it is on screen
+    let width_key = egui::Id::unique("film-cell-w");
+    let was = ui.data(|d| d.get_temp::<f32>(width_key));
+    ui.data_mut(|d| d.insert_temp(width_key, cell_w));
+    let rescaled = match (was, app.film_scroll) {
+        (Some(was), Some(x)) if was > 0.0 && was != cell_w => {
+            let shown = |c: f32| c >= x && c <= x + strip.width();
+            let anchor = active
+                .and_then(|a| ids.iter().position(|id| *id == a))
+                .map(|i| (i as f32 + 0.5) * was)
+                .filter(|c| shown(*c))
+                .unwrap_or(x + strip.width() / 2.0);
+            Some((x + anchor * (cell_w / was - 1.0)).max(0.0))
+        }
+        _ => None,
+    };
     // only a new active photo (or the strip appearing) scrolls it; see `grid::follow_active`
     let follow = crate::panels::grid::follow_active(child.ctx(), egui::Id::unique("film-follow-active"), active, app.session.source);
     // a wheel notch scrolls a third of its width; see `grid::wheel_step`
     register(ui, "filmstrip", child.max_rect());
     let wheel = crate::panels::grid::wheel_step(&child, egui::Id::unique("film-wheel"), child.max_rect(), child.max_rect().width(), true);
-    egui::ScrollArea::horizontal().id_salt("filmstrip").auto_shrink([false, false]).show_viewport(&mut child, |ui, vp| {
+    let mut scroll = egui::ScrollArea::horizontal().id_salt("filmstrip").auto_shrink([false, false]);
+    if let Some(offset) = rescaled {
+        scroll = scroll.horizontal_scroll_offset(offset);
+    }
+    scroll.show_viewport(&mut child, |ui, vp| {
         if wheel != egui::Vec2::ZERO {
             ui.scroll_with_delta_animation(wheel, egui::style::ScrollAnimation::none());
         }
-        let (area, _) = ui.allocate_exact_size(vec2(ids.len() as f32 * cell_w, r.height() - 16.0), Sense::hover());
+        let (area, _) = ui.allocate_exact_size(vec2(ids.len() as f32 * cell_w, r.height() - FILM_GRIP_H - 12.0), Sense::hover());
         app.film_scroll = Some(vp.left());
         for (i, id) in ids.iter().enumerate() {
             let cr = Rect::from_min_size(pos2(area.left() + i as f32 * cell_w, area.top()), vec2(cell_w, area.height()));
@@ -115,8 +197,12 @@ pub(crate) fn filmstrip(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect) {
             let names = app.ui.settings.film_names;
             if let Some(ph) = app.session.catalog.photo(*id).filter(|_| names) {
                 let name = ph.file_name.rsplit_once('.').map(|(n, _)| n).unwrap_or(&ph.file_name);
-                p.text(pos2(cr.left() + 8.0, cr.top() + 10.0), Align2::LEFT_CENTER, film_label(name), t.font(10.0), t.text_dim);
-                p.text(pos2(cr.right() - 8.0, cr.top() + 10.0), Align2::RIGHT_CENTER, &ph.format, t.semibold(8.5), t.text_dim);
+                // the name gives way to the format when a narrow strip leaves them less room
+                let format = p.layout_no_wrap(ph.format.to_string(), t.semibold(8.5), t.text_dim);
+                let room = cr.width() - 16.0 - format.size().x - 6.0;
+                let label = crate::widgets::one_line(p, &film_label(name), t.font(10.0), t.text_dim, room);
+                p.galley(pos2(cr.left() + 8.0, cr.top() + 10.0 - label.size().y / 2.0), label, t.text_dim);
+                p.galley(pos2(cr.right() - 8.0 - format.size().x, cr.top() + 10.0 - format.size().y / 2.0), format, t.text_dim);
             }
             let img_area = Rect::from_min_max(cr.min + vec2(10.0, 22.0), cr.max - vec2(10.0, 8.0));
             crate::panels::grid::request_thumb(app, *id, (256.0 * ppp.min(2.0) / 2.0) as usize * 2, 8);

@@ -33,6 +33,7 @@ use crop::{flipped_corners, outside_crop_mesh, rotate_cursor_turn};
 use filmstrip::film_label;
 #[cfg(test)]
 pub(crate) use filmstrip::film_spoken;
+pub(crate) use filmstrip::film_height;
 pub(crate) use filmstrip::filmstrip;
 use filmstrip::navigator;
 pub use geometry::CanvasMap;
@@ -136,7 +137,7 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let full = ui.max_rect();
     let fullscreen = app.ui.fullscreen;
     let show_film = app.ui.filmstrip && !fullscreen;
-    let film_h = if show_film { t.film_h } else { 0.0 };
+    let film_h = if show_film { film_height(app, full) } else { 0.0 };
     let canvas = Rect::from_min_max(full.min, pos2(full.right(), full.bottom() - film_h));
     app.canvas_rect = Some(canvas);
     if show_film {
@@ -168,7 +169,10 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     // another crop): a texture's whole-pixel size is a little off the exact aspect, and the crop
     // tool's overlays need the frame's own geometry.
     let display_aspect = visible_texture_aspect.filter(|a| !crop_tool && (a / aspect - 1.0).abs() > 0.02).unwrap_or(aspect);
-    let resp = ui.interact(canvas, egui::Id::unique("loupe"), Sense::click_and_drag());
+    // a point short of a shown filmstrip (`film_h` is 0 without one, at least its minimum with one):
+    // on a shared edge the widget added last (this one) would take the grip's top row, its divider
+    let loupe = Rect::from_min_max(canvas.min, pos2(canvas.right(), canvas.bottom() - film_h.min(1.0)));
+    let resp = ui.interact(loupe, egui::Id::unique("loupe"), Sense::click_and_drag());
     announce_photo(app, &resp, &photo);
     let mut target_rect = fit_rect(main_area, display_aspect, app.ui.zoom, native, ppp, app.ui.pan);
     let mut img_rect = animated_rect(ui.ctx(), &mut app.ui.zoom_anim, target_rect);
