@@ -903,6 +903,8 @@ fn plan_preserves_matching_box_size() {
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_frozen;
+#[cfg(test)]
 mod tests_geometry;
 #[cfg(test)]
 mod tests_hdr;
