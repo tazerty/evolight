@@ -197,9 +197,10 @@ pub fn evora_accent() -> Color32 {
     EVORA_ACCENT_SHOWN.with(std::cell::Cell::get)
 }
 
-/// Evora (E2): show Evora's identity (Tailwind's grey neutrals and the indigo accent
-/// [`EVORA_ACCENT`]) in place of every theme's colours, light or dark as the Appearance Mode
-/// says. The UI face is Inter already. The web host sets it before the first frame (`?theme=`).
+/// Evora (E2, EVORA-REV-100) : montre l'identité d'Evora ([`evora_tokens`] : graphite neutre en
+/// sombre, gris neutres en clair, accent de l'hôte ou [`EVORA_ACCENT`]) à la place des couleurs de
+/// chaque thème, clair ou sombre selon le mode d'apparence. La police d'interface est déjà Inter.
+/// L'hôte web la pose avant la première image (`?theme=`).
 pub fn set_evora_palette(on: bool) {
     EVORA_PALETTE.with(|palette| palette.set(on));
 }
@@ -209,72 +210,93 @@ pub fn evora_palette() -> bool {
     EVORA_PALETTE.with(std::cell::Cell::get)
 }
 
-/// Evora's light or dark tokens: Tailwind's grey scale (gray-50 to gray-950), the indigo accent,
-/// red and amber for rejects and cautions. Metrics are the app's own.
+/// Jetons d'Evora, sombres ou clairs (EVORA-REV-100, E2).
+///
+/// - Sombre : le graphite d'Evora, des gris strictement neutres (R = G = B, aucune dominante).
+///   Entourage de l'image `#161616`, chrome des panneaux et des barres `#1C1C1C`, champs en creux
+///   `#141414` bordés de `#6B6B6B` (3,46:1 sur le champ, 3,20:1 sur le chrome), filets de
+///   structure `#0E0E0E`, sélection persistante `#383838`. Textes `#EBEBEB` (14,30:1 sur le
+///   chrome), `#BDBDBD` (9,07:1) et `#949494` (5,62:1 ; 4,73:1 sur le survol).
+/// - Clair : les mêmes rôles en gris neutres clairs. Ses anneaux étaient ceux du thème sombre de
+///   l'amont, hérités de [`Tokens::default`] : un anneau blanc sur une grille presque blanche. Ils
+///   sont désormais sombres sur clair, comme ceux des thèmes clairs de l'amont.
+/// - Anneau des autres photos choisies, en sombre : `#BDBDBD` (le gris des libellés) plutôt que
+///   `#A3A3A3`, qui ne donnait que 2,31:1 sur une cellule choisie teintée de jaune ; `#BDBDBD` y
+///   tient 3,10:1 (le plancher de 3:1 est `#BBBBBB`).
+/// - L'accent reste celui que l'hôte envoie ([`evora_accent`]), tel quel.
+/// - Mesures : barre du haut 40, barre du bas 36, colonne d'outils 44 ; leur contenu, centré, tient
+///   dans ces hauteurs. Les autres mesures restent celles de l'application : leur dessin a encore
+///   des cotes fixes (rangée de curseur, cellule de la bande de vignettes).
 fn evora_tokens(dark: bool) -> Tokens {
     let rgb = |v: u32| Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8);
-    let base = Tokens::default();
+    let base = Tokens { top_bar_h: 40.0, bottom_bar_h: 36.0, strip_w: 44.0, ..Tokens::default() };
     if dark {
         Tokens {
-            chrome: rgb(0x111827),
-            canvas: rgb(0x030712),
-            grid_bg: rgb(0x030712),
-            cell: rgb(0x111827),
-            cell_selected: rgb(0x1f2937),
+            chrome: rgb(0x1c1c1c),
+            canvas: rgb(0x161616),
+            grid_bg: rgb(0x121212),
+            cell: rgb(0x1c1c1c),
+            cell_selected: rgb(0x383838),
             // v0.14.0: a thumbnail's place while it is made, apart from the grid and the cells
-            skeleton: rgb(0x374151),
-            divider: rgb(0x030712),
-            inset: rgb(0x030712),
-            field: rgb(0x1f2937),
-            field_border: rgb(0x374151),
-            button: rgb(0x1f2937),
-            button_border: rgb(0x4b5563),
-            hover: rgb(0x374151),
-            pressed: rgb(0x4b5563),
-            tool_active: rgb(0x374151),
-            text: rgb(0xf3f4f6),
-            text_label: rgb(0xd1d5db),
-            text_dim: rgb(0x9ca3af),
-            text_disabled: rgb(0x4b5563),
-            icon: rgb(0x9ca3af),
-            track: rgb(0x4b5563),
-            thumb: rgb(0xd1d5db),
-            thumb_hover: rgb(0xf9fafb),
+            skeleton: rgb(0x2a2a2a),
+            ring_active: rgb(0xf5f5f5),
+            ring_inner: rgb(0x111111),
+            ring_selected: rgb(0xbdbdbd),
+            divider: rgb(0x0e0e0e),
+            inset: rgb(0x141414),
+            field: rgb(0x141414),
+            field_border: rgb(0x6b6b6b),
+            button: rgb(0x262626),
+            button_border: rgb(0x333333),
+            hover: rgb(0x2a2a2a),
+            pressed: rgb(0x343434),
+            tool_active: rgb(0x383838),
+            text: rgb(0xebebeb),
+            text_label: rgb(0xbdbdbd),
+            text_dim: rgb(0x949494),
+            text_disabled: rgb(0x5c5c5c),
+            icon: rgb(0xc4c4c4),
+            track: rgb(0x3d3d3d),
+            thumb: rgb(0xdadada),
+            thumb_hover: rgb(0xffffff),
             accent: evora_accent(),
-            star: rgb(0xe5e7eb),
-            pick: rgb(0xf9fafb),
-            reject: rgb(0xef4444),
-            caution: rgb(0xf59e0b),
+            star: rgb(0xdadada),
+            pick: rgb(0xf5f5f5),
+            reject: rgb(0xf87171),
+            caution: rgb(0xfbbf24),
             ..base
         }
     } else {
         Tokens {
             chrome: rgb(0xffffff),
-            canvas: rgb(0xf3f4f6),
-            grid_bg: rgb(0xf9fafb),
-            cell: rgb(0xf3f4f6),
-            cell_selected: rgb(0xe5e7eb),
-            skeleton: rgb(0xd1d5db),
-            divider: rgb(0xe5e7eb),
-            inset: rgb(0xf9fafb),
+            canvas: rgb(0xf0f0f0),
+            grid_bg: rgb(0xf5f5f5),
+            cell: rgb(0xebebeb),
+            cell_selected: rgb(0xd6d6d6),
+            skeleton: rgb(0xc2c2c2),
+            ring_active: rgb(0x141414),
+            ring_inner: rgb(0xffffff),
+            ring_selected: rgb(0x4a4a4a),
+            divider: rgb(0xe0e0e0),
+            inset: rgb(0xf5f5f5),
             field: rgb(0xffffff),
-            field_border: rgb(0xd1d5db),
+            field_border: rgb(0x8a8a8a),
             button: rgb(0xffffff),
-            button_border: rgb(0xd1d5db),
-            hover: rgb(0xf3f4f6),
-            pressed: rgb(0xe5e7eb),
-            tool_active: rgb(0xe5e7eb),
-            text: rgb(0x111827),
-            text_label: rgb(0x374151),
-            text_dim: rgb(0x6b7280),
-            text_disabled: rgb(0x9ca3af),
-            icon: rgb(0x4b5563),
-            track: rgb(0xd1d5db),
-            thumb: rgb(0x4b5563),
-            thumb_hover: rgb(0x111827),
+            button_border: rgb(0xd4d4d4),
+            hover: rgb(0xebebeb),
+            pressed: rgb(0xe0e0e0),
+            tool_active: rgb(0xd6d6d6),
+            text: rgb(0x171717),
+            text_label: rgb(0x404040),
+            text_dim: rgb(0x666666),
+            text_disabled: rgb(0xa3a3a3),
+            icon: rgb(0x525252),
+            track: rgb(0xd4d4d4),
+            thumb: rgb(0x525252),
+            thumb_hover: rgb(0x171717),
             accent: evora_accent(),
-            star: rgb(0x374151),
-            pick: rgb(0x1f2937),
+            star: rgb(0x404040),
+            pick: rgb(0x262626),
             reject: rgb(0xdc2626),
             caution: rgb(0xd97706),
             ..base
@@ -283,8 +305,9 @@ fn evora_tokens(dark: bool) -> Tokens {
 }
 
 impl Tokens {
-    /// The tokens of `kind`. Metrics are shared; only colours change. With Evora's identity on
-    /// (E2), every dark theme shows Evora's dark tokens and every light theme its light ones.
+    /// The tokens of `kind`. Metrics are shared; only colours change. Sous l'identité d'Evora (E2),
+    /// tout thème sombre montre les jetons sombres d'Evora et tout thème clair ses jetons clairs,
+    /// avec les mesures d'Evora ([`evora_tokens`]).
     pub fn for_kind(kind: ThemeKind) -> Tokens {
         if evora_palette() {
             return evora_tokens(kind.is_dark());
@@ -606,14 +629,19 @@ pub fn apply_kind(ctx: &egui::Context, kind: ThemeKind) {
     ctx.set_visuals_of(egui::Theme::Dark, v.clone());
     ctx.set_visuals_of(egui::Theme::Light, v);
     ctx.set_theme(if dark { egui::Theme::Dark } else { egui::Theme::Light });
+    // Evora (EVORA-REV-100, E2) : texte plus dense sous l'identité d'Evora (corps et boutons 12,5,
+    // petit 11, en-tête 14 en demi-gras) ; les rayons (4 pour les contrôles, 6 pour les fenêtres
+    // et les menus), les ombres (celles des seuls calques flottants) et l'espacement restent ceux
+    // ci-dessus. Hors d'Evora, les tailles de l'application.
+    let (body, small, heading): (f32, f32, f32) = if evora_palette() { (12.5, 11.0, 14.0) } else { (13.0, 11.0, 16.0) };
     ctx.all_styles_mut(|s| {
         s.spacing.item_spacing = egui::vec2(6.0, 4.0);
         s.spacing.button_padding = egui::vec2(8.0, 3.0);
         s.spacing.interact_size.y = 22.0;
-        s.text_styles.insert(egui::TextStyle::Body, FontId::proportional(13.0));
-        s.text_styles.insert(egui::TextStyle::Button, FontId::proportional(13.0));
-        s.text_styles.insert(egui::TextStyle::Small, FontId::proportional(11.0));
-        s.text_styles.insert(egui::TextStyle::Heading, FontId::new(16.0, FontFamily::Name(FONT_SEMIBOLD.into())));
+        s.text_styles.insert(egui::TextStyle::Body, FontId::proportional(body));
+        s.text_styles.insert(egui::TextStyle::Button, FontId::proportional(body));
+        s.text_styles.insert(egui::TextStyle::Small, FontId::proportional(small));
+        s.text_styles.insert(egui::TextStyle::Heading, FontId::new(heading, FontFamily::Name(FONT_SEMIBOLD.into())));
         s.animation_time = 0.08;
     });
 }
@@ -649,6 +677,90 @@ mod tests {
             // the thin inner line of the active ring is the ring's opposite: it parts the ring from the photo's edge
             assert!(contrast(t.ring_inner, t.ring_active) >= 3.0, "{kind:?}: inner line against the active ring");
         }
+    }
+
+    /// Evora (EVORA-REV-100, E2) : sous l'identité d'Evora, en sombre graphite comme en clair, les
+    /// gris sont neutres (R = G = B), les anneaux tiennent 3:1 sur ce qu'ils bordent (cellules
+    /// teintées d'un libellé comprises), les textes 4,5:1 sur les surfaces qui les portent, le bord
+    /// des champs 3:1, et l'accent reste celui que l'hôte a envoyé. Les tailles de texte d'Evora ne
+    /// valent que sous son identité.
+    #[test]
+    fn evora_tokens_are_neutral_greys_with_their_contrasts_and_the_hosts_accent() {
+        let host = Color32::from_rgb(0x0e, 0x7c, 0x66);
+        set_evora_accent(host);
+        set_evora_palette(true);
+        for kind in ThemeKind::ALL {
+            let t = Tokens::for_kind(kind);
+            assert_eq!(t.accent, host, "{kind:?} : l'accent de l'hôte, tel quel");
+            let greys = [
+                ("chrome", t.chrome),
+                ("canvas", t.canvas),
+                ("grid_bg", t.grid_bg),
+                ("cell", t.cell),
+                ("cell_selected", t.cell_selected),
+                ("skeleton", t.skeleton),
+                ("ring_active", t.ring_active),
+                ("ring_inner", t.ring_inner),
+                ("ring_selected", t.ring_selected),
+                ("divider", t.divider),
+                ("inset", t.inset),
+                ("field", t.field),
+                ("field_border", t.field_border),
+                ("button", t.button),
+                ("button_border", t.button_border),
+                ("hover", t.hover),
+                ("pressed", t.pressed),
+                ("tool_active", t.tool_active),
+                ("text", t.text),
+                ("text_label", t.text_label),
+                ("text_dim", t.text_dim),
+                ("text_disabled", t.text_disabled),
+                ("icon", t.icon),
+                ("track", t.track),
+                ("thumb", t.thumb),
+                ("thumb_hover", t.thumb_hover),
+                ("star", t.star),
+                ("pick", t.pick),
+            ];
+            for (what, c) in greys {
+                assert!(c.r() == c.g() && c.g() == c.b(), "{kind:?} : {what} n'est pas un gris neutre ({c:?})");
+            }
+            for (what, surface) in [("grid", t.grid_bg), ("cell", t.cell), ("selected cell", t.cell_selected)] {
+                let c = contrast(t.ring_active, surface);
+                assert!(c >= 3.0, "{kind:?} : anneau actif sur {what} : {c:.2}");
+            }
+            let mut selected_cells = vec![t.grid_bg, t.cell_selected];
+            for label in evolight_catalog::ColorLabel::ALL {
+                selected_cells.push(label_background(t.cell_selected, Some(label), true));
+            }
+            for surface in selected_cells {
+                let c = contrast(t.ring_selected, surface);
+                assert!(c >= 3.0, "{kind:?} : anneau des photos choisies sur {surface:?} : {c:.2}");
+            }
+            assert!(contrast(t.ring_inner, t.ring_active) >= 3.0, "{kind:?} : liseré intérieur contre l'anneau actif");
+            for (what, surface) in [("chrome", t.chrome), ("canvas", t.canvas), ("inset", t.inset), ("field", t.field), ("hover", t.hover)] {
+                for (role, text) in [("text", t.text), ("text_label", t.text_label), ("text_dim", t.text_dim)] {
+                    let c = contrast(text, surface);
+                    assert!(c >= 4.5, "{kind:?} : {role} sur {what} : {c:.2}");
+                }
+            }
+            for (what, surface) in [("field", t.field), ("chrome", t.chrome)] {
+                let c = contrast(t.field_border, surface);
+                assert!(c >= 3.0, "{kind:?} : bord de champ sur {what} : {c:.2}");
+            }
+        }
+        let sizes = |ctx: &egui::Context| {
+            let style = ctx.global_style();
+            [egui::TextStyle::Body, egui::TextStyle::Small, egui::TextStyle::Heading].map(|s| style.text_styles.get(&s).map(|f| f.size))
+        };
+        let ctx = egui::Context::default();
+        apply_kind(&ctx, ThemeKind::Charcoal);
+        assert_eq!(sizes(&ctx), [Some(12.5), Some(11.0), Some(14.0)], "tailles d'Evora");
+        set_evora_palette(false);
+        set_evora_accent(EVORA_ACCENT);
+        let ctx = egui::Context::default();
+        apply_kind(&ctx, ThemeKind::Charcoal);
+        assert_eq!(sizes(&ctx), [Some(13.0), Some(11.0), Some(16.0)], "hors d'Evora, les tailles de l'application");
     }
 
     /// The `SetTheme(Light)` commands one frame of `ctx` sends the window, with or without
