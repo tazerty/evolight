@@ -936,7 +936,8 @@ pub fn text_button(ui: &mut Ui, id: &str, label: &str, active: bool) -> Response
         t.button
     };
     let p = ui.painter();
-    p.rect(r, CornerRadius::same(4), fill, Stroke::new(1.0, t.button_border), StrokeKind::Inside);
+    // Evora (EVORA-REV-105, L5) : le bord des boutons propres (`theme::control_border`).
+    p.rect(r, CornerRadius::same(4), fill, Stroke::new(1.0, crate::theme::control_border(&t)), StrokeKind::Inside);
     p.galley(r.center() - galley.size() / 2.0, galley, t.text);
     resp
 }
@@ -989,7 +990,8 @@ pub fn segmented(ui: &mut Ui, id: &str, items: &[(&str, &str)], active: Option<u
                     t.button
                 };
                 let p = ui.painter();
-                p.rect(r, CornerRadius::same(4), fill, Stroke::new(1.0, t.button_border), StrokeKind::Inside);
+                // Evora (EVORA-REV-105, L5) : le bord des boutons propres (`theme::control_border`).
+                p.rect(r, CornerRadius::same(4), fill, Stroke::new(1.0, crate::theme::control_border(&t)), StrokeKind::Inside);
                 let galley = one_line(p, label, font.clone(), t.text, r.width() - 8.0);
                 let elided = galley.elided;
                 p.galley(r.center() - galley.size() / 2.0, galley, t.text);
@@ -1135,6 +1137,53 @@ mod tests {
         // a label wider than the row: one to a row, the full width (the label is cut short when drawn)
         assert_eq!(segment_layout(&[300.0, 90.0], 2, 250.0, 4.0), (1, false));
         assert_eq!(segment_widths(&[300.0], 1, false, 250.0, 4.0), vec![250.0]);
+    }
+
+    /// Evora (EVORA-REV-105, L5) : sous l'identité d'Evora, chaque segment et le bouton texte sont
+    /// bordés une seule fois, du bord des contrôles (`theme::control_border`, celui des champs), et
+    /// non plus de `button_border`.
+    #[test]
+    fn evora_segments_and_text_buttons_take_the_control_border() {
+        fn flat(shape: egui::Shape, out: &mut Vec<egui::Shape>) {
+            match shape {
+                egui::Shape::Vec(shapes) => shapes.into_iter().for_each(|s| flat(s, out)),
+                other => out.push(other),
+            }
+        }
+        crate::theme::set_evora_palette(true);
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+        crate::theme::apply_kind(&ctx, crate::theme::ThemeKind::Charcoal);
+        let t = Tokens::get(&ctx);
+        let expected = crate::theme::control_border(&t);
+        let (mut shapes, mut widgets) = (Vec::new(), Vec::new());
+        for frame in 0..3 {
+            let raw = crate::headless::HeadlessView::raw_input(vec2(300.0, 200.0), 1.0, frame as f64 / 60.0, vec![]);
+            let mut out = ctx.run_ui(raw, |ui| {
+                egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| {
+                    let _ = segmented(ui, "edge", &[("One", "one"), ("Two", "two")], Some(0), 2);
+                    let _ = text_button(ui, "edgeAuto", "Auto", false);
+                });
+            });
+            out.textures_delta.clear();
+            shapes.clear();
+            out.shapes.into_iter().for_each(|s| flat(s.shape, &mut shapes));
+            widgets = take_registry(&ctx);
+        }
+        crate::theme::set_evora_palette(false);
+        assert_eq!(expected, t.field_border, "sous Evora, le bord des champs");
+        assert_ne!(expected, t.button_border, "plus le bord de l'application");
+        for id in ["button:edge-one", "button:edge-two", "button:edgeAuto"] {
+            let r = widgets.iter().rev().find(|(w, _)| w == id).map(|(_, r)| *r).unwrap_or_else(|| panic!("no {id}: {widgets:?}"));
+            let borders: Vec<Color32> = shapes
+                .iter()
+                .filter_map(|s| match s {
+                    egui::Shape::Rect(rs) if rs.rect == r && rs.stroke.width == 1.0 && rs.stroke_kind == StrokeKind::Inside => Some(rs.stroke.color),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(borders, vec![expected], "{id} : un seul bord, celui des contrôles");
+        }
     }
 
     #[test]

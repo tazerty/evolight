@@ -50,6 +50,16 @@ pub fn secondary_text_on(t: &Tokens, background: Color32) -> Color32 {
     [t.text_dim, t.text_label].into_iter().find(|ink| crate::button::contrast(*ink, background) >= MIN_TEXT_CONTRAST).unwrap_or(t.text)
 }
 
+/// Evora (EVORA-REV-105, E2) : le bord des boutons propres de l'application (bouton secondaire,
+/// bouton texte, segments). Sous l'identité d'Evora, celui des champs, que les contrôles natifs
+/// d'egui ont depuis EVORA-REV-104 (`field_border` : 3,20:1 sur le chrome en sombre, 3,45:1 en
+/// clair) ; `button_border` (#333333 en sombre, 1,35:1) laissait les segments presque invisibles
+/// sur le graphite. Hors d'Evora, `button_border`, comme dans l'amont. Les séparateurs des barres
+/// gardent `button_border`.
+pub fn control_border(t: &Tokens) -> Color32 {
+    if evora_palette() { t.field_border } else { t.button_border }
+}
+
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
 pub fn label_toast_colors(label: evolight_catalog::ColorLabel) -> (Color32, Color32) {
     (Color32::WHITE.lerp_to_gamma(label_color(label), 0.3), Color32::from_rgb(36, 24, 24))
@@ -652,8 +662,9 @@ pub fn apply_kind(ctx: &egui::Context, kind: ThemeKind) {
     // est celui des champs, 3:1 ou plus sur le chrome et sur le champ. `button_border` (#333333 en
     // sombre) n'y tenait que 1,35:1 et laissait une case non cochée presque invisible. Une liste
     // déroulante ouverte garde ce bord (sinon celui par défaut, 1,54:1). Hors d'Evora, le bord de
-    // l'application, et l'état ouvert inchangé.
-    let resting_border = if evora_palette() { t.field_border } else { t.button_border };
+    // l'application, et l'état ouvert inchangé. Evora (EVORA-REV-105, E2) : ce choix est
+    // `control_border`, partagé avec les boutons propres de l'application.
+    let resting_border = control_border(&t);
     w.inactive.bg_stroke = Stroke::new(1.0, resting_border);
     if evora_palette() {
         w.open.bg_stroke = Stroke::new(1.0, t.field_border);
@@ -780,6 +791,16 @@ mod tests {
                 let c = contrast(t.field_border, surface);
                 assert!(c >= 3.0, "{kind:?} : bord de champ sur {what} : {c:.2}");
             }
+            // le bord des boutons propres de l'application (EVORA-REV-105) : celui des champs, 3:1
+            // ou plus sur les surfaces où ces boutons sont posés, et celui que prend un bouton
+            // secondaire au repos
+            assert_eq!(control_border(&t), t.field_border, "{kind:?} : bord des boutons propres");
+            for (what, surface) in [("chrome", t.chrome), ("canvas", t.canvas), ("inset", t.inset), ("field", t.field)] {
+                let c = contrast(control_border(&t), surface);
+                assert!(c >= 3.0, "{kind:?} : bord des boutons propres sur {what} : {c:.2}");
+            }
+            let secondary = crate::button::look(&t, crate::button::Kind::Secondary, crate::button::State::Idle);
+            assert_eq!(secondary.border, Some(control_border(&t)), "{kind:?} : bord d'un bouton secondaire");
             // le nom et le format sous une vignette (EVORA-REV-104) : 4,5:1 ou plus sur toute
             // cellule de la bande et de la grille, choisie ou non, survolée, teintée ou non, telle
             // qu'elle est composée sur le canvas de la bande (la survolée est un voile translucide)
@@ -821,6 +842,7 @@ mod tests {
         assert_eq!(sizes(&ctx), [Some(13.0), Some(11.0), Some(16.0)], "hors d'Evora, les tailles de l'application");
         let t = Tokens::for_kind(ThemeKind::Charcoal);
         assert_eq!(secondary_text_on(&t, t.cell_selected), t.text_dim, "hors d'Evora, le gris secondaire de l'application");
+        assert_eq!(control_border(&t), t.button_border, "hors d'Evora, le bord des boutons de l'application");
     }
 
     /// The `SetTheme(Light)` commands one frame of `ctx` sends the window, with or without

@@ -157,7 +157,8 @@ pub fn look(t: &Tokens, kind: Kind, state: State) -> Look {
                 State::Hovered => t.hover,
                 State::Pressed => t.pressed,
             }),
-            border: Some(t.button_border),
+            // Evora (EVORA-REV-105, L5) : le bord des boutons propres (`theme::control_border`).
+            border: Some(crate::theme::control_border(t)),
             content: t.text,
         },
         Kind::Ghost => Look {
