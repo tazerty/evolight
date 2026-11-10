@@ -190,6 +190,38 @@ fn the_top_bar_button_and_settings_cards_drive_the_mode() {
     assert_eq!(crate::theme::current(&h.view.ctx), Some(ThemeKind::Charcoal));
 }
 
+/// Evora (EVORA-REV-108, L5) : quand l'hôte mène l'apparence (identité d'Evora montrée et masque
+/// d'hôte qui retire `view.appearance`), ni le bouton de la barre du haut ni la section des
+/// Réglages ne sont dessinés ; le reste de l'onglet demeure. Sous le même masque mais hors de
+/// l'identité d'Evora, tous deux restent ceux de l'application.
+#[test]
+fn a_host_that_leads_the_appearance_hides_its_button_and_its_settings_section() {
+    fn masks_appearance(id: &str) -> bool {
+        id == "view.appearance"
+    }
+    fn registered(h: &Headless, id: &str) -> bool {
+        h.app.widgets.iter().any(|(w, _)| w == id)
+    }
+    crate::menubar::set_host_mask(Some(masks_appearance as fn(&str) -> bool));
+    let mut seen = Vec::new();
+    for evora in [true, false] {
+        crate::theme::set_evora_palette(evora);
+        let mut h = Headless::new(app(), [1400.0, 900.0], 1.0);
+        h.settle(T);
+        let button = registered(&h, "icon:appearance");
+        h.app.ui.dialog = Some(crate::state::Dialog::Settings { tab: "interface".into() });
+        for _ in 0..4 {
+            h.step();
+        }
+        let (mode, cards) = (registered(&h, "button:settingsAppearance-0"), registered(&h, "radio:theme-silver"));
+        seen.push((button, mode, cards, registered(&h, "check:settings.filmNames")));
+    }
+    crate::theme::set_evora_palette(false);
+    crate::menubar::set_host_mask(None);
+    assert_eq!(seen.first(), Some(&(false, false, false, true)), "sous Evora : ni bouton ni section, le reste de l'onglet demeure");
+    assert_eq!(seen.get(1).map(|s| (s.0, s.1, s.2)), Some((true, true, true)), "hors d'Evora : le bouton et la section de l'application");
+}
+
 #[test]
 fn top_bar_has_no_cloud_widget() {
     // EvoLight has no cloud service: the icon only shows as the warning that saving is failing

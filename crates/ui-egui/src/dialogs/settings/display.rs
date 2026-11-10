@@ -76,8 +76,14 @@ pub(super) fn display_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) 
 }
 
 pub(super) fn interface_tab(app: &mut EvoLightApp, ui: &mut egui::Ui, t: &Tokens) {
-    let system = app.system_theme(ui.ctx());
-    appearance(ui, t, &mut app.ui.settings, system);
+    // Evora (EVORA-REV-108, L5) : quand l'hôte mène l'apparence, la section « Appearance » (mode
+    // clair, sombre ou système, cartes de thème) n'est pas dessinée : elle changeait le moteur de
+    // mode sans la coquille, comme le bouton de la barre du haut retiré par EVORA-REV-106. Le mode
+    // système y suivait l'appareil, et non le choix du membre dans Evora.
+    if !crate::theme::host_leads_appearance() {
+        let system = app.system_theme(ui.ctx());
+        appearance(ui, t, &mut app.ui.settings, system);
+    }
     heading(ui, t, crate::i18n::tr("Filmstrip"));
     check(ui, "settings.filmNames", &mut app.ui.settings.film_names, "Show file names");
     check(ui, "settings.filmBadges", &mut app.ui.settings.film_badges, "Show ratings, flags and edit badges");

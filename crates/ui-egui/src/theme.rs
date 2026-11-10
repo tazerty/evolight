@@ -97,9 +97,11 @@ pub fn graph_rule(t: &Tokens, background: Color32, share: f32, upstream: Color32
 /// Evora (EVORA-REV-106, E2) : l'hôte mène-t-il l'apparence ? Vrai sous le pont d'Evora, dont le
 /// masque retire la commande d'apparence des menus et du clavier ([`crate::menubar::host_masked`]) :
 /// la coquille choisit le mode clair ou sombre et l'envoie au moteur. Faux dans les builds propres
-/// de l'application, qui n'ont pas de masque.
+/// de l'application, qui n'ont pas de masque. Evora (EVORA-REV-108, E2) : faux aussi tant que
+/// l'identité d'Evora n'est pas montrée ([`evora_palette`]) : un pont ouvert sans thème valable
+/// laisse à l'application ses thèmes, donc son bouton et ses réglages d'apparence.
 pub fn host_leads_appearance() -> bool {
-    crate::menubar::host_masked("view.appearance")
+    evora_palette() && crate::menubar::host_masked("view.appearance")
 }
 
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
@@ -948,11 +950,13 @@ mod tests {
             let axis = contrast(graph_rule(&t, t.canvas, GRAPH_AXIS_SHARE, Color32::from_gray(70)), t.canvas);
             assert!(grid >= 1.2 && axis > grid && axis < 3.0, "{kind:?} : quadrillage {grid:.2}, diagonale {axis:.2}");
         }
-        // l'hôte mène l'apparence quand son masque en retire la commande
+        // l'hôte mène l'apparence quand son masque en retire la commande et que l'identité d'Evora
+        // est montrée (EVORA-REV-108) : l'un sans l'autre laisse l'apparence à l'application
         assert!(!host_leads_appearance(), "sans masque d'hôte, l'application mène son apparence");
         crate::menubar::set_host_mask(Some(masks_appearance as fn(&str) -> bool));
         assert!(host_leads_appearance(), "le masque de l'hôte retire la commande d'apparence");
         set_evora_palette(false);
+        assert!(!host_leads_appearance(), "sous un masque mais hors de l'identité d'Evora, l'application garde son apparence");
         crate::menubar::set_host_mask(None);
         assert!(!host_leads_appearance());
         // hors d'Evora : les jetons du thème et les couleurs de l'amont
