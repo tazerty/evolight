@@ -100,7 +100,10 @@ pub fn toast(app: &mut EvoLightApp, ctx: &egui::Context) {
     let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::unique("toast")));
     // long messages (a save warning, the web build's notices) wrap within the canvas
     let wrap = (canvas.width() - 80.0).clamp(200.0, 720.0);
-    let (background, foreground) = label.map(crate::theme::label_toast_colors).unwrap_or((egui::Color32::from_black_alpha(200), t.text));
+    // Evora (EVORA-REV-106, L5) : le fond neutre du toast est un voile noir dans tous les thèmes ;
+    // son texte est donc celui du sombre (en clair, `text` n'y tenait que 1,44:1)
+    let neutral = (egui::Color32::from_black_alpha(200), crate::theme::on_dark_veil(&t).text);
+    let (background, foreground) = label.map(crate::theme::label_toast_colors).unwrap_or(neutral);
     let foreground = foreground.gamma_multiply(fade);
     // Evora (EVORA-REV-46, exception L5-REV-F): a toast often carries an engine message, which no catalog renames
     let galley = painter.layout(crate::i18n::named(text), t.font(14.0), foreground, wrap);

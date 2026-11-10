@@ -186,7 +186,10 @@ fn cell_ui(
     let over_star = resp.hover_pos().is_some_and(|q| star.contains(q));
     if fav || resp.hovered() {
         painter.circle_filled(star.center(), 10.0, Color32::from_black_alpha(110));
-        crate::rating::paint_star(painter, star.shrink(4.0), fav, if fav || over_star { t.star } else { Color32::WHITE });
+        // Evora (EVORA-REV-106, L5) : le disque est sombre dans tous les thèmes ; l'étoile y prend
+        // l'encre du sombre (en clair, celle du thème n'y tenait que 1,15:1 sur une photo gris moyen)
+        let lit = crate::theme::on_dark_veil(&t).star;
+        crate::rating::paint_star(painter, star.shrink(4.0), fav, if fav || over_star { lit } else { Color32::WHITE });
     }
     if resp.hovered() && !applied && !over_star {
         app.hover_preview =

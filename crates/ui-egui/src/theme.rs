@@ -60,6 +60,73 @@ pub fn control_border(t: &Tokens) -> Color32 {
     if evora_palette() { t.field_border } else { t.button_border }
 }
 
+/// Evora (EVORA-REV-106, E2) : les encres d'un dessin posé sur un voile ou une pastille toujours
+/// sombres, quel que soit le thème : marques d'une vignette sur leur voile noir, badge de format de
+/// la grille, toast, étoile de favori d'un profil. Sous l'identité d'Evora, les jetons du sombre
+/// d'Evora, clairs et fixes : en clair, ceux du thème (`star` #404040, `pick` #262626, `text`
+/// #171717) s'y perdaient (1,06:1 à 1,68:1). Seules les couleurs sont à y lire. Hors d'Evora, les
+/// jetons du thème, comme dans l'amont.
+pub fn on_dark_veil(t: &Tokens) -> Tokens {
+    if evora_palette() { evora_tokens(true) } else { *t }
+}
+
+/// Evora (EVORA-REV-106, E2) : l'encre d'un tracé dont l'amont fixe la couleur pour un fond sombre
+/// (courbes, repères d'histogramme), alors qu'il est posé sur une surface du thème. Sous l'identité
+/// d'Evora, `token`, lisible en clair comme en sombre ; hors d'Evora, `upstream`, la couleur de
+/// l'amont.
+pub fn evora_ink(token: Color32, upstream: Color32) -> Color32 {
+    if evora_palette() { token } else { upstream }
+}
+
+/// Evora (EVORA-REV-106, E2) : la part de `text` dans le quadrillage d'un graphe, tiré de son fond.
+/// Sur le canvas, en sombre, c'est le gris 52 de l'amont (1,45:1) ; en clair, #D2D2D2 (1,33:1).
+pub const GRAPH_GRID_SHARE: f32 = 0.14;
+
+/// Evora (EVORA-REV-106, E2) : la part de `text` dans la diagonale d'un graphe, tirée de son fond.
+/// Sur le canvas, en sombre, c'est le gris 70 de l'amont (1,92:1) ; en clair, #BFBFBF (1,61:1).
+pub const GRAPH_AXIS_SHARE: f32 = 0.225;
+
+/// Evora (EVORA-REV-106, E2) : un filet de graphe (quadrillage, diagonale) posé sur `background`.
+/// Sous l'identité d'Evora, ce fond tiré vers `text` de `share` : le filet reste discret dans les
+/// deux polarités, au lieu d'un gris fixe presque noir sur un fond clair (10,92:1). Hors d'Evora,
+/// `upstream`, la couleur de l'amont.
+pub fn graph_rule(t: &Tokens, background: Color32, share: f32, upstream: Color32) -> Color32 {
+    evora_ink(background.lerp_to_gamma(t.text, share), upstream)
+}
+
+/// Evora (EVORA-REV-106, E2) : largeur du coin bas-droit de la fenêtre que la page hôte recouvre de
+/// sa pastille flottante (60 px de large, à 8 px du bord droit), en points depuis ce coin.
+pub const HOST_CORNER_W: f32 = 68.0;
+
+/// Evora (EVORA-REV-106, E2) : hauteur de ce même coin (pastille de 28 px, à 1 px du bas, et 1 px
+/// de garde), en points depuis le bas de la fenêtre.
+pub const HOST_CORNER_H: f32 = 30.0;
+
+/// Evora (EVORA-REV-106, E2) : l'hôte mène-t-il l'apparence ? Vrai sous le pont d'Evora, dont le
+/// masque retire la commande d'apparence des menus et du clavier ([`crate::menubar::host_masked`]) :
+/// la coquille choisit le mode clair ou sombre et l'envoie au moteur. Faux dans les builds propres
+/// de l'application, qui n'ont pas de masque.
+pub fn host_leads_appearance() -> bool {
+    crate::menubar::host_masked("view.appearance")
+}
+
+/// Evora (EVORA-REV-106, E2) : le coin de la fenêtre `screen` que recouvre la pastille de l'hôte
+/// ([`HOST_CORNER_W`] x [`HOST_CORNER_H`] depuis le coin bas-droit physique), sous l'identité
+/// d'Evora et sous le pont seulement. Rien d'interactif ne s'y pose. `None` partout ailleurs.
+pub fn host_corner(screen: egui::Rect) -> Option<egui::Rect> {
+    (evora_palette() && host_leads_appearance())
+        .then(|| egui::Rect::from_min_max(egui::pos2(screen.right() - HOST_CORNER_W, screen.bottom() - HOST_CORNER_H), screen.right_bottom()))
+}
+
+/// Evora (EVORA-REV-106, E2) : `rect` arrêté à gauche du coin de la pastille de l'hôte quand il le
+/// croise ([`host_corner`]), inchangé sinon : une barre qui atteint ce coin s'arrête avant lui.
+pub fn left_of_host_corner(screen: egui::Rect, rect: egui::Rect) -> egui::Rect {
+    match host_corner(screen) {
+        Some(corner) if rect.intersects(corner) => egui::Rect::from_min_max(rect.min, egui::pos2(corner.left().max(rect.left()), rect.bottom())),
+        _ => rect,
+    }
+}
+
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
 pub fn label_toast_colors(label: evolight_catalog::ColorLabel) -> (Color32, Color32) {
     (Color32::WHITE.lerp_to_gamma(label_color(label), 0.3), Color32::from_rgb(36, 24, 24))
@@ -843,6 +910,97 @@ mod tests {
         let t = Tokens::for_kind(ThemeKind::Charcoal);
         assert_eq!(secondary_text_on(&t, t.cell_selected), t.text_dim, "hors d'Evora, le gris secondaire de l'application");
         assert_eq!(control_border(&t), t.button_border, "hors d'Evora, le bord des boutons de l'application");
+    }
+
+    /// Le masque d'un hôte qui mène l'apparence, comme celui du pont d'Evora.
+    fn masks_appearance(id: &str) -> bool {
+        id == "view.appearance"
+    }
+
+    /// Evora (EVORA-REV-106, E2) : sous l'identité d'Evora, en clair comme en sombre, les dessins à
+    /// fond fixe restent lisibles. Les encres posées sur un voile ou une pastille sombres sont
+    /// celles du sombre d'Evora (badge de format et toast à 4,5:1 ou plus, marques d'une vignette à
+    /// 3:1 ou plus sur une photo gris moyen voilée) ; les tracés prennent un jeton du thème ; les
+    /// filets d'un graphe se détachent de son fond sans le charger. Le coin de la pastille de
+    /// l'hôte n'est réservé que sous le pont. Hors d'Evora, les couleurs de l'amont, et aucun coin.
+    #[test]
+    fn evora_fixed_ground_drawings_read_in_both_appearances_and_the_hosts_corner_is_kept_clear() {
+        set_evora_palette(true);
+        let dark = Tokens::for_kind(ThemeKind::Charcoal);
+        for kind in ThemeKind::ALL {
+            let t = Tokens::for_kind(kind);
+            let ink = on_dark_veil(&t);
+            for (what, got, want) in [
+                ("star", ink.star, dark.star),
+                ("pick", ink.pick, dark.pick),
+                ("reject", ink.reject, dark.reject),
+                ("text_label", ink.text_label, dark.text_label),
+                ("text", ink.text, dark.text),
+            ] {
+                assert_eq!(got, want, "{kind:?} : {what} sur un voile sombre");
+            }
+            // le badge de format de la grille, sur sa pastille fixe (gris 26)
+            let c = contrast(ink.text_label, Color32::from_gray(26));
+            assert!(c >= MIN_TEXT_CONTRAST, "{kind:?} : badge de format : {c:.2}");
+            // le toast, sur son voile noir posé sur l'entourage de l'image ou sur la grille
+            for (what, surface) in [("canvas", t.canvas), ("grid_bg", t.grid_bg)] {
+                let c = contrast(ink.text, surface.blend(Color32::from_black_alpha(200)));
+                assert!(c >= MIN_TEXT_CONTRAST, "{kind:?} : toast sur {what} : {c:.2}");
+            }
+            // les marques d'une vignette sur leur voile (profil 110, grille 120, bande 130), la photo
+            // étant d'un gris moyen
+            for alpha in [110, 120, 130] {
+                let veiled = Color32::from_gray(128).blend(Color32::from_black_alpha(alpha));
+                for (what, mark) in [("star", ink.star), ("pick", ink.pick), ("reject", ink.reject), ("text_label", ink.text_label)] {
+                    let c = contrast(mark, veiled);
+                    assert!(c >= 3.0, "{kind:?} : {what} sur un voile de {alpha} : {c:.2}");
+                }
+            }
+            // les tracés : la courbe sur le canvas, la ligne neutre et les repères de l'histogramme
+            // sur son fond (`button`)
+            assert_eq!(evora_ink(t.text, Color32::from_gray(220)), t.text, "{kind:?} : un tracé prend le jeton");
+            for (what, line, surface, floor) in [
+                ("courbe sur le canvas", t.text, t.canvas, MIN_TEXT_CONTRAST),
+                ("ligne neutre de l'histogramme", t.text_label, t.button, MIN_TEXT_CONTRAST),
+                ("repères de l'histogramme", t.text_dim, t.button, 3.0),
+            ] {
+                let c = contrast(line, surface);
+                assert!(c >= floor, "{kind:?} : {what} : {c:.2}");
+            }
+            // les filets du graphe : visibles sans charger le fond, la diagonale plus que le quadrillage
+            let grid = contrast(graph_rule(&t, t.canvas, GRAPH_GRID_SHARE, Color32::from_gray(52)), t.canvas);
+            let axis = contrast(graph_rule(&t, t.canvas, GRAPH_AXIS_SHARE, Color32::from_gray(70)), t.canvas);
+            assert!(grid >= 1.2 && axis > grid && axis < 3.0, "{kind:?} : quadrillage {grid:.2}, diagonale {axis:.2}");
+        }
+        // le coin de la pastille de l'hôte : réservé sous le pont seulement
+        let screen = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 800.0));
+        let bar = egui::Rect::from_min_max(egui::pos2(12.0, 764.0), egui::pos2(1224.0, 800.0));
+        assert!(host_corner(screen).is_none(), "sans masque d'hôte, aucun coin réservé");
+        assert_eq!(left_of_host_corner(screen, bar), bar, "sans masque d'hôte, la barre garde sa largeur");
+        crate::menubar::set_host_mask(Some(masks_appearance as fn(&str) -> bool));
+        assert!(host_leads_appearance(), "le masque de l'hôte retire la commande d'apparence");
+        let corner = egui::Rect::from_min_max(egui::pos2(1212.0, 770.0), egui::pos2(1280.0, 800.0));
+        assert_eq!(host_corner(screen), Some(corner), "68 x 30 points depuis le coin bas-droit");
+        assert_eq!(left_of_host_corner(screen, bar).right(), 1212.0, "la barre s'arrête avant le coin");
+        assert_eq!(left_of_host_corner(screen, bar).min, bar.min, "sans bouger son bord gauche");
+        let beside_a_panel = egui::Rect::from_min_max(egui::pos2(12.0, 764.0), egui::pos2(900.0, 800.0));
+        assert_eq!(left_of_host_corner(screen, beside_a_panel), beside_a_panel, "une barre qui n'atteint pas le coin reste entière");
+        set_evora_palette(false);
+        assert!(host_corner(screen).is_none(), "hors d'Evora, aucun coin réservé");
+        crate::menubar::set_host_mask(None);
+        assert!(!host_leads_appearance());
+        // hors d'Evora : les jetons du thème et les couleurs de l'amont
+        for kind in ThemeKind::ALL {
+            let t = Tokens::for_kind(kind);
+            let ink = on_dark_veil(&t);
+            assert_eq!(
+                (ink.star, ink.pick, ink.reject, ink.text_label, ink.text),
+                (t.star, t.pick, t.reject, t.text_label, t.text),
+                "{kind:?} : hors d'Evora, les encres du thème"
+            );
+            assert_eq!(evora_ink(t.text, Color32::from_gray(220)), Color32::from_gray(220), "{kind:?} : hors d'Evora, le tracé de l'amont");
+            assert_eq!(graph_rule(&t, t.canvas, GRAPH_GRID_SHARE, Color32::from_gray(52)), Color32::from_gray(52), "{kind:?} : le filet de l'amont");
+        }
     }
 
     /// The `SetTheme(Light)` commands one frame of `ctx` sends the window, with or without

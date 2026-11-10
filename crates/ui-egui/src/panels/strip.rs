@@ -16,13 +16,18 @@ const GAP: f32 = 6.0;
 
 pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
+    // Evora (EVORA-REV-106, L5) : sous le pont d'Evora, la page hôte pose sa pastille sur le coin
+    // bas-droit de la fenêtre, où finissait l'icône Info (sa moitié basse était recouverte). La
+    // marge basse de la colonne passe de 8 à 30 points, la hauteur de ce coin
+    // (`theme::HOST_CORNER_H`) : les deux icônes du bas finissent au-dessus de lui.
+    let clear_host_corner = crate::theme::host_corner(ui.ctx().content_rect()).is_some();
     egui::Panel::right("tool_strip")
         .exact_size(t.strip_w)
         .resizable(false)
         .frame(
             egui::Frame::NONE
                 .fill(t.chrome)
-                .inner_margin(egui::Margin { left: 0, right: 0, top: 8, bottom: 8 })
+                .inner_margin(egui::Margin { left: 0, right: 0, top: 8, bottom: if clear_host_corner { 30 } else { 8 } })
                 .stroke(egui::Stroke::new(1.0, t.divider)),
         )
         .show(ui, |ui| {

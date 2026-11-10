@@ -95,7 +95,10 @@ impl LayoutFlow {
         p.add(mesh);
         let line = |j: usize, c: Color32| egui::Shape::line(pts.iter().map(|(x, hs)| to(*x, hs[j])).collect(), Stroke::new(1.5, c));
         if is_greyscale(shown) {
-            p.add(line(2, Color32::from_gray(200)));
+            // Evora (EVORA-REV-106, L5) : la ligne neutre suit le thème (`text_label`) : le gris
+            // 200 de l'amont ne tenait que 1,67:1 sur le fond blanc de l'histogramme en clair
+            let neutral = crate::theme::evora_ink(crate::theme::Tokens::get(p.ctx()).text_label, Color32::from_gray(200));
+            p.add(line(2, neutral));
         } else {
             for (j, c) in [(1, hex("#df3939")), (2, hex("#44b072")), (3, hex("#3b6fe0"))] {
                 p.add(line(j, c));

@@ -62,7 +62,12 @@ pub fn show(app: &mut EvoLightApp, ui: &mut egui::Ui) {
             search_field(app, ui, &t, sr);
             filter_button(app, ui, &t, sr);
             let x = right_icons(app, ui, &t, full);
-            appearance_button(app, ui, &t, full, x);
+            // Evora (EVORA-REV-106, L5) : sous le pont d'Evora, l'hôte mène l'apparence : sa
+            // commande est masquée dans les menus et au clavier, et ce bouton, qui la lançait
+            // encore, changeait le moteur de mode sans la coquille. Il n'y est plus dessiné.
+            if !crate::theme::host_leads_appearance() {
+                appearance_button(app, ui, &t, full, x);
+            }
         });
     if let Some(slot) = slot {
         ui.ctx().layer_painter(ui.layer_id()).set(slot, egui::Shape::rect_filled(panel.response.rect, 0.0, t.chrome));

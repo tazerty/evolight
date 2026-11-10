@@ -93,15 +93,23 @@ pub(crate) fn histogram(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         // range on) in its colours; the row is revealed as it opens
         let p = &p.with_clip_rect(Rect::from_min_max(pos2(r.left(), plot.bottom()), pos2(r.right(), plot.bottom() + legend)));
         let bar = |a: f32, z: f32, c: Color32| p.rect_filled(Rect::from_min_max(pos2(a, plot.bottom() + 2.0), pos2(z, plot.bottom() + 7.0)), 0.0, c);
-        let white = Color32::from_rgb(228, 228, 230);
+        // Evora (EVORA-REV-106, L5) : la barre de la plage SDR et celles des crans HDR sans
+        // couleurs suivent le thème (`text`) : le blanc cassé de l'amont ne tenait que 1,27:1 sur
+        // le fond blanc de l'histogramme en clair
+        let white = crate::theme::evora_ink(t.text, Color32::from_rgb(228, 228, 230));
         bar(plot.left(), x0 - 1.0, white);
         let stops = b.stops.round().max(1.0) as usize;
         let bands = evolight_pipeline::visualize::HDR_BANDS;
         let colours = app.ui.hdr_visualize;
         for k in 0..stops {
-            let c = if colours { bands.get(k).or(bands.last()).copied().unwrap_or([255, 255, 255]) } else { [228, 228, 230] };
+            let c = if colours {
+                let c = bands.get(k).or(bands.last()).copied().unwrap_or([255, 255, 255]);
+                Color32::from_rgb(c[0], c[1], c[2])
+            } else {
+                white
+            };
             let (a, z) = (x0 + (plot.right() - x0) * k as f32 / stops as f32, x0 + (plot.right() - x0) * (k + 1) as f32 / stops as f32);
-            bar(a + 1.0, z - 1.0, Color32::from_rgb(c[0], c[1], c[2]));
+            bar(a + 1.0, z - 1.0, c);
         }
         let y = plot.bottom() + 18.0;
         p.text(pos2((plot.left() + x0) / 2.0, y), Align2::CENTER_CENTER, crate::i18n::tr("SDR"), t.font(12.5), t.text_label);
@@ -118,15 +126,19 @@ pub(crate) fn histogram(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
         // HDR: SDR on the left, a solid line at SDR white and dashed ones between the stops
         if let Some(b) = hdr {
             let stops = b.stops.round().max(1.0) as usize;
+            // Evora (EVORA-REV-106, L5) : les repères suivent le thème (`text_dim`) : les gris 150
+            // et 160 de l'amont ne tenaient que 2,96:1 et 2,61:1 sur le fond blanc en clair
+            let stop_mark = crate::theme::evora_ink(t.text_dim, Color32::from_gray(150));
+            let white_mark = crate::theme::evora_ink(t.text_dim, Color32::from_gray(160));
             for k in 1..stops {
                 let x = x0 + (plot.right() - x0) * k as f32 / stops as f32;
                 let mut y = plot.top();
                 while y < plot.bottom() {
-                    p.line_segment([pos2(x, y), pos2(x, (y + 5.0).min(plot.bottom()))], Stroke::new(1.0, Color32::from_gray(150)));
+                    p.line_segment([pos2(x, y), pos2(x, (y + 5.0).min(plot.bottom()))], Stroke::new(1.0, stop_mark));
                     y += 9.0;
                 }
             }
-            p.line_segment([pos2(x0, plot.top()), pos2(x0, plot.bottom())], Stroke::new(1.5, Color32::from_gray(160)));
+            p.line_segment([pos2(x0, plot.top()), pos2(x0, plot.bottom())], Stroke::new(1.5, white_mark));
             // the photo's headroom limit on the fixed scale: marked, the range past it dimmed
             let limit = app.session.develop_of(id).map_or(b.stops, |d| d.hdr.max_ev as f32);
             if limit.is_finite() && limit >= 0.0 && limit < b.stops - 0.05 {

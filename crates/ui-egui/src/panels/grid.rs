@@ -888,10 +888,13 @@ fn paint_cell_caption(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &
         // Evora (EVORA-REV-104, L5) : 4,5:1 ou plus sur une cellule choisie ou teintée
         p.text(pos2(r.left() + 8.0, r.top() + 12.0), Align2::LEFT_CENTER, name, t.font(10.5), crate::theme::secondary_text_on(t, fill));
         let fmt = photo.format.clone();
-        let g = p.layout_no_wrap(fmt, t.semibold(9.0), t.text_label);
+        // Evora (EVORA-REV-106, L5) : la pastille du format est sombre dans tous les thèmes ; son
+        // encre est donc celle du sombre (en clair, `text_label` n'y tenait que 1,68:1)
+        let ink = crate::theme::on_dark_veil(t).text_label;
+        let g = p.layout_no_wrap(fmt, t.semibold(9.0), ink);
         let br = Rect::from_min_size(pos2(r.right() - g.size().x - 14.0, r.top() + 5.0), g.size() + vec2(8.0, 3.0));
         p.rect_filled(br, 2.0, Color32::from_gray(26));
-        p.galley(br.min + vec2(4.0, 1.5), g, t.text_label);
+        p.galley(br.min + vec2(4.0, 1.5), g, ink);
     }
 }
 
@@ -918,19 +921,25 @@ fn paint_cell_badges(app: &EvoLightApp, p: &egui::Painter, t: &Tokens, photo: &e
     }
     if show_badges {
         let bar = badge_bar;
-        if (hovered || selected) && (square || photo.label.is_none()) {
+        let veiled = (hovered || selected) && (square || photo.label.is_none());
+        if veiled {
             p.rect_filled(bar, 0.0, Color32::from_black_alpha(120));
         }
+        // Evora (EVORA-REV-106, L5) : sur le voile noir, les marques prennent les encres du sombre
+        // (en clair, l'étoile du thème n'y tenait que 1,06:1 sur une photo gris moyen). Sans voile,
+        // elles gardent celles du thème : sur le pied teinté d'une photo étiquetée de la mosaïque,
+        // clair en thème clair, et à même la photo.
+        let ink = if veiled { crate::theme::on_dark_veil(t) } else { *t };
         let mut x = bar.left() + 6.0;
-        x += crate::rating::paint_rating(p, pos2(x, bar.center().y), photo.rating, crate::rating::RatingSize::Medium, t.star) + 4.0;
+        x += crate::rating::paint_rating(p, pos2(x, bar.center().y), photo.rating, crate::rating::RatingSize::Medium, ink.star) + 4.0;
         match photo.flag {
-            Flag::Pick => paint(p, Rect::from_min_size(pos2(x, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::FlagPickFilled, t.pick),
-            Flag::Reject => paint(p, Rect::from_min_size(pos2(x, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::FlagReject, t.reject),
+            Flag::Pick => paint(p, Rect::from_min_size(pos2(x, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::FlagPickFilled, ink.pick),
+            Flag::Reject => paint(p, Rect::from_min_size(pos2(x, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::FlagReject, ink.reject),
             Flag::None => {}
         }
         let mut right = bar.right();
         if photo.is_edited() {
-            paint(p, Rect::from_min_size(pos2(right - 20.0, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::Sliders, t.text_label);
+            paint(p, Rect::from_min_size(pos2(right - 20.0, bar.center().y - 7.0), vec2(14.0, 14.0)), Icon::Sliders, ink.text_label);
             right -= 20.0;
         }
         if let Some(l) = photo.label {

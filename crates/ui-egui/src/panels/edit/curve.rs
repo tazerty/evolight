@@ -164,12 +164,23 @@ fn param_drag(app: &mut EvoLightApp, ui: &mut egui::Ui, r: Rect, resp: &egui::Re
 
 pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId, d: &DevelopSettings) {
     let t = Tokens::get(ui.ctx());
+    // Evora (EVORA-REV-106, L5) : l'amont fixe les encres neutres du graphe pour un fond sombre
+    // (courbe et points en gris 220 ou 225, pastille « master » blanche, quadrillage en gris 52,
+    // diagonale en gris 70). Sous l'identité d'Evora, elles suivent le thème : `text` pour la
+    // courbe, ses points et la pastille, et pour les filets le canvas tiré vers `text`. En clair,
+    // la courbe passe de 1,15:1 à 15,73:1 et la pastille de 1,00:1 à 17,93:1 ; en sombre, les
+    // filets gardent les gris 52 et 70. Hors d'Evora, les couleurs de l'amont.
+    let master_ink = crate::theme::evora_ink(t.text, Color32::WHITE);
+    let parametric_line = crate::theme::evora_ink(t.text, Color32::from_gray(220));
+    let master_line = crate::theme::evora_ink(t.text, Color32::from_gray(225));
+    let grid_rule = crate::theme::graph_rule(&t, t.canvas, crate::theme::GRAPH_GRID_SHARE, Color32::from_gray(52));
+    let axis_rule = crate::theme::graph_rule(&t, t.canvas, crate::theme::GRAPH_AXIS_SHARE, Color32::from_gray(70));
     // channel selector
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 6, bottom: 4 }).show(ui, |ui| {
         ui.horizontal(|ui| {
             for (ch, c) in [
                 ("parametric", Color32::from_gray(200)),
-                ("master", Color32::WHITE),
+                ("master", master_ink),
                 ("red", hex("#dd3333")),
                 ("green", hex("#33bb55")),
                 ("blue", hex("#3377ee")),
@@ -227,14 +238,14 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
         let f = i as f32 / 4.0;
         p.line_segment(
             [pos2(r.left() + r.width() * f, r.top()), pos2(r.left() + r.width() * f, r.bottom())],
-            Stroke::new(1.0, Color32::from_gray(52)),
+            Stroke::new(1.0, grid_rule),
         );
         p.line_segment(
             [pos2(r.left(), r.top() + r.height() * f), pos2(r.right(), r.top() + r.height() * f)],
-            Stroke::new(1.0, Color32::from_gray(52)),
+            Stroke::new(1.0, grid_rule),
         );
     }
-    p.line_segment([r.left_bottom(), r.right_top()], Stroke::new(1.0, Color32::from_gray(70)));
+    p.line_segment([r.left_bottom(), r.right_top()], Stroke::new(1.0, axis_rule));
     let to_screen = |x: f64, y: f64| pos2(r.left() + x as f32 * r.width(), r.bottom() - y as f32 * r.height());
     let from_screen = |q: Pos2| (((q.x - r.left()) / r.width()).clamp(0.0, 1.0) as f64, ((r.bottom() - q.y) / r.height()).clamp(0.0, 1.0) as f64);
     if ch == "parametric" {
@@ -245,7 +256,7 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
         let model = ParametricCurve::new(c);
         let pts: Vec<Pos2> =
             (0..=CURVE_SAMPLES).map(|i| to_screen(i as f64 / CURVE_SAMPLES as f64, model.at(i as f64 / CURVE_SAMPLES as f64))).collect();
-        p.add(egui::Shape::line(pts, Stroke::new(2.0, Color32::from_gray(220))));
+        p.add(egui::Shape::line(pts, Stroke::new(2.0, parametric_line)));
         param_drag(app, ui, r, &resp, d);
         curve_footer(app, ui, d);
         for &c in PARAM_AMOUNTS.iter().rev() {
@@ -273,7 +284,7 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
         "red" => hex("#dd3333"),
         "green" => hex("#33bb55"),
         "blue" => hex("#3377ee"),
-        _ => Color32::from_gray(225),
+        _ => master_line,
     };
     let line: Vec<Pos2> = (0..=96).map(|i| to_screen(i as f64 / 96.0, curve.eval(i as f64 / 96.0).clamp(0.0, 1.0))).collect();
     p.add(egui::Shape::line(line, Stroke::new(2.0, color)));

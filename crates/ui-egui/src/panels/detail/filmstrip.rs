@@ -313,15 +313,18 @@ fn film_badges(p: &egui::Painter, t: &Tokens, fr: Rect, ph: &evolight_catalog::P
     }
     let bar = Rect::from_min_max(pos2(fr.left(), fr.bottom() - 15.0), fr.right_bottom());
     p.rect_filled(bar, 0.0, Color32::from_black_alpha(130));
+    // Evora (EVORA-REV-106, L5) : le voile est toujours peint ; les marques y prennent les encres
+    // du sombre (en clair, l'étoile du thème n'y tenait que 1,02:1 sur une photo gris moyen)
+    let ink = crate::theme::on_dark_veil(t);
     let y = bar.center().y;
     let mut x = bar.left() + 3.0;
-    x += crate::rating::paint_rating(p, pos2(x, y), ph.rating, crate::rating::RatingSize::Small, t.star) + 2.0;
+    x += crate::rating::paint_rating(p, pos2(x, y), ph.rating, crate::rating::RatingSize::Small, ink.star) + 2.0;
     match ph.flag {
-        Flag::Pick => paint(p, Rect::from_min_size(pos2(x, y - 5.0), vec2(10.0, 10.0)), Icon::FlagPickFilled, t.pick),
-        Flag::Reject => paint(p, Rect::from_min_size(pos2(x, y - 5.0), vec2(10.0, 10.0)), Icon::FlagReject, t.reject),
+        Flag::Pick => paint(p, Rect::from_min_size(pos2(x, y - 5.0), vec2(10.0, 10.0)), Icon::FlagPickFilled, ink.pick),
+        Flag::Reject => paint(p, Rect::from_min_size(pos2(x, y - 5.0), vec2(10.0, 10.0)), Icon::FlagReject, ink.reject),
         Flag::None => {}
     }
     if edited {
-        paint(p, Rect::from_min_size(pos2(bar.right() - 13.0, y - 5.0), vec2(10.0, 10.0)), Icon::Sliders, t.text_label);
+        paint(p, Rect::from_min_size(pos2(bar.right() - 13.0, y - 5.0), vec2(10.0, 10.0)), Icon::Sliders, ink.text_label);
     }
 }
