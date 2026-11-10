@@ -94,37 +94,12 @@ pub fn graph_rule(t: &Tokens, background: Color32, share: f32, upstream: Color32
     evora_ink(background.lerp_to_gamma(t.text, share), upstream)
 }
 
-/// Evora (EVORA-REV-106, E2) : largeur du coin bas-droit de la fenêtre que la page hôte recouvre de
-/// sa pastille flottante (60 px de large, à 8 px du bord droit), en points depuis ce coin.
-pub const HOST_CORNER_W: f32 = 68.0;
-
-/// Evora (EVORA-REV-106, E2) : hauteur de ce même coin (pastille de 28 px, à 1 px du bas, et 1 px
-/// de garde), en points depuis le bas de la fenêtre.
-pub const HOST_CORNER_H: f32 = 30.0;
-
 /// Evora (EVORA-REV-106, E2) : l'hôte mène-t-il l'apparence ? Vrai sous le pont d'Evora, dont le
 /// masque retire la commande d'apparence des menus et du clavier ([`crate::menubar::host_masked`]) :
 /// la coquille choisit le mode clair ou sombre et l'envoie au moteur. Faux dans les builds propres
 /// de l'application, qui n'ont pas de masque.
 pub fn host_leads_appearance() -> bool {
     crate::menubar::host_masked("view.appearance")
-}
-
-/// Evora (EVORA-REV-106, E2) : le coin de la fenêtre `screen` que recouvre la pastille de l'hôte
-/// ([`HOST_CORNER_W`] x [`HOST_CORNER_H`] depuis le coin bas-droit physique), sous l'identité
-/// d'Evora et sous le pont seulement. Rien d'interactif ne s'y pose. `None` partout ailleurs.
-pub fn host_corner(screen: egui::Rect) -> Option<egui::Rect> {
-    (evora_palette() && host_leads_appearance())
-        .then(|| egui::Rect::from_min_max(egui::pos2(screen.right() - HOST_CORNER_W, screen.bottom() - HOST_CORNER_H), screen.right_bottom()))
-}
-
-/// Evora (EVORA-REV-106, E2) : `rect` arrêté à gauche du coin de la pastille de l'hôte quand il le
-/// croise ([`host_corner`]), inchangé sinon : une barre qui atteint ce coin s'arrête avant lui.
-pub fn left_of_host_corner(screen: egui::Rect, rect: egui::Rect) -> egui::Rect {
-    match host_corner(screen) {
-        Some(corner) if rect.intersects(corner) => egui::Rect::from_min_max(rect.min, egui::pos2(corner.left().max(rect.left()), rect.bottom())),
-        _ => rect,
-    }
 }
 
 /// Label confirmations use a pale colour and dark text, distinct from neutral/error HUDs.
@@ -921,10 +896,11 @@ mod tests {
     /// fond fixe restent lisibles. Les encres posées sur un voile ou une pastille sombres sont
     /// celles du sombre d'Evora (badge de format et toast à 4,5:1 ou plus, marques d'une vignette à
     /// 3:1 ou plus sur une photo gris moyen voilée) ; les tracés prennent un jeton du thème ; les
-    /// filets d'un graphe se détachent de son fond sans le charger. Le coin de la pastille de
-    /// l'hôte n'est réservé que sous le pont. Hors d'Evora, les couleurs de l'amont, et aucun coin.
+    /// filets d'un graphe se détachent de son fond sans le charger. Hors d'Evora, les couleurs de
+    /// l'amont. Evora (EVORA-REV-107) : la réserve du coin de la pastille de l'hôte, que ce test
+    /// jugeait aussi, est retirée ; reste le masque qui dit que l'hôte mène l'apparence.
     #[test]
-    fn evora_fixed_ground_drawings_read_in_both_appearances_and_the_hosts_corner_is_kept_clear() {
+    fn evora_fixed_ground_drawings_read_in_both_appearances() {
         set_evora_palette(true);
         let dark = Tokens::for_kind(ThemeKind::Charcoal);
         for kind in ThemeKind::ALL {
@@ -972,21 +948,11 @@ mod tests {
             let axis = contrast(graph_rule(&t, t.canvas, GRAPH_AXIS_SHARE, Color32::from_gray(70)), t.canvas);
             assert!(grid >= 1.2 && axis > grid && axis < 3.0, "{kind:?} : quadrillage {grid:.2}, diagonale {axis:.2}");
         }
-        // le coin de la pastille de l'hôte : réservé sous le pont seulement
-        let screen = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 800.0));
-        let bar = egui::Rect::from_min_max(egui::pos2(12.0, 764.0), egui::pos2(1224.0, 800.0));
-        assert!(host_corner(screen).is_none(), "sans masque d'hôte, aucun coin réservé");
-        assert_eq!(left_of_host_corner(screen, bar), bar, "sans masque d'hôte, la barre garde sa largeur");
+        // l'hôte mène l'apparence quand son masque en retire la commande
+        assert!(!host_leads_appearance(), "sans masque d'hôte, l'application mène son apparence");
         crate::menubar::set_host_mask(Some(masks_appearance as fn(&str) -> bool));
         assert!(host_leads_appearance(), "le masque de l'hôte retire la commande d'apparence");
-        let corner = egui::Rect::from_min_max(egui::pos2(1212.0, 770.0), egui::pos2(1280.0, 800.0));
-        assert_eq!(host_corner(screen), Some(corner), "68 x 30 points depuis le coin bas-droit");
-        assert_eq!(left_of_host_corner(screen, bar).right(), 1212.0, "la barre s'arrête avant le coin");
-        assert_eq!(left_of_host_corner(screen, bar).min, bar.min, "sans bouger son bord gauche");
-        let beside_a_panel = egui::Rect::from_min_max(egui::pos2(12.0, 764.0), egui::pos2(900.0, 800.0));
-        assert_eq!(left_of_host_corner(screen, beside_a_panel), beside_a_panel, "une barre qui n'atteint pas le coin reste entière");
         set_evora_palette(false);
-        assert!(host_corner(screen).is_none(), "hors d'Evora, aucun coin réservé");
         crate::menubar::set_host_mask(None);
         assert!(!host_leads_appearance());
         // hors d'Evora : les jetons du thème et les couleurs de l'amont
