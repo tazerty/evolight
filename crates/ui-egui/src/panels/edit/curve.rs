@@ -175,6 +175,12 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
     let master_line = crate::theme::evora_ink(t.text, Color32::from_gray(225));
     let grid_rule = crate::theme::graph_rule(&t, t.canvas, crate::theme::GRAPH_GRID_SHARE, Color32::from_gray(52));
     let axis_rule = crate::theme::graph_rule(&t, t.canvas, crate::theme::GRAPH_AXIS_SHARE, Color32::from_gray(70));
+    // Evora (EVORA-REV-109, L5) : en clair, le vert de l'amont ne tenait que 2,51:1 sur le chrome
+    // (pastille du canal) et 2,20:1 sur le canvas (courbe et points). Il y prend un vert plus
+    // profond (3,78:1 et 3,31:1) ; en sombre, où il tient 6,80:1 et 7,22:1, il reste celui de
+    // l'amont. Le rouge et le bleu tiennent 3:1 dans les deux apparences et ne changent pas.
+    let green_mark = crate::theme::hue_on(t.chrome, hex("#33bb55"), crate::theme::CHANNEL_GREEN_DEEP);
+    let green_line = crate::theme::hue_on(t.canvas, hex("#33bb55"), crate::theme::CHANNEL_GREEN_DEEP);
     // channel selector
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 6, bottom: 4 }).show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -182,7 +188,7 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
                 ("parametric", Color32::from_gray(200)),
                 ("master", master_ink),
                 ("red", hex("#dd3333")),
-                ("green", hex("#33bb55")),
+                ("green", green_mark),
                 ("blue", hex("#3377ee")),
             ] {
                 let (r, resp) = ui.allocate_exact_size(vec2(24.0, 24.0), Sense::click());
@@ -282,7 +288,7 @@ pub(super) fn curve_editor(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId
     let curve = evolight_color::spline::MonotoneCurve::new(&pts.iter().map(|q| (q.x, q.y)).collect::<Vec<_>>());
     let color = match ch.as_str() {
         "red" => hex("#dd3333"),
-        "green" => hex("#33bb55"),
+        "green" => green_line,
         "blue" => hex("#3377ee"),
         _ => master_line,
     };

@@ -94,6 +94,27 @@ pub fn graph_rule(t: &Tokens, background: Color32, share: f32, upstream: Color32
     evora_ink(background.lerp_to_gamma(t.text, share), upstream)
 }
 
+/// Evora (EVORA-REV-109, E2) : le contraste minimal d'un tracé contre son fond (WCAG 2, 1.4.11).
+pub const MIN_GRAPHIC_CONTRAST: f32 = 3.0;
+
+/// Evora (EVORA-REV-109, E2) : le vert profond d'un canal vert (courbe, histogramme) sur un fond
+/// clair : 3,31:1 sur le canvas clair d'Evora et 3,78:1 sur le blanc, où les verts de l'amont ne
+/// tenaient que 2,20:1 à 2,73:1.
+pub const CHANNEL_GREEN_DEEP: Color32 = Color32::from_rgb(0x2a, 0x96, 0x4a);
+
+/// Evora (EVORA-REV-109, E2) : l'orange profond de la marge HDR de l'histogramme sur un fond
+/// clair : 3,70:1 sur le blanc, où l'orange de l'amont ne tenait que 2,39:1.
+pub const HDR_HEADROOM_DEEP: Color32 = Color32::from_rgb(196, 112, 20);
+
+/// Evora (EVORA-REV-109, E2) : la teinte d'un tracé coloré (canal d'une courbe ou d'un
+/// histogramme, marge HDR) posé sur `background`, dont l'amont fixe la couleur pour un fond
+/// sombre. Sous l'identité d'Evora, `upstream` tant qu'elle tient [`MIN_GRAPHIC_CONTRAST`] sur ce
+/// fond (c'est le cas de tout le sombre, qui ne change pas), et `deep`, la même teinte plus
+/// profonde, sinon. Hors d'Evora, `upstream`, la couleur de l'amont.
+pub fn hue_on(background: Color32, upstream: Color32, deep: Color32) -> Color32 {
+    if evora_palette() && crate::button::contrast(upstream, background) < MIN_GRAPHIC_CONTRAST { deep } else { upstream }
+}
+
 /// Evora (EVORA-REV-106, E2) : l'hôte mène-t-il l'apparence ? Vrai sous le pont d'Evora, dont le
 /// masque retire la commande d'apparence des menus et du clavier ([`crate::menubar::host_masked`]) :
 /// la coquille choisit le mode clair ou sombre et l'envoie au moteur. Faux dans les builds propres
@@ -970,6 +991,42 @@ mod tests {
             );
             assert_eq!(evora_ink(t.text, Color32::from_gray(220)), Color32::from_gray(220), "{kind:?} : hors d'Evora, le tracé de l'amont");
             assert_eq!(graph_rule(&t, t.canvas, GRAPH_GRID_SHARE, Color32::from_gray(52)), Color32::from_gray(52), "{kind:?} : le filet de l'amont");
+        }
+    }
+
+    /// Evora (EVORA-REV-109, E2) : sous l'identité d'Evora, les tracés colorés que l'amont fixe pour
+    /// un fond sombre (canal vert de la courbe et de l'histogramme, marge HDR) tiennent 3:1 ou plus
+    /// sur leur fond, en clair comme en sombre. En sombre, ils gardent la teinte de l'amont ; en
+    /// clair, ils prennent la teinte profonde. Hors d'Evora, toujours celle de l'amont.
+    #[test]
+    fn evora_coloured_traces_keep_three_to_one_in_both_appearances() {
+        let curve_green = Color32::from_rgb(0x33, 0xbb, 0x55);
+        let histogram_green = Color32::from_rgb(0x44, 0xb0, 0x72);
+        let headroom = Color32::from_rgb(230, 150, 60);
+        let traces = |t: &Tokens| {
+            [
+                ("pastille du canal vert sur le chrome", t.chrome, curve_green, CHANNEL_GREEN_DEEP),
+                ("courbe verte sur le canvas", t.canvas, curve_green, CHANNEL_GREEN_DEEP),
+                ("canal vert de l'histogramme", t.button, histogram_green, CHANNEL_GREEN_DEEP),
+                ("marge HDR de l'histogramme", t.button, headroom, HDR_HEADROOM_DEEP),
+            ]
+        };
+        set_evora_palette(true);
+        for kind in ThemeKind::ALL {
+            let t = Tokens::for_kind(kind);
+            for (what, surface, upstream, deep) in traces(&t) {
+                let ink = hue_on(surface, upstream, deep);
+                let c = contrast(ink, surface);
+                assert!(c >= MIN_GRAPHIC_CONTRAST, "{kind:?} : {what} : {c:.2}");
+                assert_eq!(ink, if kind.is_dark() { upstream } else { deep }, "{kind:?} : {what} : teinte de l'amont en sombre, profonde en clair");
+            }
+        }
+        set_evora_palette(false);
+        for kind in ThemeKind::ALL {
+            let t = Tokens::for_kind(kind);
+            for (what, surface, upstream, deep) in traces(&t) {
+                assert_eq!(hue_on(surface, upstream, deep), upstream, "{kind:?} : {what} : hors d'Evora, la teinte de l'amont");
+            }
         }
     }
 

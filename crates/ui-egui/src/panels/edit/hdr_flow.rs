@@ -100,7 +100,12 @@ impl LayoutFlow {
             let neutral = crate::theme::evora_ink(crate::theme::Tokens::get(p.ctx()).text_label, Color32::from_gray(200));
             p.add(line(2, neutral));
         } else {
-            for (j, c) in [(1, hex("#df3939")), (2, hex("#44b072")), (3, hex("#3b6fe0"))] {
+            // Evora (EVORA-REV-109, L5) : en clair, le vert de l'amont ne tenait que 2,73:1 sur le
+            // fond blanc de l'histogramme (`button`) ; il y prend un vert plus profond (3,78:1). En
+            // sombre (5,55:1), il reste celui de l'amont, comme le rouge et le bleu partout.
+            let surface = crate::theme::Tokens::get(p.ctx()).button;
+            let green = crate::theme::hue_on(surface, hex("#44b072"), crate::theme::CHANNEL_GREEN_DEEP);
+            for (j, c) in [(1, hex("#df3939")), (2, green), (3, hex("#3b6fe0"))] {
                 p.add(line(j, c));
             }
         }

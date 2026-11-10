@@ -144,7 +144,11 @@ pub(crate) fn histogram(app: &mut EvoLightApp, ui: &mut egui::Ui, id: PhotoId) {
             if limit.is_finite() && limit >= 0.0 && limit < b.stops - 0.05 {
                 let x = x0 + (plot.right() - x0) * (limit / b.stops).clamp(0.0, 1.0);
                 p.rect_filled(Rect::from_min_max(pos2(x, plot.top()), plot.max), 0.0, Color32::from_black_alpha(70));
-                p.line_segment([pos2(x, plot.top()), pos2(x, plot.bottom())], Stroke::new(1.0, Color32::from_rgb(230, 150, 60)));
+                // Evora (EVORA-REV-109, L5) : en clair, l'orange de l'amont ne tenait que 2,39:1
+                // sur le fond blanc de l'histogramme ; il y prend un orange plus profond (3,70:1).
+                // En sombre (6,34:1), il reste celui de l'amont.
+                let headroom = crate::theme::hue_on(t.button, Color32::from_rgb(230, 150, 60), crate::theme::HDR_HEADROOM_DEEP);
+                p.line_segment([pos2(x, plot.top()), pos2(x, plot.bottom())], Stroke::new(1.0, headroom));
             }
         }
         flow.paint_curve(p, plot, &h);
