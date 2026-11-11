@@ -63,7 +63,7 @@
 # Empreintes figées (lot 1 « REV-TONS », P0, EVORA-REV-75) : avant la version du rendu d'Evora, le
 # test ignoré tests_frozen::print_frozen_render_fingerprints du pipeline, joué en natif (cible de
 # l'hôte, dossier target à part), imprime l'empreinte des rendus de V1 à V6 (fichier rendu et brut
-# de test, crans −1 à +2, deux jeux de réglages). Ses lignes vont au résumé et aux diagnostics :
+# de test, crans −1 à +2, quatre jeux de réglages). Ses lignes vont au résumé et aux diagnostics :
 # elles deviennent les constantes du test R11, qui garde ces rendus figés après P1 et P2.
 name: Evora web
 

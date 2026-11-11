@@ -2,7 +2,7 @@
 //! « éditions figées » côté Rust.
 //!
 //! `print_frozen_render_fingerprints`, ignoré par défaut, imprime une empreinte par cas : chaque
-//! version de V1 à V6, un fichier rendu et un brut de test, les crans −1, 0, +1 et +2, et deux jeux
+//! version de V1 à V6, un fichier rendu et un brut de test, les crans −1, 0, +1 et +2, et quatre jeux
 //! de réglages. L'étape « Empreintes figées » de la CI d'Evora le joue sur l'arbre d'avant la
 //! version du rendu d'Evora et dépose ses lignes dans le résumé et les diagnostics ; elles
 //! deviennent les constantes du test qui garde ces rendus figés (R11).
@@ -45,7 +45,7 @@ pub(crate) fn frozen_cases() -> Vec<FrozenCase> {
     let mut out = Vec::new();
     for version in FROZEN_VERSIONS {
         for source in ["rendu", "brut"] {
-            for variant in ["simple", "retouche"] {
+            for variant in ["simple", "retouche", "presence", "douceur"] {
                 for step in FROZEN_STEPS {
                     out.push(FrozenCase { version, source, variant, step });
                 }
@@ -75,6 +75,18 @@ fn settings(case: &FrozenCase) -> DevelopSettings {
         (l.contrast, l.highlights, l.whites, l.blacks) = (30.0, -60.0, 15.0, -20.0);
         s.mixer.blue.sat = -30.0;
         s.mixer.orange.lum = 15.0;
+    }
+    // Les curseurs que le rendu d'Evora reprend ensuite (tons sombres, texture, clarté, voile,
+    // vibrance, saturation), montés puis baissés : leurs rendus de V1 à V6 restent figés eux aussi.
+    if case.variant == "presence" {
+        s.light.shadows = 40.0;
+        (s.effects.texture, s.effects.clarity, s.effects.dehaze) = (40.0, 50.0, 30.0);
+        (s.color.vibrance, s.color.saturation) = (40.0, 20.0);
+    }
+    if case.variant == "douceur" {
+        s.light.shadows = -30.0;
+        (s.effects.texture, s.effects.clarity, s.effects.dehaze) = (-30.0, -40.0, -35.0);
+        (s.color.vibrance, s.color.saturation) = (-30.0, -20.0);
     }
     s
 }
