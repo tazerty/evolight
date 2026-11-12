@@ -1,27 +1,63 @@
-//! Evora (lot 1 « REV-TONS », P0) : empreintes figées des rendus des versions V1 à V6, recette
-//! « éditions figées » côté Rust.
+//! Evora (lot 1 « REV-TONS », P0, élargi par EVORA-REV-95) : empreintes figées des rendus des versions
+//! V1 à V6, recette « éditions figées » côté Rust.
 //!
 //! `print_frozen_render_fingerprints`, ignoré par défaut, imprime une empreinte par cas : chaque
-//! version de V1 à V6, un fichier rendu et un brut de test, les crans −1, 0, +1 et +2, et quatre jeux
-//! de réglages. L'étape « Empreintes figées » de la CI d'Evora le joue sur l'arbre d'avant la
-//! version du rendu d'Evora et dépose ses lignes dans le résumé et les diagnostics ; elles
-//! deviennent les constantes du test qui garde ces rendus figés (R11).
+//! version de V1 à V6, les crans −1, 0, +1 et +2, et dix-huit couples de source et de jeu de réglages.
+//! Un fichier rendu et un brut de test portent chacun huit jeux (« simple », « retouche », « vigueur »,
+//! « douceur », « melange », « grand », « fenetre », « cache ») ; un brut à courbe d'appareil en porte
+//! deux (« simple », « retouche »). Soit 18 × 6 × 4 = 432 lignes. L'étape « Empreintes figées » de la
+//! CI d'Evora le joue sur l'arbre d'avant la version du rendu d'Evora et dépose ses lignes dans le
+//! résumé et les diagnostics ; elles deviennent les constantes du test qui garde ces rendus figés (R11).
+//!
+//! Ce que chaque jeu ajouté fige :
+//! - « melange » : le mélangeur de couleur avec vibrance et saturation, et un masque visible à
+//!   réglages locaux ;
+//! - « grand » : une sortie de 480 points, où la base des tons clairs et sombres passe par son filtre
+//!   sous-échantillonné et par son médian (rayon nul à 120 points) ;
+//! - « fenetre » : le rendu d'une fenêtre de cette sortie, avec l'atténuation de la brume, dont le
+//!   niveau d'atmosphère vient alors du cadre entier ;
+//! - « cache » : le brouillon rendu après un changement de réduction du bruit, qui reprend les plans
+//!   larges gardés par le cache d'étapes ; puis, sur le même cache, un rendu plein aux réglages
+//!   d'origine, qui ne doit reprendre aucun des plans de ce brouillon ;
+//! - la source « courbe » : les bras à courbe d'appareil de la table de tons, et de V4 à V6 les
+//!   opérateurs de contraste et de noirs qui la suivent.
 //!
 //! Les rendus appellent `powf`, `exp2` et `log2` de la plateforme, dont le dernier bit peut changer
 //! d'une plateforme à l'autre (même raison que le test d'or de V1 et V2 de l'amont) : une empreinte
-//! ne vaut que pour la plateforme où elle a été relevée.
+//! ne vaut que pour la plateforme où elle a été relevée. La courbe d'appareil de la source « courbe »
+//! est calculée ici avec `powi` et `exp` : même réserve pour ses 48 lignes.
 
-use evolight_develop::{DevelopSettings, Process};
+use std::sync::Arc;
+
+use evolight_develop::{DevelopSettings, LocalAdjustments, Mask, MaskComponent, MaskOp, MaskShape, Process};
+use evolight_geom::Point;
 use evolight_raster::Rgb32f;
 
-use crate::{DeepSamples, OutputDepth, RenderRequest, SourceInfo, render};
+use crate::tone::CameraTone;
+use crate::{DeepSamples, OutputDepth, PixelWindow, Quality, RenderRequest, Rendered, SourceInfo, StageCache, render, render_cached};
 
 /// Les versions figées : toutes celles de l'amont connues au moment du relevé.
 pub(crate) const FROZEN_VERSIONS: [Process; 6] = [Process::V1, Process::V2, Process::V3, Process::V4, Process::V5, Process::V6];
 /// Crans de la recette, en stops.
 pub(crate) const FROZEN_STEPS: [f64; 4] = [-1.0, 0.0, 1.0, 2.0];
-/// Côté de la boîte de rendu (la scène de démonstration y est réduite de moitié).
+/// Sources de la recette, dans l'ordre où elles s'impriment : un fichier rendu, un brut de test, un
+/// brut à courbe d'appareil. Chaque nom tient en un mot (une ligne d'empreinte compte six mots).
+const FROZEN_SOURCES: [&str; 3] = ["rendu", "brut", "courbe"];
+/// Jeux de réglages du fichier rendu et du brut de test, dans l'ordre où ils s'impriment. Un mot
+/// chacun, sans accent.
+const FROZEN_VARIANTS: &[&str] = &["simple", "retouche", "vigueur", "douceur", "melange", "grand", "fenetre", "cache"];
+/// Jeux de réglages du brut à courbe d'appareil.
+const FROZEN_CURVE_VARIANTS: &[&str] = &["simple", "retouche"];
+/// Nombre de lignes d'empreintes : 18 couples (source, jeu) × 6 versions × 4 crans.
+const FROZEN_TOTAL: usize = 432;
+/// Côté de la boîte de rendu des jeux à 120 points (la scène de démonstration y est réduite de moitié).
 const FROZEN_SIDE: usize = 120;
+/// Côté de la boîte de rendu des jeux « grand » et « fenetre » (la grande scène y garde sa taille).
+const FROZEN_LARGE_SIDE: usize = 480;
+/// La fenêtre du jeu « fenetre », en points de la sortie de 480 × 320.
+const FROZEN_WINDOW: PixelWindow = PixelWindow { x: 150, y: 90, w: 200, h: 140 };
+/// Réduction du bruit de luminance posée entre le rendu plein et le brouillon du jeu « cache ».
+const FROZEN_CACHE_NR: f64 = 50.0;
 /// Préfixe des lignes d'empreintes, lu par la CI et par le fichier des constantes.
 pub(crate) const LINE_PREFIX: &str = "frozen";
 
@@ -40,12 +76,17 @@ impl FrozenCase {
     }
 }
 
+/// Les jeux de réglages d'une source.
+fn variants_of(source: &str) -> &'static [&'static str] {
+    if source == "courbe" { FROZEN_CURVE_VARIANTS } else { FROZEN_VARIANTS }
+}
+
 /// Tous les cas, dans l'ordre où ils s'impriment.
 pub(crate) fn frozen_cases() -> Vec<FrozenCase> {
     let mut out = Vec::new();
     for version in FROZEN_VERSIONS {
-        for source in ["rendu", "brut"] {
-            for variant in ["simple", "retouche", "presence", "douceur"] {
+        for source in FROZEN_SOURCES {
+            for &variant in variants_of(source) {
                 for step in FROZEN_STEPS {
                     out.push(FrozenCase { version, source, variant, step });
                 }
@@ -60,14 +101,73 @@ pub(crate) fn frozen_scene() -> Rgb32f {
     evolight_scenes::demo_library()[0].render(240, 160)
 }
 
+/// La même scène à 480 × 320 points, pour les jeux « grand » et « fenetre ».
+fn frozen_large_scene() -> Rgb32f {
+    evolight_scenes::demo_library()[0].render(480, 320)
+}
+
+/// Les jeux rendus depuis la grande scène, dans la boîte de `FROZEN_LARGE_SIDE` points.
+fn is_large(variant: &str) -> bool {
+    matches!(variant, "grand" | "fenetre")
+}
+
+/// Les deux scènes de la recette, rendues une fois pour tous les cas.
+pub(crate) struct FrozenScenes {
+    small: Arc<Rgb32f>,
+    large: Arc<Rgb32f>,
+}
+
+impl FrozenScenes {
+    pub(crate) fn new() -> Self {
+        Self { small: Arc::new(frozen_scene()), large: Arc::new(frozen_large_scene()) }
+    }
+
+    /// La scène d'un cas : la grande pour « grand » et « fenetre », celle de 240 × 160 points sinon.
+    fn of(&self, case: &FrozenCase) -> &Arc<Rgb32f> {
+        if is_large(case.variant) { &self.large } else { &self.small }
+    }
+}
+
+/// La courbe d'appareil du brut « courbe » : celle du modèle de
+/// `tests::stored_process_numbers_render_with_a_known_process`. Ses nœuds se calculent avec `powi` et
+/// `exp`, comme dans le modèle : les écrire autrement donnerait une autre courbe (voir l'en-tête).
+fn camera_curve() -> CameraTone {
+    let Some(curve) = CameraTone::new(std::array::from_fn(|i| {
+        let x = 0.004 * 1.18f32.powi(i as i32);
+        [x, 1.0 - (-2.0 * x).exp()]
+    })) else {
+        panic!("courbe d'appareil du modèle refusée");
+    };
+    curve
+}
+
 fn source_info(source: &str) -> SourceInfo {
-    if source == "brut" { SourceInfo { raw: true, as_shot_temp: 5200.0, as_shot_tint: 4.0, ..Default::default() } } else { SourceInfo::default() }
+    match source {
+        "brut" => SourceInfo { raw: true, as_shot_temp: 5200.0, as_shot_tint: 4.0, ..Default::default() },
+        "courbe" => SourceInfo { raw: true, relative_wb: true, camera_tone: Some(camera_curve()), ..Default::default() },
+        _ => SourceInfo::default(),
+    }
+}
+
+/// La demande de rendu 8 bits d'un cas : la boîte de son jeu, et pour « fenetre » la fenêtre.
+fn frozen_request(case: &FrozenCase) -> RenderRequest {
+    match case.variant {
+        "grand" => RenderRequest::fit(FROZEN_LARGE_SIDE, FROZEN_LARGE_SIDE),
+        "fenetre" => RenderRequest { window: Some(FROZEN_WINDOW), ..RenderRequest::fit(FROZEN_LARGE_SIDE, FROZEN_LARGE_SIDE) },
+        _ => RenderRequest::fit(FROZEN_SIDE, FROZEN_SIDE),
+    }
 }
 
 /// Les réglages d'un cas : ceux d'une photo neuve de ce type, la version du cas, le cran, et pour
-/// « retouche » quatre curseurs de la lumière et un mélange de couleur.
+/// « retouche » quatre curseurs de la lumière et un mélange de couleur. Les autres jeux sont décrits
+/// à leur bloc.
 fn settings(case: &FrozenCase) -> DevelopSettings {
-    let mut s = if case.source == "brut" { DevelopSettings::for_raw(5200.0, 4.0) } else { DevelopSettings::default() };
+    let mut s = match case.source {
+        "brut" => DevelopSettings::for_raw(5200.0, 4.0),
+        // le blanc de prise de vue du brut « courbe » est celui de `SourceInfo::default`
+        "courbe" => DevelopSettings::for_raw(6500.0, 0.0),
+        _ => DevelopSettings::default(),
+    };
     s.process = case.version.version();
     s.light.exposure = case.step;
     if case.variant == "retouche" {
@@ -76,9 +176,10 @@ fn settings(case: &FrozenCase) -> DevelopSettings {
         s.mixer.blue.sat = -30.0;
         s.mixer.orange.lum = 15.0;
     }
-    // Les curseurs que le rendu d'Evora reprend ensuite (tons sombres, texture, clarté, voile,
-    // vibrance, saturation), montés puis baissés : leurs rendus de V1 à V6 restent figés eux aussi.
-    if case.variant == "presence" {
+    // Les curseurs que le rendu d'Evora reprend ensuite (tons sombres, relief fin, contraste local,
+    // atténuation de la brume, vibrance, saturation), montés puis baissés : leurs rendus de V1 à V6
+    // restent figés eux aussi.
+    if case.variant == "vigueur" {
         s.light.shadows = 40.0;
         (s.effects.texture, s.effects.clarity, s.effects.dehaze) = (40.0, 50.0, 30.0);
         (s.color.vibrance, s.color.saturation) = (40.0, 20.0);
@@ -87,6 +188,44 @@ fn settings(case: &FrozenCase) -> DevelopSettings {
         s.light.shadows = -30.0;
         (s.effects.texture, s.effects.clarity, s.effects.dehaze) = (-30.0, -40.0, -35.0);
         (s.color.vibrance, s.color.saturation) = (-30.0, -20.0);
+    }
+    // Le mélangeur actif (teinte, saturation, luminance) avec vibrance et saturation : le chemin long
+    // des outils de couleur. Et un masque visible dont les réglages locaux touchent les tons clairs,
+    // le relief fin, le contraste local, l'atténuation de la brume et la saturation.
+    if case.variant == "melange" {
+        s.mixer.red.hue = 20.0;
+        s.mixer.orange.sat = 25.0;
+        s.mixer.green.sat = -35.0;
+        s.mixer.blue.lum = -20.0;
+        (s.color.vibrance, s.color.saturation) = (35.0, -15.0);
+        s.masks.push(Mask {
+            id: 1,
+            components: vec![MaskComponent {
+                name: None,
+                op: MaskOp::Add,
+                invert: false,
+                shape: MaskShape::Radial { center: Point::new(0.5, 0.5), rx: 0.3, ry: 0.2, angle: 20.0, feather: 50.0, invert: false },
+            }],
+            adjust: LocalAdjustments { highlights: -40.0, texture: 30.0, clarity: 25.0, dehaze: 20.0, saturation: 30.0, ..Default::default() },
+            ..Default::default()
+        });
+    }
+    // À 480 points, la base des tons clairs et sombres a un sigma de 7,2 points (filtre guidé au pas
+    // de 2) et, depuis V2, un médian de rayon 1 ; le contraste local lit cette base.
+    if case.variant == "grand" {
+        (s.light.highlights, s.light.shadows) = (-50.0, 40.0);
+        s.effects.clarity = 30.0;
+    }
+    // L'atténuation de la brume d'une fenêtre prend son niveau d'atmosphère sur le cadre entier.
+    if case.variant == "fenetre" {
+        s.light.highlights = -50.0;
+        s.effects.dehaze = 30.0;
+    }
+    // Les plans larges que le brouillon du jeu « cache » reprend : base des tons, contraste local,
+    // atténuation de la brume.
+    if case.variant == "cache" {
+        s.light.highlights = -40.0;
+        (s.effects.clarity, s.effects.dehaze) = (40.0, 20.0);
     }
     s
 }
@@ -98,44 +237,75 @@ fn fnv(hash: &mut u64, bytes: impl IntoIterator<Item = u8>) {
     }
 }
 
-/// L'empreinte d'un cas : les octets du rendu 8 bits, puis les échantillons du rendu 16 bits.
-pub(crate) fn fingerprint(src: &Rgb32f, case: &FrozenCase) -> u64 {
+/// Les rendus d'un cas pour une demande, dans l'ordre où ils se hachent : un seul, sans cache, sauf
+/// pour le jeu « cache », qui en donne deux. Ce jeu passe par un cache d'étapes neuf : un rendu plein,
+/// qui n'est pas gardé ; puis, la réduction du bruit de luminance changée, un brouillon de la même
+/// boîte, qui garde les plans larges du rendu plein ; puis un rendu plein aux réglages d'origine, à
+/// qui la clé des plans laissés par le brouillon ne correspond pas et qui les refait tous. La
+/// fonction donne le brouillon, puis ce dernier rendu.
+fn rendered(src: &Arc<Rgb32f>, info: &SourceInfo, s: &DevelopSettings, req: &RenderRequest, case: &FrozenCase) -> Vec<Rendered> {
+    if case.variant != "cache" {
+        return vec![render(src, info, s, req)];
+    }
+    let cache = StageCache::default();
+    render_cached(src, info, s, req, &cache);
+    let mut after = s.clone();
+    after.detail.nr_luminance = FROZEN_CACHE_NR;
+    let draft_req = RenderRequest { quality: Quality::Draft, ..*req };
+    let draft = render_cached(src, info, &after, &draft_req, &cache);
+    let full = render_cached(src, info, s, req, &cache);
+    vec![draft, full]
+}
+
+/// L'empreinte d'un cas : les octets de ses rendus 8 bits, puis les échantillons de ses rendus
+/// 16 bits (un rendu par profondeur, deux pour le jeu « cache »).
+pub(crate) fn fingerprint(scenes: &FrozenScenes, case: &FrozenCase) -> u64 {
+    let src = scenes.of(case);
     let info = source_info(case.source);
     let s = settings(case);
     let mut h = 0xCBF2_9CE4_8422_2325_u64;
-    let eight = render(src, &info, &s, &RenderRequest::fit(FROZEN_SIDE, FROZEN_SIDE));
-    fnv(&mut h, eight.image.data.iter().flatten().copied());
-    let req = RenderRequest { depth: OutputDepth::U16, ..RenderRequest::fit(FROZEN_SIDE, FROZEN_SIDE) };
-    let Some(deep) = render(src, &info, &s, &req).deep else {
-        panic!("{} : rendu 16 bits absent", case.key());
-    };
-    let DeepSamples::U16(v) = deep.samples else {
-        panic!("{} : échantillons 16 bits attendus", case.key());
-    };
-    fnv(&mut h, v.iter().flat_map(|x| x.to_le_bytes()));
+    for eight in rendered(src, &info, &s, &frozen_request(case), case) {
+        fnv(&mut h, eight.image.data.iter().flatten().copied());
+    }
+    let req = RenderRequest { depth: OutputDepth::U16, ..frozen_request(case) };
+    for sixteen in rendered(src, &info, &s, &req, case) {
+        let Some(deep) = sixteen.deep else {
+            panic!("{} : rendu 16 bits absent", case.key());
+        };
+        let DeepSamples::U16(v) = deep.samples else {
+            panic!("{} : échantillons 16 bits attendus", case.key());
+        };
+        fnv(&mut h, v.iter().flat_map(|x| x.to_le_bytes()));
+    }
     h
 }
 
 /// Les lignes d'empreintes de tous les cas : `frozen <clé> <empreinte>`.
-pub(crate) fn frozen_lines(src: &Rgb32f) -> Vec<String> {
+pub(crate) fn frozen_lines() -> Vec<String> {
+    let scenes = FrozenScenes::new();
     let mut out = Vec::new();
     for case in frozen_cases() {
-        out.push(format!("{LINE_PREFIX} {} {:#018x}", case.key(), fingerprint(src, &case)));
+        out.push(format!("{LINE_PREFIX} {} {:#018x}", case.key(), fingerprint(&scenes, &case)));
     }
     out
 }
 
-/// P0 : imprime les empreintes de V1 à V6, la plateforme et leur nombre. À jouer par l'étape
+/// P0 : imprime les empreintes de V1 à V6, la plateforme et leur nombre (432). À jouer par l'étape
 /// « Empreintes figées » de la CI d'Evora :
 /// `cargo test -p evolight-pipeline --lib -- --ignored --exact tests_frozen::print_frozen_render_fingerprints --nocapture`.
+/// Après l'impression, il vérifie seulement la forme : six mots par ligne, et le compte.
 #[test]
 #[ignore = "P0 : impression des empreintes figées, jouée par la CI d'Evora"]
 fn print_frozen_render_fingerprints() {
-    let lines = frozen_lines(&frozen_scene());
+    let lines = frozen_lines();
     println!();
     println!("{LINE_PREFIX}-platform {} {}", std::env::consts::OS, std::env::consts::ARCH);
     for line in &lines {
         println!("{line}");
     }
     println!("{LINE_PREFIX}-total {}", lines.len());
+    for line in &lines {
+        assert_eq!(line.split_whitespace().count(), 6, "six mots attendus par ligne d'empreinte : « {line} »");
+    }
+    assert_eq!(lines.len(), FROZEN_TOTAL, "nombre de lignes d'empreintes");
 }
