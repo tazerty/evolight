@@ -1,0 +1,64 @@
+# Evora (porte « tests Rust », EVORA-REV-97 ; format et juge repris du lot 1 « REV-TONS » de Revela,
+# EVORA-REV-78) : liste fermée des tests Rust que la porte exige verts, une fois chacun, ni ignorés ni
+# sautés (.github/evora/test-guards.py).
+# Une ligne par test : <journal> <binaire> <chemin du test>. Journaux : « cpu » (schéma des réglages et
+# pipeline), « gpulib » (unitaires du noyau graphique), « gpu » (accord des deux chemins sur lavapipe),
+# « catalogue » (un test du catalogue, joué seul). Le binaire « it » du journal « cpu » est celui des
+# tests d'intégration du pipeline ; celui du journal « gpu », du noyau graphique.
+#
+# La liste ne nomme que des tests qui existent à ce commit, sur un arbre qui ne connaît pas encore la
+# version du rendu d'Evora : chaque commit qui ajoute un test de garde l'inscrit ici, chemin exact,
+# module compris. La porte joue par ailleurs tous les tests du schéma des réglages et du pipeline, et
+# tout « equivalence:: » du noyau graphique : un échec hors liste est rouge aussi. La liste garantit
+# en plus que ces tests-ci ont tourné.
+#
+# Ce que « fermée » veut dire, et ce que la liste ne garde pas :
+# - le juge ne rougit que sur les tests inscrits ici. Le nombre de lignes de cette liste est donc fixé
+#   dans l'étape « Porte tests Rust » de .github/workflows/evora-web.yml (EXPECTED_TESTS) : une ligne
+#   retirée, ou ajoutée, sans que ce nombre suive dans le même commit rougit la porte. La ligne de R11
+#   y est exigée à part ;
+# - un test hors liste qui passe ou qui est ignoré n'est pas jugé : la porte joue plusieurs centaines
+#   de tests de l'amont, la liste ne dit pas qu'il n'y en a pas d'autres ;
+# - le journal des sauts (EVOLIGHT_SKIP_LOG) ne peut être écrit que par les tests des journaux
+#   « gpulib », « gpu » et « catalogue ». Le schéma des réglages et le pipeline ne s'en servent pas : pour un test
+#   du journal « cpu », un retour anticipé sans assertion passe vert (voir v1_and_v2_render_as_before_v3
+#   plus bas).
+
+# Schéma des réglages : numéros de version du rendu (tests de l'amont)
+cpu evolight_develop tests_process::unknown_process_numbers_load_and_render_with_the_newest_known
+cpu evolight_develop tests_process::new_settings_get_the_latest_process
+cpu evolight_develop tests_process::the_process_is_not_an_edit_nor_part_of_copied_settings
+cpu evolight_develop tests_process::settings_saved_before_process_versions_load_as_v1
+
+# Pipeline : rendus figés de V1 à V6 (R11 : les 432 empreintes de crates/pipeline/src/frozen_renders.txt,
+# relevées par la CI sur l'arbre d'EVORA-REV-95 ; échoue sans empreinte ou sans ligne frozen-commit)
+cpu evolight_pipeline tests_frozen::frozen_renders_v1_to_v6
+
+# Pipeline : tests de l'amont sur l'exposition, les curseurs, les sections éteintes et les numéros de
+# version enregistrés (ceux que la version du rendu d'Evora devra laisser verts sous V6)
+cpu evolight_pipeline tests::exposure_is_monotone
+cpu evolight_pipeline tests::every_slider_changes_or_keeps_output_without_panicking
+cpu evolight_pipeline tests::sections_switched_off_render_as_defaults
+cpu evolight_pipeline tests::stored_process_numbers_render_with_a_known_process
+# test d'intégration de l'amont : l'aperçu suit l'enregistrement réduit sous de fortes retouches
+cpu it preview_save::preview_tracks_reduced_save_with_strong_edits
+
+# Catalogue : la version du rendu d'une photo n'est pas une retouche
+catalogue evolight_catalog model::edited_tests::the_process_a_photo_renders_with_is_not_an_edit
+
+# Pipeline : témoins de l'amont (rendus de V1 et V2, épaule en stops des bruts). Sur le runner (Linux
+# x86_64), v1_and_v2_render_as_before_v3 imprime seulement ses empreintes (il n'affirme que sous macOS
+# aarch64) : la garde réelle des rendus de V1 et V2 en CI est R11 (tests_frozen).
+cpu evolight_pipeline tests_light::v1_and_v2_render_as_before_v3
+cpu evolight_pipeline tests_tone::exposure_keeps_the_highlights_a_camera_curve_recorded
+cpu evolight_pipeline tests_tone::exposure_keeps_the_highlights_the_generic_curve_recorded
+
+# Noyau graphique : chaque module WGSL se valide sans GPU
+gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
+
+# Accord des deux chemins, sur lavapipe : témoins de l'amont
+gpu it equivalence::rendered_sources_and_other_scenes
+gpu it equivalence::gpu_matches_cpu
+gpu it equivalence::output_spaces_match
+gpu it equivalence::camera_tone_and_relative_wb
+gpu it equivalence::highlights_shadows_base_matches_on_every_process

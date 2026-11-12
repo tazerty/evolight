@@ -2,8 +2,8 @@
 #
 # Écrite par Evora à partir de packaging/web/package.sh, packaging/env.sh, xtask/src/web.rs et
 # docs/web.md de l'amont (MIT OR Apache-2.0). Rien n'est repris de amont/evo-common-actions.
-# Règles : aucune action tierce (seulement actions/checkout, actions/cache, actions/upload-artifact,
-# épinglées par SHA complet), toolchain Rust installée par rustup à version exacte, outils de build
+# Règles : aucune action tierce (seulement actions/checkout, actions/cache et ses sous-actions restore
+# et save, actions/upload-artifact, épinglées par SHA complet), toolchain Rust installée par rustup à version exacte, outils de build
 # installés à version exacte (cargo install --locked), permissions en lecture seule, aucun secret.
 #
 # Sortie : artefact Actions « evora-revela-web-<tag> » contenant evora-revela-web-<tag>.zip,
@@ -60,11 +60,42 @@
 # vérifie que le DNG versionné est exactement celui du script ; les témoins sabordent trois fois le vrai
 # moteur (export uniforme, export vide, panique) : chaque sabordage doit rougir avec son étiquette.
 #
-# Empreintes figées (lot 1 « REV-TONS », P0, EVORA-REV-75) : avant la version du rendu d'Evora, le
-# test ignoré tests_frozen::print_frozen_render_fingerprints du pipeline, joué en natif (cible de
-# l'hôte, dossier target à part), imprime l'empreinte des rendus de V1 à V6 (fichier rendu et brut
-# de test, crans −1 à +2, quatre jeux de réglages). Ses lignes vont au résumé et aux diagnostics :
-# elles deviennent les constantes du test R11, qui garde ces rendus figés après P1 et P2.
+# Empreintes figées (lot 1 « REV-TONS », P0, EVORA-REV-75 ; élargies par EVORA-REV-95) : avant la
+# version du rendu d'Evora, le test ignoré tests_frozen::print_frozen_render_fingerprints du pipeline,
+# joué en natif (cible de l'hôte, dossier target à part), imprime l'empreinte des rendus de V1 à V6 :
+# dix-huit couples de source et de jeu de réglages (fichier rendu et brut de test, huit jeux chacun ;
+# brut à courbe d'appareil, deux jeux), six versions, crans −1 à +2, soit 432 lignes. Ses lignes vont
+# au résumé et aux diagnostics. Celles du run 43281819468, relevées sur l'arbre d'EVORA-REV-95, sont
+# les constantes du test R11 (crates/pipeline/src/frozen_renders.txt, EVORA-REV-96), qui garde ces
+# rendus figés pendant et après l'arrivée de la version du rendu d'Evora. Depuis EVORA-REV-97 (repris
+# d'EVORA-REV-82 et -84 du lot 1), l'étape ne relève que sur un arbre qui ne connaît pas Evora1, avec
+# la ligne frozen-commit du relevé ; ailleurs, ses lignes sont titrées « controle » et ne se recopient
+# pas. La porte tests Rust vérifie le commit inscrit dans le fichier des constantes (ancêtre de la
+# tête, arbre sans Evora1 ni dossier crates/pipeline/src/evora1, recette qui y annonce autant de cas
+# que le fichier a d'empreintes) et le dernier commit à avoir touché ce fichier (arbre sans Evora1 non
+# plus : rien n'y est écrit après l'arrivée de cette version). Elle ne prouve pas que les lignes sont
+# celles du run du commit inscrit : cela se relit contre l'artefact de ce run. Elle pose
+# EVORA_FROZEN_STRICT=1, sous laquelle R11 échoue sur un écart de plateforme.
+#
+# Porte tests Rust (EVORA-REV-97 ; juge, étapes et corrections repris du lot 1, EVORA-REV-78, -82, -83
+# et -87) : avant le build web, cargo test en natif sur tous les tests du schéma des réglages et du
+# pipeline (dont R11 et ses 432 empreintes), la validation des modules WGSL sans GPU, un test du
+# catalogue, puis l'accord des deux chemins (calcul principal et noyau graphique) sur lavapipe,
+# l'adaptateur Vulkan logiciel de Mesa, admis par EVOLIGHT_GPU_ALLOW_SOFTWARE=1 pour les tests
+# seulement. Une sonde doit trouver l'adaptateur, et son témoin sans la variable doit le refuser.
+# .github/evora/test-guards.py (repris du lot 1 octet pour octet) juge les journaux contre la liste
+# fermée .github/evora/expected-tests.txt : rouge si un test attendu n'a pas tourné, est ignoré, en
+# échec ou sauté (EVOLIGHT_SKIP_LOG), sur tout saut GPU de l'accord, et sur tout test en échec, même
+# hors liste. Le juge ne rougit que sur les tests inscrits : le nombre de lignes de la liste est donc
+# fixé dans l'étape (EXPECTED_TESTS, à monter par chaque commit qui inscrit un test), et la ligne de
+# R11 y est exigée. Un test hors liste qui passe ou qui est ignoré n'est pas jugé. Sans lavapipe
+# (installation en échec, qui n'arrête pas la tâche), la sonde le dit et seule cette porte rougit.
+# Elle tourne comme les autres portes avec continue-on-error : un rouge ne saute ni le
+# build ni la fumée, ses journaux vont aux diagnostics et le verdict la nomme ; son dossier target
+# est réenregistré à chaque run, même rouge. La sonde, son témoin et les quatre courses vont au bout
+# même quand l'une échoue (une sonde qui ne compile pas ne saute pas les tests du pipeline), le juge
+# et la ligne de bilan des codes s'impriment toujours, et la ligne frozen-commit se lit comme R11 la
+# lit (dernière ligne sans fin de ligne, fins CRLF).
 name: Evora web
 
 on:
@@ -199,14 +230,21 @@ jobs:
           restore-keys: |
             evora-web-target-${{ runner.os }}-rust${{ env.RUST_VERSION }}-
 
-      - name: Cache du dossier target des tests natifs (empreintes figées)
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restauration du dossier target des tests natifs (empreintes figées, porte tests Rust)
+        id: tests_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           # Dossier à part, hors du dépôt : la clé du cache target du build web est trouvée exactement à
           # chaque run, donc ce cache n'est jamais réenregistré ; des artefacts natifs n'y seraient pas gardés.
+          # EVORA-REV-97 (repris d'EVORA-REV-83 du lot 1) : clé par exécution, restauration par préfixe ;
+          # l'enregistrement est une étape à part, juste après la porte tests Rust, jouée même quand elle
+          # est rouge (une clé fixe trouvée exactement n'aurait jamais été réenregistrée : le cache posé
+          # par l'étape des empreintes n'aurait jamais reçu les binaires de la porte).
+          # Deux dossiers target sont en cache : surveiller le quota de cache du dépôt.
           path: ~/.evora-target-tests
-          key: evora-tests-target-${{ runner.os }}-rust${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          key: evora-tests-target-${{ runner.os }}-rust${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}-${{ github.run_id }}
           restore-keys: |
+            evora-tests-target-${{ runner.os }}-rust${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}-
             evora-tests-target-${{ runner.os }}-rust${{ env.RUST_VERSION }}-
 
       - name: Installation de wasm-bindgen-cli (version exacte)
@@ -249,6 +287,18 @@ jobs:
           echo "$BIN" >> "$GITHUB_PATH"
           node --version
 
+      - name: Installation de lavapipe (Vulkan logiciel de Mesa, pour l'accord des deux chemins)
+        # Seule la porte tests Rust en dépend : un miroir apt en panne ne doit sauter ni les autres portes
+        # ni le build. Sans lavapipe, la sonde dit « available: false » et la porte rougit, avec son étiquette.
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Aucun GPU sur le runner : lavapipe est le seul adaptateur, admis pour les tests seulement par
+          # EVOLIGHT_GPU_ALLOW_SOFTWARE=1 (crates/gpu/src/ctx.rs ; l'application ne le pose jamais).
+          sudo apt-get -o Acquire::Retries=3 update -q
+          sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends mesa-vulkan-drivers libvulkan1
+          dpkg-query -W -f='${Package} ${Version}\n' mesa-vulkan-drivers libvulkan1 | tee "$RUNNER_TEMP/lavapipe.txt"
+
       - name: Auto-tests des instruments de porte (chaque porte doit savoir rougir)
         run: |
           set -euo pipefail
@@ -257,6 +307,7 @@ jobs:
           node .github/evora/advisory-guards.mjs --selftest
           node .github/evora/feature-guards.mjs --selftest
           python3 .github/evora/clock-guards.py selftest
+          python3 .github/evora/test-guards.py selftest
           python3 .github/evora/fixtures/temoin-dng.py check .github/evora/fixtures/temoin-rggb.dng
 
       - name: Portes E10 et E9 — émojis et termes sensibles des catalogues affichés
@@ -291,7 +342,7 @@ jobs:
           # Graphe lu depuis les Cargo.toml, contre-éprouvé par la sortie de cargo tree de la porte E7.
           python3 .github/evora/clock-guards.py check . --tree "$RUNNER_TEMP/web-tree.txt"
 
-      - name: Empreintes figées des rendus V1 à V6 (lot 1, P0, recette « éditions figées » ; impression seule)
+      - name: Empreintes figées des rendus V1 à V6 (lot 1, P0, recette « éditions figées » ; relevé sur un arbre sans Evora1, contrôle ensuite)
         id: g_frozen
         continue-on-error: true
         run: |
@@ -300,25 +351,219 @@ jobs:
           export CARGO_TARGET_DIR="$HOME/.evora-target-tests"
           OUT="$RUNNER_TEMP/evora-diag/empreintes-figees"; mkdir -p "$OUT"
           rustc --version --verbose | tee "$OUT/plateforme.txt"
+          # Ce qui fixe le dernier bit des empreintes au-delà de « linux x86_64 » : la libc (et
+          # sa libm) et le processeur du runner. Relevés pour le diagnostic seulement.
+          { getconf GNU_LIBC_VERSION || true; grep -m1 '^model name' /proc/cpuinfo || true; } | tee -a "$OUT/plateforme.txt"
           cargo test --locked -p evolight-pipeline --lib -- --ignored --exact tests_frozen::print_frozen_render_fingerprints --nocapture \
             2>&1 | tee "$OUT/journal.txt"
-          # Lignes « frozen v… » : les constantes du test R11 (P1), à recopier telles quelles.
-          sed 's/\x1b\[[0-9;]*m//g' "$OUT/journal.txt" | grep -E '^frozen(-platform| v)' > "$OUT/frozen_renders.txt" || true
+          sed 's/\x1b\[[0-9;]*m//g' "$OUT/journal.txt" | grep -E '^frozen(-platform| v)' > "$OUT/releve.txt" || true
           total="$(sed 's/\x1b\[[0-9;]*m//g' "$OUT/journal.txt" | sed -n 's/^frozen-total //p')"
-          lignes="$(grep -c '^frozen v' "$OUT/frozen_renders.txt" || true)"
+          lignes="$(grep -c '^frozen v' "$OUT/releve.txt" || true)"
           if [ -z "$total" ] || [ "$lignes" != "$total" ]; then
             echo "::error::empreintes figées : $lignes ligne(s) relevée(s) pour un total annoncé de « $total »"; exit 1
           fi
-          {
-            echo "### Empreintes figées des rendus V1 à V6 (P0 du lot 1)"
-            echo
-            echo "$lignes empreintes, $(grep '^frozen-platform' "$OUT/frozen_renders.txt" | cut -d' ' -f2-) ; $(rustc --version)."
-            echo "À recopier telles quelles dans crates/pipeline/src/frozen_renders.txt (constantes du test R11)."
-            echo
-            echo '```'
-            cat "$OUT/frozen_renders.txt"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Sans ligne frozen-platform, grep rend 1 : sous pipefail l'étape s'arrêterait ici sans rien dire.
+          plateforme="$(grep '^frozen-platform' "$OUT/releve.txt" | cut -d' ' -f2- || true)"
+          if [ -z "$plateforme" ]; then
+            echo "::error::empreintes figées : ligne frozen-platform absente du relevé"; exit 1
+          fi
+          # EVORA-REV-97 (repris d'EVORA-REV-82 du lot 1) : seul un arbre qui ne connaît pas la version du
+          # rendu d'Evora relève les constantes de R11, avec la ligne de provenance frozen-commit. Sur un
+          # arbre qui la connaît, les mêmes lignes sont titrées « controle » : R11 refuse de les lire, elles
+          # ne se recopient pas. Un fichier des réglages absent est une erreur (grep rendrait 2, lu comme
+          # « ne connaît pas » ; EVORA-REV-84 du lot 1).
+          SETTINGS=crates/develop/src/settings.rs
+          [ -f "$SETTINGS" ] || { echo "::error::$SETTINGS absent : impossible de dire si l'arbre connaît Evora1"; exit 1; }
+          if grep -qw 'Evora1' "$SETTINGS"; then
+            sed 's/^frozen/controle/' "$OUT/releve.txt" > "$OUT/controle.txt"
+            {
+              echo "### Empreintes de V1 à V6 sur un arbre qui connaît Evora1 : contrôle seulement, NE PAS RECOPIER"
+              echo
+              echo "$lignes empreintes, $plateforme ; $(rustc --version). Les constantes de R11 viennent du relevé sur un arbre d'avant cette version"
+              echo "(ligne frozen-commit de crates/pipeline/src/frozen_renders.txt, vérifiée par la porte tests Rust)."
+              echo
+              echo '```'
+              cat "$OUT/controle.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            { cat "$OUT/releve.txt"; echo "frozen-commit $GITHUB_SHA"; } > "$OUT/frozen_renders.txt"
+            {
+              echo "### Empreintes figées des rendus V1 à V6 (P0 du lot 1) : relevé sur un arbre qui ne connaît pas Evora1"
+              echo
+              echo "$lignes empreintes, $plateforme ; $(rustc --version) ; commit $GITHUB_SHA."
+              echo "Les constantes de R11 sont déjà dans crates/pipeline/src/frozen_renders.txt, et R11 leur confronte ces rendus."
+              echo "Ces lignes ne s'y recopient, telles quelles et ligne frozen-commit comprise, que pour un relevé neuf (cas ajouté à la recette)."
+              echo
+              echo '```'
+              cat "$OUT/frozen_renders.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Porte tests Rust — schéma des réglages, pipeline, catalogue, accord des deux chemins sur lavapipe (liste fermée, aucun saut)
+        id: g_tests
+        # Comme les autres portes, elle ne saute pas les suivantes ; TESTS est au verdict
+        continue-on-error: true
+        timeout-minutes: 45 # garde technique [P], à réviser sur la mesure du premier run
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$HOME/.evora-target-tests"
+          OUT="$RUNNER_TEMP/evora-diag/tests"; mkdir -p "$OUT"
+          rustc --version --verbose | tee "$OUT/plateforme.txt"
+          # L'installation de lavapipe n'arrête pas la tâche : sans elle, la sonde tranche plus bas.
+          if [ -s "$RUNNER_TEMP/lavapipe.txt" ]; then
+            cat "$RUNNER_TEMP/lavapipe.txt" >> "$OUT/plateforme.txt"
+          else
+            echo "::warning::lavapipe : paquets non relevés (étape d'installation en échec) ; la sonde dira si l'adaptateur est là"
+            echo "lavapipe : paquets non relevés (étape d'installation en échec)" >> "$OUT/plateforme.txt"
+          fi
+          # 0. Provenance des constantes de R11 (repris d'EVORA-REV-82 du lot 1, resserré ici). Ce que la
+          #    porte prouve :
+          #    a. le commit inscrit (ligne frozen-commit) est un ancêtre de la tête, et son arbre ne
+          #       connaît pas la version du rendu d'Evora (ni le dossier de son rendu, ni la variante
+          #       Evora1 du schéma des réglages) ;
+          #    b. à ce commit, la recette annonce (FROZEN_TOTAL) autant de cas que le fichier a
+          #       d'empreintes : un ancêtre d'avant la recette, ou d'une recette plus courte, est refusé ;
+          #    c. le dernier commit à avoir touché le fichier ne connaît pas cette version non plus :
+          #       rien n'y a été écrit après son arrivée. Les lignes « controle », les seules que l'étape
+          #       des empreintes imprime alors, n'ont donc pas pu y être recopiées : R11 ne confronte
+          #       pas l'arbre à lui-même. En contrepartie, une fois cette version arrivée, le fichier
+          #       ne se retouche plus, en-tête compris.
+          #    Ce qu'elle ne prouve pas : que les lignes sont, octet pour octet, celles du run du commit
+          #    inscrit. Cela se contrôle à la relecture (le fichier contre l'artefact de ce run) et, tant
+          #    que l'arbre ne connaît pas cette version, par R11 joué dans la même exécution que le relevé.
+          #    Les contrôles sont des conditions (aucun tube).
+          PROV=0
+          FROZEN_FILE=crates/pipeline/src/frozen_renders.txt
+          FROZEN_RECIPE=crates/pipeline/src/tests_frozen.rs
+          SETTINGS=crates/develop/src/settings.rs
+          EVORA_RENDER=crates/pipeline/src/evora1
+          # Rend 1, et dit pourquoi, si l'arbre du commit $1 connaît la version du rendu d'Evora.
+          # $2 : ce qu'est ce commit, pour le message ; $3 : nom de la copie de son settings.rs (diagnostics).
+          sans_evora1() {
+            if git cat-file -e "$1:$EVORA_RENDER" 2>/dev/null; then
+              echo "::error::R11 : l'arbre du $2 ($1) contient $EVORA_RENDER : constantes écrites après l'arrivée du rendu d'Evora"; return 1
+            fi
+            if ! git show "$1:$SETTINGS" > "$OUT/$3" 2>/dev/null; then
+              echo "::error::R11 : settings.rs illisible au $2 ($1)"; return 1
+            fi
+            if grep -qw 'Evora1' "$OUT/$3"; then
+              echo "::error::R11 : l'arbre du $2 ($1) connaît Evora1 : constantes écrites après l'arrivée de cette version"; return 1
+            fi
+            return 0
+          }
+          sha=""; figees=0; total=""; dernier=""
+          if [ -f "$FROZEN_FILE" ]; then
+            # Lu comme R11 (str::lines, puis mots séparés par des blancs ; EVORA-REV-87 du lot 1) : une
+            # dernière ligne sans fin de ligne compte, et le retour chariot d'une fin CRLF est retiré.
+            # La première ligne frozen-commit fait foi (R11 en refuse une seconde) ; les lignes
+            # d'empreintes sont celles dont le premier mot est « frozen ».
+            while read -r first second _ || [ -n "${first:-}" ]; do
+              first="${first%$'\r'}"; second="${second%$'\r'}"
+              if [ "$first" = "frozen-commit" ] && [ -z "$sha" ]; then sha="$second"; fi
+              if [ "$first" = "frozen" ]; then figees=$((figees + 1)); fi
+            done < "$FROZEN_FILE"
+          fi
+          if [ ! -f "$FROZEN_FILE" ]; then
+            echo "::error::R11 : $FROZEN_FILE absent"; PROV=1
+          elif [ -z "$sha" ]; then
+            echo "::error::R11 : aucune ligne frozen-commit dans $FROZEN_FILE (constantes non relevées par la CI)"; PROV=1
+          elif ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+            echo "::error::R11 : commit du relevé « $sha » illisible ou absent du dépôt"; PROV=1
+          elif ! git merge-base --is-ancestor "$sha" HEAD; then
+            echo "::error::R11 : le commit du relevé $sha n'est pas un ancêtre de la tête"; PROV=1
+          else
+            # a. l'arbre du commit inscrit
+            sans_evora1 "$sha" "commit du relevé" settings-du-releve.rs || PROV=1
+            # b. la recette du commit inscrit (une seule ligne « const FROZEN_TOTAL: usize = N; » attendue)
+            if git show "$sha:$FROZEN_RECIPE" > "$OUT/recette-du-releve.rs" 2>/dev/null; then
+              total="$(sed -n 's/^const FROZEN_TOTAL: usize = \([0-9][0-9]*\);.*$/\1/p' "$OUT/recette-du-releve.rs")"
+            fi
+            if [ -z "$total" ] || [ "$total" != "$figees" ]; then
+              echo "::error::R11 : au commit du relevé $sha, la recette annonce « $total » cas (FROZEN_TOTAL de $FROZEN_RECIPE) pour $figees empreinte(s) dans $FROZEN_FILE : ce commit n'a pas pu relever ces lignes"; PROV=1
+            fi
+            # c. le dernier commit à avoir touché le fichier des constantes
+            dernier="$(git log -1 --format=%H -- "$FROZEN_FILE" || true)"
+            if [ -z "$dernier" ]; then
+              echo "::error::R11 : aucun commit de l'historique ne porte $FROZEN_FILE"; PROV=1
+            else
+              sans_evora1 "$dernier" "dernier commit à avoir touché $FROZEN_FILE" settings-du-dernier-commit.rs || PROV=1
+            fi
+          fi
+          if [ "$PROV" -eq 0 ]; then verdict=conforme; else verdict=ROUGE; fi
+          echo "provenance des constantes de R11 : commit du relevé ${sha:-absent}, $figees empreinte(s), recette du relevé : ${total:-non lue} cas, dernier commit du fichier : ${dernier:-non recherché}, $verdict" | tee "$OUT/provenance.txt"
+          # 0 bis. Plancher de la liste fermée. Le juge ne rougit que sur les tests inscrits : une liste
+          #    amputée, ou vidée, resterait verte. Le nombre de tests inscrits est donc fixé ici, et chaque
+          #    commit qui inscrit un test monte EXPECTED_TESTS dans le même commit ; la ligne de R11 y est
+          #    exigée telle quelle.
+          LISTE=0
+          EXPECTED_LIST=.github/evora/expected-tests.txt
+          EXPECTED_TESTS=20
+          inscrits="$(grep -Ecv '^[[:space:]]*(#|$)' "$EXPECTED_LIST" || true)"
+          if [ "$inscrits" != "$EXPECTED_TESTS" ]; then
+            echo "::error::liste fermée : « $inscrits » test(s) inscrit(s) dans $EXPECTED_LIST, $EXPECTED_TESTS attendu(s) (EXPECTED_TESTS de cette étape, à monter par le commit qui inscrit un test)"; LISTE=1
+          fi
+          if ! grep -Fxq 'cpu evolight_pipeline tests_frozen::frozen_renders_v1_to_v6' "$EXPECTED_LIST"; then
+            echo "::error::liste fermée : R11 (cpu evolight_pipeline tests_frozen::frozen_renders_v1_to_v6) n'est pas inscrit dans $EXPECTED_LIST"; LISTE=1
+          fi
+          # La sonde, son témoin et les courses vont au bout quoi qu'il arrive (EVORA-REV-87 du lot 1). Une
+          # sonde qui ne compile pas (binaire it du noyau graphique) ne saute pas les tests du pipeline ;
+          # son code de sortie va au bilan, et le juge rapporte son journal.
+          set +e
+          # 1. Sonde : sans adaptateur, chaque test d'accord passerait sans rien comparer.
+          EVOLIGHT_GPU_ALLOW_SOFTWARE=1 EVOLIGHT_GPU_BACKEND=vulkan \
+            cargo test --locked -p evolight-gpu --test it -- --ignored --exact gpu_probe::gpu_probe --nocapture 2>&1 | tee "$OUT/sonde.txt"
+          SONDE=${PIPESTATUS[0]}
+          # Témoin : la même sonde, sans adaptateur logiciel admis, doit dire « available: false ».
+          EVOLIGHT_GPU_BACKEND=vulkan \
+            cargo test --locked -p evolight-gpu --test it -- --ignored --exact gpu_probe::gpu_probe --nocapture 2>&1 | tee "$OUT/sonde-sans-logiciel.txt"
+          TEMOIN=${PIPESTATUS[0]}
+          # 2. à 4. Les quatre courses vont au bout ; le juge vient après elles.
+          # EVORA_FROZEN_STRICT=1 : sur le runner, R11 échoue sur un écart de plateforme au lieu d'imprimer seulement.
+          # Si R11 rougit sans changement du rendu : comparer evora-diag/empreintes-figees/releve.txt de
+          # la même exécution (relevé seul, par l'étape des empreintes, avec le même binaire de test) au
+          # fichier des constantes. Différents : l'écart vient de la compilation ou de la plateforme
+          # (image du runner, libc, processeur : plateforme.txt du même dossier), et un relevé
+          # neuf le dit. Identiques : il vient de la course, où R11 tourne avec les autres tests
+          # (regarder si seules des lignes « fenetre » bougent).
+          EVORA_FROZEN_STRICT=1 EVOLIGHT_SKIP_LOG="$OUT/sauts-cpu.jsonl" \
+            cargo test --locked --no-fail-fast -p evolight-develop -p evolight-pipeline --lib --tests 2>&1 | tee "$OUT/cpu.txt"
+          CPU=${PIPESTATUS[0]}
+          EVOLIGHT_SKIP_LOG="$OUT/sauts-gpulib.jsonl" \
+            cargo test --locked --no-fail-fast -p evolight-gpu --lib -- ctx::tests::every_kernel_module_validates_without_a_gpu 2>&1 | tee "$OUT/gpulib.txt"
+          GPULIB=${PIPESTATUS[0]}
+          # Le test du catalogue sur la version du rendu d'une photo, seul (EVORA-REV-83 du lot 1).
+          EVOLIGHT_SKIP_LOG="$OUT/sauts-catalogue.jsonl" \
+            cargo test --locked --no-fail-fast -p evolight-catalog --lib -- --exact model::edited_tests::the_process_a_photo_renders_with_is_not_an_edit \
+            2>&1 | tee "$OUT/catalogue.txt"
+          CATALOGUE=${PIPESTATUS[0]}
+          EVOLIGHT_GPU_ALLOW_SOFTWARE=1 EVOLIGHT_GPU_BACKEND=vulkan EVOLIGHT_SKIP_LOG="$OUT/sauts-gpu.jsonl" \
+            cargo test --locked --no-fail-fast -p evolight-gpu --test it -- equivalence:: 2>&1 | tee "$OUT/gpu.txt"
+          GPU=${PIPESTATUS[0]}
+          set -e
+          # 5. Liste fermée : chaque test attendu vert une fois dans son binaire, aucun ignoré, absent ou
+          #    sauté, aucun saut GPU ; sonde « available: true », témoin « available: false ».
+          #    Un juge rouge n'arrête pas le script avant la ligne de bilan des codes.
+          touch "$OUT/sauts-cpu.jsonl" "$OUT/sauts-gpulib.jsonl" "$OUT/sauts-gpu.jsonl" "$OUT/sauts-catalogue.jsonl"
+          JUGE=0
+          python3 .github/evora/test-guards.py check --list "$EXPECTED_LIST" \
+            --log cpu="$OUT/cpu.txt" --log gpulib="$OUT/gpulib.txt" --log gpu="$OUT/gpu.txt" --log catalogue="$OUT/catalogue.txt" \
+            --skips cpu="$OUT/sauts-cpu.jsonl" --skips gpulib="$OUT/sauts-gpulib.jsonl" --skips gpu="$OUT/sauts-gpu.jsonl" \
+            --skips catalogue="$OUT/sauts-catalogue.jsonl" \
+            --gpu-log gpu --probe "$OUT/sonde.txt" --probe-off "$OUT/sonde-sans-logiciel.txt" \
+            --summary "$GITHUB_STEP_SUMMARY" || JUGE=$?
+          if [ "$SONDE" -ne 0 ] || [ "$TEMOIN" -ne 0 ] || [ "$CPU" -ne 0 ] || [ "$GPULIB" -ne 0 ] || [ "$GPU" -ne 0 ] || [ "$CATALOGUE" -ne 0 ] \
+            || [ "$JUGE" -ne 0 ] || [ "$PROV" -ne 0 ] || [ "$LISTE" -ne 0 ]; then
+            echo "::error::cargo test : sonde $SONDE, témoin $TEMOIN, schéma et pipeline $CPU, modules WGSL $GPULIB, accord des deux chemins $GPU, catalogue $CATALOGUE ; juge $JUGE ; provenance de R11 $verdict ; plancher de la liste fermée $LISTE (journaux dans les diagnostics)"; exit 1
+          fi
+
+      - name: Enregistrement du dossier target des tests natifs (même quand la porte tests Rust est rouge)
+        if: ${{ !cancelled() && steps.tests_cache.outcome == 'success' && steps.tests_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.evora-target-tests
+          key: ${{ steps.tests_cache.outputs.cache-primary-key }}
 
       - name: Porte cargo-about — LICENSES/ des crates tierces
         id: g_about
@@ -562,6 +807,7 @@ jobs:
           E7: ${{ steps.g_e7.outcome }}
           CLOCK: ${{ steps.g_clock.outcome }}
           FROZEN: ${{ steps.g_frozen.outcome }}
+          TESTS: ${{ steps.g_tests.outcome }}
           E6: ${{ steps.g_e6.outcome }}
           ABOUT: ${{ steps.g_about.outcome }}
           BUNDLE: ${{ steps.g_bundle.outcome }}
@@ -580,7 +826,8 @@ jobs:
             echo "| cargo-deny (licences, avis, sources) | $DENY |"
             echo "| E7 neutralisations du graphe web | $E7 |"
             echo "| Horloge (aucune lecture d'horloge de std sans garde dans le build web, L4-REV-H) | $CLOCK |"
-            echo "| Empreintes figées des rendus V1 à V6 (lot 1, P0 ; impression, constantes du test R11) | $FROZEN |"
+            echo "| Empreintes figées des rendus V1 à V6 (lot 1, P0 ; relevé sur un arbre sans Evora1, contrôle ensuite) | $FROZEN |"
+            echo "| Tests Rust (schéma des réglages, pipeline, catalogue, modules WGSL, accord des deux chemins sur lavapipe ; provenance de R11 ; liste fermée, aucun saut) | $TESTS |"
             echo "| E6 polices (evo-fonts épinglé, police chinoise à part) | $E6 |"
             echo "| cargo-about (LICENSES/ des crates) | $ABOUT |"
             echo "| Bundle (marques, hébergement, .gz/.br, CSP, taille) | $BUNDLE |"
@@ -591,7 +838,7 @@ jobs:
             echo
             echo "Avertissements de cargo-deny : $(awk '/^warning/ { n++ } END { print n + 0 }' "$RUNNER_TEMP/cargo-deny.txt" 2>/dev/null || echo '?') (détail dans le journal de la porte)."
           } >> "$GITHUB_STEP_SUMMARY"
-          for v in "$EMOJI" "$DENY" "$E7" "$CLOCK" "$FROZEN" "$E6" "$ABOUT" "$BUNDLE" "$TERM" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
+          for v in "$EMOJI" "$DENY" "$E7" "$CLOCK" "$FROZEN" "$TESTS" "$E6" "$ABOUT" "$BUNDLE" "$TERM" "$SABOTAGE" "$SMOKE" "$WITNESS"; do
             if [ "$v" != "success" ]; then echo "::error::au moins une porte est rouge : voir le résumé du job"; exit 1; fi
           done
           echo "Toutes les portes sont vertes."
