@@ -7,7 +7,8 @@
 //! « douceur », « melange », « grand », « fenetre », « cache ») ; un brut à courbe d'appareil en porte
 //! deux (« simple », « retouche »). Soit 18 × 6 × 4 = 432 lignes. L'étape « Empreintes figées » de la
 //! CI d'Evora le joue sur l'arbre d'avant la version du rendu d'Evora et dépose ses lignes dans le
-//! résumé et les diagnostics ; elles deviennent les constantes du test qui garde ces rendus figés (R11).
+//! résumé et les diagnostics. Recopiées telles quelles dans `frozen_renders.txt` (EVORA-REV-96), elles
+//! sont les constantes du test qui garde ces rendus figés : R11, `frozen_renders_v1_to_v6`.
 //!
 //! Ce que chaque jeu ajouté fige :
 //! - « melange » : le mélangeur de couleur avec vibrance et saturation, et un masque visible à
@@ -60,6 +61,15 @@ const FROZEN_WINDOW: PixelWindow = PixelWindow { x: 150, y: 90, w: 200, h: 140 }
 const FROZEN_CACHE_NR: f64 = 50.0;
 /// Préfixe des lignes d'empreintes, lu par la CI et par le fichier des constantes.
 pub(crate) const LINE_PREFIX: &str = "frozen";
+/// Préfixe de la ligne de provenance du fichier des constantes : le commit de l'arbre d'avant la
+/// version du rendu d'Evora sur lequel la CI a relevé les empreintes. R11 l'exige ; la porte
+/// « tests Rust » (EVORA-REV-97) vérifie qu'il est un ancêtre de la tête, que son arbre ne connaît
+/// pas cette version et que la recette y annonce autant de cas que le fichier a d'empreintes. Elle
+/// vérifie aussi que le dernier commit à avoir touché le fichier ne connaît pas cette version.
+const COMMIT_PREFIX: &str = "frozen-commit";
+/// La variable que la porte « tests Rust » pose à 1 ; un écart de plateforme y est un échec de R11,
+/// et non une impression seule. Elle ne se pose qu'à 1 : toute autre valeur fait échouer R11.
+const STRICT_VAR: &str = "EVORA_FROZEN_STRICT";
 
 /// Un cas de la recette.
 pub(crate) struct FrozenCase {
@@ -308,4 +318,126 @@ fn print_frozen_render_fingerprints() {
         assert_eq!(line.split_whitespace().count(), 6, "six mots attendus par ligne d'empreinte : « {line} »");
     }
     assert_eq!(lines.len(), FROZEN_TOTAL, "nombre de lignes d'empreintes");
+}
+
+/// Le fichier des constantes de R11 (voir son en-tête).
+const FROZEN_FILE: &str = include_str!("frozen_renders.txt");
+
+/// Le contenu du fichier des constantes : plateforme du relevé, commit du relevé, empreintes.
+struct FrozenFile {
+    platform: Option<String>,
+    commit: Option<String>,
+    lines: Vec<(String, String)>,
+}
+
+/// La plateforme (`frozen-platform <système> <architecture>`, une seule fois), le commit du relevé
+/// (`frozen-commit <sha>`, une seule fois) et les empreintes (`frozen v…`, clé puis empreinte) d'un
+/// texte au format des lignes imprimées ; les lignes `#` et vides sont ignorées, toute autre ligne
+/// fait échouer R11.
+fn parse_frozen(text: &str) -> FrozenFile {
+    let mut platform = None;
+    let mut commit = None;
+    let mut out = Vec::new();
+    for line in text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        if words.first() == Some(&"frozen-platform") && words.len() == 3 {
+            assert!(platform.is_none(), "R11 : deux lignes « frozen-platform » dans frozen_renders.txt");
+            platform = Some(words[1..].join(" "));
+        } else if words.first() == Some(&COMMIT_PREFIX) && words.len() == 2 {
+            assert!(commit.is_none(), "R11 : deux lignes « {COMMIT_PREFIX} » dans frozen_renders.txt");
+            commit = Some(words[1].to_owned());
+        } else if words.first() == Some(&LINE_PREFIX) && words.len() == 6 {
+            out.push((words[1..5].join(" "), words[5].to_owned()));
+        } else {
+            panic!("R11 : ligne illisible dans frozen_renders.txt : « {line} »");
+        }
+    }
+    FrozenFile { platform, commit, lines: out }
+}
+
+/// R11 : les rendus de V1 à V6 restent ceux que la CI a relevés sur l'arbre d'EVORA-REV-95, empreinte
+/// pour empreinte, cas pour cas (432 lignes). Sans empreinte dans le fichier des constantes, le test
+/// ÉCHOUE (il ne passe jamais à vide) ; il échoue aussi sans la ligne du commit du relevé
+/// (`frozen-commit`), que la porte « tests Rust » confronte à l'historique. Les empreintes ne se
+/// comparent que sur la plateforme de leur relevé ; ailleurs, le test les imprime seulement, comme le
+/// test d'or de l'amont, sauf sous `EVORA_FROZEN_STRICT=1` (posée par la porte), où l'écart de
+/// plateforme est un échec : sur le runner de la CI, R11 ne peut pas passer sans rien confronter.
+/// Sabotage qui le fait rougir : toucher `ToneMap::display_hdr`, ou n'importe quel bras de V1 à V6 de
+/// `finish::base_tone` (ses trois sources les rendent tous).
+///
+/// Limites de cette garde de plateforme :
+/// - hors de la plateforme du relevé et sans la variable (poste macOS), R11 passe sans rien
+///   confronter : son « ok » n'y prouve rien ;
+/// - la plateforme n'est connue que par son système et son architecture. Tout autre Linux x86_64
+///   confronte donc aussi, avec ou sans la variable, alors que le dernier bit dépend en plus de la
+///   libm et du compilateur du relevé (voir l'en-tête) : R11 peut y rougir sans
+///   changement du code (un autre runner, ou le build nix du dépôt, qui joue tous les tests). La
+///   variable ne protège que d'un changement de système ou d'architecture du runner.
+///
+/// Portée de ses empreintes : les jeux et les sources décrits dans l'en-tête de ce fichier, rendus
+/// en sRGB, 8 puis 16 bits, dans des boîtes de 120 et de 480 points. R11 ne confronte PAS :
+/// - l'épreuve écran (`RenderRequest::proof`) ni le rendu pour un écran profilé
+///   (`RenderRequest::display`) ;
+/// - un espace de sortie autre que sRGB ;
+/// - le rendu HDR (ses cas laissent le réglage HDR éteint) ;
+/// - le plafond que le brouillon pose sur la base des tons clairs et sombres, atteint au-delà de
+///   1 600 points de bord long (le brouillon du jeu « cache » est rendu à 120 points).
+///
+/// Y ajouter un cas demande un relevé neuf par la CI, sur un arbre qui ne connaît pas encore la
+/// version du rendu d'Evora : les cas imprimés et ceux que R11 lit doivent être les mêmes, et la
+/// porte refuse un fichier des constantes dont le commit du relevé, ou le dernier commit à l'avoir
+/// touché, connaît cette version. Une fois cette version arrivée, le fichier ne se retouche donc
+/// plus, en-tête compris.
+#[test]
+fn frozen_renders_v1_to_v6() {
+    let FrozenFile { platform, commit, lines: expected } = parse_frozen(FROZEN_FILE);
+    assert!(
+        !expected.is_empty(),
+        "R11 : aucune empreinte dans crates/pipeline/src/frozen_renders.txt : y recopier, telles quelles, les lignes \
+         de l'étape « Empreintes figées » de la CI d'Evora. Ce test échoue tant qu'il est vide."
+    );
+    let cases = frozen_cases();
+    assert_eq!(cases.len(), FROZEN_TOTAL, "R11 : nombre de cas de la recette");
+    assert_eq!(expected.len(), cases.len(), "R11 : {} empreintes pour {} cas", expected.len(), cases.len());
+    let Some(platform) = platform else {
+        panic!("R11 : ligne « frozen-platform » absente de frozen_renders.txt");
+    };
+    let Some(commit) = commit else {
+        panic!("R11 : ligne « {COMMIT_PREFIX} <commit du relevé> » absente de frozen_renders.txt (voir son en-tête)");
+    };
+    // Quarante chiffres hexadécimaux en minuscules, comme la porte « tests Rust » l'exige.
+    assert!(
+        commit.len() == 40 && commit.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')),
+        "R11 : commit du relevé illisible : « {commit} »"
+    );
+    let here = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
+    // La variable ne se pose qu'à 1 : une autre valeur (« true », un blanc de trop) se lirait comme
+    // une variable absente, et l'écart de plateforme redeviendrait une impression seule en silence.
+    let strict = match std::env::var_os(STRICT_VAR) {
+        None => false,
+        Some(v) => {
+            assert!(v == "1", "R11 : {STRICT_VAR} ne se pose qu'à 1, lu {v:?}");
+            true
+        }
+    };
+    assert!(
+        platform == here || !strict,
+        "R11 : empreintes relevées sur « {platform} », ici « {here} » : sous {STRICT_VAR}=1, un écart de plateforme est un échec"
+    );
+    let got = frozen_lines();
+    if platform != here {
+        eprintln!("R11 : empreintes relevées sur « {platform} », ici « {here} » : impression seule");
+        for line in &got {
+            eprintln!("{line}");
+        }
+        return;
+    }
+    let mut changed = Vec::new();
+    for (line, (key, fp)) in got.iter().zip(&expected) {
+        let want = format!("{LINE_PREFIX} {key} {fp}");
+        if *line != want {
+            changed.push(format!("attendu « {want} », obtenu « {line} »"));
+        }
+    }
+    assert!(changed.is_empty(), "R11 : {} rendu(s) figé(s) changé(s) :\n{}", changed.len(), changed.join("\n"));
 }
