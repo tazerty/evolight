@@ -285,6 +285,8 @@ pub fn applies(s: &DevelopSettings, info: &SourceInfo) -> bool {
     match s.process.process() {
         Process::V1 | Process::V2 | Process::V3 => false,
         Process::V4 | Process::V5 | Process::V6 => camera_look,
+        // Evora (EVORA-REV-98) : bras séparé de la version du rendu d'Evora, recopié de celui de V6
+        Process::Evora1 => camera_look,
     }
 }
 

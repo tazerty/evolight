@@ -29,31 +29,39 @@ fn grey_ramp_stays_neutral() {
     }
 }
 
+// Evora (EVORA-REV-98) : joué sous V6 nommée (la plus récente version quand il a été écrit), puis
+// sous la version du rendu d'Evora : chaque curseur à ses deux bornes s'y rend aussi sans panique.
 #[test]
 fn every_slider_changes_or_keeps_output_without_panicking() {
     let src = scene();
     let base = render(&src, &SourceInfo::default(), &DevelopSettings::default(), &RenderRequest::fit(96, 96)).image;
-    for c in controls::CONTROLS {
-        for v in [c.min, c.max] {
-            let mut s = DevelopSettings::default();
-            controls::set(&mut s, c.id, v);
-            let r = render(&src, &SourceInfo::default(), &s, &RenderRequest::fit(96, 96));
-            assert!(r.image.width > 0, "{}", c.id);
-            let _ = &base;
+    for process in [evolight_develop::Process::V6, evolight_develop::Process::Evora1] {
+        for c in controls::CONTROLS {
+            for v in [c.min, c.max] {
+                let mut s = DevelopSettings { process: process.version(), ..Default::default() };
+                controls::set(&mut s, c.id, v);
+                let r = render(&src, &SourceInfo::default(), &s, &RenderRequest::fit(96, 96));
+                assert!(r.image.width > 0, "{process:?} {}", c.id);
+                let _ = &base;
+            }
         }
     }
 }
 
+// Evora (EVORA-REV-98) : joué sous V6 nommée, puis sous la version du rendu d'Evora (la croissance
+// de l'exposition au niveau du rendu entier d'un fichier rendu y est exigée aussi).
 #[test]
 fn exposure_is_monotone() {
     let src = scene();
-    let mut prev = -1.0;
-    for ev in [-3.0, -1.5, 0.0, 1.0, 2.5] {
-        let mut s = DevelopSettings::default();
-        s.light.exposure = ev;
-        let m = mean_luma(&render(&src, &SourceInfo::default(), &s, &RenderRequest::fit(96, 96)).image);
-        assert!(m > prev, "{ev}: {m} <= {prev}");
-        prev = m;
+    for process in [evolight_develop::Process::V6, evolight_develop::Process::Evora1] {
+        let mut prev = -1.0;
+        for ev in [-3.0, -1.5, 0.0, 1.0, 2.5] {
+            let mut s = DevelopSettings { process: process.version(), ..Default::default() };
+            s.light.exposure = ev;
+            let m = mean_luma(&render(&src, &SourceInfo::default(), &s, &RenderRequest::fit(96, 96)).image);
+            assert!(m > prev, "{process:?} {ev}: {m} <= {prev}");
+            prev = m;
+        }
     }
 }
 
@@ -383,30 +391,35 @@ fn color_range_sampling_uses_the_requested_hdr_rendition() {
 
 /// A section whose eye is off renders as if it were at its defaults (issue #316): Light, Color
 /// and Detail, which the pipeline doesn't switch off where it applies them.
+// Evora (EVORA-REV-98) : joué sous V6 nommée, puis sous la version du rendu d'Evora (une section
+// éteinte y rend aussi comme à ses valeurs par défaut).
 #[test]
 fn sections_switched_off_render_as_defaults() {
     let src = Rgb32f::from_fn(32, 24, |x, y| [0.05 + x as f32 / 40.0, 0.1 + y as f32 / 30.0, 0.3]);
     let info = SourceInfo::default();
     let req = RenderRequest::fit(32, 24);
-    let plain = render(&src, &info, &DevelopSettings::default(), &req).image;
-    let mut s = DevelopSettings::default();
-    s.light.exposure = 1.5;
-    s.light.contrast = 40.0;
-    s.color.saturation = -60.0;
-    s.color.vibrance = 30.0;
-    s.detail.sharpen_amount = 120.0;
-    let edited = render(&src, &info, &s, &req).image;
-    assert_ne!(edited.data, plain.data);
-    for section in ["light", "color", "detail"] {
-        s.set_section_enabled(section, false);
+    for process in [evolight_develop::Process::V6, evolight_develop::Process::Evora1] {
+        let on = DevelopSettings { process: process.version(), ..Default::default() };
+        let plain = render(&src, &info, &on, &req).image;
+        let mut s = on.clone();
+        s.light.exposure = 1.5;
+        s.light.contrast = 40.0;
+        s.color.saturation = -60.0;
+        s.color.vibrance = 30.0;
+        s.detail.sharpen_amount = 120.0;
+        let edited = render(&src, &info, &s, &req).image;
+        assert_ne!(edited.data, plain.data);
+        for section in ["light", "color", "detail"] {
+            s.set_section_enabled(section, false);
+        }
+        assert_eq!(render(&src, &info, &s, &req).image.data, plain.data, "{process:?}: every edited section off = the unedited photo");
+        // one section back on brings back only its own adjustments
+        s.set_section_enabled("light", true);
+        let mut light_only = on.clone();
+        light_only.light.exposure = 1.5;
+        light_only.light.contrast = 40.0;
+        assert_eq!(render(&src, &info, &s, &req).image.data, render(&src, &info, &light_only, &req).image.data, "{process:?}");
     }
-    assert_eq!(render(&src, &info, &s, &req).image.data, plain.data, "every edited section off = the unedited photo");
-    // one section back on brings back only its own adjustments
-    s.set_section_enabled("light", true);
-    let mut light_only = DevelopSettings::default();
-    light_only.light.exposure = 1.5;
-    light_only.light.contrast = 40.0;
-    assert_eq!(render(&src, &info, &s, &req).image.data, render(&src, &info, &light_only, &req).image.data);
     assert!(matches!(DevelopSettings::default().effective(), std::borrow::Cow::Borrowed(_)), "nothing is copied when every section is on");
 }
 
@@ -816,6 +829,17 @@ fn stored_process_numbers_render_with_a_known_process() {
                 assert!(out(&legacy(&s)) == v1, "saved before process versions: rendered as V1");
                 let latest = out(&with(&s, Process::LATEST.version()));
                 assert!(out(&with(&s, ProcessVersion(Process::LATEST.version().0 + 7))) == latest, "newer than this build: as the latest");
+                // Evora (EVORA-REV-98) : un numéro plus récent de l'amont se rend comme la plus récente
+                // version de l'amont connue ici, nommée ; un numéro plus récent d'Evora, comme la plus
+                // récente version d'Evora connue ici. Ces deux assertions sont des constats, elles ne
+                // mordent pas encore : la première double celle de l'amont juste au-dessus tant que la
+                // plus récente est V6, et la seconde reste vraie même pour un 1002 lu à tort comme V6,
+                // tant que chaque bras d'`Evora1` recopie celui de V6. Elles prendront des dents quand
+                // le rendu d'Evora sera branché, puis à la bascule. La résolution des numéros est gardée
+                // pour de bon par `tests_process::version_numbers_resolve_within_their_range`.
+                assert!(out(&with(&s, ProcessVersion(7))) == out(&with(&s, Process::V6.version())), "7 : rendu comme V6");
+                let evora = out(&with(&s, Process::Evora1.version()));
+                assert!(out(&with(&s, ProcessVersion(Process::Evora1.version().0 + 1))) == evora, "1002 : rendu comme Evora1");
             }
         }
     }

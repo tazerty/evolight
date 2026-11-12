@@ -31,6 +31,19 @@ impl DevelopSettings {
         s
     }
 
+    /// Evora (EVORA-REV-98) : les réglages par défaut épinglés à la version de l'amont sur laquelle
+    /// la plus récente est fondée ([`Process::upstream_base`]) : [`Self::default`] tant que la plus
+    /// récente est une version de l'amont, V6 quand ce sera `Evora1`. Pour les tests de l'amont, qui
+    /// éprouvent le rendu de l'amont quelle que soit la version des photos neuves.
+    pub fn upstream_default() -> DevelopSettings {
+        DevelopSettings { process: Process::LATEST.upstream_base().version(), ..DevelopSettings::default() }
+    }
+
+    /// Evora (EVORA-REV-98) : [`Self::for_raw`], épinglé comme [`Self::upstream_default`].
+    pub fn upstream_for_raw(as_shot_temp: f64, as_shot_tint: f64) -> DevelopSettings {
+        DevelopSettings { process: Process::LATEST.upstream_base().version(), ..DevelopSettings::for_raw(as_shot_temp, as_shot_tint) }
+    }
+
     pub fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }

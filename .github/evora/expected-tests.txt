@@ -6,11 +6,11 @@
 # « catalogue » (un test du catalogue, joué seul). Le binaire « it » du journal « cpu » est celui des
 # tests d'intégration du pipeline ; celui du journal « gpu », du noyau graphique.
 #
-# La liste ne nomme que des tests qui existent à ce commit, sur un arbre qui ne connaît pas encore la
-# version du rendu d'Evora : chaque commit qui ajoute un test de garde l'inscrit ici, chemin exact,
-# module compris. La porte joue par ailleurs tous les tests du schéma des réglages et du pipeline, et
-# tout « equivalence:: » du noyau graphique : un échec hors liste est rouge aussi. La liste garantit
-# en plus que ces tests-ci ont tourné.
+# La liste ne nomme que des tests qui existent à ce commit : chaque commit qui ajoute un test de garde
+# l'inscrit ici, chemin exact, module compris (EVORA-REV-98 y inscrit les quatre premiers tests de la
+# version du rendu d'Evora). La porte joue par ailleurs tous les tests du schéma des réglages et du
+# pipeline, et tout « equivalence:: » du noyau graphique : un échec hors liste est rouge aussi. La
+# liste garantit en plus que ces tests-ci ont tourné.
 #
 # Ce que « fermée » veut dire, et ce que la liste ne garde pas :
 # - le juge ne rougit que sur les tests inscrits ici. Le nombre de lignes de cette liste est donc fixé
@@ -24,7 +24,10 @@
 #   du journal « cpu », un retour anticipé sans assertion passe vert (voir v1_and_v2_render_as_before_v3
 #   plus bas).
 
-# Schéma des réglages : numéros de version du rendu (tests de l'amont)
+# Schéma des réglages : numéros de version du rendu (tests de l'amont ; EVORA-REV-98 : R15, la
+# résolution d'un numéro dans sa plage et la règle de mise à jour, puis l'aller-retour du numéro 1001)
+cpu evolight_develop tests_process::version_numbers_resolve_within_their_range
+cpu evolight_develop tests_process::evora_process_number_survives_a_round_trip_and_keys_the_settings
 cpu evolight_develop tests_process::unknown_process_numbers_load_and_render_with_the_newest_known
 cpu evolight_develop tests_process::new_settings_get_the_latest_process
 cpu evolight_develop tests_process::the_process_is_not_an_edit_nor_part_of_copied_settings
@@ -34,8 +37,14 @@ cpu evolight_develop tests_process::settings_saved_before_process_versions_load_
 # relevées par la CI sur l'arbre d'EVORA-REV-95 ; échoue sans empreinte ou sans ligne frozen-commit)
 cpu evolight_pipeline tests_frozen::frozen_renders_v1_to_v6
 
+# Pipeline : version du rendu d'Evora (EVORA-REV-98). R12 : un brut se rend sous Evora1 comme sous V6,
+# au bit près ; le rendu HDR d'un fichier rendu aussi
+cpu evolight_pipeline tests_evora1::evora1_raw_matches_v6
+cpu evolight_pipeline tests_evora1::evora1_hdr_render_matches_v6
+
 # Pipeline : tests de l'amont sur l'exposition, les curseurs, les sections éteintes et les numéros de
-# version enregistrés (ceux que la version du rendu d'Evora devra laisser verts sous V6)
+# version enregistrés (ceux que la version du rendu d'Evora devra laisser verts sous V6 ; depuis
+# EVORA-REV-98, les trois premiers se jouent sous V6 nommée puis sous Evora1)
 cpu evolight_pipeline tests::exposure_is_monotone
 cpu evolight_pipeline tests::every_slider_changes_or_keeps_output_without_panicking
 cpu evolight_pipeline tests::sections_switched_off_render_as_defaults

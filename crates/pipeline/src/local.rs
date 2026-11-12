@@ -376,6 +376,8 @@ pub fn tone_base_detail(s: &DevelopSettings, px_per_long: f64) -> usize {
     match s.process.process() {
         Process::V1 => 0,
         Process::V2 | Process::V3 | Process::V4 | Process::V5 | Process::V6 => base_detail_radius(px_per_long),
+        // Evora (EVORA-REV-98) : bras séparé de la version du rendu d'Evora, recopié de celui de V6
+        Process::Evora1 => base_detail_radius(px_per_long),
     }
 }
 

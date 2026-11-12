@@ -13,8 +13,11 @@ pub const SCHEMA_VERSION: u32 = 1;
 /// photo keeps its look until someone updates it (`develop.updateProcess`). See
 /// `docs/process-versions.md`.
 ///
-/// Stored as a plain number: one written by a newer EvoLight loads, is kept as it is, and
-/// renders with the newest process this build knows ([`ProcessVersion::process`]). Reading is
+/// Stored as a plain number: one written by a newer EvoLight loads and is kept as it is. Evora
+/// (EVORA-REV-98, exception L1-REV-I) : il se rend avec la plus récente version de sa plage que
+/// cette build connaît ([`resolve_in_range`], [`ProcessVersion::process`]) ; un numéro de la plage
+/// d'Evora sans version d'Evora connue qui ne le dépasse pas, avec la plus récente version de
+/// l'amont. Reading is
 /// lenient: a whole number from 0 to 2^32 - 1 (also written as `2.0`) is that process; anything
 /// else (negative, fractional, too large, text, null, a list…) reads as V1, like a missing field,
 /// so a damaged value never costs the rest of the settings.
@@ -57,11 +60,15 @@ impl ProcessVersion {
         *self == ProcessVersion::legacy()
     }
 
-    /// The process this build renders with: the newest one it knows that isn't newer than this
-    /// number (a number from a newer EvoLight renders with [`Process::LATEST`]; one below V1,
-    /// which no EvoLight writes, with V1).
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : la version de cette build qui rend ce numéro,
+    /// résolue dans sa plage ([`resolve_in_range`]) : la plus récente qu'elle connaît dans la plage
+    /// du numéro sans le dépasser ; un numéro de la plage d'Evora sans version d'Evora connue se
+    /// rend avec la plus récente de l'amont ; un numéro sous V1, que nul n'écrit, avec V1. Pour un
+    /// numéro de l'amont, c'est la règle d'avant : la plus récente version de l'amont qui ne le
+    /// dépasse pas.
     pub fn process(self) -> Process {
-        Process::ALL.into_iter().rev().find(|p| p.version() <= self).unwrap_or(Process::V1)
+        let found = resolve_in_range(self.0, &Process::NUMBERS);
+        Process::ALL.into_iter().find(|p| Some(p.version().0) == found).unwrap_or(Process::V1)
     }
 
     /// A process this build implements.
@@ -69,9 +76,16 @@ impl ProcessVersion {
         Process::ALL.iter().any(|p| p.version() == self)
     }
 
-    /// Older than [`Self::LATEST`]: Update to Current Process applies.
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : la mise à jour vers [`Self::LATEST`] s'applique
+    /// selon la plage du numéro ([`outdated_in_range`]) : un numéro d'Evora plus ancien que la plus
+    /// récente version, quand celle-ci est d'Evora ; un numéro de l'amont qui ne dépasse pas la
+    /// version de l'amont sur laquelle la plus récente est fondée ([`Process::upstream_base`]).
+    /// Écrit par une build plus récente, un numéro n'est jamais rétrogradé. Tant que la plus
+    /// récente est V6, c'est la règle d'avant pour tout numéro de l'amont (plus ancien que V6), et
+    /// aucun numéro de la plage d'Evora ne se met à jour : 1001 n'est pas ramené à V6. Règle
+    /// proposée, à valider par Gabriel avant la bascule.
     pub fn is_outdated(self) -> bool {
-        self < ProcessVersion::LATEST
+        outdated_in_range(self.0, &Process::NUMBERS, Process::LATEST.version().0, Process::LATEST.upstream_base().version().0)
     }
 }
 
@@ -96,12 +110,33 @@ pub enum Process {
     /// V5, with colour noise reduction on the linear colour differences R−Y and B−Y, leaving Y alone, with
     /// edge-aware weights from a denoised guide and a brake for isolated colour specks (issue #815).
     V6,
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : la première version du rendu d'Evora. Numérotée
+    /// dans la plage réservée à Evora ([`EVORA_BASE`]) et déclarée juste après V6 : les comparaisons
+    /// d'ordre de l'amont (`>= V6`, `>= V3`) l'incluent, une version future de l'amont viendra après
+    /// elle. Le code d'Evora la nomme ([`Process::is_evora`]), jamais par une comparaison d'ordre.
+    /// Tant que son rendu n'est pas branché, chacun de ses bras recopie celui de V6 : elle rend
+    /// exactement comme V6.
+    Evora1,
 }
 
 impl Process {
     /// Every process, oldest first.
-    pub const ALL: [Process; 6] = [Process::V1, Process::V2, Process::V3, Process::V4, Process::V5, Process::V6];
+    pub const ALL: [Process; 7] = [Process::V1, Process::V2, Process::V3, Process::V4, Process::V5, Process::V6, Process::Evora1];
+    /// Evora (EVORA-REV-98) : la version des photos neuves et des réinitialisations reste V6 tant
+    /// que le rendu d'Evora n'est pas complet. `Evora1` est dans [`Self::ALL`] sans être celle-ci :
+    /// la plus récente n'est donc plus la dernière de la liste.
     pub const LATEST: Process = Process::V6;
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : les numéros des versions connues, dans l'ordre de
+    /// la liste.
+    pub const NUMBERS: [u32; 7] = {
+        let mut out = [0; 7];
+        let mut i = 0;
+        while i < out.len() {
+            out[i] = Process::ALL[i].version().0;
+            i += 1;
+        }
+        out
+    };
 
     pub const fn version(self) -> ProcessVersion {
         match self {
@@ -111,8 +146,92 @@ impl Process {
             Process::V4 => ProcessVersion(4),
             Process::V5 => ProcessVersion(5),
             Process::V6 => ProcessVersion(6),
+            Process::Evora1 => ProcessVersion(EVORA_BASE + 1),
         }
     }
+
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : une version du rendu d'Evora (plage réservée,
+    /// [`EVORA_BASE`]).
+    pub const fn is_evora(self) -> bool {
+        matches!(self, Process::Evora1)
+    }
+
+    /// Evora (EVORA-REV-98, exception L1-REV-I) : la version de l'amont sur laquelle cette version
+    /// est fondée, nommée : elle-même pour une version de l'amont, V6 pour `Evora1`. La règle de
+    /// mise à jour la lit ([`ProcessVersion::is_outdated`]) : une édition faite sous une version de
+    /// l'amont plus récente que cette base n'est jamais rétrogradée. Une version d'Evora suivante
+    /// dit ici sur quoi elle se fonde (l'aiguillage est exhaustif).
+    pub const fn upstream_base(self) -> Process {
+        match self {
+            Process::V1 => Process::V1,
+            Process::V2 => Process::V2,
+            Process::V3 => Process::V3,
+            Process::V4 => Process::V4,
+            Process::V5 => Process::V5,
+            Process::V6 => Process::V6,
+            Process::Evora1 => Process::V6,
+        }
+    }
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I ; décision AP-04 de Gabriel, voie a) : la plage des
+/// numéros de version réservée à Evora commence à ce nombre, loin de ceux de l'amont (V1 à V6).
+/// Identifiant technique, pas un chiffre de produit. Chaque rendu d'Evora livré (provision active)
+/// fige une version d'Evora : `Evora1` vaut 1001, la suivante 1002.
+pub const EVORA_BASE: u32 = 1000;
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : vrai pour un numéro de la plage d'Evora.
+pub const fn in_evora_range(n: u32) -> bool {
+    n >= EVORA_BASE
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : la plus récente des versions `known` de la plage de
+/// `n` qui ne dépasse pas `n`.
+fn newest_in_range_up_to(n: u32, known: &[u32]) -> Option<u32> {
+    known.iter().copied().filter(|&k| in_evora_range(k) == in_evora_range(n) && k <= n).max()
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : la résolution d'un numéro par plage, en fonction pure
+/// des numéros connus (`known`), testée sur des listes fictives (R15). Un numéro de la plage d'Evora
+/// se résout vers la plus récente version d'Evora connue qui ne le dépasse pas (1002, écrit par une
+/// build plus récente d'Evora, se lit 1001), et à défaut vers la plus récente version de l'amont
+/// connue ; un numéro de l'amont, vers la plus récente version de l'amont connue qui ne le dépasse
+/// pas (7 se lit 6), et à défaut vers aucune (`None` : V1 pour [`ProcessVersion::process`]).
+pub fn resolve_in_range(n: u32, known: &[u32]) -> Option<u32> {
+    let found = newest_in_range_up_to(n, known);
+    if found.is_some() || !in_evora_range(n) {
+        return found;
+    }
+    known.iter().copied().filter(|&k| !in_evora_range(k)).max()
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : vrai si `n` est plus récent que toute version connue
+/// (`known`) de sa plage.
+pub fn newer_than_its_range(n: u32, known: &[u32]) -> bool {
+    let newest = known.iter().copied().filter(|&k| in_evora_range(k) == in_evora_range(n)).max();
+    newest.is_some_and(|m| n > m)
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : la règle de mise à jour par plage, en fonction pure
+/// des numéros connus (`known`), du numéro de la plus récente version (`latest`) et de celui de la
+/// version de l'amont sur laquelle elle est fondée (`latest_upstream_base`), testée sur des listes
+/// fictives (R15).
+/// - Un numéro d'Evora se met à jour s'il est sous `latest`, elle-même d'Evora, sans être plus
+///   récent que sa plage ([`newer_than_its_range`]).
+/// - Un numéro de l'amont, seulement s'il ne dépasse pas `latest_upstream_base` : une V7 de l'amont,
+///   déclarée après `Evora1` sans version d'Evora fondée sur elle, n'est jamais rétrogradée vers
+///   `Evora1`, fondée sur V6.
+///
+/// Aucun numéro d'une plage n'y est comparé par ordre à un numéro de l'autre. Règle proposée, à
+/// valider par Gabriel avant la bascule.
+pub fn outdated_in_range(n: u32, known: &[u32], latest: u32, latest_upstream_base: u32) -> bool {
+    if n == latest {
+        return false;
+    }
+    if in_evora_range(n) {
+        return in_evora_range(latest) && n < latest && !newer_than_its_range(n, known);
+    }
+    n <= latest_upstream_base
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

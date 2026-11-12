@@ -354,6 +354,13 @@ pub fn base_tone(s: &DevelopSettings, info: &SourceInfo, peak: f32) -> ToneMap {
             None if info.raw => ToneMap::rolloff_hdr(l.contrast, l.whites, l.blacks, peak),
             None => ToneMap::display_hdr(l.contrast, l.whites, l.blacks, peak),
         },
+        // Evora (EVORA-REV-98) : bras séparé de la version du rendu d'Evora, recopié de celui de V6
+        // ligne pour ligne. Tant que son rendu n'est pas branché, elle rend comme V6 au bit près.
+        Process::Evora1 => match info.camera_tone.as_ref().filter(|_| info.raw) {
+            Some(curve) => ToneMap::camera_rolloff_hdr(curve, 0.0, l.whites, 0.0, peak),
+            None if info.raw => ToneMap::rolloff_hdr(l.contrast, l.whites, l.blacks, peak),
+            None => ToneMap::display_hdr(l.contrast, l.whites, l.blacks, peak),
+        },
     }
 }
 

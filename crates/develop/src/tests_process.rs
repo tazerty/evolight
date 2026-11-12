@@ -70,7 +70,12 @@ fn new_settings_get_the_latest_process() {
     // the processes are listed oldest first, the latest last, each with its own number
     let versions: Vec<u32> = Process::ALL.iter().map(|p| p.version().0).collect();
     assert!(versions.windows(2).all(|w| w[0] < w[1]), "{versions:?}");
-    assert_eq!(Process::ALL.last(), Some(&Process::LATEST));
+    // Evora (EVORA-REV-98) : la plus récente est dans la liste, sans en être forcément la dernière
+    // (`Evora1` est déclarée après V6 avant d'être la version des photos neuves) : le « the latest
+    // last » du commentaire de l'amont ci-dessus ne vaut plus. L'ordre strict des numéros qu'il
+    // précède ne tient que tant qu'aucune version de l'amont n'est déclarée après `Evora1` ; à la
+    // montée qui en apportera une (le cas que R15 modélise), cette assertion se lira par plage.
+    assert!(Process::ALL.contains(&Process::LATEST));
     assert!(Process::ALL.iter().all(|p| p.version().process() == *p && p.version().is_known()));
 }
 
@@ -89,9 +94,12 @@ fn v1_is_left_out_when_saving_and_other_processes_are_kept() {
 #[test]
 fn unknown_process_numbers_load_and_render_with_the_newest_known() {
     // written by a newer EvoLight: kept as it is, rendered with the latest process this build has
+    // Evora (EVORA-REV-98) : 7, écrit par une build plus récente de l'amont, se rend avec la plus
+    // récente version de l'amont connue ici, nommée (V6) : la résolution se fait par plage, et la
+    // plus récente version sera un jour celle d'Evora, d'une autre plage
     let s = DevelopSettings::from_json(&json!({"process": 7, "light": {"exposure": 0.5}})).unwrap();
     assert_eq!(s.process, ProcessVersion(7));
-    assert_eq!(s.process.process(), Process::LATEST);
+    assert_eq!(s.process.process(), Process::V6);
     assert!(!s.process.is_known());
     assert!(!s.process.is_outdated(), "never downgraded by Update to Current Process");
     assert_eq!(s.to_json()["process"], json!(7));
@@ -99,10 +107,149 @@ fn unknown_process_numbers_load_and_render_with_the_newest_known() {
     // below V1 (no EvoLight writes it): rendered as V1, and updatable
     let zero = DevelopSettings::from_json(&json!({"process": 0})).unwrap().process;
     assert_eq!((zero.process(), zero.is_known(), zero.is_outdated()), (Process::V1, false, true));
+    // Evora (EVORA-REV-98) : le plus grand numéro est dans la plage d'Evora, il se rend avec la plus
+    // récente version d'Evora connue (vrai avant comme après la bascule)
     let max = DevelopSettings::from_json(&json!({"process": u32::MAX})).unwrap().process;
-    assert_eq!(max.process(), Process::LATEST);
+    assert_eq!(max.process(), Process::Evora1);
+    // Evora (EVORA-REV-98) : 1002, écrit par une build plus récente d'Evora, se rend avec la plus
+    // récente version d'Evora connue et n'est jamais rétrogradé ; 1000, que nul n'écrit, avec la plus
+    // récente de l'amont. Tant que la version des photos neuves est V6, ni l'un ni l'autre ne se met
+    // à jour : la mise à jour ne ramène pas un numéro d'Evora à V6
+    let next = DevelopSettings::from_json(&json!({"process": EVORA_BASE + 2})).unwrap().process;
+    assert_eq!((next.process(), next.is_known(), next.is_outdated()), (Process::Evora1, false, false));
+    let base = DevelopSettings::from_json(&json!({"process": EVORA_BASE})).unwrap().process;
+    assert_eq!((base.process(), base.is_known(), base.is_outdated()), (Process::V6, false, false));
+    // tant que la version des photos neuves est V6 : V1 à V5 se mettent à jour, V6 et 1001 non
+    for p in Process::ALL {
+        let older = matches!(p, Process::V1 | Process::V2 | Process::V3 | Process::V4 | Process::V5);
+        assert_eq!(p.version().is_outdated(), older, "{p:?}");
+    }
     // a whole number written as a float is that number
     assert_eq!(DevelopSettings::from_json(&json!({"process": 2.0})).unwrap().process, ProcessVersion(2));
+}
+
+/// R15 (Evora, EVORA-REV-98, exception L1-REV-I) : la résolution par plage et la règle de mise à
+/// jour, sur une liste fictive où une version future de l'amont (7) est déclarée après la version
+/// d'Evora (1001), comme elle le sera à une montée, puis sur une liste où une version d'Evora fondée
+/// sur 7 (1002) la suit, puis sur la liste de cette build.
+/// Sabotages qui le font rougir : l'ancienne résolution (la dernière version de la liste qui ne
+/// dépasse pas le numéro), qui lit 1001 comme 7 ; la règle de mise à jour qui met un numéro de l'amont
+/// en regard de 1001 par ordre (`n < 1001`), qui rétrograderait une édition V7 vers 1001, fondée sur
+/// V6 ; une règle qui, la plus récente restant V6, mettrait à jour tout autre numéro connu, et
+/// ramènerait 1001 à V6.
+#[test]
+fn version_numbers_resolve_within_their_range() {
+    let known = [1, 2, 3, 4, 5, 6, EVORA_BASE + 1, 7];
+    let cases = [
+        (EVORA_BASE + 1, Some(EVORA_BASE + 1)),
+        (EVORA_BASE + 2, Some(EVORA_BASE + 1)),
+        (u32::MAX, Some(EVORA_BASE + 1)),
+        (7, Some(7)),
+        (8, Some(7)),
+        (EVORA_BASE - 1, Some(7)),
+        (6, Some(6)),
+        (1, Some(1)),
+        // 1000 : aucune version d'Evora ne le précède, repli sur la plus récente de l'amont
+        (EVORA_BASE, Some(7)),
+        // sous V1 : aucune (V1 pour `ProcessVersion::process`)
+        (0, None),
+    ];
+    for (n, want) in cases {
+        assert_eq!(resolve_in_range(n, &known), want, "{n}");
+    }
+    for (n, newer) in [(8, true), (7, false), (0, false), (EVORA_BASE + 2, true), (EVORA_BASE + 1, false), (EVORA_BASE, false)] {
+        assert_eq!(newer_than_its_range(n, &known), newer, "{n}");
+    }
+    assert!(in_evora_range(EVORA_BASE) && !in_evora_range(EVORA_BASE - 1));
+    // la mise à jour, sur la même liste (plus récente : 1001, fondée sur V6) : 7, déclarée après 1001
+    // sans version d'Evora fondée sur elle, n'est jamais rétrogradée vers 1001
+    let (latest, base) = (EVORA_BASE + 1, 6);
+    for (n, outdated) in [(6, true), (7, false), (8, false), (0, true), (EVORA_BASE, true), (EVORA_BASE + 1, false), (EVORA_BASE + 2, false)] {
+        assert_eq!(outdated_in_range(n, &known, latest, base), outdated, "{n}");
+    }
+    // une version d'Evora fondée sur 7 (1002) devenue la plus récente : 7 et 1001 se mettent à jour vers elle
+    let next = [1, 2, 3, 4, 5, 6, EVORA_BASE + 1, 7, EVORA_BASE + 2];
+    for (n, outdated) in [(6, true), (7, true), (8, false), (EVORA_BASE + 1, true), (EVORA_BASE + 2, false), (EVORA_BASE + 3, false)] {
+        assert_eq!(outdated_in_range(n, &next, EVORA_BASE + 2, 7), outdated, "{n}");
+    }
+    // une plus récente de l'amont (avant toute version d'Evora) : la règle d'avant
+    for (n, outdated) in [(0, true), (5, true), (6, false), (7, false), (EVORA_BASE + 1, false)] {
+        assert_eq!(outdated_in_range(n, &[1, 2, 3, 4, 5, 6], 6, 6), outdated, "{n}");
+    }
+    // la liste de cette build, où la plus récente reste V6 alors que 1001 est connue : aucun numéro de
+    // la plage d'Evora ne se met à jour (1001 n'est pas ramené à V6), et pour un numéro de l'amont la
+    // règle d'avant tient (plus ancien que V6)
+    let this = Process::NUMBERS;
+    let unchanged = [6, 7, EVORA_BASE - 1, EVORA_BASE, EVORA_BASE + 1, EVORA_BASE + 2, u32::MAX];
+    for n in [0, 1, 5] {
+        assert!(outdated_in_range(n, &this, 6, 6), "{n}");
+    }
+    for n in unchanged {
+        assert!(!outdated_in_range(n, &this, 6, 6), "{n}");
+    }
+    // chaque numéro connu se résout vers lui-même, et vers sa version
+    assert!(this.iter().all(|&n| resolve_in_range(n, &this) == Some(n)));
+    assert_eq!(this.len(), Process::ALL.len());
+    assert!(Process::ALL.iter().zip(this).all(|(p, n)| p.version().0 == n));
+    let rendered_by = [
+        (0, Process::V1),
+        (1, Process::V1),
+        (6, Process::V6),
+        (7, Process::V6),
+        (EVORA_BASE - 1, Process::V6),
+        (EVORA_BASE, Process::V6),
+        (EVORA_BASE + 1, Process::Evora1),
+        (EVORA_BASE + 2, Process::Evora1),
+        (u32::MAX, Process::Evora1),
+    ];
+    for (n, want) in rendered_by {
+        assert_eq!(ProcessVersion(n).process(), want, "{n}");
+    }
+    assert_eq!(Process::Evora1.version(), ProcessVersion(EVORA_BASE + 1));
+    assert_eq!(Process::Evora1.version().0, 1001);
+    assert!(Process::Evora1.is_evora() && !Process::V6.is_evora());
+    // une version d'Evora est numérotée dans sa plage, et elle seule
+    assert!(Process::ALL.iter().all(|p| p.is_evora() == in_evora_range(p.version().0)));
+    // la version de l'amont de chaque version : elle-même pour l'amont, V6 pour Evora1
+    assert!(Process::ALL.iter().all(|p| p.is_evora() || p.upstream_base() == *p));
+    assert_eq!(Process::Evora1.upstream_base(), Process::V6);
+    assert!(!Process::LATEST.upstream_base().is_evora());
+    // les réglages neufs épinglés à la version de l'amont : ceux d'une photo neuve, à la version près
+    let pinned = Process::LATEST.upstream_base().version();
+    assert_eq!(DevelopSettings::upstream_default(), DevelopSettings { process: pinned, ..DevelopSettings::default() });
+    assert_eq!(DevelopSettings::upstream_for_raw(5200.0, 4.0), DevelopSettings { process: pinned, ..DevelopSettings::for_raw(5200.0, 4.0) });
+}
+
+/// Evora (EVORA-REV-98, exception L1-REV-I) : le numéro d'`Evora1` (1001) survit à l'enregistrement
+/// et à la relecture, en valeur JSON comme en texte (sidecars, journal et catalogue l'écrivent
+/// ainsi), et nomme une autre empreinte des réglages (`hash64`, clé des aperçus) que V6 aux mêmes
+/// curseurs : aucun aperçu n'est partagé entre les deux versions. La version est posée ici en
+/// toutes lettres : elle n'est pas encore celle des photos neuves. Les tests du moteur sur la mise
+/// à jour et la clé de rendu n'ont pas de course dans la CI d'Evora : ce test porte ce que le schéma
+/// des réglages peut prouver seul.
+/// Sabotages qui le font rougir : 1001 omis à l'enregistrement (comme V1), ou relu comme V6.
+#[test]
+fn evora_process_number_survives_a_round_trip_and_keys_the_settings() {
+    let mut s = DevelopSettings { process: Process::Evora1.version(), ..Default::default() };
+    (s.light.exposure, s.light.contrast) = (0.7, 20.0);
+    assert_eq!(s.process, ProcessVersion(EVORA_BASE + 1));
+    let v = s.to_json();
+    assert_eq!(v["process"], json!(EVORA_BASE + 1));
+    let back = DevelopSettings::from_json(&v).unwrap();
+    assert_eq!(back, s);
+    assert_eq!((back.process.process(), back.process.is_known(), back.process.is_outdated()), (Process::Evora1, true, false));
+    let text = serde_json::to_string(&s).unwrap();
+    let again: DevelopSettings = serde_json::from_str(&text).unwrap();
+    assert_eq!(again, s);
+    let v6 = DevelopSettings { process: Process::V6.version(), ..s.clone() };
+    assert_ne!(s.hash64(), v6.hash64(), "Evora1 et V6 aux mêmes curseurs : deux aperçus distincts");
+    assert_eq!(DevelopSettings::from_json(&v6.to_json()).unwrap().process.process(), Process::V6);
+    // une fusion partielle, la remise à zéro d'une section et le test « non retouché » gardent 1001
+    assert_eq!(s.merged(&json!({"light": {"exposure": 1.0}})).unwrap().process, ProcessVersion(EVORA_BASE + 1));
+    let mut reset = s.clone();
+    reset.reset_section(Section::Light);
+    assert_eq!(reset.process, ProcessVersion(EVORA_BASE + 1));
+    assert!(reset.is_unedited(), "la version du rendu n'est pas une retouche");
 }
 
 #[test]
