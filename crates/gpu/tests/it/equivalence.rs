@@ -1466,3 +1466,75 @@ fn device_histogram_is_exact() {
     assert_eq!((r.image.width, r.image.height), (500, 400));
     assert_eq!(r.histogram, evolight_raster::Histogram::of_srgb8(&r.image), "window");
 }
+
+/// Evora (EVORA-REV-99) : le chemin graphique laisse au chemin principal les rendus d'Evora, et eux
+/// seuls (le prédicat `evolight_pipeline::evora1::renders`).
+/// - Sous le prédicat, il ne tente rien (`Fallback::NotTried`) : un fichier rendu sous `Evora1`, en
+///   SDR, que l'édition soit SDR ou une édition HDR rendue en 8 bits (sa déclinaison SDR). Chaque
+///   refus a son témoin : la même demande sous V6 est rendue, le refus ne vient donc ni de
+///   l'adaptateur ni de la demande.
+/// - Hors du prédicat, `Evora1` se rend ici comme V6, à l'identique : un brut, et le rendu HDR en
+///   flottants d'un fichier rendu.
+///
+/// Sabotages qui le font rougir : le refus retiré de `run` ; le refus posé sur la seule version (un
+/// brut ou un rendu HDR sous `Evora1` n'est plus rendu ici) ; le prédicat interrogé avant le choix
+/// du jeu de réglages du rendu (l'édition HDR rendue en 8 bits passe alors par le chemin graphique).
+#[test]
+fn evora_versions_are_left_to_the_cpu() {
+    if !gpu() {
+        return;
+    }
+    use evolight_gpu::Fallback;
+    use evolight_pipeline::DeepSamples;
+    let src = scene(3, 600, 400);
+    let file = SourceInfo::default();
+    let raw = SourceInfo { raw: true, ..Default::default() };
+    assert!(!file.raw, "la source par défaut de ce test est un fichier rendu");
+    let req = RenderRequest::fit(480, 480);
+    let float = RenderRequest { depth: evolight_pipeline::OutputDepth::F32Hdr, ..req };
+    let edit = |p: Process, hdr: bool| {
+        let mut s = DevelopSettings { process: p.version(), ..Default::default() };
+        typical(&mut s);
+        s.hdr.enabled = hdr;
+        s
+    };
+    // un rendu que le chemin graphique doit faire lui-même, sans repli
+    let rendered = |what: &str, info: &SourceInfo, p: Process, hdr: bool, req: &RenderRequest| {
+        evolight_gpu::try_render(&src, info, &edit(p, hdr), req, None)
+            .unwrap_or_else(|e| panic!("{what}, {p:?} : le chemin graphique devait rendre ({e:?})"))
+    };
+
+    // sous le prédicat : un fichier rendu en SDR, rendu ici sous V6, laissé au chemin principal sous Evora1
+    for hdr in [false, true] {
+        let what = if hdr { "fichier rendu, édition HDR rendue en 8 bits" } else { "fichier rendu, édition SDR" };
+        let witness = rendered(what, &file, Process::V6, hdr, &req);
+        assert_eq!((witness.image.width, witness.image.height), (480, 320), "{what} : taille du témoin");
+        let s = edit(Process::Evora1, hdr);
+        let declined = evolight_gpu::try_render(&src, &file, &s, &req, None).err();
+        assert_eq!(declined, Some(Fallback::NotTried), "{what}, Evora1 : rendu tenté ou rendu ici");
+        assert!(evolight_gpu::render(&src, &file, &s, &req, None).is_none(), "{what}, Evora1 : image rendue ici");
+    }
+
+    // hors du prédicat, un brut : Evora1 rendu ici, comme V6
+    let (v6, evora) = (rendered("brut", &raw, Process::V6, false, &req), rendered("brut", &raw, Process::Evora1, false, &req));
+    assert!(v6.image == evora.image, "brut : Evora1 et V6 diffèrent sur le chemin graphique");
+
+    // hors du prédicat, le rendu HDR en flottants d'un fichier rendu : Evora1 rendu ici, comme V6
+    assert!(edit(Process::Evora1, true).hdr.peak() > 1.0, "garde de portée : l'édition HDR de ce test a une marge au-dessus du blanc SDR");
+    let (v6, evora) =
+        (rendered("fichier rendu en HDR", &file, Process::V6, true, &float), rendered("fichier rendu en HDR", &file, Process::Evora1, true, &float));
+    // deux assertions, pour qu'un rouge dise laquelle des deux moitiés tombe : l'image 8 bits d'abord
+    // (la seule égalité exacte que les tests de l'amont affirment entre deux rendus du chemin graphique)
+    assert!(v6.image == evora.image, "fichier rendu en HDR : l'image 8 bits d'Evora1 et celle de V6 diffèrent sur le chemin graphique");
+    // puis les échantillons flottants, lus bit pour bit : deux valeurs qui ne sont pas des nombres n'y
+    // passent pas pour différentes. Si cette seule assertion rougit, le prédicat n'est pas en cause :
+    // c'est le rendu en flottants du chemin graphique qui ne se répète pas au bit près, et elle se
+    // ramène alors à la borne de `check_hdr`.
+    let (Some(a), Some(b)) = (&v6.deep, &evora.deep) else { panic!("fichier rendu en HDR : rendu sans échantillons flottants") };
+    assert!((a.width, a.height) == (b.width, b.height) && a.space == b.space, "fichier rendu en HDR : taille ou espace des échantillons flottants");
+    let (DeepSamples::F32(a), DeepSamples::F32(b)) = (&a.samples, &b.samples) else { panic!("fichier rendu en HDR : flottants attendus") };
+    assert!(
+        a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits()),
+        "fichier rendu en HDR : les échantillons flottants d'Evora1 et de V6 diffèrent sur le chemin graphique"
+    );
+}

@@ -128,6 +128,8 @@ pub fn last_fallback() -> Option<String> {
 pub enum Fallback {
     /// The GPU was not tried: it is unavailable, disabled or closing ([`unavailable_reason`]), or
     /// the request is one only the CPU renders (high bit depth, soft proof, HDR range overlay).
+    /// Evora (EVORA-REV-99) : aussi quand le rendu demandé est celui d'Evora
+    /// ([`evolight_pipeline::evora1::renders`]), que seul le chemin principal calcule.
     NotTried,
     /// The render was tried on the GPU and failed, for this reason (the same text
     /// [`last_fallback`] reports). The CPU renders it instead.
@@ -647,6 +649,14 @@ fn run(
         let s = &*evolight_pipeline::settings_for(s, req);
         // content-aware Fill spots (`spots::fill_box`) have no GPU kernel: the CPU renders the photo
         if s.spots.iter().any(|sp| sp.mode == evolight_develop::SpotMode::Fill) {
+            return Err(Fallback::NotTried);
+        }
+        // Evora (EVORA-REV-99) : le rendu d'Evora n'a pas de noyau graphique. Sous le prédicat unique
+        // du pipeline, la photo est laissée au chemin principal, comme pour les retouches « Fill »
+        // juste au-dessus. `s` est ici le jeu de réglages du rendu (`settings_for`), celui que le
+        // prédicat attend. Un brut et un rendu HDR sous une version d'Evora ne sont pas concernés :
+        // ils se rendent comme sous V6, ici aussi.
+        if evolight_pipeline::evora1::renders(s, info) {
             return Err(Fallback::NotTried);
         }
         // in flight until this returns; not tried once the process is ending (issue #620)

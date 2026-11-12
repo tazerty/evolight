@@ -62,6 +62,10 @@ cpu evolight_pipeline tests_light::v1_and_v2_render_as_before_v3
 cpu evolight_pipeline tests_tone::exposure_keeps_the_highlights_a_camera_curve_recorded
 cpu evolight_pipeline tests_tone::exposure_keeps_the_highlights_the_generic_curve_recorded
 
+# Pipeline : prédicat du rendu d'Evora (EVORA-REV-99), sa table de vérité : une version d'Evora, une
+# source qui n'est pas un brut, un rendu qui n'est pas HDR, jugés sur le jeu de réglages du rendu
+cpu evolight_pipeline evora1::tests::renders_only_the_sdr_render_of_a_rendered_file_under_evora
+
 # Noyau graphique : chaque module WGSL se valide sans GPU
 gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
 
@@ -71,3 +75,7 @@ gpu it equivalence::gpu_matches_cpu
 gpu it equivalence::output_spaces_match
 gpu it equivalence::camera_tone_and_relative_wb
 gpu it equivalence::highlights_shadows_base_matches_on_every_process
+
+# Accord des deux chemins, sur lavapipe (EVORA-REV-99) : le chemin graphique laisse au chemin principal
+# les rendus d'Evora, et eux seuls (un brut et un rendu HDR sous Evora1 s'y rendent comme sous V6)
+gpu it equivalence::evora_versions_are_left_to_the_cpu

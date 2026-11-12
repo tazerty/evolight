@@ -29,6 +29,8 @@ pub mod colorops;
 pub mod cull;
 pub mod curve;
 pub mod dust;
+// Evora (EVORA-REV-99) : le rendu d'Evora ; à ce commit, son seul prédicat (`evora1::renders`)
+pub mod evora1;
 pub mod finish;
 pub mod geometry;
 pub mod light_v3;
