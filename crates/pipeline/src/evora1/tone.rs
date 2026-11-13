@@ -1,5 +1,5 @@
-//! Evora (EVORA-REV-111) : la table de tons du rendu d'Evora, en fonctions pures que rien ne branche
-//! encore.
+//! Evora (EVORA-REV-111) : la table de tons du rendu d'Evora. Branchée depuis EVORA-REV-112 : sous le
+//! prédicat du rendu, c'est la table du noyau par point (`finish::base_tone`, bras d'`Evora1`).
 //!
 //! Sous Evora, contraste, blancs et noirs agissent en EV de scène autour du gris moyen, sur l'image
 //! que le pont de scène a menée en lumière de scène ([`super::bridge`]) :

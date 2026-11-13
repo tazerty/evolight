@@ -77,11 +77,16 @@ Allow = namedtuple("Allow", "file text guard before elsewhere prints why")
 # frame.rs d'ui-egui l'appelle aussi dans le build web.
 WASM_BACKGROUND = ("run_in_background", 'if cfg!(target_arch = "wasm32") { return; } self.background = Some(wake);')
 ALLOW = [
+    # EVORA-REV-112 : empreintes de colour_noise et de render_impl reportées après relecture. Le rendu
+    # d'Evora y entre en une seule retouche : dans colour_noise, le champ `evora1: None` du plan des
+    # tuiles ; dans render_impl, le pont de scène à la fin de l'étage linéaire (`plan.evora1`) et
+    # l'argument de plus de local::prepare. Aucun site d'horloge ajouté, déplacé ni retiré ; chacun
+    # reste derrière sa garde `profiling()` (jetons « before » inchangés).
     Allow("crates/pipeline/src/lib.rs", "profiling().then(std::time::Instant::now)", "profiling()",
-          "profiling().then(", None, ("colour_noise:33cde977dea9", "render_impl:4e7c187d119f"),
+          "profiling().then(", None, ("colour_noise:c1cc208f96ec", "render_impl:cc5653b7717c"),
           "rendu : modèle de bruit couleur et render_impl ; profiling() lit EVOLIGHT_PROFILE, absent du navigateur : None, l'horloge n'est pas lue"),
     Allow("crates/pipeline/src/lib.rs", "*t = std::time::Instant::now();", "profiling()",
-          "if let Some(t) = t {", None, ("render_impl:4e7c187d119f",),
+          "if let Some(t) = t {", None, ("render_impl:cc5653b7717c",),
           "render_impl, fermeture lap : seulement dans `if let Some(t)`, None hors profilage"),
     Allow("crates/pipeline/src/lib.rs", "let t = std::time::Instant::now();", "profiling()",
           "if !profiling() { return f(); }", None, ("timed:29b7541a465c",),

@@ -2,6 +2,15 @@ use super::{Arc, DevelopSettings, HashMap, Hasher128, PhotoId, VecDeque, Weak};
 
 pub(super) const SETTINGS_HASH_ENTRIES: usize = 1024;
 
+/// Evora (EVORA-REV-112) : révision du rendu d'Evora dans les clés persistantes de rendu
+/// ([`with_process`]), à la place d'une montée de `RENDER_CACHE_VERSION`, nombre partagé avec l'amont
+/// qui referait les vignettes de toutes les versions (et, hors ligne sans aperçu dynamique, les
+/// perdrait). Elle monte à chaque commit qui change ce rendu tant que la version d'Evora n'est pas
+/// celle des photos neuves : seules les vignettes, rendus de vue et variantes en cache disque des
+/// photos sous cette version sont refaits.
+/// EVORA-REV-112 : 1, le rendu d'Evora branché.
+const EVORA_RENDER_REVISION: u64 = 1;
+
 #[derive(Default)]
 pub(super) struct SettingsHashes {
     pub(super) entries: HashMap<PhotoId, (Weak<DevelopSettings>, u64)>,
@@ -46,6 +55,10 @@ pub(super) fn with_process<'a>(h: &'a mut Hasher128, s: &DevelopSettings) -> &'a
     let v = s.process.process().version().0;
     if v >= evolight_develop::Process::V3.version().0 {
         h.u64(u64::from(v));
+    }
+    // Evora (EVORA-REV-112) : la révision du rendu d'Evora, pour les seules photos sous sa version
+    if s.process.process().is_evora() {
+        h.u64(EVORA_RENDER_REVISION);
     }
     h
 }

@@ -6,9 +6,21 @@
 //! - `evora1_hdr_render_matches_v6` : le rendu HDR d'un fichier rendu aussi.
 //!
 //! Ce sont les deux cas où `Evora1` garde le rendu de V6 pour de bon. Le rendu SDR d'un fichier rendu
-//! est le seul que le rendu d'Evora changera ; tant qu'il n'est pas branché, chaque bras d'`Evora1`
-//! recopie celui de V6, et R12 vérifie aussi ce cas (`assert_unwired_rendered_file_matches_v6`, à
-//! retirer par le commit qui branchera ce rendu).
+//! est le seul que le rendu d'Evora change.
+//!
+//! Depuis EVORA-REV-112 ce rendu est branché (pont de scène à la fin de l'étage linéaire, table de
+//! tons d'Evora, clés de cache marquées), et R12 et son jumeau HDR sont des gardes réelles : ils
+//! vérifient d'abord que le rendu SDR d'un fichier rendu, lui, a quitté V6
+//! (`assert_sdr_rendered_file_leaves_v6`). Les tests du branchement sont dans le module fils `wired` :
+//!
+//! - `neutral_rendered_file_is_the_file` : aux réglages neutres, le rendu d'un fichier est ce fichier ;
+//! - `render_matches_the_reference_where_the_gamut_return_rests` : exposition, contraste, blancs et
+//!   noirs face aux vecteurs d'or de la référence ;
+//! - `wired_tone_table_is_increasing_and_bounded` : la table du noyau est celle d'Evora, sous le
+//!   prédicat seulement ;
+//! - `exposure_creates_no_white_patch`, `chroma_memory_returns_colour_to_highlights` : deux contrôles
+//!   de la référence ;
+//! - `version_switch_recomputes_the_linear_stage` : un cache de rendu ne mêle pas les deux versions.
 //!
 //! Les rendus de V1 à V6 eux-mêmes sont gardés par R11 (`tests_frozen`).
 
@@ -16,6 +28,10 @@ use evolight_develop::{DevelopSettings, Process};
 use evolight_raster::Rgb32f;
 
 use crate::{DeepSamples, OutputDepth, RenderRequest, Rendered, SourceInfo, render};
+
+// Evora (EVORA-REV-112) : les tests du rendu d'Evora branché, dans `tests_evora1/wired.rs`. Module
+// fils : il lit les aides et les constantes de ce fichier.
+mod wired;
 
 /// Crans de l'exposition des cas, en stops.
 const STEPS: [f64; 4] = [-1.0, 0.0, 1.0, 2.0];
@@ -211,11 +227,21 @@ fn assert_sdr_matches_v6(plain: &Rgb32f, large: &Rgb32f, info: &SourceInfo, what
     }
 }
 
-/// Tant que le rendu d'Evora n'est pas branché (EVORA-REV-98 : chaque bras d'`Evora1` recopie celui
-/// de V6), le rendu SDR d'un fichier rendu est lui aussi celui de V6 au bit près. Le commit qui
-/// branchera ce rendu retire cette fonction et son appel dans R12 : elle rougit alors d'elle-même.
-fn assert_unwired_rendered_file_matches_v6(plain: &Rgb32f, large: &Rgb32f) {
-    assert_sdr_matches_v6(plain, large, &SourceInfo::default(), "fichier rendu (rendu d'Evora non branché)");
+/// Garde de portée de R12 et de son jumeau HDR (EVORA-REV-112). Le rendu d'Evora est branché : le
+/// rendu SDR d'un fichier rendu, retouché, n'est plus celui de V6, en 8 comme en 16 bits. Sans cette
+/// garde, l'égalité exigée d'un brut et d'un rendu HDR ne dirait rien du prédicat : elle tiendrait
+/// aussi avec un rendu d'Evora jamais branché.
+///
+/// Elle remplace `assert_unwired_rendered_file_matches_v6` d'EVORA-REV-98, qui affirmait l'inverse
+/// tant que chaque bras d'`Evora1` recopiait celui de V6.
+fn assert_sdr_rendered_file_leaves_v6(large: &Rgb32f) {
+    let info = SourceInfo::default();
+    assert!(!info.raw, "la source de cette garde est un fichier rendu");
+    for req in requests(RETOUCH_BOX, RETOUCH_BOX) {
+        let v6 = bits(retouch_render(large, &info, &retouched(Process::V6, 1.0), &req));
+        let evora = bits(retouch_render(large, &info, &retouched(Process::Evora1, 1.0), &req));
+        assert!(v6 != evora, "fichier rendu retouché, {:?} : Evora1 rend encore comme V6, le rendu d'Evora n'est pas branché", req.depth);
+    }
 }
 
 /// R12 (Evora, EVORA-REV-98) : un brut, sans puis avec courbe d'appareil, rendu sous `Evora1` et sous
@@ -235,6 +261,12 @@ fn assert_unwired_rendered_file_matches_v6(plain: &Rgb32f, large: &Rgb32f) {
 /// `Evora1` déclarée avant V6 dans la liste des versions, `Process::ALL` inchangé (elle perd la
 /// réduction conjointe du bruit de couleur). La garde de portée rougit sur ces trois derniers, avant
 /// toute comparaison.
+///
+/// Depuis EVORA-REV-112, le rendu d'Evora est branché et R12 garde pour de bon la condition « pas un
+/// brut » du prédicat. Sabotages de plus : le prédicat ouvert aux bruts (un brut passerait le pont de
+/// scène, ou lirait la table de tons d'Evora) ; le pont posé à l'étage linéaire sans lire le plan.
+/// Une seconde garde de portée vérifie que le fichier rendu, lui, a bien quitté V6
+/// (`assert_sdr_rendered_file_leaves_v6`).
 #[test]
 fn evora1_raw_matches_v6() {
     assert_eq!(crate::local::base_detail_radius((SMALLEST_MEDIAN_EDGE - 1) as f64), 0, "médian sous le plus petit bord");
@@ -244,7 +276,7 @@ fn evora1_raw_matches_v6() {
         let what = if info.camera_tone.is_some() { "brut à courbe d'appareil" } else { "brut" };
         assert_sdr_matches_v6(&plain, &large, &info, what);
     }
-    assert_unwired_rendered_file_matches_v6(&plain, &large);
+    assert_sdr_rendered_file_leaves_v6(&large);
 }
 
 /// Evora (EVORA-REV-98) : le rendu HDR d'un fichier rendu (rendu HDR allumé, sortie en flottants)
@@ -271,6 +303,9 @@ fn evora1_hdr_render_matches_v6() {
         let sdr = crate::settings_for(&s, &RenderRequest::fit(RETOUCH_BOX, RETOUCH_BOX));
         assert!(sdr.hdr.peak() <= 1.0, "{process:?} : la sortie 8 bits d'une édition HDR est un rendu SDR");
     }
+    // Evora (EVORA-REV-112) : le rendu SDR du même fichier, lui, a quitté V6 : l'égalité qui suit
+    // tient à la condition « pas un rendu HDR » du prédicat
+    assert_sdr_rendered_file_leaves_v6(&large);
     for step in STEPS {
         let req = hdr_request(PLAIN_BOX, PLAIN_BOX);
         let v6 = hdr_bits(render(&plain, &info, &hdr_on(at(Process::V6, step)), &req));

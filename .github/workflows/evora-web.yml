@@ -499,7 +499,7 @@ jobs:
           #    exigée telle quelle.
           LISTE=0
           EXPECTED_LIST=.github/evora/expected-tests.txt
-          EXPECTED_TESTS=37
+          EXPECTED_TESTS=44
           inscrits="$(grep -Ecv '^[[:space:]]*(#|$)' "$EXPECTED_LIST" || true)"
           if [ "$inscrits" != "$EXPECTED_TESTS" ]; then
             echo "::error::liste fermée : « $inscrits » test(s) inscrit(s) dans $EXPECTED_LIST, $EXPECTED_TESTS attendu(s) (EXPECTED_TESTS de cette étape, à monter par le commit qui inscrit un test)"; LISTE=1

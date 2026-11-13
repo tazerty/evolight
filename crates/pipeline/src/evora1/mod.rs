@@ -1,13 +1,25 @@
 //! Evora (EVORA-REV-99) : le rendu d'Evora, celui de la version du rendu `Evora1` (numéro 1001).
 //!
-//! Le module porte le prédicat du rendu, [`renders`], et, depuis EVORA-REV-110, des fonctions pures
-//! que rien ne branche encore : les constantes nommées du rendu (plus bas) et le pont de scène
-//! ([`bridge`]). Le chemin principal ne lit rien de ce module : sous `Evora1` il rend toujours comme
-//! V6, au bit près (bras recopiés d'EVORA-REV-98). Seul le chemin graphique lit le prédicat, pour
-//! laisser au chemin principal les rendus qui seront ceux d'Evora (`run`, dans `evolight_gpu`).
+//! Le module porte le prédicat du rendu, [`renders`], les constantes nommées du rendu (plus bas), le
+//! pont de scène ([`bridge`], depuis EVORA-REV-110) et la table de tons du rendu ([`tone`], depuis
+//! EVORA-REV-111). Hors du prédicat (un brut, un rendu HDR, une version de l'amont), rien de ce module
+//! n'agit sur le rendu : un brut et un rendu HDR sous `Evora1` rendent comme V6, au bit près (bras
+//! recopiés d'EVORA-REV-98). Le chemin graphique lit le prédicat, pour laisser au chemin principal
+//! les rendus d'Evora (`run`, dans `evolight_gpu`).
 //!
-//! Depuis EVORA-REV-111 s'y ajoute la table de tons du rendu d'Evora ([`tone`]), en fonctions pures
-//! elle aussi : rien ne la lit encore.
+//! Depuis EVORA-REV-112 le rendu d'Evora est branché. Sous le prédicat (le rendu SDR d'un fichier
+//! rendu sous `Evora1`), le chemin principal lit ce module en trois endroits, par les structures de
+//! [`stage`] :
+//! - à la fin de l'étage linéaire, l'image passe le pont aller ([`Frame::to_scene`]) : tout ce qui
+//!   suit lit une image de scène, et les clés de cache de cet étage portent la marque d'Evora ;
+//! - la table de tons du noyau par point est celle d'Evora ([`tone::table`], choisie par
+//!   `finish::base_tone`), qui finit par le pont de retour ;
+//! - le noyau borne au blanc la luminance lue dans cette table ([`Kernel::bound`]).
+//!
+//! Aux réglages neutres, le rendu d'un fichier est ce fichier. Les curseurs que le rendu d'Evora ne
+//! reprend pas encore (tons clairs et sombres, contraste local, relief fin, atténuation de la brume,
+//! couleur) appliquent pour l'instant leur loi de V6 à l'image de scène : état intermédiaire, que
+//! les commits suivants soldent un à un.
 //!
 //! Règle d'écriture du rendu d'Evora : chaque branche neuve du pipeline se ferme par ce prédicat, et
 //! par lui seul. Le code d'Evora ne range jamais deux versions du rendu par leur ordre.
@@ -19,6 +31,11 @@ pub mod bridge;
 // scène. Dans ce fichier, `tone` désigne désormais ce sous-module : la table de tons du moteur
 // s'écrit `crate::tone`.
 pub mod tone;
+// Evora (EVORA-REV-112) : ce que le rendu d'Evora pose dans le plan, la préparation et les
+// paramètres du noyau, une structure par étage.
+pub mod stage;
+
+pub use stage::{Frame, Kernel, Prep};
 
 use evolight_develop::DevelopSettings;
 
@@ -53,11 +70,8 @@ pub fn renders(s: &DevelopSettings, info: &SourceInfo) -> bool {
 // relevée par outil dans la référence. Les valeurs sont en double précision, comme dans la
 // référence ; le code par point les arrondit en simple précision là où il les lit.
 //
-// À ce commit seules les constantes du pont sont lues (`bridge`) ; les autres attendent les commits
-// qui portent leur loi.
-//
-// Evora (EVORA-REV-111) : les constantes du contraste, des blancs et des noirs sont lues à leur tour,
-// par la table de tons (`tone`).
+// Sont lues : les constantes du pont (`bridge`), et depuis EVORA-REV-111 celles du contraste, des
+// blancs et des noirs (`tone`). Les autres attendent les commits qui portent leur loi.
 
 /// Evora (EVORA-REV-110) : le gris moyen de la référence (`GRIS`, couleur.py:13), en double
 /// précision. Le pont se calcule depuis cette valeur exacte et non depuis [`crate::tone::GREY`], le

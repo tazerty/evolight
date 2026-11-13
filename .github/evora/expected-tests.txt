@@ -88,6 +88,21 @@ cpu evolight_pipeline evora1::tone::tests::tone_table_is_increasing_and_bounded
 cpu evolight_pipeline evora1::tone::tests::tone_table_reads_within_tolerance
 cpu evolight_pipeline evora1::tone::tests::chroma_scale_is_the_tone_maps_own
 
+# Pipeline : rendu d'Evora branché (EVORA-REV-112). Les structures du rendu d'Evora n'existent que
+# sous le prédicat ; puis, au niveau du rendu entier d'un fichier rendu sous Evora1 : l'identité au
+# neutre (octets du fichier en 8 bits, tolérance du neutre en flottants), la chaîne par point face aux
+# vecteurs d'or de la référence là où son retour de gamme laisse la couleur telle quelle, la table de
+# tons du noyau (celle d'Evora, croissante et bornée, sous le prédicat seulement), deux contrôles de la
+# référence (aucun aplat blanc créé par l'exposition, mémoire de chroma), et un cache de rendu qui ne
+# mêle pas les deux versions. Chaque test porte son témoin rouge
+cpu evolight_pipeline evora1::stage::tests::stage_parts_exist_only_under_the_predicate
+cpu evolight_pipeline tests_evora1::wired::neutral_rendered_file_is_the_file
+cpu evolight_pipeline tests_evora1::wired::render_matches_the_reference_where_the_gamut_return_rests
+cpu evolight_pipeline tests_evora1::wired::wired_tone_table_is_increasing_and_bounded
+cpu evolight_pipeline tests_evora1::wired::exposure_creates_no_white_patch
+cpu evolight_pipeline tests_evora1::wired::chroma_memory_returns_colour_to_highlights
+cpu evolight_pipeline tests_evora1::wired::version_switch_recomputes_the_linear_stage
+
 # Noyau graphique : chaque module WGSL se valide sans GPU
 gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
 

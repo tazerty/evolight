@@ -30,6 +30,8 @@ pub mod cull;
 pub mod curve;
 pub mod dust;
 // Evora (EVORA-REV-99) : le rendu d'Evora ; à ce commit, son seul prédicat (`evora1::renders`)
+// Evora (EVORA-REV-112) : depuis, le rendu d'Evora branché sous ce prédicat (pont de scène, table de
+// tons, structures du rendu)
 pub mod evora1;
 pub mod finish;
 pub mod geometry;
@@ -264,6 +266,10 @@ pub(crate) struct Prepared {
     pub masks: Vec<masks::Evaluated>,
     /// Output pixels per unit of the source long edge.
     pub px_per_long: f64,
+    /// Evora (EVORA-REV-112) : ce que le rendu d'Evora prépare pour le noyau par point, à côté des
+    /// plans de l'amont (vide à ce commit). `None` hors du prédicat ([`evora1::renders`]) : la
+    /// préparation est celle de V6.
+    pub evora1: Option<evora1::Prep>,
 }
 
 /// Output size for a source of `src_w × src_h` under `s`, fitting `max_w × max_h`.
@@ -447,6 +453,13 @@ pub struct Plan<'a> {
     pub mattes: Option<Arc<masks::Mattes>>,
     /// The whole frame and its output size (a windowed render's [`Self::frame`] is part of it).
     pub full: (geometry::Frame, usize, usize),
+    /// Evora (EVORA-REV-112) : la part d'Evora de ce rendu, présente sous le prédicat seulement
+    /// ([`evora1::renders`], jugé sur [`Self::settings`]). `None` : rendu de V6. Présente, l'image de
+    /// l'étage linéaire passe le pont de scène ([`evora1::Frame::to_scene`]) après la réduction du
+    /// bruit, et les clés [`Self::pre_nr_key`], [`Self::lin_key`] et [`Self::noise_key`] portent la
+    /// marque d'Evora : une image de scène et une image de V6 ne se prennent jamais l'une pour l'autre
+    /// dans un [`StageCache`].
+    pub evora1: Option<Arc<evora1::Frame>>,
 }
 
 /// Long edge of the small render a windowed render estimates the whole frame's airlight from.
@@ -524,6 +537,12 @@ pub fn plan<'a>(src: &Rgb32f, info: &SourceInfo, s: &'a DevelopSettings, req: &R
         local_tone::enabled(info, s),
         src_long,
     ));
+    // Evora (EVORA-REV-112) : sous le prédicat du rendu d'Evora, l'image de l'étage linéaire est une
+    // image de scène (elle a passé le pont) : sa clé porte la marque d'Evora, et avec elle celles qui
+    // en dérivent juste après (`lin_key`, `noise_key`) et la reprise des plans par un brouillon
+    // (`Planes::pre_nr`). Hors du prédicat la clé garde sa valeur : celles de V1 à V6 ne bougent pas.
+    let evora1 = crate::evora1::Frame::for_plan(s, info);
+    let pre_nr_key = if evora1.is_some() { hash_of((pre_nr_key, "evora1")) } else { pre_nr_key };
     let lin_key = hash_of((
         pre_nr_key,
         [d.nr_luminance, d.nr_detail, d.nr_color, d.nr_color_detail, d.nr_color_smoothness].map(f64::to_bits),
@@ -550,6 +569,7 @@ pub fn plan<'a>(src: &Rgb32f, info: &SourceInfo, s: &'a DevelopSettings, req: &R
         keep,
         mattes: info.mattes.clone(),
         full,
+        evora1,
     }
 }
 
@@ -587,6 +607,9 @@ pub fn colour_noise(src: &Rgb32f, info: &SourceInfo, p: &Plan<'_>) -> Option<nrc
                 keep: None,
                 mattes: None,
                 full: p.full.clone(),
+                // Evora (EVORA-REV-112) : les tuiles mesurent le bruit avant le pont de scène, comme
+                // la réduction du bruit le retire avant lui : sous Evora aussi, leur plan est nu.
+                evora1: None,
                 ..*p
             };
             local_tone::apply(&mut img, info, &tile);
@@ -723,6 +746,12 @@ fn render_impl(src: Src<'_>, info: &SourceInfo, s: &DevelopSettings, req: &Rende
                 colour_noise = self::colour_noise(src_img, info, &plan).map(|n| (plan.noise_key, n));
             }
             local::denoise(&mut img, s, detail_scale, colour_noise.as_ref().map(|c| &c.1));
+            // Evora (EVORA-REV-112) : sous le rendu d'Evora, l'image de l'étage linéaire passe ici le
+            // pont de scène, une fois, après la réduction du bruit. Les plans, les masques et le noyau
+            // par point lisent ensuite une image de scène ; la clé de cet étage en porte la marque.
+            if let Some(evora) = plan.evora1.as_deref() {
+                evora.to_scene(&mut img);
+            }
             Arc::new(img)
         }
     };
@@ -736,7 +765,18 @@ fn render_impl(src: Src<'_>, info: &SourceInfo, s: &DevelopSettings, req: &Rende
         Some(p) if req.quality == Quality::Draft && p.pre_nr == plan.pre_nr_key => p.for_other_nr(),
         _ => local::Planes { key: lin_key, pre_nr: plan.pre_nr_key, ..Default::default() },
     };
-    let mut prep = local::prepare(lin.clone(), s, frame, px_per_long, plan.native_long as f64, req.quality, &mut planes, plan.mattes.as_deref());
+    let mut prep = local::prepare(
+        lin.clone(),
+        s,
+        frame,
+        px_per_long,
+        plan.native_long as f64,
+        req.quality,
+        &mut planes,
+        plan.mattes.as_deref(),
+        // Evora (EVORA-REV-112) : la part d'Evora du plan, pour les plans du rendu d'Evora
+        plan.evora1.as_deref(),
+    );
     if let Some(a) = plan.fixed_air {
         prep.air = a;
     }
@@ -793,6 +833,11 @@ pub fn color_range_sample(src: &Rgb32f, info: &SourceInfo, s: &DevelopSettings, 
     let plan = plan(src, info, &rendition, req);
     let mut img = plan.frame.sample(src, plan.w, plan.h);
     lin_cpu(&mut img, info, &plan);
+    // Evora (EVORA-REV-112) : sous le rendu d'Evora, la pipette lit l'image de scène, comme
+    // l'évaluation du masque de plage de couleur dans le rendu (le même pont, au même endroit).
+    if let Some(evora) = plan.evora1.as_deref() {
+        evora.to_scene(&mut img);
+    }
     let o = plan.frame.norm_to_out(plan.w, plan.h).apply(p);
     let (cx, cy) = (o.x.floor() as i64, o.y.floor() as i64);
     if cx < 0 || cy < 0 || cx >= plan.w as i64 || cy >= plan.h as i64 {

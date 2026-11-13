@@ -231,6 +231,12 @@ pub struct FinishParams {
     /// Peak linear output relative to SDR white: 1 for SDR renders; `2^max_ev` for an HDR render
     /// ([`OutputDepth::F32Hdr`] with HDR on), which keeps values above 1 instead of clipping them.
     pub peak: f32,
+    /// Evora (EVORA-REV-112) : la part d'Evora du noyau par point, présente sous le prédicat du rendu
+    /// d'Evora seulement ([`crate::evora1::renders`]) ; `None` : noyau de V6. Présente, [`Self::tone`]
+    /// est la table de tons d'Evora, que le noyau borne au blanc après lecture, et l'image que lit le
+    /// noyau est une image de scène. Le chemin graphique ne la lit pas : il laisse ces rendus au
+    /// chemin principal.
+    pub evora1: Option<crate::evora1::Kernel>,
 }
 
 pub struct FinishParamsInput<'a> {
@@ -310,6 +316,8 @@ impl FinishParams {
             h,
             px_per_long,
             view: frame.view.map_or([0.0, 0.0, w as f32, h as f32], |v| [v.x as f32, v.y as f32, v.full_w as f32, v.full_h as f32]),
+            // Evora (EVORA-REV-112) : sous le même prédicat que la table de tons d'Evora (`base_tone`)
+            evora1: crate::evora1::Kernel::for_render(s, info),
         }
     }
 
@@ -359,6 +367,14 @@ pub fn base_tone(s: &DevelopSettings, info: &SourceInfo, peak: f32) -> ToneMap {
         Process::Evora1 => match info.camera_tone.as_ref().filter(|_| info.raw) {
             Some(curve) => ToneMap::camera_rolloff_hdr(curve, 0.0, l.whites, 0.0, peak),
             None if info.raw => ToneMap::rolloff_hdr(l.contrast, l.whites, l.blacks, peak),
+            // Evora (EVORA-REV-112) : le rendu d'Evora est branché. Sous son prédicat (le rendu SDR
+            // d'un fichier rendu), la table est celle d'Evora : contraste, blancs et noirs en EV de
+            // scène, puis le pont de retour, sans sa borne au blanc (le noyau la pose après lecture).
+            // Les trois autres lignes de ce bras restent celles de V6 : un brut et un rendu HDR sous
+            // `Evora1` rendent comme V6 au bit près.
+            None if crate::evora1::renders(s, info) => {
+                crate::evora1::tone::table(&crate::evora1::bridge::Bridge::default(), l.contrast, l.whites, l.blacks)
+            }
             None => ToneMap::display_hdr(l.contrast, l.whites, l.blacks, peak),
         },
     }
@@ -458,6 +474,10 @@ pub(crate) fn finish_with<T: Copy + Default + Send>(
     let preview_light = if exact { None } else { light.as_ref().and_then(|lo| crate::light_v3::PreviewOps::new(lo, &|v| encode_srgb(srgb, v))) };
     let peak = fp.peak;
     let hdr = peak > 1.0;
+    // Evora (EVORA-REV-112) : la préparation et le noyau jugent le même prédicat, sur les mêmes
+    // réglages. Sans cet accord, le noyau de V6 lirait une image de scène, ou celui d'Evora une image
+    // d'affichage.
+    debug_assert_eq!(p.evora1.is_some(), fp.evora1.is_some(), "préparation et noyau en désaccord sur le rendu d'Evora");
     let mut out = vec![T::default(); w * h];
     for_rows(&mut out, w, |y, row| {
         for (x, px) in row.iter_mut().enumerate() {
@@ -487,6 +507,9 @@ pub(crate) fn finish_with<T: Copy + Default + Send>(
             // --- tone map on luminance, highlight desaturation
             let yl = luminance_2020(c);
             let o = fp.tone.apply(yl);
+            // Evora (EVORA-REV-112) : la table de tons d'Evora n'est pas bornée ; sous Evora, la
+            // luminance d'affichage est bornée au blanc ici, avant tout ce qui la lit.
+            let o = fp.evora1.as_ref().map_or(o, |kernel| kernel.bound(o));
             let mut d = if yl > 1e-9 { c.map(|v| v * o / yl) } else { [0.0; 3] };
             let k = fp.tone.chroma_scale(o);
             if k != 1.0 {

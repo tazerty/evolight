@@ -1,5 +1,6 @@
-//! Evora (EVORA-REV-110) : le pont de scène du rendu d'Evora, en fonctions pures que rien ne branche
-//! encore.
+//! Evora (EVORA-REV-110) : le pont de scène du rendu d'Evora. Branché depuis EVORA-REV-112 : sous le
+//! prédicat du rendu, l'étage linéaire passe le pont aller (`stage::Frame::to_scene`), et la table de
+//! tons d'Evora finit par le pont de retour (`super::tone::table`).
 //!
 //! Un fichier déjà rendu (JPEG, PNG) porte une lumière d'affichage, de 0 à 1. Le pont la mène à une
 //! lumière de scène où les curseurs d'Evora agissent comme sur un brut, puis l'en ramène. C'est une

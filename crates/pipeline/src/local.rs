@@ -785,6 +785,9 @@ pub(crate) fn prepare(
     q: Quality,
     planes: &mut Planes,
     mattes: Option<&masks::Mattes>,
+    // Evora (EVORA-REV-112) : la part d'Evora du plan du rendu (`Plan::evora1`) ; `None` : rendu de
+    // V6. Présente, `img` est une image de scène : elle a passé le pont à la fin de l'étage linéaire.
+    evora: Option<&crate::evora1::Frame>,
 ) -> Prepared {
     let log_l = planes.log_l.get_or_insert_with(|| Arc::new(timed("log_l", || img.map(log_lum)))).clone();
     let PlaneSigmas {
@@ -846,7 +849,10 @@ pub(crate) fn prepare(
     };
     let ev = s.light.exposure as f32;
     let masks = timed("masks", || masks::evaluate(&s.masks, frame, img.width, img.height, &img, &log_l, ev, mattes));
-    Prepared { img, log_l, base, clarity_blur, texture_blur, sharpen_blur, dark, chroma_blur, air, masks, px_per_long }
+    // Evora (EVORA-REV-112) : sous le rendu d'Evora, sa préparation accompagne celle de l'amont. Elle
+    // est vide à ce commit : les plans du rendu d'Evora y viendront, calculés ici.
+    let evora1 = evora.map(|_| crate::evora1::Prep::default());
+    Prepared { img, log_l, base, clarity_blur, texture_blur, sharpen_blur, dark, chroma_blur, air, masks, px_per_long, evora1 }
 }
 
 /// The airlight of the whole output frame, estimated on a small render of it (`proxy_w` px wide):

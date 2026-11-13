@@ -837,6 +837,9 @@ fn stored_process_numbers_render_with_a_known_process() {
                 // tant que chaque bras d'`Evora1` recopie celui de V6. Elles prendront des dents quand
                 // le rendu d'Evora sera branché, puis à la bascule. La résolution des numéros est gardée
                 // pour de bon par `tests_process::version_numbers_resolve_within_their_range`.
+                // Evora (EVORA-REV-112) : le rendu d'Evora est branché. Sur le fichier rendu (la première
+                // des trois sources), la seconde assertion mord désormais : un 1002 lu à tort comme V6
+                // ne passerait ni le pont de scène ni la table de tons d'Evora.
                 assert!(out(&with(&s, ProcessVersion(7))) == out(&with(&s, Process::V6.version())), "7 : rendu comme V6");
                 let evora = out(&with(&s, Process::Evora1.version()));
                 assert!(out(&with(&s, ProcessVersion(Process::Evora1.version().0 + 1))) == evora, "1002 : rendu comme Evora1");
