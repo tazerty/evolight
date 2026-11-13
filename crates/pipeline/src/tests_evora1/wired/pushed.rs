@@ -9,12 +9,14 @@
 //! - `pushed_colours_keep_their_hue` : le contrôle « teinte tenue » de la référence, sous l'exposition ;
 //! - `display_render_runs_the_gamut_return_in_the_display_space` : pour un écran, le retour de gamme
 //!   se fait dans les primaires de l'écran ;
-//! - `neutral_wide_file_wakes_the_gamut_return` : constat de l'état présent aux réglages neutres,
-//!   pour un fichier P3 rendu en sRGB, où le retour de gamme s'éveille sur le bruit d'arrondi.
+//! - `neutral_wide_file_keeps_the_engine_gamut_map` : aux réglages neutres, un fichier P3 rendu en
+//!   sRGB rend ce que rend V6, là même où le bruit d'arrondi éveille le retour de gamme (loi
+//!   d'EVORA-REV-114).
 //!
 //! Chaque test porte son témoin rouge. Les témoins lisent la chaîne par point refaite à la main avec
 //! les fonctions du moteur (`ByHand`), dont une étape est retirée ou faussée : sans le retour de
-//! gamme, sans la borne finale, ou avec la matrice de retour d'un autre espace. Les aides (`decoded`,
+//! gamme, sans la borne finale, avec la matrice de retour d'un autre espace, ou sous la loi du retour
+//! de gamme d'EVORA-REV-113 (marge nulle). Les aides (`decoded`,
 //! `float_points`, `toned`, le treillis) sont celles du module père.
 
 use evolight_color::perceptual::oklab_from_2020;
@@ -23,9 +25,9 @@ use evolight_color::{REC2020, luminance_2020};
 use evolight_develop::Process;
 use evolight_raster::Rgb32f;
 
-use super::{NEUTRAL_CODE_TOL, decoded, float_points, srgb_lattice, toned};
+use super::{CONTROL_IDENTITY_MAX, NEUTRAL_CODE_TOL, decoded, float_points, srgb_lattice, toned, touches_white};
 use crate::evora1::bridge::Bridge;
-use crate::evora1::gamut::{KEPT, gamut_return, mul3, peak_of};
+use crate::evora1::gamut::{KEPT, MARGIN, gamut_return, mul3, peak_of, reference_of};
 use crate::evora1::stage::DISPLAY_WHITE;
 use crate::finish::gamut_map;
 use crate::tests_evora1::at;
@@ -39,9 +41,10 @@ use crate::{DisplaySpace, OutputDepth, OutputSpace, RenderRequest, SourceInfo, r
 // d'abord en refaisant à l'identique les vecteurs de `tableaux-rust.txt` ; en sRGB, le retour de gamme
 // y est fait sous les poids de luminance arrondis du moteur, ceux que le noyau lui passe. Les seuils
 // viennent du texte de `controles.py`, dans la référence. Rien de cela ne se retouche à la main ; tout
-// se régénère.
+// se régénère. Depuis EVORA-REV-114, la chaîne est reposée par `poser_rev114.py` (vecteurs du dossier
+// `v114`, transcription du retour de gamme sous la marge de la référence).
 
-// >>> or:CHAINE-POUSSEE (EVORA-REV-113 : écrit par poser_rev113.py depuis tableaux-rust.txt (GOLD_CHAIN) et la référence, par transcriptions.chaine (en sRGB, retour de gamme par transcriptions.retour_gamme sous les poids du moteur) ; ne pas retoucher)
+// >>> or:CHAINE-POUSSEE (EVORA-REV-114 : écrit par poser_rev114.py depuis v114/tableaux-rust.txt (GOLD_CHAIN) et la référence, par transcriptions.chaine (en sRGB, retour de gamme par transcriptions.retour_gamme sous les poids du moteur) ; ne pas retoucher)
 /// Evora (EVORA-REV-113) : ((exposition en EV, contraste, blancs, noirs), source Rec.2020, rendu Rec.2020 d'affichage), sortie sRGB.
 /// Chaîne par point de la référence en double précision, avant vibrance et saturation : les 12 jeux de réglages (sur 15) où son retour de gamme ramène au moins une des 10 couleurs (51 couleurs ramenées sur 120) ; tirées de la référence par la transcription qui refait GOLD_CHAIN, le retour de gamme fait sous les poids de luminance arrondis de la mise en gamme du moteur (0,2126 ; 0,7152 ; 0,0722), ceux que le moteur lui passe. Dont 2 jeu(x) qui n'y entrent que par le bruit d'arrondi de la référence au bord de la gamme (excès relatif des couleurs poussées sous un dernier chiffre de simple précision) : (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, -100.0).
 #[rustfmt::skip]
@@ -49,7 +52,7 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((0.0, 0.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.6978840231895447, 0.26591676473617554, 0.03522990643978119]),
     ((0.0, 0.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6274039149284363, 0.06909728795289993, 0.016391439363360405]),
     ((0.0, 0.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9566869139671326, 0.9886376857757568, 0.10440474748611461]),
-    ((0.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.37259613216371457, 0.9309027136890198, 0.9836085343466493]),
+    ((0.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.3725961321034512, 0.9309027135370584, 0.9836085357229873]),
     ((0.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.06050226464867592, 0.04249603673815728, 0.898673176765442]),
     ((0.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.6553377509117126, 0.46997091174125677, 0.3376247584819795]),
     ((0.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.6575288772583007, 0.7708704471588134, 0.4804166555404662]),
@@ -72,13 +75,13 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((2.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.644925063585196, 0.9616277030916303, 0.9833637756308257]),
     ((2.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.131620113559985, 0.16697136361548204, 0.9217549548639451]),
     ((2.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.8906254433250077, 0.7418494883945606, 0.6284752865615251]),
-    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.8750393997915021, 0.9838804229056068, 0.7033442118470979]),
+    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.8748623962011305, 0.9839562427376407, 0.7035485999357726]),
     ((2.0, 0.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.6343127824405372, 0.9533388706274211, 0.5048555858046522]),
     ((2.0, 0.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.6271619369052397, 0.6271619369052397, 0.6271619369052397]),
     ((2.0, 0.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.13704864764608576, 0.0652911468555926, 0.027984186057791058]),
     ((0.0, 50.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.7018350496192383, 0.2908142764686041, 0.05796550201727637]),
-    ((0.0, 50.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6289184791352471, 0.07346867012007798, 0.019154404156950203]),
-    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9584194890923219, 0.9939986672975923, 0.27218498396248036]),
+    ((0.0, 50.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6289605529558657, 0.0733718444163411, 0.01969024382500051]),
+    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.961198267957705, 0.992546520223586, 0.27098365899111754]),
     ((0.0, 50.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.45705266926021626, 0.940590784443381, 0.9820779177381508]),
     ((0.0, 50.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.05440241799221088, 0.038211580460107246, 0.8080688232857997]),
     ((0.0, 50.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.7272641616200686, 0.523184635419454, 0.3774782060899304]),
@@ -116,7 +119,7 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((0.0, -100.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.28468212075007243, 0.8002509433792384, 0.10443697965580045]),
     ((0.0, -100.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.20338818919406018, 0.20338818919406018, 0.20338818919406018]),
     ((0.0, -100.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.03691617412060373, 0.01758718080954231, 0.007537973580013589]),
-    ((0.0, 0.0, 100.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.6986353769969134, 0.2716277530182947, 0.04033806428738276]),
+    ((0.0, 0.0, 100.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.6993061582450285, 0.2711634207693646, 0.04102008772393344]),
     ((0.0, 0.0, 100.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6274039149284363, 0.06909728795289993, 0.016391439363360405]),
     ((0.0, 0.0, 100.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9697397689576924, 0.9984960560006787, 0.5509724018392381]),
     ((0.0, 0.0, 100.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.5805626913962568, 0.9544947137534491, 0.9822154295060352]),
@@ -129,7 +132,7 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((0.0, 0.0, 0.0, 100.0), [0.697884, 0.26591676, 0.035229906], [0.6978840231895447, 0.26591676473617554, 0.03522990643978119]),
     ((0.0, 0.0, 0.0, 100.0), [0.6274039, 0.06909729, 0.01639144], [0.6274039149284363, 0.06909728795289993, 0.016391439363360405]),
     ((0.0, 0.0, 0.0, 100.0), [0.9566869, 0.9886377, 0.10440475], [0.9566869139671326, 0.9886376857757568, 0.10440474748611461]),
-    ((0.0, 0.0, 0.0, 100.0), [0.3725961, 0.9309027, 0.98360854], [0.37259613216371457, 0.9309027136890198, 0.9836085343466493]),
+    ((0.0, 0.0, 0.0, 100.0), [0.3725961, 0.9309027, 0.98360854], [0.3725961321034512, 0.9309027135370584, 0.9836085357229873]),
     ((0.0, 0.0, 0.0, 100.0), [0.060502265, 0.042496037, 0.8986732], [0.06314914155089592, 0.04860518436054604, 0.8991589080738123]),
     ((0.0, 0.0, 0.0, 100.0), [0.65533775, 0.4699709, 0.33762476], [0.6553377509117126, 0.46997091174125677, 0.3376247584819795]),
     ((0.0, 0.0, 0.0, 100.0), [0.6575289, 0.77087045, 0.48041666], [0.6575288772583007, 0.7708704471588134, 0.4804166555404662]),
@@ -139,7 +142,7 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((0.0, 0.0, 0.0, -100.0), [0.697884, 0.26591676, 0.035229906], [0.6978840231895447, 0.26591676473617554, 0.03522990643978119]),
     ((0.0, 0.0, 0.0, -100.0), [0.6274039, 0.06909729, 0.01639144], [0.6274039149284363, 0.06909728795289993, 0.016391439363360405]),
     ((0.0, 0.0, 0.0, -100.0), [0.9566869, 0.9886377, 0.10440475], [0.9566869139671326, 0.9886376857757568, 0.10440474748611461]),
-    ((0.0, 0.0, 0.0, -100.0), [0.3725961, 0.9309027, 0.98360854], [0.37259613216371457, 0.9309027136890198, 0.9836085343466493]),
+    ((0.0, 0.0, 0.0, -100.0), [0.3725961, 0.9309027, 0.98360854], [0.3725961321034512, 0.9309027135370584, 0.9836085357229873]),
     ((0.0, 0.0, 0.0, -100.0), [0.060502265, 0.042496037, 0.8986732], [0.05525626489412054, 0.038811311883765756, 0.8207514776007448]),
     ((0.0, 0.0, 0.0, -100.0), [0.65533775, 0.4699709, 0.33762476], [0.6553377509117126, 0.46997091174125677, 0.3376247584819795]),
     ((0.0, 0.0, 0.0, -100.0), [0.6575289, 0.77087045, 0.48041666], [0.6575288772583007, 0.7708704471588134, 0.4804166555404662]),
@@ -152,7 +155,7 @@ const GOLD_CHAIN_PUSHED_SRGB: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 120] 
     ((1.0, 50.0, 30.0, -20.0), [0.3725961, 0.9309027, 0.98360854], [0.6484673261578418, 0.9620182986292443, 0.9834466994120258]),
     ((1.0, 50.0, 30.0, -20.0), [0.060502265, 0.042496037, 0.8986732], [0.09203322034452047, 0.10476872315027992, 0.9090564910230937]),
     ((1.0, 50.0, 30.0, -20.0), [0.65533775, 0.4699709, 0.33762476], [0.8816713470080642, 0.7200167717814295, 0.5980109278136708]),
-    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8739617407501553, 0.9837499100650327, 0.7008407193388129]),
+    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8737828426854227, 0.983826582231998, 0.7010470336952992]),
     ((1.0, 50.0, 30.0, -20.0), [0.3532253, 0.92266, 0.1541484], [0.6334580487101198, 0.9532352569617366, 0.5037406322251105]),
     ((1.0, 50.0, 30.0, -20.0), [0.21404114, 0.21404114, 0.21404114], [0.45712140813253477, 0.45712140813253477, 0.45712140813253477]),
     ((1.0, 50.0, 30.0, -20.0), [0.024240883, 0.011548564, 0.0049497853], [0.041339673572174385, 0.019694573748245136, 0.008441215120922187]),
@@ -177,7 +180,7 @@ const GOLD_CHAIN_PUSHED_P3: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80] = [
     ((1.0, 0.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9632020933285508, 0.9968133067859933, 0.4149658229145288]),
     ((1.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.5550591007798935, 0.9627290350574795, 0.9941958880786875]),
     ((1.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.09412812135658874, 0.10326612074124789, 0.989095431570417]),
-    ((1.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.9078338466535688, 0.6701915502699926, 0.5002578513837564]),
+    ((1.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.9078863608535995, 0.6701443197171164, 0.5003805609374377]),
     ((1.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.7982444208344854, 0.9240051291758233, 0.6017255400858414]),
     ((1.0, 0.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.5409290431368934, 0.9637163854576376, 0.3777310038194668]),
     ((1.0, 0.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.4026816074566738, 0.4026816074566738, 0.4026816074566738]),
@@ -188,18 +191,18 @@ const GOLD_CHAIN_PUSHED_P3: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80] = [
     ((2.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.646735578564443, 0.9706407655899681, 0.99300888455866]),
     ((2.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.1366573146300259, 0.1721735535675811, 0.9979810626636408]),
     ((2.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.9328252931534066, 0.7655887584369719, 0.6393619789847377]),
-    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.875330180227326, 0.9893199143891179, 0.6958588745954484]),
+    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.8751382198378649, 0.9894023467919087, 0.6960792170423006]),
     ((2.0, 0.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.6384699108929882, 0.9706781439347858, 0.504191801660486]),
     ((2.0, 0.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.6271619369052397, 0.6271619369052397, 0.6271619369052397]),
     ((2.0, 0.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.13704864764608576, 0.0652911468555926, 0.027984186057791058]),
     ((0.0, 50.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.7704062329030334, 0.29355011173614204, 0.038890902505195446]),
     ((0.0, 50.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6479876377500736, 0.07136421582680647, 0.016929205922470214]),
-    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9584199098090759, 0.9939991341291462, 0.27220342687089477]),
-    ((0.0, 50.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.4471243016185578, 0.9531965651307677, 0.9976277247123068]),
+    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9611988933356734, 0.992546882626826, 0.2710019931974387]),
+    ((0.0, 50.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.44710254662953586, 0.9531456493141766, 0.9980941630419752]),
     ((0.0, 50.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.05440241799221088, 0.038211580460107246, 0.8080688232857997]),
     ((0.0, 50.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.7272641616200686, 0.523184635419454, 0.3774782060899304]),
     ((0.0, 50.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.7135167131035723, 0.8320311325049441, 0.5283211829534181]),
-    ((0.0, 50.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.41903669826799733, 0.956113192256658, 0.22511433567038183]),
+    ((0.0, 50.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.41848108693515557, 0.9563542370523164, 0.22582506196400828]),
     ((0.0, 50.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.2213204683323334, 0.2213204683323334, 0.2213204683323334]),
     ((0.0, 50.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.018318065025849914, 0.00872688271103287, 0.0037403954632655584]),
     ((0.0, 100.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.8117024294274895, 0.32786603846114865, 0.05930771407190423]),
@@ -238,7 +241,7 @@ const GOLD_CHAIN_PUSHED_P3: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80] = [
     ((1.0, 50.0, 30.0, -20.0), [0.3725961, 0.9309027, 0.98360854], [0.6504992088109058, 0.970962361813512, 0.9929914052897777]),
     ((1.0, 50.0, 30.0, -20.0), [0.060502265, 0.042496037, 0.8986732], [0.09579301994366092, 0.10625396534418503, 0.9894895598492492]),
     ((1.0, 50.0, 30.0, -20.0), [0.65533775, 0.4699709, 0.33762476], [0.9266080822414385, 0.7424988471984961, 0.6052424453676246]),
-    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8741901827652161, 0.9892313241292123, 0.693141919052047]),
+    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8740012226750237, 0.9893125156939028, 0.6933585132728952]),
     ((1.0, 50.0, 30.0, -20.0), [0.3532253, 0.92266, 0.1541484], [0.6375397091786978, 0.970608624407252, 0.5029667022934317]),
     ((1.0, 50.0, 30.0, -20.0), [0.21404114, 0.21404114, 0.21404114], [0.45712140813253477, 0.45712140813253477, 0.45712140813253477]),
     ((1.0, 50.0, 30.0, -20.0), [0.024240883, 0.011548564, 0.0049497853], [0.041339673572174385, 0.019694573748245136, 0.008441215120922187]),
@@ -260,7 +263,7 @@ const GOLD_CHAIN_PUSHED_P3: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80] = [
 const GOLD_CHAIN_PUSHED_REC2020: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80] = [
     ((1.0, 0.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.9918052384340622, 0.4341751802905356, 0.11251672429285557]),
     ((1.0, 0.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.9991865221628519, 0.15246442540427588, 0.05478547111041031]),
-    ((1.0, 0.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9708504168554124, 1.0, 0.4820386420988937]),
+    ((1.0, 0.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9720745593002406, 1.0, 0.4656918684961686]),
     ((1.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.5552285562502194, 0.9622836197698764, 0.9936839182488714]),
     ((1.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.0953908288890461, 0.10400530672416616, 1.0]),
     ((1.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.9113677302890448, 0.671199569562045, 0.49972697851060144]),
@@ -274,14 +277,14 @@ const GOLD_CHAIN_PUSHED_REC2020: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80
     ((2.0, 0.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.6466674460950288, 0.9702687171990961, 0.9926099954822641]),
     ((2.0, 0.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.14268509087394182, 0.177506252107667, 1.0]),
     ((2.0, 0.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.9989278573632101, 0.7947351973181335, 0.6436853706402129]),
-    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.874182275660889, 0.9999392135054803, 0.6770543108287603]),
+    ((2.0, 0.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.8740595524438647, 0.9999922179829116, 0.6771932337252298]),
     ((2.0, 0.0, 0.0, 0.0), [0.3532253, 0.92266, 0.1541484], [0.6425116744009327, 0.9976721115036591, 0.4999885662793506]),
     ((2.0, 0.0, 0.0, 0.0), [0.21404114, 0.21404114, 0.21404114], [0.6271619369052397, 0.6271619369052397, 0.6271619369052397]),
     ((2.0, 0.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.13704864764608576, 0.0652911468555926, 0.027984186057791058]),
     ((0.0, 50.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.7704062329030334, 0.29355011173614204, 0.038890902505195446]),
     ((0.0, 50.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6479876377500736, 0.07136421582680647, 0.016929205922470214]),
-    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9663617135191159, 1.0, 0.2622096060333277]),
-    ((0.0, 50.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.4475716404266502, 0.9526663953563245, 0.9969675192383005]),
+    ((0.0, 50.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9700313414654708, 1.0, 0.23541245154766613]),
+    ((0.0, 50.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.4475516473964777, 0.9526196420940475, 0.9973958823934611]),
     ((0.0, 50.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.05440241799221088, 0.038211580460107246, 0.8080688232857997]),
     ((0.0, 50.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.7272641616200686, 0.523184635419454, 0.3774782060899304]),
     ((0.0, 50.0, 0.0, 0.0), [0.6575289, 0.77087045, 0.48041666], [0.7135167131035723, 0.8320311325049441, 0.5283211829534181]),
@@ -290,7 +293,7 @@ const GOLD_CHAIN_PUSHED_REC2020: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80
     ((0.0, 50.0, 0.0, 0.0), [0.024240883, 0.011548564, 0.0049497853], [0.018318065025849914, 0.00872688271103287, 0.0037403954632655584]),
     ((0.0, 100.0, 0.0, 0.0), [0.697884, 0.26591676, 0.035229906], [0.8596355582937332, 0.3286595178818635, 0.04509822429716409]),
     ((0.0, 100.0, 0.0, 0.0), [0.6274039, 0.06909729, 0.01639144], [0.6735410154369087, 0.0741784620471187, 0.017596808771155936]),
-    ((0.0, 100.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9704642872485862, 1.0, 0.47102984891733607]),
+    ((0.0, 100.0, 0.0, 0.0), [0.9566869, 0.9886377, 0.10440475], [0.9718618195937421, 1.0, 0.4532494397251802]),
     ((0.0, 100.0, 0.0, 0.0), [0.3725961, 0.9309027, 0.98360854], [0.528033022875616, 0.959876545380422, 0.994309780000312]),
     ((0.0, 100.0, 0.0, 0.0), [0.060502265, 0.042496037, 0.8986732], [0.047768937950217485, 0.033552306741953065, 0.7095381217167829]),
     ((0.0, 100.0, 0.0, 0.0), [0.65533775, 0.4699709, 0.33762476], [0.8075036886220212, 0.5866704668489986, 0.42900242037258984]),
@@ -323,8 +326,8 @@ const GOLD_CHAIN_PUSHED_REC2020: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 80
     ((1.0, 50.0, 30.0, -20.0), [0.9566869, 0.9886377, 0.10440475], [1.0, 1.0, 1.0]),
     ((1.0, 50.0, 30.0, -20.0), [0.3725961, 0.9309027, 0.98360854], [0.6504213560265535, 0.9705933529187151, 0.9925969421640742]),
     ((1.0, 50.0, 30.0, -20.0), [0.060502265, 0.042496037, 0.8986732], [0.09714901949968928, 0.10709865178440793, 1.0]),
-    ((1.0, 50.0, 30.0, -20.0), [0.65533775, 0.4699709, 0.33762476], [0.9994095970712966, 0.7690702342340617, 0.6017952866693461]),
-    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8728970199713992, 0.9999488587576507, 0.6738437127838881]),
+    ((1.0, 50.0, 30.0, -20.0), [0.65533775, 0.4699709, 0.33762476], [0.9995640376675791, 0.768927938497938, 0.6021787512404969]),
+    ((1.0, 50.0, 30.0, -20.0), [0.6575289, 0.77087045, 0.48041666], [0.8727912904668564, 0.9999945560300151, 0.6739631913707678]),
     ((1.0, 50.0, 30.0, -20.0), [0.3532253, 0.92266, 0.1541484], [0.6414337205593268, 0.9976717740583703, 0.49854873962658797]),
     ((1.0, 50.0, 30.0, -20.0), [0.21404114, 0.21404114, 0.21404114], [0.45712140813253477, 0.45712140813253477, 0.45712140813253477]),
     ((1.0, 50.0, 30.0, -20.0), [0.024240883, 0.011548564, 0.0049497853], [0.041339673572174385, 0.019694573748245136, 0.008441215120922187]),
@@ -369,15 +372,18 @@ type ChainVector = ((f64, f64, f64, f64), [f32; 3], [f64; 3]);
 /// simple précision : 8,1e-6 en sRGB, 7,3e-6 en P3, 1,14e-5 en Rec.2020 ; jusqu'à 2,1e-5 quand les
 /// puissances, les racines et les logarithmes bougent d'un dernier chiffre, 2,6e-5 quand ils bougent
 /// de deux (40 tirages chacun). C'est le double de la tolérance de la chaîne au repos (2,5e-5).
+/// Remesuré sous la loi du retour de gamme d'EVORA-REV-114, de même : 5,1e-6 en sRGB, 5,0e-6 en P3,
+/// 1,14e-5 en Rec.2020 ; jusqu'à 1,9e-5 et 2,6e-5 sous perturbation d'un et de deux derniers
+/// chiffres. La tolérance est gardée.
 const PUSHED_CHAIN_TOL: f64 = 5e-5;
 /// Evora (EVORA-REV-113) : nombre de vecteurs, par espace, que le témoin sans retour de gamme doit
 /// manquer (mesuré hors moteur : 48 en sRGB, 42 en P3, 37 en Rec.2020), et nombre de points que le
 /// témoin de l'écran doit manquer (mesuré : 2 408).
 const WITNESSES_MIN: usize = 10;
-/// Plancher de la luminance de scène sous lequel le point rendu est noir (evora1.py:274 ; le noyau de
+/// Plancher de la luminance de scène sous lequel le point rendu est noir (evora1.py:275 ; le noyau de
 /// l'amont a le même).
 const SCENE_FLOOR: f32 = 1e-9;
-/// Plancher de l'écart sous la borne finale (evora1.py:279 ; le noyau de l'amont a le même).
+/// Plancher de l'écart sous la borne finale (evora1.py:280 ; le noyau de l'amont a le même).
 const BOUND_FLOOR: f32 = 1e-6;
 /// Evora (EVORA-REV-113) : écart admis, en codes sur 8 bits, entre le rendu pour un écran et le rendu
 /// dans l'espace de sortie de mêmes primaires : la trame peut faire basculer un code. Les deux rendus
@@ -392,7 +398,7 @@ const DISPLAY_CODE_TOL: i32 = 1;
 /// point pour le manquer : au-delà de la trame (un code) et de sa propre marge.
 const WITNESS_CODES: f64 = 3.0;
 
-/// Evora (EVORA-REV-113) : la chaîne par point de la référence (evora1.py:222, 234, 272-280), refaite
+/// Evora (EVORA-REV-113) : la chaîne par point de la référence (evora1.py:223, 235, 273-281), refaite
 /// à la main avec les fonctions du moteur, pour un jeu de réglages et un espace de sortie : pont
 /// aller, gain d'exposition, table de tons bornée au blanc, échelle de chroma, retour de gamme, borne
 /// finale, puis mise en gamme du moteur. Comme la référence, elle garde la source du point à côté de
@@ -404,6 +410,9 @@ struct ByHand {
     to_out: [[f32; 3]; 3],
     from_out: [[f32; 3]; 3],
     luma: [f32; 3],
+    /// Evora (EVORA-REV-114) : la marge du retour de gamme ([`MARGIN`] dans le rendu ; nulle, c'est la
+    /// loi d'EVORA-REV-113, que lisent les témoins).
+    margin: f32,
 }
 
 impl ByHand {
@@ -418,6 +427,7 @@ impl ByHand {
             to_out: space.from_working(),
             from_out: space.rgb_space().to_space(&REC2020).to_f32(),
             luma: space.luma(),
+            margin: MARGIN,
         }
     }
 
@@ -425,14 +435,9 @@ impl ByHand {
     /// linéaire, après la mise en gamme du moteur ; `with_return` et `with_bound` posent ou retirent
     /// le retour de gamme et la borne finale.
     fn point(&self, source: [f32; 3], with_return: bool, with_bound: bool) -> [f32; 3] {
-        let c = self.bridge.scene_of(source).map(|v| v * self.gain);
-        let yl = luminance_2020(c);
-        let o = self.table.apply(yl).min(DISPLAY_WHITE);
-        let shown = if yl > SCENE_FLOOR { c.map(|v| v * o / yl) } else { [0.0; 3] };
-        let k = self.table.chroma_scale(o);
-        let mut d = shown.map(|v| o + (v - o) * k);
+        let (mut d, o) = self.displayed(source);
         if with_return {
-            d = gamut_return(d, source, &self.to_out, &self.from_out, self.luma, KEPT);
+            d = gamut_return(d, source, &self.to_out, &self.from_out, self.luma, KEPT, self.margin);
         }
         if with_bound {
             let mx = d[0].max(d[1]).max(d[2]);
@@ -442,6 +447,28 @@ impl ByHand {
             }
         }
         gamut_map(mul3(&self.to_out, d), self.luma).0
+    }
+
+    /// La couleur d'affichage du point `source` après les tons et l'échelle de chroma, avant le retour
+    /// de gamme, et sa luminance d'affichage bornée au blanc.
+    fn displayed(&self, source: [f32; 3]) -> ([f32; 3], f32) {
+        let c = self.bridge.scene_of(source).map(|v| v * self.gain);
+        let yl = luminance_2020(c);
+        let o = self.table.apply(yl).min(DISPLAY_WHITE);
+        let shown = if yl > SCENE_FLOOR { c.map(|v| v * o / yl) } else { [0.0; 3] };
+        let k = self.table.chroma_scale(o);
+        (shown.map(|v| o + (v - o) * k), o)
+    }
+
+    /// Evora (EVORA-REV-114) : l'excès relatif du point `source` sur la référence de son retour de
+    /// gamme, sa source retrouvée par le pont depuis sa couleur de scène, comme le noyau la retrouve
+    /// (`Kernel::gamut_return`) ; positif, le retour de gamme s'éveille. C'est la chaîne refaite à la
+    /// main sur ce poste, non le moteur : un diagnostic, que les tests ne jugent pas.
+    fn excess_by_the_bridge(&self, source: [f32; 3]) -> f32 {
+        let (d, _) = self.displayed(source);
+        let found = self.bridge.source_of(self.bridge.scene_of(source));
+        let reference = reference_of(found, &self.to_out);
+        (peak_of(d, &self.to_out) - reference) / reference
     }
 }
 
@@ -636,12 +663,31 @@ fn display_render_runs_the_gamut_return_in_the_display_space() {
     assert!(missed >= WITNESSES_MIN, "témoin : avec la matrice de retour de sRGB, {missed} point(s) seulement manquent le rendu pour l'écran");
 }
 
-/// Evora (EVORA-REV-113) : le plus grand écart admis, en codes sur 8 bits, entre le rendu neutre d'un
-/// fichier P3 rendu en sRGB et le rendu de V6 du même fichier, là où la source sort de la gamme sRGB.
-/// Mesuré hors moteur sur le treillis : 37,1 codes ; 38,6 quand les puissances, racines cubiques,
-/// hypoténuses et logarithmes bougent d'un ou de deux derniers chiffres (40 tirages chacun). La borne
-/// en vaut un peu plus du double : elle garde que le saut reste celui de la loi présente.
-const WIDE_NEUTRAL_JUMP_MAX: f64 = 80.0;
+/// Evora (EVORA-REV-114) : écart admis, en code sRGB sur 255 (flottants, sans trame), entre le rendu
+/// neutre sous `Evora1` d'un fichier P3 rendu en sRGB et le rendu de V6 du même fichier, aux points
+/// dont la source sort de la gamme sRGB (par le haut ou par le bas) ou dont un canal du fichier touche
+/// le blanc ; ailleurs, c'est `NEUTRAL_CODE_TOL`.
+///
+/// Mesuré hors moteur sur le treillis (émulation du noyau en simple précision) : 0,0053 code ; 0,0104
+/// la source décalée d'un dernier chiffre ; 0,0106 et 0,0132 quand les puissances, racines cubiques,
+/// hypoténuses et logarithmes bougent d'un ou de deux derniers chiffres (40 tirages chacun, source
+/// décalée ou non). Le runner, lui, a mesuré 0,0533 code au run D (43370713268, sous la loi
+/// d'EVORA-REV-113) sur des sources dont le plus grand canal sRGB tient sous le blanc, là où
+/// l'émulation ne donne que 0,0005 à 0,0010 : l'émulation ne reproduit pas ce que le runner a vu, et
+/// la cause de cet écart n'est pas prouvée.
+///
+/// Ce que l'émulation montre : au blanc, l'écart croît avec l'excès relatif `ε` de la couleur sur sa
+/// source, et c'est la mise en gamme finale du moteur qui l'amplifie, non le retour de gamme. Pour un
+/// excès commun aux trois canaux, la loi neuve donne 0,013 code à `ε` = 1e-6, 0,032 à 3e-6, 0,108 à
+/// 1e-5 ; sans retour de gamme, la mise en gamme finale seule en donne le double (le gain de la loi
+/// rend une part de l'excès en luminance). Un jaune P3 au blanc (codes 255, 255, b) poussé de 32
+/// derniers chiffres s'écarte de 0,052 code sous la loi d'EVORA-REV-113, l'ordre des 0,0533 du runner,
+/// et encore de 0,033 sous la loi neuve : une borne de 0,03 n'y tiendrait pas. La borne vaut un
+/// huitième de code, un peu plus du double des 0,0533 du runner ; elle cède vers `ε` = 1,2e-5 (une
+/// centaine de derniers chiffres au blanc). Elle reste au quart du seuil d'identité de la référence
+/// (`CONTROL_IDENTITY_MAX`), et deux cents fois sous les sauts de la loi d'EVORA-REV-113 (26 à 39
+/// codes, que lit le témoin).
+const WIDE_NEUTRAL_CODE_TOL: f64 = 0.125;
 /// Evora (EVORA-REV-113) : un code sur 8 bits : un point qui s'écarte de plus du rendu de V6 a sauté.
 const JUMP_CODE: f64 = 1.0;
 
@@ -657,26 +703,35 @@ fn code_gap(a: [f32; 3], b: [f32; 3]) -> f64 {
     worst
 }
 
-/// Evora (EVORA-REV-113) : constat de l'état présent, à faire trancher par la référence. Aux réglages
-/// neutres, un fichier P3 rendu en sRGB n'est pas partout ce que rend V6 (le fichier mis en gamme) :
-/// là où la source sort de la gamme sRGB, la référence du retour de gamme passe le blanc (la source y
-/// a déjà son pic), le bruit d'arrondi du pont suffit à faire passer la couleur au-dessus (le
-/// test est sans marge, `mx > ref`, pont.py:88-89), et la couleur est ramenée d'un coup. La
-/// référence fait de même : le portage est fidèle. Sur le treillis de 5 832 couleurs lu comme un
-/// fichier P3 :
-/// - les couleurs dont la source tient dans la gamme sRGB rendent ce que rend V6, à `NEUTRAL_CODE_TOL`
-///   près en flottants ;
-/// - parmi les autres, au moins une s'écarte du rendu de V6 de plus de `JUMP_CODE` (mesuré hors
-///   moteur : 248 à 271 sur 1 076), et aucune de plus de `WIDE_NEUTRAL_JUMP_MAX` codes.
+/// Evora (EVORA-REV-114) : aux réglages neutres, un fichier P3 rendu en sRGB rend ce que rend V6 (le
+/// fichier mis en gamme par le moteur). Treillis de 5 832 couleurs lu comme un fichier P3, sorti en
+/// flottants sRGB linéaires, en deux ensembles :
+/// - les sources dans la gamme sRGB par les deux bords, hors des points du fichier dont un canal touche
+///   le blanc (2 527 points) : à `NEUTRAL_CODE_TOL` près, la marge de la trame, comme le neutre d'un
+///   fichier sRGB (mesuré hors moteur : 0,0005 ; 0,0010 sous perturbation d'un ou de deux derniers
+///   chiffres) ;
+/// - les autres, sources hors de la gamme sRGB par le haut ou par le bas, ou au blanc : à
+///   `WIDE_NEUTRAL_CODE_TOL` près.
 ///
-/// Le jour où la référence tranche (un seuil relatif sur `mx > ref` dans ses `Parametres`, ou une
-/// référence de la source calculée par le même aller-retour que la couleur), la deuxième lecture
-/// rougit : le test se réécrit avec la loi neuve.
+/// Là où la source sort de la gamme sRGB par le haut, la référence du retour de gamme passe le blanc
+/// (la source y a déjà son pic), et le bruit d'arrondi du pont peut faire passer la couleur au-dessus
+/// (test strict `mx > ref`, pont.py:93). Sous la loi de la référence du 2026-11-13, la teinte n'y est
+/// rendue qu'en proportion de l'excès relatif, divisé par la marge `MARGIN` : l'arrondi y pèse vingt
+/// fois, sur l'écart entre la teinte rendue et la couleur désaturée, qui va jusqu'à 39 codes. Ce test
+/// lit le rendu du moteur, non ses réveils : combien de points éveillent le retour de gamme dans le
+/// moteur, il ne le voit pas. Hors moteur, la chaîne refaite à la main l'éveille sur 475 points, tous
+/// hors de la gamme sRGB ; en cas d'échec, le message donne le pire point de la lecture qui échoue, ses
+/// codes, l'écart de la chaîne refaite à la main avec et sans retour de gamme, son excès relatif par le
+/// pont (comme le noyau retrouve la source), et le compte de ces réveils sur le poste qui joue le test.
 ///
-/// Témoin intégré : la chaîne refaite à la main sans le retour de gamme ne s'écarte du rendu de V6
-/// de plus de `JUMP_CODE` en aucune couleur ; le saut vient du retour de gamme seul.
+/// Sabotages qui le font rougir (mesurés hors moteur) : la teinte rendue en plein dès le seuil (la loi
+/// d'EVORA-REV-113) ; l'excès jugé contre le blanc au lieu de la référence de la source (par la chaîne
+/// refaite à la main : 70 codes, 1 071 couleurs au-delà de `WIDE_NEUTRAL_CODE_TOL`). Témoin intégré :
+/// la chaîne refaite à la main sous la
+/// loi d'EVORA-REV-113 (marge nulle : l'excès, infini, est borné à 1 dès le seuil) fait sauter de
+/// plus de `JUMP_CODE` au moins `WITNESSES_MIN` couleurs.
 #[test]
-fn neutral_wide_file_wakes_the_gamut_return() {
+fn neutral_wide_file_keeps_the_engine_gamut_map() {
     let info = SourceInfo::default();
     // le treillis sRGB, ses octets lus comme un fichier P3 (D65)
     let file = srgb_lattice();
@@ -688,31 +743,71 @@ fn neutral_wide_file_wakes_the_gamut_return() {
     let evora = float_points(render(&src, &info, &at(Process::Evora1, 0.0), &req));
     let v6 = float_points(render(&src, &info, &at(Process::V6, 0.0), &req));
     assert_eq!((evora.len(), v6.len()), (src.data.len(), src.data.len()), "un point de rendu par point du fichier");
+    assert!(WIDE_NEUTRAL_CODE_TOL <= CONTROL_IDENTITY_MAX, "tolérance du fichier P3 au-dessus du seuil d'identité de la référence");
     let hand = ByHand::new((0.0, 0.0, 0.0, 0.0), space);
+    // témoin : la loi d'EVORA-REV-113, la teinte rendue en plein dès le seuil
+    let old_law = ByHand { margin: 0.0, ..ByHand::new((0.0, 0.0, 0.0, 0.0), space) };
+    let is_outside = |source: [f32; 3]| mul3(&to_out, source).iter().any(|&v| !(0.0..=DISPLAY_WHITE).contains(&v));
 
-    let (mut inside, mut outside, mut jumped, mut witness_jumped) = (0usize, 0usize, 0usize, 0usize);
-    let (mut worst_inside, mut worst_jump) = (0.0f64, 0.0f64);
-    for ((&source, &got), &plain) in src.data.iter().zip(&evora).zip(&v6) {
+    // (pire écart en code, index du point) : dans la gamme hors du blanc, puis tous les autres points
+    let (mut worst_inside, mut worst_edge) = ((0.0f64, 0usize), (0.0f64, 0usize));
+    let (mut inside, mut outside, mut woken, mut witness_jumped) = (0usize, 0usize, 0usize, 0usize);
+    for (i, ((&source, &got), &plain)) in src.data.iter().zip(&evora).zip(&v6).enumerate() {
         let gap = code_gap(got, plain);
-        if code_gap(hand.point(source, false, true), plain) > JUMP_CODE {
+        let source_outside = is_outside(source);
+        outside += usize::from(source_outside);
+        woken += usize::from(hand.excess_by_the_bridge(source) > 0.0);
+        let worst = if source_outside || touches_white(&file.data[i]) {
+            &mut worst_edge
+        } else {
+            inside += 1;
+            &mut worst_inside
+        };
+        if gap > worst.0 {
+            *worst = (gap, i);
+        }
+        if code_gap(old_law.point(source, true, true), plain) > JUMP_CODE {
             witness_jumped += 1;
         }
-        if peak_of(source, &to_out) <= DISPLAY_WHITE {
-            inside += 1;
-            worst_inside = worst_inside.max(gap);
-            continue;
-        }
-        outside += 1;
-        worst_jump = worst_jump.max(gap);
-        if gap > JUMP_CODE {
-            jumped += 1;
-        }
     }
-    assert!(inside > 0 && outside > 0, "garde de portée : {inside} source(s) dans la gamme sRGB, {outside} hors d'elle");
-    assert!(worst_inside <= NEUTRAL_CODE_TOL, "sources dans la gamme sRGB : {worst_inside} code d'écart au rendu de V6, {NEUTRAL_CODE_TOL} admis");
-    // l'état présent : des sauts, bornés
-    assert!(jumped >= 1, "aucune couleur hors de la gamme sRGB ne saute : la loi du retour de gamme a changé, réécrire ce test");
-    assert!(worst_jump <= WIDE_NEUTRAL_JUMP_MAX, "hors de la gamme sRGB, une couleur saute de {worst_jump} codes, {WIDE_NEUTRAL_JUMP_MAX} admis");
-    // témoin rouge : sans le retour de gamme, la deuxième lecture rougirait (rien ne saute)
-    assert_eq!(witness_jumped, 0, "témoin : sans le retour de gamme, {witness_jumped} couleur(s) sautent");
+    // le pire point d'un des deux ensembles, de quoi lire un échec en un seul passage de la CI
+    let codes = |v: [f32; 3]| v.map(|x| f64::from(linear_to_srgb(x)) * 255.0);
+    let describe = |i: usize| {
+        let source = src.data[i];
+        format!(
+            "point {i}, fichier P3 {:?}, source sRGB linéaire {:?} ({}) : codes rendus {:?}, codes de V6 {:?} ; \
+             chaîne refaite à la main : {:.4} code d'écart à V6, {:.4} sans retour de gamme, excès relatif par le pont {:e} ; \
+             {woken} point(s) où la chaîne refaite à la main éveille le retour de gamme",
+            &file.data[i][..3],
+            mul3(&to_out, source),
+            if is_outside(source) { "hors de la gamme sRGB" } else { "dans la gamme sRGB" },
+            codes(evora[i]),
+            codes(v6[i]),
+            code_gap(hand.point(source, true, true), v6[i]),
+            code_gap(hand.point(source, false, true), v6[i]),
+            hand.excess_by_the_bridge(source),
+        )
+    };
+    assert!(
+        inside > 0 && outside > 0 && outside < src.data.len(),
+        "garde de portée : {inside} source(s) dans la gamme sRGB hors du blanc, {outside} hors de la gamme sRGB, sur {}",
+        src.data.len()
+    );
+    assert!(
+        worst_inside.0 <= NEUTRAL_CODE_TOL,
+        "sources dans la gamme sRGB, hors du blanc : {} code d'écart au rendu de V6, {NEUTRAL_CODE_TOL} admis ; {}",
+        worst_inside.0,
+        describe(worst_inside.1)
+    );
+    assert!(
+        worst_edge.0 <= WIDE_NEUTRAL_CODE_TOL,
+        "sources hors de la gamme sRGB ou au blanc : {} code d'écart au rendu de V6, {WIDE_NEUTRAL_CODE_TOL} admis ; {}",
+        worst_edge.0,
+        describe(worst_edge.1)
+    );
+    // témoin rouge : sous la loi d'EVORA-REV-113, des couleurs hors de la gamme sRGB sautent
+    assert!(
+        witness_jumped >= WITNESSES_MIN,
+        "témoin : sous la loi d'EVORA-REV-113, {witness_jumped} couleur(s) seulement sautent de plus de {JUMP_CODE} code"
+    );
 }

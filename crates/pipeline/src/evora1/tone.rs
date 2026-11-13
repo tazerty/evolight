@@ -8,7 +8,7 @@
 //! - les blancs déplacent les clairs, les noirs déplacent les ombres, chacun sur un passage lisse.
 //!
 //! La luminance de scène ainsi réglée finit par le pont de retour, qui tend vers le blanc sans
-//! jamais couper. C'est la loi `tons` de la référence du rendu (evora1.py:140-152).
+//! jamais couper. C'est la loi `tons` de la référence du rendu (evora1.py:141-153).
 //!
 //! La table est celle du moteur ([`ToneMap`], [`LUT_N`] nœuds de [`LUT_MIN_EV`] à [`LUT_MAX_EV`]
 //! autour du gris), lue par [`ToneMap::apply`]. Deux choses la distinguent des tables de l'amont :
@@ -30,11 +30,11 @@ use crate::tone::{LUT_MAX_EV, LUT_MIN_EV, LUT_N, ToneMap};
 
 /// Evora (EVORA-REV-111) : la course d'un curseur de tons, de part et d'autre de zéro. Contraste,
 /// blancs et noirs arrivent en −100..100, et la référence les divise par cette valeur avant de les
-/// lire (evora1.py:144, 149 et 151).
+/// lire (evora1.py:145, 150 et 152).
 const SLIDER_RANGE: f64 = 100.0;
 
 /// Evora (EVORA-REV-111) : un EV de scène autour du gris moyen → le même EV réglé par le contraste,
-/// les blancs puis les noirs (`tons`, evora1.py:143-151, sans son pont de retour). `contrast`,
+/// les blancs puis les noirs (`tons`, evora1.py:144-152, sans son pont de retour). `contrast`,
 /// `whites`, `blacks` en −100..100, comme les curseurs.
 ///
 /// L'ordre fait partie de la loi : les blancs lisent l'EV déjà réglé par le contraste, les noirs
@@ -55,7 +55,7 @@ pub fn tone_ev(ev: f64, contrast: f64, whites: f64, blacks: f64) -> f64 {
 }
 
 /// Evora (EVORA-REV-111) : la loi de tons entière, en double précision : un EV de scène autour du
-/// gris moyen → la luminance d'affichage, **sans la borne à 1** (`tons`, evora1.py:140-152, dont la
+/// gris moyen → la luminance d'affichage, **sans la borne à 1** (`tons`, evora1.py:141-153, dont la
 /// sortie est cette valeur bornée à 1). [`tone_ev`], puis le pont de retour de `bridge`.
 ///
 /// C'est la valeur que [`table`] stocke à chaque nœud. Le pont de retour s'écrit ici en double
@@ -239,7 +239,7 @@ mod tests {
     }
 
     /// La loi de tons exacte à la luminance de scène `y`, bornée à 1, comme la référence la lit
-    /// (`tons`, evora1.py:142 et 152 : plancher de luminance, puis borne du pont de retour). Ce plancher
+    /// (`tons`, evora1.py:143 et 153 : plancher de luminance, puis borne du pont de retour). Ce plancher
     /// a la valeur de celui du pont ; sur la plage de lecture il ne joue pas.
     fn exact(bridge: &Bridge, y: f32, (contrast, whites, blacks): (f64, f64, f64)) -> f64 {
         let ev = (f64::from(y).max(LUMINANCE_FLOOR) / GREY).log2();

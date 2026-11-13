@@ -30,8 +30,8 @@
 //!   d'or de la référence, là où son retour de gamme et sa borne finale travaillent ;
 //! - `pushed_colours_keep_their_hue` : le contrôle « teinte tenue » de la référence ;
 //! - `display_render_runs_the_gamut_return_in_the_display_space` : le rendu pour un écran ;
-//! - `neutral_wide_file_wakes_the_gamut_return` : aux réglages neutres, un fichier P3 rendu en sRGB
-//!   (constat de l'état présent, à faire trancher par la référence).
+//! - `neutral_wide_file_keeps_the_engine_gamut_map` : aux réglages neutres, un fichier P3 rendu en
+//!   sRGB rend ce que rend V6 (loi du retour de gamme d'EVORA-REV-114).
 //!
 //! Les rendus de V1 à V6 eux-mêmes sont gardés par R11 (`tests_frozen`).
 

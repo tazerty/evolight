@@ -125,7 +125,7 @@ impl Kernel {
         if o > DISPLAY_WHITE { DISPLAY_WHITE } else { o }
     }
 
-    /// Evora (EVORA-REV-113) : le retour de gamme du noyau (`retour_gamme`, evora1.py:277). `d` est
+    /// Evora (EVORA-REV-113) : le retour de gamme du noyau (`retour_gamme`, evora1.py:278). `d` est
     /// la couleur d'affichage du point après les tons et l'échelle de chroma, `scene` sa couleur de
     /// scène telle que l'étage linéaire l'a laissée (avant l'exposition), `to_out` et `luma` la
     /// matrice de sortie du noyau et les poids de luminance de sa mise en gamme.
@@ -135,11 +135,14 @@ impl Kernel {
     /// ([`Bridge::source_of`]) seulement quand elle peut compter : la référence du retour de gamme
     /// vaut au moins le blanc, et tant qu'aucun canal de sortie ne le passe, rien n'est poussé. Aux
     /// réglages neutres, l'arrondi peut faire passer d'un dernier chiffre les points qui touchent le
-    /// bord de la gamme : ils sont ramenés, de peu si leur source tient dans la gamme, d'un coup si
-    /// elle en sort déjà (voir le module [`gamut`]).
+    /// bord de la gamme : depuis EVORA-REV-114 ils reçoivent la désaturation du moteur, et la teinte
+    /// n'y est rendue qu'en proportion de l'excès relatif, soit l'arrondi multiplié par l'inverse de
+    /// la marge, que leur source tienne dans la gamme ou en sorte déjà (ordre de grandeur mesuré dans
+    /// le module [`gamut`]). La part de l'excès rendue en luminance et la marge sont celles du rendu
+    /// ([`gamut::KEPT`], [`gamut::MARGIN`]).
     #[inline]
     pub fn gamut_return(&self, d: [f32; 3], scene: [f32; 3], to_out: &[[f32; 3]; 3], luma: [f32; 3]) -> [f32; 3] {
-        gamut::gamut_return_with(d, || self.bridge.source_of(scene), to_out, &self.from_out, luma, gamut::KEPT)
+        gamut::gamut_return_with(d, || self.bridge.source_of(scene), to_out, &self.from_out, luma, gamut::KEPT, gamut::MARGIN)
     }
 }
 

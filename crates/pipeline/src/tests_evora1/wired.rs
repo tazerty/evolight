@@ -40,7 +40,9 @@ mod pushed;
 // côté des vecteurs d'or) : les vecteurs de la chaîne et leurs tolérances depuis `tableaux-rust.txt`
 // et `06-fin-rendre.json`, que le générateur des vecteurs tire de la référence ; les triplets, les
 // seuils et la mire des contrôles depuis le texte de `controles.py`, dans la référence. Ils ne se
-// retouchent pas à la main ; ils se régénèrent.
+// retouchent pas à la main ; ils se régénèrent. Depuis EVORA-REV-114, les tolérances du branchement
+// sont reposées par `poser_rev114.py` (vecteurs du dossier `v114`) ; les autres blocs y sont relus
+// égaux à leur source.
 
 // >>> or:CHAINE-AU-REPOS (EVORA-REV-112 : écrit par poser_rev112.py depuis tableaux-rust.txt (GOLD_CHAIN) et 06-fin-rendre.json ; ne pas retoucher)
 /// Evora (EVORA-REV-112) : ((exposition en EV, contraste, blancs, noirs), source Rec.2020, rendu Rec.2020 d'affichage).
@@ -154,8 +156,8 @@ const GOLD_CHAIN_AT_REST: [((f64, f64, f64, f64), [f32; 3], [f64; 3]); 98] = [
 const GOLD_CONTROL_TRIPLETS: [(f64, f64, f64); 5] = [(0.0, 0.0, 0.0), (100.0, 100.0, -100.0), (-100.0, -100.0, 100.0), (100.0, -100.0, 100.0), (-100.0, 100.0, -100.0)];
 // <<< or:TRIPLETS
 
-// >>> or:TOLERANCES-BRANCHEMENT (EVORA-REV-112 : écrit par poser_rev112.py depuis tableaux-rust.txt, tolérances du branchement ; ne pas retoucher)
-/// Evora : absolue, par canal Rec.2020 d'affichage, chaîne du moteur en f32 face à la référence en f64. Écart mesuré 5.58e-06. Somme du pont aller en f32, de la lecture de table (jusqu'à 1,7e-6) et du retour de gamme (jusqu'à 1,9e-6), amplifiée sur les canaux bien plus grands que la luminance.
+// >>> or:TOLERANCES-BRANCHEMENT (EVORA-REV-114 : écrit par poser_rev114.py depuis v114/tableaux-rust.txt, tolérances du branchement ; ne pas retoucher)
+/// Evora : absolue, par canal Rec.2020 d'affichage, chaîne du moteur en f32 face à la référence en f64. Écart mesuré 5.38e-06. Somme du pont aller en f32, de la lecture de table (jusqu'à 1,7e-6) et du retour de gamme (jusqu'à 1,9e-6), amplifiée sur les canaux bien plus grands que la luminance.
 #[rustfmt::skip]
 const GOLD_TOL_CHAIN: f64 = 2.5e-05;
 
@@ -167,7 +169,7 @@ const GOLD_TOL_NEUTRAL_TONE: f64 = 2e-06;
 #[rustfmt::skip]
 const GOLD_TOL_NEUTRAL_LINEAR: f64 = 1e-05;
 
-/// Evora : fraction de code sur 255 : la marge de la trame du moteur. Écart mesuré 1.78e-03. L'écart au neutre reste très en dessous de la marge de 1/128 de code : les octets attendus sont ceux du fichier.
+/// Evora : fraction de code sur 255 : la marge de la trame du moteur. Écart mesuré 1.17e-03. L'écart au neutre reste très en dessous de la marge de 1/128 de code : les octets attendus sont ceux du fichier.
 #[rustfmt::skip]
 const NEUTRAL_CODE_TOL: f64 = 0.0078125;
 
@@ -229,14 +231,16 @@ const NEUTRAL_DEEP_TOL: i32 = 1;
 /// gamme s'éveille sur le bruit d'arrondi du pont. Mesuré hors moteur : 0 code ; 2 quand les
 /// puissances, racines cubiques, hypoténuses et logarithmes bougent d'un dernier chiffre, 4 quand ils
 /// bougent de deux (40 tirages chacun). Deux fois le pire : 8 codes sur 16 bits font 0,031 code sur
-/// 8 bits, sous le seuil d'identité de la référence (`CONTROL_IDENTITY_MAX`).
+/// 8 bits, sous le seuil d'identité de la référence (`CONTROL_IDENTITY_MAX`). Sous la loi du retour
+/// de gamme d'EVORA-REV-114, remesuré de même : 0, 1 et 1 code ; la tolérance est gardée.
 const NEUTRAL_EDGE_DEEP_TOL: i32 = 8;
 /// Evora (EVORA-REV-113) : écart admis, en code sur 255, entre le rendu neutre en flottants sRGB et le
 /// fichier, aux points dont un canal touche le blanc (`NEUTRAL_CODE_TOL` ailleurs, où le pire mesuré
 /// sous perturbation est 0,0012). Mesuré hors moteur : 0,0019 code ; jusqu'à 0,0090 quand les
 /// puissances, racines cubiques, hypoténuses et logarithmes bougent d'un dernier chiffre, 0,0102 quand
 /// ils bougent de deux (40 tirages chacun). Deux fois et demie le pire, sous le seuil d'identité de la
-/// référence (`CONTROL_IDENTITY_MAX`).
+/// référence (`CONTROL_IDENTITY_MAX`). Sous la loi du retour de gamme d'EVORA-REV-114, remesuré de
+/// même : 0,0016, 0,0024 et 0,0034 code ; la tolérance est gardée.
 const NEUTRAL_EDGE_CODE_TOL: f64 = 0.025;
 /// Codes sur 16 bits par code sur 8 bits (65 535 / 255).
 const DEEP_PER_CODE: i32 = 257;
@@ -357,11 +361,14 @@ fn worst_gap(a: &[[f32; 3]], b: &[[f32; 3]]) -> f64 {
 /// - en flottants dans l'espace de travail, l'écart à la source tient sous `GOLD_TOL_NEUTRAL_LINEAR`.
 ///
 /// Evora (EVORA-REV-113) : aux points dont un canal touche le blanc, le retour de gamme s'éveille sur
-/// le bruit d'arrondi du pont (la couleur égale sa source à ce bruit près, et le test `mx > ref` est sans
-/// marge, comme dans la référence) ; il y ramène la couleur de quelques millièmes de code, un peu plus
-/// quand les fonctions mathématiques du runner s'écartent de celles du poste. Leurs tolérances sont
-/// mesurées sous cette perturbation et restent sous le seuil d'identité de la référence
-/// (`CONTROL_IDENTITY_MAX`).
+/// le bruit d'arrondi du pont (la couleur égale sa source à ce bruit près, et le test `mx > ref` est
+/// strict, comme dans la référence) ; il y ramène la couleur de quelques millièmes de code, un peu
+/// plus quand les fonctions mathématiques du runner s'écartent de celles du poste. Leurs tolérances
+/// sont mesurées sous cette perturbation et restent sous le seuil d'identité de la référence
+/// (`CONTROL_IDENTITY_MAX`). Depuis EVORA-REV-114 (loi de la référence du 2026-11-13), la couleur
+/// éveillée ainsi reçoit la désaturation du moteur, et sa teinte n'est rendue qu'en proportion de
+/// l'excès relatif, soit l'arrondi multiplié par l'inverse de la marge (ordre de grandeur mesuré dans
+/// le module `evora1::gamut`).
 ///
 /// Sabotages qui le font rougir : le pont aller non posé à l'étage linéaire, ou posé deux fois ; le
 /// bras de `base_tone` resté sur la table de V6 ; un pont de retour d'un autre exposant ou d'un autre

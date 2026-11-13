@@ -10,7 +10,8 @@ pub(super) const SETTINGS_HASH_ENTRIES: usize = 1024;
 /// photos sous cette version sont refaits.
 /// EVORA-REV-112 : 1, le rendu d'Evora branché.
 /// EVORA-REV-113 : 2, le retour de gamme.
-const EVORA_RENDER_REVISION: u64 = 2;
+/// EVORA-REV-114 : 3, la loi du retour de gamme continue à son seuil (marge de la référence).
+const EVORA_RENDER_REVISION: u64 = 3;
 
 #[derive(Default)]
 pub(super) struct SettingsHashes {

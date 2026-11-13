@@ -13,36 +13,46 @@
 //!
 //! L'excès se juge contre celui que la source avait déjà au même point, et au moins contre le blanc
 //! ([`reference_of`]) : une couleur que les tons n'ont pas poussée plus loin que sa source passe
-//! telle quelle. Le test est strict et sans marge, comme dans la référence (`mx > ref`,
-//! pont.py:88-89) : aux réglages neutres, où la couleur égale sa source au bruit d'arrondi du pont
-//! près, ce bruit peut la faire passer. Si la source tient dans la gamme, la couleur n'est en général
-//! ramenée que de presque rien (un canal Rec.2020 négatif, que OkLab lit à zéro, y est toutefois
-//! perdu) ; si elle en sort déjà (un fichier P3 rendu en sRGB), la fonction saute à son seuil et la
-//! couleur est ramenée d'un coup. Question portée au propriétaire de la référence ;
-//! `tests_evora1::wired::pushed::neutral_wide_file_wakes_the_gamut_return` constate l'état présent.
+//! telle quelle. Le test est strict (`mx > ref`, pont.py:93), mais la loi est continue à son seuil
+//! (EVORA-REV-114, loi de la référence du 2026-11-13) : le gain y vaut 1, et la teinte d'avant la
+//! désaturation n'est rendue qu'en proportion de l'excès relatif, de rien à la référence (la couleur
+//! reçoit alors la désaturation du moteur, celle que la mise en gamme finale lui aurait donnée) à
+//! plein au-delà de la marge ([`GAMUT_MARGIN`]). Aux réglages neutres, où la couleur égale sa source
+//! au bruit d'arrondi du pont près, ce bruit peut encore faire passer le seuil : la teinte n'est
+//! alors rendue qu'en proportion de l'excès relatif, soit l'arrondi multiplié par l'inverse de la
+//! marge (vingt), sur l'écart entre la teinte rendue et la couleur désaturée, qui va jusqu'à 39 codes
+//! (mesuré hors moteur : un excès relatif de 1e-6 déplace déjà la couleur de 0,013 code, et la mise
+//! en gamme finale seule, sans retour de gamme, de 0,023). Un fichier P3 rendu en sRGB rend ce que
+//! rend V6, sa source dans la gamme ou hors d'elle
+//! (`tests_evora1::wired::pushed::neutral_wide_file_keeps_the_engine_gamut_map`).
 //!
 //! Ce qu'il laisse à la mise en gamme du moteur, qui le suit : rien de ce qui sort par le bas (un
 //! canal négatif n'est pas son affaire), et par le haut un reste de quelques centièmes, que la
 //! teinte rendue fait ressortir de la gamme.
 //!
-//! Référence : `retour_gamme` (pont.py:71-103) du rendu de référence d'Evora, avec `mise_en_gamme`
+//! Référence : `retour_gamme` (pont.py:71-108) du rendu de référence d'Evora, avec `mise_en_gamme`
 //! (couleur.py:87-94), qui est la mise en gamme du moteur, et ses passages par OkLab, qui sont ceux
 //! du moteur ([`oklab_from_2020`], [`oklab_to_2020`]). Tout le calcul est par point, en simple
 //! précision.
 
 use evolight_color::perceptual::{oklab_from_2020, oklab_to_2020};
 
-use super::GAMUT_KEPT;
 use super::stage::DISPLAY_WHITE;
+use super::{GAMUT_KEPT, GAMUT_MARGIN};
 use crate::finish::gamut_map_to;
 
 /// Evora (EVORA-REV-113) : [`GAMUT_KEPT`] en simple précision, pour le calcul par point : la part de
-/// l'excès que le retour de gamme rend en luminance (`gamme_retenue`, evora1.py:277).
+/// l'excès que le retour de gamme rend en luminance (`gamme_retenue`, déclaré à evora1.py:47, passé
+/// au retour de gamme à la ligne 278).
 pub const KEPT: f32 = GAMUT_KEPT as f32;
+/// Evora (EVORA-REV-114) : [`GAMUT_MARGIN`] en simple précision, pour le calcul par point : l'excès
+/// relatif sur la référence de la source au-delà duquel le retour de gamme rend la teinte en plein
+/// (`gamme_marge`, déclaré à evora1.py:48, passé au retour de gamme à la ligne 278).
+pub const MARGIN: f32 = GAMUT_MARGIN as f32;
 /// Evora (EVORA-REV-113) : plancher du plus grand canal de sortie sous le gain du retour de gamme
-/// (pont.py:92). Il n'est jamais atteint : une couleur poussée passe le blanc.
+/// (pont.py:97). Il n'est jamais atteint : une couleur poussée passe le blanc.
 const PEAK_FLOOR: f32 = 1e-9;
-/// Evora (EVORA-REV-113) : plancher de la chroma OkLab d'avant la désaturation (pont.py:100). Sous
+/// Evora (EVORA-REV-113) : plancher de la chroma OkLab d'avant la désaturation (pont.py:102). Sous
 /// lui (une couleur neutre), la teinte n'a pas de sens, et la couleur ramenée reste neutre.
 const CHROMA_FLOOR: f32 = 1e-9;
 
@@ -59,14 +69,14 @@ pub(crate) fn mul3(m: &[[f32; 3]; 3], v: [f32; 3]) -> [f32; 3] {
 }
 
 /// Evora (EVORA-REV-113) : le plus grand canal de la couleur `d` (Rec.2020 linéaire) une fois dans
-/// l'espace de sortie (`mx`, pont.py:87). `to_out` mène du Rec.2020 linéaire à la sortie linéaire.
+/// l'espace de sortie (`mx`, pont.py:91). `to_out` mène du Rec.2020 linéaire à la sortie linéaire.
 #[inline]
 pub fn peak_of(d: [f32; 3], to_out: &[[f32; 3]; 3]) -> f32 {
     let out = mul3(to_out, d);
     out[0].max(out[1]).max(out[2])
 }
 
-/// Evora (EVORA-REV-113) : la référence du retour de gamme (`ref`, pont.py:88) : le plus grand canal
+/// Evora (EVORA-REV-113) : la référence du retour de gamme (`ref`, pont.py:92) : le plus grand canal
 /// de sortie que la source avait déjà au même point, et au moins le blanc ([`DISPLAY_WHITE`]). Une
 /// source dans la gamme de sortie donne le blanc.
 #[inline]
@@ -74,54 +84,65 @@ pub fn reference_of(source: [f32; 3], to_out: &[[f32; 3]; 3]) -> f32 {
     peak_of(source, to_out).max(DISPLAY_WHITE)
 }
 
-/// Evora (EVORA-REV-113) : la couleur poussée `d` ramenée dans la gamme de sortie (pont.py:92-103).
-/// `peak` est son plus grand canal de sortie ([`peak_of`]), `reference` la référence de sa source
-/// ([`reference_of`]) ; l'appelant a vérifié que `peak` la dépasse.
-///
-/// Le gain `(reference / peak)^part`, sous 1, rend en luminance la part `part` de l'excès. La
-/// couleur ainsi assombrie est ensuite désaturée par la mise en gamme du moteur, sous les poids de
-/// luminance `luma` ; si celle-ci n'a rien eu à faire, la couleur assombrie est rendue. Sinon sa
-/// teinte OkLab est rendue à la couleur désaturée, à la luminosité et à la chroma de celle-ci.
-/// `from_out` ramène de la sortie linéaire au Rec.2020 linéaire. OkLab se lit sur des canaux
-/// ramenés à zéro quand ils sont négatifs.
+/// Evora (EVORA-REV-114) : l'excès relatif de la couleur sur la référence de sa source, ramené à
+/// 0..1 (`exces`, pont.py:96) : 0 à la référence, 1 dès que le plus grand canal de sortie `peak` la
+/// passe de la part `margin` d'elle-même. `reference` vaut au moins le blanc ([`reference_of`]).
 #[inline]
-pub fn pulled_back(
-    d: [f32; 3],
-    peak: f32,
-    reference: f32,
-    to_out: &[[f32; 3]; 3],
-    from_out: &[[f32; 3]; 3],
-    luma: [f32; 3],
-    part: f32,
-) -> [f32; 3] {
-    let gain = (reference / peak.max(PEAK_FLOOR)).powf(part);
+pub fn excess_of(peak: f32, reference: f32, margin: f32) -> f32 {
+    ((peak - reference) / (margin * reference)).clamp(0.0, 1.0)
+}
+
+/// Evora (EVORA-REV-113, loi d'EVORA-REV-114) : la couleur poussée `d` ramenée dans la gamme de
+/// sortie (pont.py:97-108). L'appelant a vérifié que son plus grand canal de sortie passe la
+/// référence de sa source, et donne le gain `gain` de la loi (`(ref / mx)^part`, pont.py:97, entier
+/// dès que la couleur est poussée) et l'excès relatif `excess` ([`excess_of`]).
+///
+/// Le gain, sous 1, rend en luminance une part de l'excès. La couleur ainsi assombrie est ensuite
+/// désaturée par la mise en gamme du moteur, sous les poids de luminance `luma` ; si celle-ci n'a
+/// rien eu à faire, la couleur assombrie est rendue. Sinon la couleur rendue mêle, en lumière
+/// linéaire et en proportion de `excess`, la couleur désaturée et cette même couleur à la teinte OkLab
+/// d'avant la désaturation (sa luminosité et sa chroma gardées) : à `excess` nul, c'est la
+/// désaturation du moteur ; à `excess` plein, la teinte est rendue. `from_out` ramène de la sortie
+/// linéaire au Rec.2020 linéaire. OkLab se lit sur des canaux ramenés à zéro quand ils sont négatifs ;
+/// la couleur désaturée, elle, garde les siens.
+#[inline]
+pub fn pulled_back(d: [f32; 3], gain: f32, excess: f32, to_out: &[[f32; 3]; 3], from_out: &[[f32; 3]; 3], luma: [f32; 3]) -> [f32; 3] {
     let dimmed = d.map(|v| v * gain);
     let (mapped, t) = gamut_map_to(mul3(to_out, dimmed), luma, DISPLAY_WHITE);
     if t >= 1.0 {
         return dimmed;
     }
+    let desaturated = mul3(from_out, mapped);
     let before = oklab_from_2020(dimmed.map(|v| v.max(0.0)));
-    let after = oklab_from_2020(mul3(from_out, mapped).map(|v| v.max(0.0)));
+    let after = oklab_from_2020(desaturated.map(|v| v.max(0.0)));
     let k = after[1].hypot(after[2]) / before[1].hypot(before[2]).max(CHROMA_FLOOR);
-    oklab_to_2020([after[0], before[1] * k, before[2] * k])
+    let hued = oklab_to_2020([after[0], before[1] * k, before[2] * k]);
+    std::array::from_fn(|c| desaturated[c] + (hued[c] - desaturated[c]) * excess)
 }
 
-/// Evora (EVORA-REV-113) : le retour de gamme d'une couleur (`retour_gamme`, pont.py:71-103, pour un
-/// point). `d` est la couleur d'affichage après les tons, `source` la couleur d'affichage d'origine
-/// au même point, toutes deux en Rec.2020 linéaire. `to_out` et `from_out` mènent du Rec.2020
-/// linéaire à la sortie linéaire et en reviennent ; `luma` porte les poids de luminance de la
-/// sortie ; `part` est la part de l'excès rendue en luminance ([`KEPT`] dans le rendu).
+/// Evora (EVORA-REV-113, loi d'EVORA-REV-114) : le retour de gamme d'une couleur (`retour_gamme`,
+/// pont.py:71-108, pour un point). `d` est la couleur d'affichage après les tons, `source` la couleur
+/// d'affichage d'origine au même point, toutes deux en Rec.2020 linéaire. `to_out` et `from_out`
+/// mènent du Rec.2020 linéaire à la sortie linéaire et en reviennent ; `luma` porte les poids de
+/// luminance de la sortie ; `part` est la part de l'excès rendue en luminance ([`KEPT`] dans le
+/// rendu), `margin` l'excès relatif au-delà duquel la teinte est rendue en plein ([`MARGIN`]).
 ///
 /// Si le plus grand canal de sortie de `d` ne dépasse pas la référence de sa source (test strict),
 /// `d` est rendue telle quelle, au bit près. Une couleur qui n'est pas un nombre n'est jamais
-/// poussée.
-///
-/// Pour une source déjà hors de la gamme de sortie, la référence passe le blanc, et la fonction
-/// saute à son seuil : la couleur passe d'intacte à entièrement ramenée. C'est la loi de la
-/// référence, portée telle quelle.
+/// poussée. Au-delà, la loi est continue : juste au-dessus de la référence, le gain vaut presque 1 et
+/// la couleur ne reçoit que la désaturation du moteur, qu'elle recevrait de toute façon de la mise en
+/// gamme finale.
 #[inline]
-pub fn gamut_return(d: [f32; 3], source: [f32; 3], to_out: &[[f32; 3]; 3], from_out: &[[f32; 3]; 3], luma: [f32; 3], part: f32) -> [f32; 3] {
-    gamut_return_with(d, || source, to_out, from_out, luma, part)
+pub fn gamut_return(
+    d: [f32; 3],
+    source: [f32; 3],
+    to_out: &[[f32; 3]; 3],
+    from_out: &[[f32; 3]; 3],
+    luma: [f32; 3],
+    part: f32,
+    margin: f32,
+) -> [f32; 3] {
+    gamut_return_with(d, || source, to_out, from_out, luma, part, margin)
 }
 
 /// Evora (EVORA-REV-113) : [`gamut_return`], la seule écriture de la loi, avec la source donnée par
@@ -138,12 +159,15 @@ pub fn gamut_return_with(
     from_out: &[[f32; 3]; 3],
     luma: [f32; 3],
     part: f32,
+    margin: f32,
 ) -> [f32; 3] {
     let peak = peak_of(d, to_out);
     if peak > DISPLAY_WHITE {
         let reference = reference_of(source(), to_out);
         if peak > reference {
-            return pulled_back(d, peak, reference, to_out, from_out, luma, part);
+            let excess = excess_of(peak, reference, margin);
+            let gain = (reference / peak.max(PEAK_FLOOR)).powf(part);
+            return pulled_back(d, gain, excess, to_out, from_out, luma);
         }
     }
     d
@@ -157,17 +181,18 @@ mod tests {
     //! Les vecteurs et leur tolérance sont recopiés par outil (`poser_rev113.py`, à côté des
     //! vecteurs d'or) depuis `tableaux-rust.txt` et `05-retour-gamme.json`, que le générateur des
     //! vecteurs tire de la référence : entrées en simple précision, attendus en double précision.
-    //! Ils ne se retouchent pas à la main ; ils se régénèrent.
+    //! Ils ne se retouchent pas à la main ; ils se régénèrent. Depuis EVORA-REV-114, ceux dont la
+    //! valeur change sous la loi neuve sont reposés par `poser_rev114.py` (vecteurs du dossier `v114`).
 
     use evolight_develop::{DevelopSettings, Process};
 
-    use super::{KEPT, gamut_return, mul3, peak_of};
+    use super::{KEPT, MARGIN, gamut_return, mul3, peak_of};
     use crate::SourceInfo;
     use crate::evora1::bridge::Bridge;
     use crate::evora1::stage::{DISPLAY_WHITE, Kernel};
     use crate::output::{DisplaySpace, OutputSpace};
 
-    // >>> or:RETOUR-DE-GAMME (EVORA-REV-113 : écrit par poser_rev113.py depuis tableaux-rust.txt, section EVORA-REV-113 ; ne pas retoucher)
+    // >>> or:RETOUR-DE-GAMME (EVORA-REV-114 : écrit par poser_rev114.py depuis v114/tableaux-rust.txt, section EVORA-REV-113 ; ne pas retoucher)
     /// Evora (EVORA-REV-113) : Rec.2020 linéaire -> srgb linéaire, de la référence.
     #[rustfmt::skip]
     const GOLD_SRGB_FROM_2020: [[f64; 3]; 3] = [
@@ -188,7 +213,7 @@ mod tests {
     #[rustfmt::skip]
     const GOLD_SRGB_LUMA: [f64; 3] = [0.21263900587151027, 0.715168678767756, 0.07219231536073371];
 
-    /// Evora (EVORA-REV-113) : (couleur après les tons, source, couleur ramenée), sortie srgb, pont.py:71-103.
+    /// Evora (EVORA-REV-113) : (couleur après les tons, source, couleur ramenée), sortie srgb, pont.py:71-108.
     /// Rec.2020 linéaire d'affichage ; part de l'excès rendue en luminance : `GAMUT_KEPT`.
     #[rustfmt::skip]
     const GOLD_GAMUT_RETURN_SRGB: [([f32; 3], [f32; 3], [f64; 3]); 49] = [
@@ -208,7 +233,7 @@ mod tests {
         ([0.49387783, 1.1316844, 1.1918954], [0.3725961, 0.9309027, 0.98360854], [0.6448707227047863, 0.9616216680682698, 0.9833627049607327]), // cyan, exposition +2, contraste +0, blancs +0,
         ([0.2462666, 0.17297459, 3.6579323], [0.060502265, 0.042496037, 0.8986732], [0.131612461624757, 0.16696026843912942, 0.9217528358653689]), // bleu, exposition +2, contraste +0, blancs +0,
         ([1.0797498, 0.8132866, 0.62304014], [0.65533775, 0.4699709, 0.33762476], [0.8906285169124156, 0.7418570406994458, 0.62848574943893]), // peau, exposition +2, contraste +0, blancs +0,
-        ([0.8723095, 1.0064011, 0.6627724], [0.6575289, 0.77087045, 0.48041666], [0.8750374790943436, 0.9838801905896861, 0.7033396895983436]), // pastel, exposition +2, contraste +0, blancs +0,
+        ([0.8723095, 1.0064011, 0.6627724], [0.6575289, 0.77087045, 0.48041666], [0.8748604863242029, 0.9839560058632546, 0.7035440646997063]), // pastel, exposition +2, contraste +0, blancs +0,
         ([0.5099948, 1.1822175, 0.27498278], [0.3532253, 0.92266, 0.1541484], [0.6342784224642113, 0.9533347739591759, 0.5048111494316191]), // vert vif, exposition +2, contraste +0, blancs +0,
         ([0.6271619, 0.6271619, 0.6271619], [0.21404114, 0.21404114, 0.21404114], [0.6271619200706482, 0.6271619200706482, 0.6271619200706482]), // gris moyen, exposition +2, contraste +0, blancs +0,
         ([0.13704865, 0.065291144, 0.027984185], [0.024240883, 0.011548564, 0.0049497853], [0.1370486468076706, 0.0652911439538002, 0.02798418514430523]), // sombre coloré, exposition +2, contraste +0, blancs +0,
@@ -222,7 +247,7 @@ mod tests {
         ([0.43915364, 1.056819, 0.22321513], [0.3532253, 0.92266, 0.1541484], [0.5095899561515654, 0.9387431807066864, 0.3450724505471891]), // vert vif, exposition +0, contraste +100, blancs +0,
         ([0.23036465, 0.23036465, 0.23036465], [0.21404114, 0.21404114, 0.21404114], [0.23036465048789978, 0.23036465048789978, 0.23036465048789978]), // gris moyen, exposition +0, contraste +100, blancs +0,
         ([0.0130366925, 0.0062107914, 0.0026619832], [0.024240883, 0.011548564, 0.0049497853], [0.013036692515015602, 0.006210791412740946, 0.00266198324970901]), // sombre coloré, exposition +0, contraste +100, blancs +0,
-        ([0.7139701, 0.2720461, 0.03604195], [0.697884, 0.26591676, 0.035229906], [0.6986354839981865, 0.2716285319902108, 0.040338774096027]), // orange vif, exposition +0, contraste +0, blancs +100,
+        ([0.7139701, 0.2720461, 0.03604195], [0.697884, 0.26591676, 0.035229906], [0.6993063551571811, 0.2711641370537058, 0.04102089180328038]), // orange vif, exposition +0, contraste +0, blancs +100,
         ([0.6274039, 0.06909729, 0.01639144], [0.6274039, 0.06909729, 0.01639144], [0.6274039149284363, 0.06909728795289993, 0.016391439363360405]), // rouge, exposition +0, contraste +0, blancs +100,
         ([1.0294493, 1.0631491, 0.13051383], [0.9566869, 0.9886377, 0.10440475], [0.9697423415784606, 0.9984965402443583, 0.5510210897957498]), // jaune, exposition +0, contraste +0, blancs +100,
         ([0.4650409, 1.0811491, 1.1393116], [0.3725961, 0.9309027, 0.98360854], [0.5805215737427892, 0.9544901179679499, 0.9822150708267312]), // cyan, exposition +0, contraste +0, blancs +100,
@@ -263,7 +288,7 @@ mod tests {
     #[rustfmt::skip]
     const GOLD_P3_LUMA: [f64; 3] = [0.22897456406974873, 0.6917385218365063, 0.079286914093745];
 
-    /// Evora (EVORA-REV-113) : (couleur après les tons, source, couleur ramenée), sortie p3, pont.py:71-103.
+    /// Evora (EVORA-REV-113) : (couleur après les tons, source, couleur ramenée), sortie p3, pont.py:71-108.
     /// Rec.2020 linéaire d'affichage ; part de l'excès rendue en luminance : `GAMUT_KEPT`.
     #[rustfmt::skip]
     const GOLD_GAMUT_RETURN_P3: [([f32; 3], [f32; 3], [f64; 3]); 49] = [
@@ -272,7 +297,7 @@ mod tests {
         ([1.0068676, 1.0400351, 0.122131355], [0.9566869, 0.9886377, 0.10440475], [0.9632020676756127, 0.9968133058100557, 0.4149659801570255]), // jaune, exposition +1, contraste +0, blancs +0,
         ([0.4554909, 1.0641431, 1.1216017], [0.3725961, 0.9309027, 0.98360854], [0.5550590890436451, 0.9627290084483693, 0.9941958869763863]), // cyan, exposition +1, contraste +0, blancs +0,
         ([0.13052054, 0.091676, 1.9386927], [0.060502265, 0.042496037, 0.8986732], [0.0941281260824855, 0.10326612132016381, 0.9890954328685719]), // bleu, exposition +1, contraste +0, blancs +0,
-        ([0.9113677, 0.67119956, 0.49972698], [0.65533775, 0.4699709, 0.33762476], [0.9078338458593229, 0.6701915451811681, 0.5002578514704572]), // peau, exposition +1, contraste +0, blancs +0,
+        ([0.9113677, 0.67119956, 0.49972698], [0.65533775, 0.4699709, 0.33762476], [0.9078863598532352, 0.6701443148124092, 0.5003805605516235]), // peau, exposition +1, contraste +0, blancs +0,
         ([0.7982444, 0.92400515, 0.6017255], [0.6575289, 0.77087045, 0.48041666], [0.7982444167137146, 0.9240051507949829, 0.6017255187034607]), // pastel, exposition +1, contraste +0, blancs +0,
         ([0.45916873, 1.090293, 0.23852484], [0.3532253, 0.92266, 0.1541484], [0.5409290178509948, 0.9637163837153598, 0.3777309467906373]), // vert vif, exposition +1, contraste +0, blancs +0,
         ([0.40268162, 0.40268162, 0.40268162], [0.21404114, 0.21404114, 0.21404114], [0.4026816189289093, 0.4026816189289093, 0.4026816189289093]), // gris moyen, exposition +1, contraste +0, blancs +0,
@@ -283,7 +308,7 @@ mod tests {
         ([0.49387783, 1.1316844, 1.1918954], [0.3725961, 0.9309027, 0.98360854], [0.646735553956279, 0.970640725965215, 0.993008881710953]), // cyan, exposition +2, contraste +0, blancs +0,
         ([0.2462666, 0.17297459, 3.6579323], [0.060502265, 0.042496037, 0.8986732], [0.13665731588694963, 0.17217355210296348, 0.997981063600438]), // bleu, exposition +2, contraste +0, blancs +0,
         ([1.0797498, 0.8132866, 0.62304014], [0.65533775, 0.4699709, 0.33762476], [0.9328252966465809, 0.7655887716517463, 0.63936198949783]), // peau, exposition +2, contraste +0, blancs +0,
-        ([0.8723095, 1.0064011, 0.6627724], [0.6575289, 0.77087045, 0.48041666], [0.8753301698030849, 0.9893199132107162, 0.6958587837387084]), // pastel, exposition +2, contraste +0, blancs +0,
+        ([0.8723095, 1.0064011, 0.6627724], [0.6575289, 0.77087045, 0.48041666], [0.8751382095738158, 0.989402345550203, 0.696079125961854]), // pastel, exposition +2, contraste +0, blancs +0,
         ([0.5099948, 1.1822175, 0.27498278], [0.3532253, 0.92266, 0.1541484], [0.63846989422915, 0.9706781427034908, 0.5041917779083339]), // vert vif, exposition +2, contraste +0, blancs +0,
         ([0.6271619, 0.6271619, 0.6271619], [0.21404114, 0.21404114, 0.21404114], [0.6271619200706482, 0.6271619200706482, 0.6271619200706482]), // gris moyen, exposition +2, contraste +0, blancs +0,
         ([0.13704865, 0.065291144, 0.027984185], [0.024240883, 0.011548564, 0.0049497853], [0.1370486468076706, 0.0652911439538002, 0.02798418514430523]), // sombre coloré, exposition +2, contraste +0, blancs +0,
@@ -319,7 +344,7 @@ mod tests {
     ];
     // <<< or:RETOUR-DE-GAMME
 
-    // >>> or:RETOUR-POIDS-ARRONDIS (EVORA-REV-113 : écrit par poser_rev113.py depuis 05-retour-gamme.json (sortie_poids_arrondis_f64) ; ne pas retoucher)
+    // >>> or:RETOUR-POIDS-ARRONDIS (EVORA-REV-114 : écrit par poser_rev114.py depuis v114/05-retour-gamme.json (sortie_poids_arrondis_f64) ; ne pas retoucher)
     /// Evora (EVORA-REV-113) : la couleur ramenée des mêmes vecteurs que `GOLD_GAMUT_RETURN_SRGB`, dans le même ordre, quand la référence
     /// fait le retour de gamme sous les poids de luminance arrondis de la mise en gamme du moteur pour sRGB (0,2126 ; 0,7152 ; 0,0722).
     #[rustfmt::skip]
@@ -340,7 +365,7 @@ mod tests {
         [0.6449250420332449, 0.9616276761672812, 0.9833637854191302],
         [0.1316201147067884, 0.1669713622364384, 0.9217549556793212],
         [0.8906254495841394, 0.7418495038068772, 0.628475299885492],
-        [0.875039391468263, 0.983880421715092, 0.703344129122495],
+        [0.8748623878173766, 0.9839562415779926, 0.7035485172450994],
         [0.6343127673862157, 0.9533388688229497, 0.5048555644219574],
         [0.6271619200706482, 0.6271619200706482, 0.6271619200706482],
         [0.1370486468076706, 0.0652911439538002, 0.02798418514430523],
@@ -354,7 +379,7 @@ mod tests {
         [0.5096085241023607, 0.9387451925870932, 0.3450954239108159],
         [0.23036465048789978, 0.23036465048789978, 0.23036465048789978],
         [0.013036692515015602, 0.006210791412740946, 0.00266198324970901],
-        [0.6986353729853012, 0.2716277402454432, 0.0403380614418897],
+        [0.6993061541647193, 0.2711634080385303, 0.04102008485361001],
         [0.6274039149284363, 0.06909728795289993, 0.016391439363360405],
         [0.969739760187558, 0.998496054288806, 0.5509723703218569],
         [0.5805626695693309, 0.9544947110789209, 0.9822154186704861],
@@ -425,10 +450,14 @@ mod tests {
     const INSIDE_STEPS: usize = LATTICE_STEPS - 1;
     /// Evora (EVORA-REV-113) : ce dont le retour de gamme peut ramener, en lumière linéaire, une
     /// couleur égale à sa source à un dernier chiffre près, au bord de la gamme des trois espaces de
-    /// la référence. Mesuré hors moteur sur le treillis : 4,8e-7 ; jusqu'à 2,9e-6 quand les
-    /// puissances, racines cubiques et hypoténuses bougent d'un dernier chiffre, 5,2e-6 quand elles
-    /// bougent de deux (40 tirages chacun). La borne en vaut le double. ProPhoto n'est pas tenu : un canal
-    /// Rec.2020 négatif de la source y est perdu par OkLab (jusqu'à 0,2).
+    /// la référence. Mesuré hors moteur sur le treillis, sous la loi d'EVORA-REV-114 : 1,8e-7 ;
+    /// jusqu'à 1,9e-6 quand les puissances, racines cubiques et hypoténuses bougent d'un dernier
+    /// chiffre, 3,9e-6 quand elles bougent de deux (40 tirages chacun ; sous la loi d'EVORA-REV-113 :
+    /// 4,8e-7, 2,9e-6 et 5,2e-6). La borne en vaut plus du double. ProPhoto n'est pas tenu : la perte
+    /// d'un canal Rec.2020 négatif par OkLab (jusqu'à 0,19 sous la loi d'EVORA-REV-113) n'y joue plus
+    /// (6,1e-7), mais la mise en gamme du moteur y est mal conditionnée près du jaune (poids de
+    /// luminance du bleu 9e-5) : un canal d'un dernier chiffre au-dessus du blanc fait bouger la couleur
+    /// de 1,4e-3 quand les puissances bougent d'un dernier chiffre (2,7e-3 de deux).
     const EDGE_GAP_MAX: f64 = 1e-5;
 
     /// Un espace de sortie des vecteurs d'or, ses matrices et ses poids dans la référence.
@@ -525,7 +554,9 @@ mod tests {
     ///
     /// Sabotages qui le font rougir : la part de l'excès rendue en luminance changée ; la matrice de
     /// retour prise pour un autre espace que la sortie ; la teinte rendue sans reprendre la chroma de
-    /// la couleur ramenée ; OkLab lu sur des canaux négatifs. Témoin intégré : sous les poids
+    /// la couleur ramenée ; OkLab lu sur des canaux négatifs ; la teinte rendue en plein dès le seuil
+    /// (marge nulle, la loi d'EVORA-REV-113 : deux vecteurs par espace, poussés de peu, s'écartent
+    /// alors de l'attendu de plus que la tolérance, mesuré hors moteur). Témoin intégré : sous les poids
     /// arrondis du moteur, la fonction manque l'attendu de la ligne exacte, de plus que la tolérance.
     #[test]
     fn gamut_return_matches_the_reference() {
@@ -542,7 +573,7 @@ mod tests {
             let luma = gold.luma.map(|v| v as f32);
 
             for (i, &(d, source, want)) in gold.vectors.iter().enumerate() {
-                let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT);
+                let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT, MARGIN);
                 let gap = worst_gap(got, want);
                 assert!(
                     gap <= GOLD_TOL_GAMUT_RETURN,
@@ -587,7 +618,7 @@ mod tests {
         let from_out = *file_kernel().in_space(OutputSpace::Srgb).from_out();
         let mut witness = 0.0f64;
         for (i, (&(d, source, exact), &want)) in GOLD_GAMUT_RETURN_SRGB.iter().zip(GOLD_GAMUT_RETURN_SRGB_ROUNDED.iter()).enumerate() {
-            let got = gamut_return(d, source, &to_out, &from_out, rounded, KEPT);
+            let got = gamut_return(d, source, &to_out, &from_out, rounded, KEPT, MARGIN);
             let gap = worst_gap(got, want);
             assert!(gap <= GOLD_TOL_GAMUT_RETURN, "sRGB, poids du moteur, vecteur {i} : rendu {got:?}, référence {want:?}, écart {gap}");
             witness = witness.max(worst_gap(got, exact));
@@ -624,7 +655,7 @@ mod tests {
         for space in OutputSpace::ALL {
             let (to_out, luma, kernel) = (space.from_working(), space.luma(), file_kernel().in_space(space));
             let from_out = *kernel.from_out();
-            let keeps = |d: [f32; 3], source: [f32; 3]| gamut_return(d, source, &to_out, &from_out, luma, KEPT) == d;
+            let keeps = |d: [f32; 3], source: [f32; 3]| gamut_return(d, source, &to_out, &from_out, luma, KEPT, MARGIN) == d;
 
             // une couleur qui égale sa source : le treillis entier, puis les primaires du Rec.2020
             let primaries = [[1.0f32, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
@@ -663,7 +694,7 @@ mod tests {
             let from_out = *file_kernel().in_space(space).from_out();
             for source in lattice(&from_out, LATTICE_STEPS) {
                 let d = source.map(|v| f32::from_bits(v.to_bits() + 1));
-                let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT);
+                let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT, MARGIN);
                 let gap = worst_gap(got, d.map(f64::from));
                 assert!(gap <= EDGE_GAP_MAX, "{space:?} : la couleur {d:?}, à un dernier chiffre de sa source, est ramenée de {gap}");
                 if got != d {
@@ -677,7 +708,7 @@ mod tests {
         let (to_out, luma) = (OutputSpace::Srgb.from_working(), OutputSpace::Srgb.luma());
         let from_out = *file_kernel().in_space(OutputSpace::Srgb).from_out();
         for (i, &(d, source, want)) in GOLD_NON_FINITE_SRGB.iter().enumerate() {
-            let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT);
+            let got = gamut_return(d, source, &to_out, &from_out, luma, KEPT, MARGIN);
             for c in 0..3 {
                 let same = if want[c].is_nan() { got[c].is_nan() } else { f64::from(got[c]) == want[c] };
                 assert!(same, "non fini {i} ({d:?}), canal {c} : rendu {}, référence {}", got[c], want[c]);
@@ -711,7 +742,7 @@ mod tests {
                     if peak_of(d, &to_out) - DISPLAY_WHITE > RESIDUE_MAX {
                         over_before += 1;
                     }
-                    let out = mul3(&to_out, gamut_return(d, source, &to_out, &from_out, luma, KEPT));
+                    let out = mul3(&to_out, gamut_return(d, source, &to_out, &from_out, luma, KEPT, MARGIN));
                     for c in 0..3 {
                         assert!(out[c].is_finite(), "{space:?}, source {source:?} poussée de {push} : canal {c} non fini");
                         assert!(

@@ -21,14 +21,17 @@
 //! juste avant la borne à la crête de l'amont, qui sous le prédicat est la borne finale du rendu
 //! d'Evora.
 //!
-//! Aux réglages neutres, le rendu d'un fichier est ce fichier, à une réserve près, que pose le retour
-//! de gamme : il juge la couleur contre sa source sans marge (`mx > ref`, comme la référence,
-//! pont.py:88-89), et le bruit d'arrondi du pont peut l'éveiller. Si la source tient dans la gamme de
-//! sortie, il ne ramène en général la couleur que de quelques millièmes de code (un canal Rec.2020
-//! négatif de la source, que OkLab lit à zéro, y est toutefois perdu : quelques codes pour le rouge
-//! d'un fichier P3 rendu en P3) ; si elle en sort déjà (un fichier P3 rendu en sRGB), il la ramène
-//! d'un coup, de plusieurs dizaines de codes (`tests_evora1::wired::pushed`, test
-//! `neutral_wide_file_wakes_the_gamut_return`). Question portée au propriétaire de la référence.
+//! Aux réglages neutres, le rendu d'un fichier est ce fichier. Le retour de gamme juge la couleur
+//! contre sa source par un test strict (`mx > ref`, comme la référence, pont.py:93), et le bruit
+//! d'arrondi du pont peut encore le faire passer ; depuis EVORA-REV-114 (loi de la référence du
+//! 2026-11-13) sa loi est continue à ce seuil : la teinte n'y est rendue qu'en proportion de l'excès
+//! relatif ([`GAMUT_MARGIN`]), soit l'arrondi multiplié par l'inverse de la marge, et la couleur
+//! reçoit pour le reste la désaturation du moteur, que la mise en gamme finale lui aurait donnée. Un
+//! fichier P3 rendu en sRGB rend ce que rend V6 (`tests_evora1::wired::pushed`, test
+//! `neutral_wide_file_keeps_the_engine_gamut_map`). Reste un écart que le retour de gamme ne fait
+//! pas, et que la référence a aussi : un fichier P3 rendu en P3 s'écarte du rendu de V6 jusqu'à 13
+//! codes, au cyan pur près du blanc, et jusqu'à 5,2 codes pour des sources qui tiennent dans la gamme
+//! P3 (mesuré sur la référence, avec ou sans retour de gamme), sans test qui le garde encore.
 //!
 //! Les curseurs que le rendu d'Evora ne reprend pas encore (tons clairs et sombres, contraste local,
 //! relief fin, atténuation de la brume, couleur) appliquent pour l'instant leur loi de V6 à l'image
@@ -80,15 +83,15 @@ pub fn renders(s: &DevelopSettings, info: &SourceInfo) -> bool {
 // --- Evora (EVORA-REV-110) : constantes nommées du rendu d'Evora -----------------------------------
 //
 // Ce fichier est le seul à porter les réglages du rendu d'Evora. Chaque constante est un champ de
-// `Parametres`, dans la référence du rendu (evora1.py:28-137), sous le nom anglais du plan de portage ;
+// `Parametres`, dans la référence du rendu (evora1.py:28-138), sous le nom anglais du plan de portage ;
 // le champ d'origine est donné entre accents graves. Aucune valeur n'est choisie ici : la référence
 // fait foi, et `tests::parameters_are_the_reference_ones` confronte chaque constante à la valeur
 // relevée par outil dans la référence. Les valeurs sont en double précision, comme dans la
 // référence ; le code par point les arrondit en simple précision là où il les lit.
 //
 // Sont lues : les constantes du pont (`bridge`), depuis EVORA-REV-111 celles du contraste, des blancs
-// et des noirs (`tone`), et depuis EVORA-REV-113 `GAMUT_KEPT` (`gamut`). Les autres attendent les
-// commits qui portent leur loi.
+// et des noirs (`tone`), depuis EVORA-REV-113 `GAMUT_KEPT` et depuis EVORA-REV-114 `GAMUT_MARGIN`
+// (`gamut`). Les autres attendent les commits qui portent leur loi.
 
 /// Evora (EVORA-REV-110) : le gris moyen de la référence (`GRIS`, couleur.py:13), en double
 /// précision. Le pont se calcule depuis cette valeur exacte et non depuis [`crate::tone::GREY`], le
@@ -134,8 +137,12 @@ pub const BLACKS_TO: f64 = 0.0;
 /// de sortie, part de l'excès rendue en luminance (teinte et richesse gardées) ; le reste part en
 /// désaturation.
 pub const GAMUT_KEPT: f64 = 0.5;
+/// Evora (EVORA-REV-114) : `gamme_marge` (evora1.py:48) : excès relatif, sur la référence de la
+/// source, à partir duquel le retour de gamme rend la teinte en plein ; en deçà, il ne la rend qu'en
+/// proportion de l'excès, et à la référence la couleur ne reçoit que la désaturation du moteur.
+pub const GAMUT_MARGIN: f64 = 0.05;
 
-// Hautes lumières et ombres, sur une base à bords gardés (evora1.py:48-65).
+// Hautes lumières et ombres, sur une base à bords gardés (evora1.py:49-66).
 /// `k_hautes` : EV retirés au plus quand le curseur descend.
 pub const K_HIGHLIGHTS: f64 = 1.9;
 /// `k_hautes_plus` : EV ajoutés au plus quand il monte.
@@ -172,7 +179,7 @@ pub const BASE_EPS_EVORA: f64 = 0.15;
 /// [`crate::local::BASE_DETAIL`] dans le moteur ; la fiche des constantes tient l'égalité.
 pub const BASE_MEDIAN: f64 = 0.0015;
 
-// Contraste local (evora1.py:66-75).
+// Contraste local (evora1.py:67-76).
 /// `local_sigma`, en fraction du bord long.
 pub const LOCAL_SIGMA: f64 = 0.012;
 /// `local_eps`.
@@ -193,7 +200,7 @@ pub const LOCAL_TAU_DOWN: f64 = 0.8;
 /// contour).
 pub const LOCAL_GUARD: f64 = 2.0;
 
-// Relief fin (evora1.py:76-85).
+// Relief fin (evora1.py:77-86).
 /// `fin_sigma`, en fraction du bord long.
 pub const FINE_SIGMA: f64 = 0.0018;
 /// `fin_eps`.
@@ -213,7 +220,7 @@ pub const FINE_GUARD: f64 = 1.0;
 /// `fin_creux` : part gardée du creusement (détail plus sombre que son entourage).
 pub const FINE_HOLLOW: f64 = 0.7;
 
-// Garde de la peau, commune au contraste local et au relief fin positifs (evora1.py:86-91).
+// Garde de la peau, commune au contraste local et au relief fin positifs (evora1.py:87-92).
 /// `peau_largeur` : demi-largeur de teinte, en radians, autour de la teinte de peau.
 pub const SKIN_WIDTH: f64 = 0.35;
 /// `peau_c_de` : chroma où la garde commence (un gris n'a pas de teinte).
@@ -225,7 +232,7 @@ pub const LOCAL_SKIN: f64 = 0.4;
 /// `fin_peau` : part du relief fin positif retirée sur la peau.
 pub const FINE_SKIN: f64 = 0.5;
 
-// Atténuation de la brume (evora1.py:92-118).
+// Atténuation de la brume (evora1.py:93-119).
 /// `voile_sigma`, en fraction du bord long.
 pub const VEIL_SIGMA: f64 = 0.02;
 /// `voile_erosion`, en fraction du bord long.
@@ -280,7 +287,7 @@ pub const HAZE_TINT: f64 = 0.5;
 /// `brume_chroma`.
 pub const HAZE_CHROMA: f64 = 0.6;
 
-// Vibrance et saturation (evora1.py:119-137).
+// Vibrance et saturation (evora1.py:120-138).
 /// `k_vibrance`.
 pub const K_VIBRANCE: f64 = 2.1;
 /// `vibrance_neutre`.
@@ -330,17 +337,17 @@ pub const TABLE_LUMS: usize = 65;
 pub const TABLE_HUES: usize = 256;
 /// `MARGE_TABLE` (chroma.py:26) : la table est lue un rien en dessous de la limite exacte.
 pub const TABLE_MARGIN: f64 = 0.985;
-/// Terme de milieu du contraste local, `plancher + part · exp(−(EV / largeur)²)` (evora1.py:255) :
+/// Terme de milieu du contraste local, `plancher + part · exp(−(EV / largeur)²)` (evora1.py:256) :
 /// son plancher.
 pub const LOCAL_MIDDLE_FLOOR: f64 = 0.35;
 /// Terme de milieu du contraste local : sa part variable.
 pub const LOCAL_MIDDLE_SHARE: f64 = 0.65;
 /// Terme de milieu du contraste local : sa largeur, en EV.
 pub const LOCAL_MIDDLE_WIDTH_EV: f64 = 3.2;
-/// Plus petit sigma, en points, de la base, du contraste local et du voile (evora1.py:232, 254 et
-/// 259 ; voile.py:30).
+/// Plus petit sigma, en points, de la base, du contraste local et du voile (evora1.py:233, 255 et
+/// 260 ; voile.py:30).
 pub const SIGMA_MIN: f64 = 1.0;
-/// Plus petit sigma, en points, du relief fin (evora1.py:248 et 266).
+/// Plus petit sigma, en points, du relief fin (evora1.py:249 et 267).
 pub const FINE_SIGMA_MIN: f64 = 0.6;
 /// Centile du plan sombre au-dessus duquel la teinte du voile est mesurée (voile.py:43).
 pub const VEIL_TINT_PERCENTILE: f64 = 99.0;
@@ -420,12 +427,13 @@ mod tests {
     //
     // Les tableaux qui suivent sont écrits par outil (`poser_rev110.py`, à côté des vecteurs d'or),
     // depuis le relevé des réglages de la référence (`00-parametres.json`) et depuis la référence
-    // elle-même. Ils ne se retouchent pas à la main ; ils se régénèrent.
+    // elle-même. Ils ne se retouchent pas à la main ; ils se régénèrent. Depuis EVORA-REV-114, ils sont
+    // reposés par `poser_rev114.py` depuis les vecteurs régénérés sous la loi neuve (dossier `v114`).
 
-    // >>> or:PARAMETRES (EVORA-REV-110 : écrit par poser_rev110.py depuis 00-parametres.json et texte de la référence ; ne pas retoucher)
-    /// Evora (EVORA-REV-110) : (champ de `Parametres`, valeur dans la référence), evora1.py:28-137, dans l'ordre de la référence.
+    // >>> or:PARAMETRES (EVORA-REV-114 : écrit par poser_rev114.py depuis v114/00-parametres.json et texte de la référence ; ne pas retoucher)
+    /// Evora (EVORA-REV-110) : (champ de `Parametres`, valeur dans la référence), evora1.py:28-138, dans l'ordre de la référence.
     #[rustfmt::skip]
-    const GOLD_PARAMETERS: [(&str, f64); 99] = [
+    const GOLD_PARAMETERS: [(&str, f64); 100] = [
         ("pont_n", 1.3),
         ("pont_blanc", 16.0),
         ("chroma_min", 0.8),
@@ -441,6 +449,7 @@ mod tests {
         ("noirs_de", -5.0),
         ("noirs_a", 0.0),
         ("gamme_retenue", 0.5),
+        ("gamme_marge", 0.05),
         ("k_hautes", 1.9),
         ("k_hautes_plus", 1.5),
         ("hautes_de", 0.7),
@@ -529,7 +538,7 @@ mod tests {
 
     /// Evora (EVORA-REV-110) : (champ de `Parametres`, constante du moteur qui le porte), dans le même ordre.
     #[rustfmt::skip]
-    const PORTED_PARAMETERS: [(&str, f64); 99] = [
+    const PORTED_PARAMETERS: [(&str, f64); 100] = [
         ("pont_n", super::BRIDGE_N),
         ("pont_blanc", super::BRIDGE_WHITE),
         ("chroma_min", super::CHROMA_MIN),
@@ -545,6 +554,7 @@ mod tests {
         ("noirs_de", super::BLACKS_FROM),
         ("noirs_a", super::BLACKS_TO),
         ("gamme_retenue", super::GAMUT_KEPT),
+        ("gamme_marge", super::GAMUT_MARGIN),
         ("k_hautes", super::K_HIGHLIGHTS),
         ("k_hautes_plus", super::K_HIGHLIGHTS_UP),
         ("hautes_de", super::HIGHLIGHTS_FROM),

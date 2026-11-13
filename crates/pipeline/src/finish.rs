@@ -524,7 +524,7 @@ pub(crate) fn finish_with<T: Copy + Default + Send>(
             // de sortie y est ramenée ici sans virer (retour de gamme), avant la borne qui suit et
             // avant la mise en gamme du moteur. `raw` est la couleur de scène du point : le noyau y
             // retrouve sa source. La borne qui suit est celle de l'amont ; sous Evora la crête vaut le
-            // blanc, et c'est la borne finale de la référence (evora1.py:278-280).
+            // blanc, et c'est la borne finale de la référence (evora1.py:279-281).
             if let Some(kernel) = fp.evora1.as_ref() {
                 d = kernel.gamut_return(d, raw, to_out, *out_luma);
             }
