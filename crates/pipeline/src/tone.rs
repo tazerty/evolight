@@ -329,6 +329,17 @@ impl ToneMap {
         ToneMap { lut, chroma: NO_CHROMA }
     }
 
+    /// Evora (EVORA-REV-111) : une table de tons faite de ses deux parties, pour une loi écrite hors
+    /// de ce module : la table de tons du rendu d'Evora ([`crate::evora1::tone::table`]). `lut` porte
+    /// [`LUT_N`] valeurs, une par nœud de `LUT_MIN_EV..LUT_MAX_EV` autour du gris, que lit
+    /// [`ToneMap::apply`] ; `chroma` porte les [`CHROMA_N`] nœuds que lit [`ToneMap::chroma_scale`].
+    /// Rien n'est borné ni retouché ici : la table d'Evora passe 1 au-delà du blanc de scène, et
+    /// c'est à qui la lit de borner après lecture.
+    pub(crate) fn from_parts(lut: Vec<f32>, chroma: [f32; CHROMA_N]) -> ToneMap {
+        debug_assert_eq!(lut.len(), LUT_N, "une table de tons porte LUT_N valeurs");
+        ToneMap { lut, chroma }
+    }
+
     /// The table (`LUT_N` entries, see [`ToneMap::apply`]).
     pub fn lut(&self) -> &[f32] {
         &self.lut

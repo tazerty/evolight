@@ -6,12 +6,19 @@
 //! V6, au bit près (bras recopiés d'EVORA-REV-98). Seul le chemin graphique lit le prédicat, pour
 //! laisser au chemin principal les rendus qui seront ceux d'Evora (`run`, dans `evolight_gpu`).
 //!
+//! Depuis EVORA-REV-111 s'y ajoute la table de tons du rendu d'Evora ([`tone`]), en fonctions pures
+//! elle aussi : rien ne la lit encore.
+//!
 //! Règle d'écriture du rendu d'Evora : chaque branche neuve du pipeline se ferme par ce prédicat, et
 //! par lui seul. Le code d'Evora ne range jamais deux versions du rendu par leur ordre.
 
 // Evora (EVORA-REV-110) : le pont de scène, entre la lumière d'affichage d'un fichier rendu et la
 // lumière de scène où les curseurs d'Evora agissent.
 pub mod bridge;
+// Evora (EVORA-REV-111) : la table de tons du rendu d'Evora, contraste, blancs et noirs en EV de
+// scène. Dans ce fichier, `tone` désigne désormais ce sous-module : la table de tons du moteur
+// s'écrit `crate::tone`.
+pub mod tone;
 
 use evolight_develop::DevelopSettings;
 
@@ -48,6 +55,9 @@ pub fn renders(s: &DevelopSettings, info: &SourceInfo) -> bool {
 //
 // À ce commit seules les constantes du pont sont lues (`bridge`) ; les autres attendent les commits
 // qui portent leur loi.
+//
+// Evora (EVORA-REV-111) : les constantes du contraste, des blancs et des noirs sont lues à leur tour,
+// par la table de tons (`tone`).
 
 /// Evora (EVORA-REV-110) : le gris moyen de la référence (`GRIS`, couleur.py:13), en double
 /// précision. Le pont se calcule depuis cette valeur exacte et non depuis [`crate::tone::GREY`], le

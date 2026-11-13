@@ -78,6 +78,16 @@ cpu evolight_pipeline evora1::bridge::tests::chroma_nodes_match_the_reference
 cpu evolight_pipeline evora1::bridge::tests::image_to_scene_matches_the_reference
 cpu evolight_pipeline evora1::bridge::tests::source_of_inverts_image_to_scene
 
+# Pipeline : table de tons du rendu d'Evora (EVORA-REV-111), fonctions pures que rien ne branche
+# encore. La loi (contraste, blancs et noirs en EV de scène) et les nœuds de la table face aux
+# vecteurs d'or de la référence ; la table croissante et bornée sur les cinq triplets du contrôle de la
+# référence ; sa lecture par le moteur face à la loi exacte (témoin : bornée avant d'être stockée,
+# elle manque la tolérance au blanc de scène) ; son échelle de chroma, qui est celle du pont
+cpu evolight_pipeline evora1::tone::tests::tone_matches_the_reference
+cpu evolight_pipeline evora1::tone::tests::tone_table_is_increasing_and_bounded
+cpu evolight_pipeline evora1::tone::tests::tone_table_reads_within_tolerance
+cpu evolight_pipeline evora1::tone::tests::chroma_scale_is_the_tone_maps_own
+
 # Noyau graphique : chaque module WGSL se valide sans GPU
 gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
 
