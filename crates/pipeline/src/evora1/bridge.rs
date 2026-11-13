@@ -140,8 +140,8 @@ impl Bridge {
 
     /// Evora (EVORA-REV-110) : une couleur de scène → la couleur d'affichage dont elle vient,
     /// l'inverse par point de [`Bridge::scene_of`]. La référence n'a pas cette fonction (elle garde
-    /// l'image d'origine à côté de l'image de scène) ; le noyau, qui ne voit que la scène, s'en
-    /// servira pour retrouver la source d'un point.
+    /// l'image d'origine à côté de l'image de scène) ; le noyau, qui ne voit que la scène, s'en sert
+    /// pour retrouver la source d'un point (retour de gamme, `stage::Kernel::gamut_return`).
     ///
     /// Luminance de scène, pont de retour borné à 1, gain commun aux trois canaux, puis chroma
     /// reprise. À [`LUMINANCE_FLOOR`] et en dessous le gain vaut 1, comme à l'aller. Une source dont

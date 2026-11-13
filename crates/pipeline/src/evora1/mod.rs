@@ -16,10 +16,23 @@
 //!   `finish::base_tone`), qui finit par le pont de retour ;
 //! - le noyau borne au blanc la luminance lue dans cette table ([`Kernel::bound`]).
 //!
-//! Aux réglages neutres, le rendu d'un fichier est ce fichier. Les curseurs que le rendu d'Evora ne
-//! reprend pas encore (tons clairs et sombres, contraste local, relief fin, atténuation de la brume,
-//! couleur) appliquent pour l'instant leur loi de V6 à l'image de scène : état intermédiaire, que
-//! les commits suivants soldent un à un.
+//! Depuis EVORA-REV-113 le noyau ramène aussi dans la gamme de sortie, sans la laisser virer, une
+//! couleur vive que les tons en ont fait sortir par le haut ([`gamut`], [`Kernel::gamut_return`]),
+//! juste avant la borne à la crête de l'amont, qui sous le prédicat est la borne finale du rendu
+//! d'Evora.
+//!
+//! Aux réglages neutres, le rendu d'un fichier est ce fichier, à une réserve près, que pose le retour
+//! de gamme : il juge la couleur contre sa source sans marge (`mx > ref`, comme la référence,
+//! pont.py:88-89), et le bruit d'arrondi du pont peut l'éveiller. Si la source tient dans la gamme de
+//! sortie, il ne ramène en général la couleur que de quelques millièmes de code (un canal Rec.2020
+//! négatif de la source, que OkLab lit à zéro, y est toutefois perdu : quelques codes pour le rouge
+//! d'un fichier P3 rendu en P3) ; si elle en sort déjà (un fichier P3 rendu en sRGB), il la ramène
+//! d'un coup, de plusieurs dizaines de codes (`tests_evora1::wired::pushed`, test
+//! `neutral_wide_file_wakes_the_gamut_return`). Question portée au propriétaire de la référence.
+//!
+//! Les curseurs que le rendu d'Evora ne reprend pas encore (tons clairs et sombres, contraste local,
+//! relief fin, atténuation de la brume, couleur) appliquent pour l'instant leur loi de V6 à l'image
+//! de scène : état intermédiaire, que les commits suivants soldent un à un.
 //!
 //! Règle d'écriture du rendu d'Evora : chaque branche neuve du pipeline se ferme par ce prédicat, et
 //! par lui seul. Le code d'Evora ne range jamais deux versions du rendu par leur ordre.
@@ -34,6 +47,9 @@ pub mod tone;
 // Evora (EVORA-REV-112) : ce que le rendu d'Evora pose dans le plan, la préparation et les
 // paramètres du noyau, une structure par étage.
 pub mod stage;
+// Evora (EVORA-REV-113) : le retour de gamme, qui ramène dans la gamme de sortie une couleur que les
+// tons en ont fait sortir par le haut.
+pub mod gamut;
 
 pub use stage::{Frame, Kernel, Prep};
 
@@ -70,8 +86,9 @@ pub fn renders(s: &DevelopSettings, info: &SourceInfo) -> bool {
 // relevée par outil dans la référence. Les valeurs sont en double précision, comme dans la
 // référence ; le code par point les arrondit en simple précision là où il les lit.
 //
-// Sont lues : les constantes du pont (`bridge`), et depuis EVORA-REV-111 celles du contraste, des
-// blancs et des noirs (`tone`). Les autres attendent les commits qui portent leur loi.
+// Sont lues : les constantes du pont (`bridge`), depuis EVORA-REV-111 celles du contraste, des blancs
+// et des noirs (`tone`), et depuis EVORA-REV-113 `GAMUT_KEPT` (`gamut`). Les autres attendent les
+// commits qui portent leur loi.
 
 /// Evora (EVORA-REV-110) : le gris moyen de la référence (`GRIS`, couleur.py:13), en double
 /// précision. Le pont se calcule depuis cette valeur exacte et non depuis [`crate::tone::GREY`], le

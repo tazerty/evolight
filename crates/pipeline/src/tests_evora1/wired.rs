@@ -30,6 +30,10 @@ use crate::evora1::bridge::Bridge;
 use crate::tone::{LUT_N, ToneMap};
 use crate::{DeepSamples, OutputDepth, OutputSpace, Quality, RenderRequest, Rendered, SourceInfo, StageCache, plan, render, render_cached};
 
+// Evora (EVORA-REV-113) : les tests du retour de gamme et de la borne finale, au niveau du rendu
+// entier, dans `tests_evora1/wired/pushed.rs`. Module fils : il lit les aides de ce fichier.
+mod pushed;
+
 // --- Evora (EVORA-REV-112) : le rendu d'Evora branché ---------------------------------------------
 //
 // Les tableaux, les tolérances et les seuils qui suivent sont écrits par outil (`poser_rev112.py`, à
@@ -208,10 +212,32 @@ const CONTROL_MEMORY_EXPOSURE: f64 = -1.0;
 const GOLD_WHITE_PATCH_PERCENT: [f64; 2] = [0.048828125, 0.390625];
 // <<< or:APLAT-BLANC
 
+// >>> or:SEUIL-IDENTITE (EVORA-REV-113 : écrit par poser_rev113.py depuis texte de controles.py de la référence ; ne pas retoucher)
+/// Evora (EVORA-REV-113) : seuil du contrôle « identité au neutre » de la référence, lu dans le texte de controles.py (SHA-256 7880643fcd58).
+/// `SEUIL_IDENTITE` : écart admis entre le rendu neutre d'un fichier et ce fichier, en niveau (code) sur 255.
+#[rustfmt::skip]
+const CONTROL_IDENTITY_MAX: f64 = 0.5;
+// <<< or:SEUIL-IDENTITE
+
 /// Evora (EVORA-REV-112) : écart admis, en codes sur 16 bits, entre le rendu neutre d'un fichier sur
-/// 8 bits et ce fichier (un code sur 8 bits en vaut `DEEP_PER_CODE` sur 16). L'arrondi du rendu en
-/// 16 bits tombe à un demi-code près : un code d'écart reste possible, pas deux.
+/// 8 bits et ce fichier (un code sur 8 bits en vaut `DEEP_PER_CODE` sur 16), hors des points dont un
+/// canal touche le blanc (code 255). L'arrondi du rendu en 16 bits tombe à un demi-code près. Mesuré
+/// hors moteur à EVORA-REV-113 (`mesures_constats_110_113.py`) : 0 code, y compris quand les
+/// puissances, racines cubiques, hypoténuses et logarithmes bougent de deux derniers chiffres.
 const NEUTRAL_DEEP_TOL: i32 = 1;
+/// Evora (EVORA-REV-113) : le même écart aux points dont un canal touche le blanc, où le retour de
+/// gamme s'éveille sur le bruit d'arrondi du pont. Mesuré hors moteur : 0 code ; 2 quand les
+/// puissances, racines cubiques, hypoténuses et logarithmes bougent d'un dernier chiffre, 4 quand ils
+/// bougent de deux (40 tirages chacun). Deux fois le pire : 8 codes sur 16 bits font 0,031 code sur
+/// 8 bits, sous le seuil d'identité de la référence (`CONTROL_IDENTITY_MAX`).
+const NEUTRAL_EDGE_DEEP_TOL: i32 = 8;
+/// Evora (EVORA-REV-113) : écart admis, en code sur 255, entre le rendu neutre en flottants sRGB et le
+/// fichier, aux points dont un canal touche le blanc (`NEUTRAL_CODE_TOL` ailleurs, où le pire mesuré
+/// sous perturbation est 0,0012). Mesuré hors moteur : 0,0019 code ; jusqu'à 0,0090 quand les
+/// puissances, racines cubiques, hypoténuses et logarithmes bougent d'un dernier chiffre, 0,0102 quand
+/// ils bougent de deux (40 tirages chacun). Deux fois et demie le pire, sous le seuil d'identité de la
+/// référence (`CONTROL_IDENTITY_MAX`).
+const NEUTRAL_EDGE_CODE_TOL: f64 = 0.025;
 /// Codes sur 16 bits par code sur 8 bits (65 535 / 255).
 const DEEP_PER_CODE: i32 = 257;
 /// Evora (EVORA-REV-112) : le treillis de couleurs du test du neutre : `LATTICE_LEVELS` niveaux par
@@ -249,6 +275,11 @@ const CACHE_HAZE_REDUCTION: f64 = 30.0;
 /// (256 × 4 points) : trois canaux qui montent, tournent et descendent.
 fn srgb_ramp() -> Rgba8 {
     Rgba8::from_fn(256, 4, |x, y| [x as u8, (x as u8).wrapping_add(y as u8 * 40), 255 - x as u8, 255])
+}
+
+/// Evora (EVORA-REV-113) : un point d'un fichier sur 8 bits dont un canal touche le blanc (code 255).
+fn touches_white(p: &[u8; 4]) -> bool {
+    p[..3].contains(&u8::MAX)
 }
 
 /// Un treillis de `LATTICE_LEVELS`³ couleurs sRGB sur 8 bits, primaires, noir et blanc compris.
@@ -319,9 +350,18 @@ fn worst_gap(a: &[[f32; 3]], b: &[[f32; 3]]) -> f64 {
 /// - en 8 bits, les octets du rendu sont ceux du fichier. La trame du moteur laisse `NEUTRAL_CODE_TOL`
 ///   de code de marge de chaque côté d'un code exact : c'est la tolérance du neutre ;
 /// - en flottants sRGB, l'écart au code du fichier tient sous cette même tolérance, sans trame ni
-///   table d'encodage ;
-/// - en 16 bits, au plus `NEUTRAL_DEEP_TOL` code d'écart ;
+///   table d'encodage, hors des points dont un canal touche le blanc (code 255), qui ont la leur
+///   (`NEUTRAL_EDGE_CODE_TOL`) ;
+/// - en 16 bits, au plus `NEUTRAL_DEEP_TOL` code d'écart, et `NEUTRAL_EDGE_DEEP_TOL` aux points dont
+///   un canal touche le blanc ;
 /// - en flottants dans l'espace de travail, l'écart à la source tient sous `GOLD_TOL_NEUTRAL_LINEAR`.
+///
+/// Evora (EVORA-REV-113) : aux points dont un canal touche le blanc, le retour de gamme s'éveille sur
+/// le bruit d'arrondi du pont (la couleur égale sa source à ce bruit près, et le test `mx > ref` est sans
+/// marge, comme dans la référence) ; il y ramène la couleur de quelques millièmes de code, un peu plus
+/// quand les fonctions mathématiques du runner s'écartent de celles du poste. Leurs tolérances sont
+/// mesurées sous cette perturbation et restent sous le seuil d'identité de la référence
+/// (`CONTROL_IDENTITY_MAX`).
 ///
 /// Sabotages qui le font rougir : le pont aller non posé à l'étage linéaire, ou posé deux fois ; le
 /// bras de `base_tone` resté sur la table de V6 ; un pont de retour d'un autre exposant ou d'un autre
@@ -333,6 +373,12 @@ fn neutral_rendered_file_is_the_file() {
     let info = SourceInfo::default();
     let neutral = at(Process::Evora1, 0.0);
     assert!(crate::evora1::renders(&neutral, &info), "garde de portée : ce rendu est un rendu d'Evora");
+    // les tolérances des points du bord de la gamme restent sous le seuil d'identité de la référence
+    assert!(NEUTRAL_EDGE_CODE_TOL <= CONTROL_IDENTITY_MAX, "tolérance en flottants du bord de la gamme au-dessus du seuil d'identité");
+    assert!(
+        f64::from(NEUTRAL_EDGE_DEEP_TOL) / f64::from(DEEP_PER_CODE) <= CONTROL_IDENTITY_MAX,
+        "tolérance sur 16 bits du bord de la gamme au-dessus du seuil d'identité"
+    );
     for (what, file) in [("rampe", srgb_ramp()), ("treillis", srgb_lattice())] {
         let (w, h) = (file.width, file.height);
         let src = decoded(&file);
@@ -348,29 +394,40 @@ fn neutral_rendered_file_is_the_file() {
         }
         assert_eq!(worst, 0, "{what}, 8 bits : le rendu neutre s'écarte du fichier de {worst} code(s)");
 
-        // flottants sRGB : l'écart au code du fichier, sans trame ni table d'encodage
+        // flottants sRGB : l'écart au code du fichier, sans trame ni table d'encodage ; à part, les
+        // points dont un canal touche le blanc (EVORA-REV-113)
         let srgb_floats = RenderRequest { depth: OutputDepth::F32Linear, ..RenderRequest::fit(w, h) };
         let float = float_points(render(&src, &info, &neutral, &srgb_floats));
         assert_eq!(float.len(), file.data.len(), "{what} : un point de rendu par point du fichier");
-        let mut worst_code = 0.0f64;
+        let (mut worst_code, mut worst_edge_code) = (0.0f64, 0.0f64);
         for (a, b) in file.data.iter().zip(&float) {
+            let worst = if touches_white(a) { &mut worst_edge_code } else { &mut worst_code };
             for c in 0..3 {
                 let gap = (f64::from(linear_to_srgb(b[c])) * 255.0 - f64::from(a[c])).abs();
-                worst_code = if gap.is_nan() { f64::INFINITY } else { worst_code.max(gap) };
+                *worst = if gap.is_nan() { f64::INFINITY } else { (*worst).max(gap) };
             }
         }
         assert!(worst_code <= NEUTRAL_CODE_TOL, "{what}, flottants sRGB : {worst_code} code d'écart au fichier, {NEUTRAL_CODE_TOL} admis");
+        assert!(
+            worst_edge_code <= NEUTRAL_EDGE_CODE_TOL,
+            "{what}, flottants sRGB, un canal au blanc : {worst_edge_code} code d'écart au fichier, {NEUTRAL_EDGE_CODE_TOL} admis"
+        );
 
-        // 16 bits : au plus un code
+        // 16 bits : au plus un code, et `NEUTRAL_EDGE_DEEP_TOL` aux points dont un canal touche le blanc
         let (_, deep) = bits(render(&src, &info, &neutral, &RenderRequest { depth: OutputDepth::U16, ..RenderRequest::fit(w, h) }));
         assert_eq!(deep.len(), 3 * file.data.len(), "{what} : trois canaux de 16 bits par point");
-        let mut worst_deep = 0i32;
+        let (mut worst_deep, mut worst_edge_deep) = (0i32, 0i32);
         for (a, b) in file.data.iter().zip(deep.chunks_exact(3)) {
+            let worst = if touches_white(a) { &mut worst_edge_deep } else { &mut worst_deep };
             for c in 0..3 {
-                worst_deep = worst_deep.max((i32::from(a[c]) * DEEP_PER_CODE - i32::from(b[c])).abs());
+                *worst = (*worst).max((i32::from(a[c]) * DEEP_PER_CODE - i32::from(b[c])).abs());
             }
         }
         assert!(worst_deep <= NEUTRAL_DEEP_TOL, "{what}, 16 bits : {worst_deep} code(s) d'écart au fichier, {NEUTRAL_DEEP_TOL} admis");
+        assert!(
+            worst_edge_deep <= NEUTRAL_EDGE_DEEP_TOL,
+            "{what}, 16 bits, un canal au blanc : {worst_edge_deep} code(s) d'écart au fichier, {NEUTRAL_EDGE_DEEP_TOL} admis"
+        );
 
         // flottants dans l'espace de travail : la source, à la tolérance du neutre
         let linear = float_points(render(&src, &info, &neutral, &working_request(w, h)));
@@ -394,9 +451,11 @@ fn neutral_rendered_file_is_the_file() {
 /// Evora (EVORA-REV-112) : exposition, contraste, blancs et noirs, rendus sous `Evora1` par le
 /// rendu entier, face aux vecteurs d'or de la chaîne par point de la référence. Dix couleurs sous
 /// quinze jeux de réglages ; n'entrent ici que les vecteurs où le retour de gamme de la référence
-/// laisse la couleur telle quelle et où le rendu tient dans 0..1 (`GOLD_CHAIN_AT_REST`) : le moteur
-/// n'a pas encore ce retour de gamme, et sa mise en gamme finale ramènerait un canal négatif. La
-/// sortie est lue en flottants dans l'espace de travail, sans passer par un espace de sortie.
+/// laisse la couleur telle quelle et où le rendu tient dans 0..1 (`GOLD_CHAIN_AT_REST`) : ils gardent
+/// que le retour de gamme du moteur n'y fait rien (ceux où il travaille sont lus par
+/// `pushed::render_matches_the_reference_through_the_gamut_return`), et hors de 0..1 la mise en
+/// gamme finale du moteur ramènerait un canal négatif. La sortie est lue en flottants dans l'espace
+/// de travail, sans passer par un espace de sortie.
 ///
 /// Sabotages qui le font rougir : l'exposition posée avant le pont aller (en lumière d'affichage) ;
 /// la table de tons bâtie sur d'autres curseurs que ceux de la photo ; la luminance d'affichage non

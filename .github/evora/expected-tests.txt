@@ -103,6 +103,21 @@ cpu evolight_pipeline tests_evora1::wired::exposure_creates_no_white_patch
 cpu evolight_pipeline tests_evora1::wired::chroma_memory_returns_colour_to_highlights
 cpu evolight_pipeline tests_evora1::wired::version_switch_recomputes_the_linear_stage
 
+# Pipeline : retour de gamme et borne finale du rendu d'Evora (EVORA-REV-113). Le retour de gamme
+# face aux vecteurs d'or de la référence (sRGB et P3, par la fonction et par l'entrée du noyau), puis
+# ses deux invariants : rien dans la gamme, au bit près ; peu de reste au-dessus du blanc pour la mise
+# en gamme du moteur. Au niveau du rendu entier d'un fichier rendu sous Evora1 : la chaîne par point
+# face aux vecteurs d'or là où le retour de gamme et la borne finale travaillent, dans trois espaces
+# de sortie ; le contrôle « teinte tenue » de la référence ; le rendu pour un écran ; aux réglages
+# neutres, un fichier P3 rendu en sRGB (constat de l'état présent). Chaque test porte son témoin rouge
+cpu evolight_pipeline evora1::gamut::tests::gamut_return_matches_the_reference
+cpu evolight_pipeline evora1::gamut::tests::gamut_return_is_the_identity_in_gamut
+cpu evolight_pipeline evora1::gamut::tests::gamut_return_leaves_little_to_the_final_gamut_map
+cpu evolight_pipeline tests_evora1::wired::pushed::render_matches_the_reference_through_the_gamut_return
+cpu evolight_pipeline tests_evora1::wired::pushed::pushed_colours_keep_their_hue
+cpu evolight_pipeline tests_evora1::wired::pushed::display_render_runs_the_gamut_return_in_the_display_space
+cpu evolight_pipeline tests_evora1::wired::pushed::neutral_wide_file_wakes_the_gamut_return
+
 # Noyau graphique : chaque module WGSL se valide sans GPU
 gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
 

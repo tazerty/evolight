@@ -9,6 +9,9 @@
 //!   plans du rendu d'Evora y viendront.
 //! - [`Kernel`], dans les paramètres du noyau par point (`FinishParams::evora1`) : il dit au noyau que
 //!   la table de tons est celle d'Evora ([`super::tone::table`]), à borner au blanc après lecture.
+//!   Depuis EVORA-REV-113 il porte aussi le retour de gamme ([`Kernel::gamut_return`]) : la matrice
+//!   qui ramène de l'espace de sortie à l'espace de travail, et le pont, par lequel le noyau
+//!   retrouve la source d'un point depuis sa couleur de scène.
 //!
 //! Les trois lisent le même pont, celui du rendu d'Evora ([`Bridge::default`]) : le pont aller de
 //! l'étage linéaire et le pont de retour de la table de tons se défont l'un l'autre, et aux réglages
@@ -16,12 +19,15 @@
 
 use std::sync::Arc;
 
+use evolight_color::REC2020;
 use evolight_develop::DevelopSettings;
 use evolight_raster::Rgb32f;
 
 use super::bridge::Bridge;
+use super::gamut;
 use super::renders;
 use crate::SourceInfo;
+use crate::output::{DisplaySpace, OutputSpace};
 
 /// Evora (EVORA-REV-112) : la luminance d'affichage du blanc. La table de tons d'Evora n'est pas
 /// bornée (elle passe ce blanc au-delà du blanc de scène) : le noyau la borne ici après lecture
@@ -67,13 +73,43 @@ pub struct Prep {}
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Kernel {
     bridge: Bridge,
+    /// Evora (EVORA-REV-113) : de l'espace de sortie linéaire au Rec.2020 linéaire, rangée par
+    /// lignes : l'inverse de la matrice de sortie du noyau (`FinishParams::to_out`). Le retour de
+    /// gamme y ramène la couleur qu'il a désaturée dans l'espace de sortie.
+    from_out: [[f32; 3]; 3],
 }
+
+/// Evora (EVORA-REV-113) : la matrice de retour d'un noyau dont la sortie n'est pas encore dite :
+/// celle de l'espace de travail vers lui-même.
+const WORKING_SPACE: [[f32; 3]; 3] = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
 
 impl Kernel {
     /// Evora (EVORA-REV-112) : la part d'Evora des paramètres du noyau pour un rendu de `s` sur la
     /// source `info`. `None` hors du prédicat ([`renders`]).
+    ///
+    /// Evora (EVORA-REV-113) : le noyau naît dans l'espace de travail ; qui le pose dit ensuite sa
+    /// sortie, par [`Kernel::in_space`] ou [`Kernel::on_display`].
     pub fn for_render(s: &DevelopSettings, info: &SourceInfo) -> Option<Kernel> {
-        renders(s, info).then(|| Kernel { bridge: Bridge::default() })
+        renders(s, info).then(|| Kernel { bridge: Bridge::default(), from_out: WORKING_SPACE })
+    }
+
+    /// Evora (EVORA-REV-113) : ce noyau, pour un rendu dans l'espace de sortie `space`. La matrice
+    /// de retour est calculée en double précision, dans le sens du retour (elle n'est pas l'inverse
+    /// en simple précision de la matrice de sortie), puis arrondie.
+    pub fn in_space(self, space: OutputSpace) -> Kernel {
+        Kernel { from_out: space.rgb_space().to_space(&REC2020).to_f32(), ..self }
+    }
+
+    /// Evora (EVORA-REV-113) : ce noyau, pour un rendu dans les primaires de l'écran `display`
+    /// (`FinishParams::for_display`), qui porte déjà sa matrice de retour.
+    pub fn on_display(self, display: &DisplaySpace) -> Kernel {
+        Kernel { from_out: display.to_working, ..self }
+    }
+
+    /// Evora (EVORA-REV-113) : la matrice de retour du noyau, de sa sortie linéaire au Rec.2020
+    /// linéaire.
+    pub fn from_out(&self) -> &[[f32; 3]; 3] {
+        &self.from_out
     }
 
     /// Le pont de scène de ce rendu : celui de la table de tons, et celui de [`Frame`].
@@ -87,6 +123,23 @@ impl Kernel {
     #[inline]
     pub fn bound(&self, o: f32) -> f32 {
         if o > DISPLAY_WHITE { DISPLAY_WHITE } else { o }
+    }
+
+    /// Evora (EVORA-REV-113) : le retour de gamme du noyau (`retour_gamme`, evora1.py:277). `d` est
+    /// la couleur d'affichage du point après les tons et l'échelle de chroma, `scene` sa couleur de
+    /// scène telle que l'étage linéaire l'a laissée (avant l'exposition), `to_out` et `luma` la
+    /// matrice de sortie du noyau et les poids de luminance de sa mise en gamme.
+    ///
+    /// C'est la loi de [`gamut::gamut_return`], écrite une seule fois ([`gamut::gamut_return_with`]),
+    /// avec pour source la couleur d'affichage d'origine du point, retrouvée par le pont
+    /// ([`Bridge::source_of`]) seulement quand elle peut compter : la référence du retour de gamme
+    /// vaut au moins le blanc, et tant qu'aucun canal de sortie ne le passe, rien n'est poussé. Aux
+    /// réglages neutres, l'arrondi peut faire passer d'un dernier chiffre les points qui touchent le
+    /// bord de la gamme : ils sont ramenés, de peu si leur source tient dans la gamme, d'un coup si
+    /// elle en sort déjà (voir le module [`gamut`]).
+    #[inline]
+    pub fn gamut_return(&self, d: [f32; 3], scene: [f32; 3], to_out: &[[f32; 3]; 3], luma: [f32; 3]) -> [f32; 3] {
+        gamut::gamut_return_with(d, || self.bridge.source_of(scene), to_out, &self.from_out, luma, gamut::KEPT)
     }
 }
 

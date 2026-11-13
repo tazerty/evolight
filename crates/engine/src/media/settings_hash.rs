@@ -9,7 +9,8 @@ pub(super) const SETTINGS_HASH_ENTRIES: usize = 1024;
 /// celle des photos neuves : seules les vignettes, rendus de vue et variantes en cache disque des
 /// photos sous cette version sont refaits.
 /// EVORA-REV-112 : 1, le rendu d'Evora branché.
-const EVORA_RENDER_REVISION: u64 = 1;
+/// EVORA-REV-113 : 2, le retour de gamme.
+const EVORA_RENDER_REVISION: u64 = 2;
 
 #[derive(Default)]
 pub(super) struct SettingsHashes {

@@ -317,7 +317,9 @@ impl FinishParams {
             px_per_long,
             view: frame.view.map_or([0.0, 0.0, w as f32, h as f32], |v| [v.x as f32, v.y as f32, v.full_w as f32, v.full_h as f32]),
             // Evora (EVORA-REV-112) : sous le même prédicat que la table de tons d'Evora (`base_tone`)
-            evora1: crate::evora1::Kernel::for_render(s, info),
+            // Evora (EVORA-REV-113) : le noyau d'Evora est posé dans l'espace de sortie du rendu, celui
+            // de `to_out` : son retour de gamme en porte la matrice de retour
+            evora1: crate::evora1::Kernel::for_render(s, info).map(|kernel| kernel.in_space(space)),
         }
     }
 
@@ -328,6 +330,9 @@ impl FinishParams {
         self.out_luma = d.luma;
         self.out_trc = OutputTrc::Srgb;
         self.proof = proof.map(|pr| pr.params_display(d));
+        // Evora (EVORA-REV-113) : le noyau d'Evora suit la sortie : sa matrice de retour devient
+        // celle de l'écran, comme `to_out` est devenue la sienne
+        self.evora1 = self.evora1.map(|kernel| kernel.on_display(d));
     }
 }
 
@@ -514,6 +519,14 @@ pub(crate) fn finish_with<T: Copy + Default + Send>(
             let k = fp.tone.chroma_scale(o);
             if k != 1.0 {
                 d = d.map(|v| o + (v - o) * k);
+            }
+            // Evora (EVORA-REV-113) : sous Evora, une couleur que les tons ont poussée hors de la gamme
+            // de sortie y est ramenée ici sans virer (retour de gamme), avant la borne qui suit et
+            // avant la mise en gamme du moteur. `raw` est la couleur de scène du point : le noyau y
+            // retrouve sa source. La borne qui suit est celle de l'amont ; sous Evora la crête vaut le
+            // blanc, et c'est la borne finale de la référence (evora1.py:278-280).
+            if let Some(kernel) = fp.evora1.as_ref() {
+                d = kernel.gamut_return(d, raw, to_out, *out_luma);
             }
             let mx = d[0].max(d[1]).max(d[2]);
             if mx > peak {
