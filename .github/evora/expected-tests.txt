@@ -66,6 +66,18 @@ cpu evolight_pipeline tests_tone::exposure_keeps_the_highlights_the_generic_curv
 # source qui n'est pas un brut, un rendu qui n'est pas HDR, jugés sur le jeu de réglages du rendu
 cpu evolight_pipeline evora1::tests::renders_only_the_sdr_render_of_a_rendered_file_under_evora
 
+# Pipeline : constantes nommées et pont de scène du rendu d'Evora (EVORA-REV-110), fonctions pures que
+# rien ne branche encore. La fiche des constantes face aux réglages de la référence ; puis le pont
+# (ancrage au gris et au blanc, aller-retour, échelle de chroma, image vers scène et son inverse) face
+# aux vecteurs d'or de la référence, chaque test du pont avec son témoin rouge
+cpu evolight_pipeline evora1::tests::parameters_are_the_reference_ones
+cpu evolight_pipeline evora1::bridge::tests::bridge_is_anchored_at_grey_and_white
+cpu evolight_pipeline evora1::bridge::tests::bridge_round_trip_is_the_identity
+cpu evolight_pipeline evora1::bridge::tests::bridge_matches_the_reference
+cpu evolight_pipeline evora1::bridge::tests::chroma_nodes_match_the_reference
+cpu evolight_pipeline evora1::bridge::tests::image_to_scene_matches_the_reference
+cpu evolight_pipeline evora1::bridge::tests::source_of_inverts_image_to_scene
+
 # Noyau graphique : chaque module WGSL se valide sans GPU
 gpulib evolight_gpu ctx::tests::every_kernel_module_validates_without_a_gpu
 
